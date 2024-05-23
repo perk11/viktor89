@@ -93,11 +93,23 @@ try {
                 }
                 $prompt = "<" . $message->getFrom()->getUsername() . '>: ' . $message->getText() . "\n";
                 echo $prompt;
+                if (!str_starts_with($message->getText(), '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
+                    $replyToMessage = $message->getReplyToMessage();
+                    if ($replyToMessage === null) {
+                        continue;
+                    }
+                    if ($replyToMessage->getFrom()->getId() !== $telegram->getBotId()) {
+                        continue;
+                    }
+                }
 
                 $prompt .= '<Виктор 89>: ';
 
                 echo "Generating response...\n";
-
+                Request::sendChatAction([
+                                            'chat_id' => $message->getChat()->getId(),
+                                            'action'  => Longman\TelegramBot\ChatAction::TYPING,
+                                        ]);
                 $response = getCompletion($prompt);
                 echo "<Виктор89>: $response\n";
                 Request::sendMessage([
