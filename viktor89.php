@@ -33,15 +33,15 @@ function parse_completion_string(string $completionString): array
 
 function getCompletion(string $prompt): string
 {
-//    $prompt = mb_substr($prompt, 0, 2048);
+    $prompt = mb_substr($prompt, 0, 1024);
 //    echo $prompt;
     global $openAi;
     $opts = [
         'prompt'            => $prompt,
-        'temperature'       => 0.61,
+        'temperature'       => 0.6,
         'repeat_penalty' => 1.18,
-        "penalize_nl" => true,
-        "top_k"=> 40,
+        "penalize_nl" => false,
+        "top_k" => 40,
         "top_p" => 0.95,
         "min_p" => 0.05,
         "tfs_z" => 1,
@@ -67,7 +67,7 @@ function getCompletion(string $prompt): string
     } catch (\Exception $e) {
     }
 
-    return $fullContent;
+    return trim($fullContent);
 }
 $chatByUser = [];
 try {
@@ -114,7 +114,17 @@ try {
                     $chatByUser[$message->getFrom()->getId()] = '';
                 }
 
-                $toAddToPrompt = "<" . $message->getFrom()->getUsername() . '>: ' . $incomingMessageText . "\n<Виктор 89>: ";
+                $toAddToPrompt = "<" . $message->getFrom()->getUsername() . '>: ' . $incomingMessageText . "\n<";
+                $random = random_int(0, 5);
+                echo $random;
+                if ($random === 0) {
+                    $response = "Виктор 89>: ";
+                } elseif ($random === 1) {
+                    $response = "Моно>: ";
+                } else {
+                    $response = '';
+                }
+                $toAddToPrompt .= $response;
                 echo $toAddToPrompt;
                 if (!array_key_exists($message->getFrom()->getId(), $chatByUser)) {
                     $chatByUser[$message->getFrom()->getId()] = '';
@@ -124,7 +134,7 @@ try {
                                             'chat_id' => $message->getChat()->getId(),
                                             'action'  => Longman\TelegramBot\ChatAction::TYPING,
                                         ]);
-                $response = getCompletion($chatByUser[$message->getFrom()->getId()]);
+                $response .= getCompletion($chatByUser[$message->getFrom()->getId()]);
                 $addToChat = "$response\n";
                 echo $addToChat;
                 $chatByUser[$message->getFrom()->getId()].= $addToChat;
@@ -133,7 +143,7 @@ try {
                                          'reply_parameters' => [
                                              'message_id' => $message->getMessageId(),
                                          ],
-                                         'text'             => $response,
+                                         'text'             => '<' . str_replace('Виктор 89>', 'Nanak0n>', $response),
                                      ]);
             }
         } else {
