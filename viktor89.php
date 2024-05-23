@@ -26,7 +26,8 @@ function parse_completion_string(string $completionString): array
 
     return json_decode(substr($completionString, strlen('data: '), JSON_THROW_ON_ERROR), true);
 }
-$responder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
+//$responder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
+$responder = new \Perk11\Viktor89\Siepatch2Responder();
 
 try {
     $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);

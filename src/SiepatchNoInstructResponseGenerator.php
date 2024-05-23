@@ -53,7 +53,7 @@ class SiepatchNoInstructResponseGenerator implements TelegramResponderInterface
 
     public function getResponseByMessage(Message $message): string
     {
-        $incomingMessageText = $message->getText(true);
+        $incomingMessageText = $message->getText();
         $toAddToPrompt = "<" . $message->getFrom()->getUsername() . '>: ' . $incomingMessageText . "\n<";
         $random = random_int(0, 5);
         echo $random;
