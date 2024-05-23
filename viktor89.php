@@ -4,7 +4,6 @@ use Longman\TelegramBot\Entities\Update;
 use Longman\TelegramBot\Request;
 use Longman\TelegramBot\Telegram;
 use Longman\TelegramBot\TelegramLog;
-use Orhanerday\OpenAi\OpenAi;
 
 require 'vendor/autoload.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
@@ -19,9 +18,6 @@ if (!isset($_ENV['OPENAI_SERVER'])) {
     die('OPENAI_SERVER is undefined');
 }
 
-$openAi = new OpenAi('');
-$openAi->setBaseURL($_ENV['OPENAI_SERVER']);
-
 function parse_completion_string(string $completionString): array
 {
     if (!str_starts_with($completionString, 'data: ')) {
@@ -30,46 +26,8 @@ function parse_completion_string(string $completionString): array
 
     return json_decode(substr($completionString, strlen('data: '), JSON_THROW_ON_ERROR), true);
 }
+$responder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
 
-function getCompletion(string $prompt): string
-{
-    $prompt = mb_substr($prompt, 0, 1024);
-//    echo $prompt;
-    global $openAi;
-    $opts = [
-        'prompt'            => $prompt,
-        'temperature'       => 0.6,
-        'repeat_penalty' => 1.18,
-        "penalize_nl" => false,
-        "top_k" => 40,
-        "top_p" => 0.95,
-        "min_p" => 0.05,
-        "tfs_z" => 1,
-//        "max_tokens"        => 150,
-        "frequency_penalty" => 0,
-        "presence_penalty"  => 0,
-        "stream"            => true,
-    ];
-    $fullContent = '';
-    try {
-        $openAi->completion($opts, function ($curl_info, $data) use (&$fullContent) {
-            $parsedData = parse_completion_string($data);
-            echo $parsedData['content'];
-            $fullContent .= $parsedData['content'];
-            if (str_contains($fullContent, "\n<")) { //todo: check for >
-                $fullContent = mb_substr($fullContent, 0, mb_strpos($fullContent, "\n<"));
-
-                return 0;
-            }
-
-            return strlen($data);
-        });
-    } catch (\Exception $e) {
-    }
-
-    return trim($fullContent);
-}
-$chatByUser = [];
 try {
     $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
     echo "Connecting to Telegram...\n";
@@ -111,39 +69,19 @@ try {
                     }
                 } else {
                     $incomingMessageText = str_replace('@' . $_ENV['TELEGRAM_BOT_USERNAME'], '', $incomingMessageText);
-                    $chatByUser[$message->getFrom()->getId()] = '';
                 }
-
-                $toAddToPrompt = "<" . $message->getFrom()->getUsername() . '>: ' . $incomingMessageText . "\n<";
-                $random = random_int(0, 5);
-                echo $random;
-                if ($random === 0) {
-                    $response = "Виктор 89>: ";
-                } elseif ($random === 1) {
-                    $response = "Моно>: ";
-                } else {
-                    $response = '';
-                }
-                $toAddToPrompt .= $response;
-                echo $toAddToPrompt;
-                if (!array_key_exists($message->getFrom()->getId(), $chatByUser)) {
-                    $chatByUser[$message->getFrom()->getId()] = '';
-                }
-                $chatByUser[$message->getFrom()->getId()] .= $toAddToPrompt;
                 Request::sendChatAction([
                                             'chat_id' => $message->getChat()->getId(),
                                             'action'  => Longman\TelegramBot\ChatAction::TYPING,
                                         ]);
-                $response .= getCompletion($chatByUser[$message->getFrom()->getId()]);
-                $addToChat = "$response\n";
-                echo $addToChat;
-                $chatByUser[$message->getFrom()->getId()].= $addToChat;
+                $response = $responder->getResponseByMessage($message);
+
                 Request::sendMessage([
                                          'chat_id'          => $message->getChat()->getId(),
                                          'reply_parameters' => [
                                              'message_id' => $message->getMessageId(),
                                          ],
-                                         'text'             => '<' . str_replace('Виктор 89>', 'Nanak0n>', $response),
+                                         'text'             => $response,
                                      ]);
             }
         } else {
