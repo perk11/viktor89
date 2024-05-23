@@ -33,20 +33,28 @@ function parse_completion_string(string $completionString): array
 
 function getCompletion(string $prompt): string
 {
+//    $prompt = mb_substr($prompt, 0, 2048);
+//    echo $prompt;
     global $openAi;
     $opts = [
         'prompt'            => $prompt,
-        'temperature'       => 0.6,
-        "max_tokens"        => 150,
+        'temperature'       => 0.61,
+        'repeat_penalty' => 1.18,
+        "penalize_nl" => true,
+        "top_k"=> 40,
+        "top_p" => 0.95,
+        "min_p" => 0.05,
+        "tfs_z" => 1,
+//        "max_tokens"        => 150,
         "frequency_penalty" => 0,
-        "presence_penalty"  => 0.6,
+        "presence_penalty"  => 0,
         "stream"            => true,
     ];
     $fullContent = '';
     try {
         $openAi->completion($opts, function ($curl_info, $data) use (&$fullContent) {
             $parsedData = parse_completion_string($data);
-//            echo $parsedData['content'];
+            echo $parsedData['content'];
             $fullContent .= $parsedData['content'];
             if (str_contains($fullContent, "\n<")) { //todo: check for >
                 $fullContent = mb_substr($fullContent, 0, mb_strpos($fullContent, "\n<"));
@@ -61,7 +69,7 @@ function getCompletion(string $prompt): string
 
     return $fullContent;
 }
-
+$chatByUser = [];
 try {
     $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
     echo "Connecting to Telegram...\n";
@@ -91,9 +99,9 @@ try {
                     var_dump($message);
                     continue;
                 }
-                $prompt = "<" . $message->getFrom()->getUsername() . '>: ' . $message->getText() . "\n";
-                echo $prompt;
-                if (!str_starts_with($message->getText(), '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
+                $incomingMessageText = $message->getText();
+
+                if (!str_starts_with($incomingMessageText, '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
                     $replyToMessage = $message->getReplyToMessage();
                     if ($replyToMessage === null) {
                         continue;
@@ -101,17 +109,24 @@ try {
                     if ($replyToMessage->getFrom()->getId() !== $telegram->getBotId()) {
                         continue;
                     }
+                } else {
+                    $incomingMessageText = str_replace('@' . $_ENV['TELEGRAM_BOT_USERNAME'], '', $incomingMessageText);
                 }
 
-                $prompt .= '<Виктор 89>: ';
-
-                echo "Generating response...\n";
+                $toAddToPrompt = "<" . $message->getFrom()->getUsername() . '>: ' . $incomingMessageText . "\n<Виктор 89>: ";
+                echo $toAddToPrompt;
+                if (!array_key_exists($message->getFrom()->getId(), $chatByUser)) {
+                    $chatByUser[$message->getFrom()->getId()] = '';
+                }
+                $chatByUser[$message->getFrom()->getId()] .= $toAddToPrompt;
                 Request::sendChatAction([
                                             'chat_id' => $message->getChat()->getId(),
                                             'action'  => Longman\TelegramBot\ChatAction::TYPING,
                                         ]);
-                $response = getCompletion($prompt);
-                echo "<Виктор89>: $response\n";
+                $response = getCompletion($chatByUser[$message->getFrom()->getId()]);
+                $addToChat = "$response\n";
+                echo $addToChat;
+                $chatByUser[$message->getFrom()->getId()].= $addToChat;
                 Request::sendMessage([
                                          'chat_id'          => $message->getChat()->getId(),
                                          'reply_parameters' => [
