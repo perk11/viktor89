@@ -111,6 +111,7 @@ try {
                     }
                 } else {
                     $incomingMessageText = str_replace('@' . $_ENV['TELEGRAM_BOT_USERNAME'], '', $incomingMessageText);
+                    $chatByUser[$message->getFrom()->getId()] = '';
                 }
 
                 $toAddToPrompt = "<" . $message->getFrom()->getUsername() . '>: ' . $incomingMessageText . "\n<Виктор 89>: ";
