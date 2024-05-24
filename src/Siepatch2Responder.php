@@ -19,16 +19,17 @@ class Siepatch2Responder implements TelegramResponderInterface
 
     private function getCompletion(string $prompt): string
     {
+        $prompt = mb_substr($prompt, -1024);
         $opts = [
             'prompt'            => $prompt,
             'temperature'       => 0.6,
-            'cache_prompt'      => true,
+            'cache_prompt'      => false,
             'repeat_penalty'    => 1.18,
-            'repeat_last_n'     => 256,
-            "penalize_nl"       => false,
-            "top_k"             => 10,
-            "top_p"             => 0.7,
-            "min_p"             => 0.05,
+            'repeat_last_n'     => 4096,
+            "penalize_nl"       => true,
+            "top_k"             => 30,
+            "top_p"             => 0.9,
+            "min_p"             => 0.1,
             "tfs_z"             => 1,
 //        "max_tokens"        => 150,
             "frequency_penalty" => 0,
@@ -45,7 +46,7 @@ class Siepatch2Responder implements TelegramResponderInterface
                 $parsedData = parse_completion_string($data);
                 echo $parsedData['content'];
                 $fullContent .= $parsedData['content'];
-                if (mb_strlen($fullContent) > 1024) {
+                if (mb_strlen($fullContent) > 300) {
                     return 0;
                 }
 //                if (str_contains($fullContent, "\n<")) { //todo: check for >
@@ -65,19 +66,34 @@ class Siepatch2Responder implements TelegramResponderInterface
     public function getResponseByMessage(Message $message): string
     {
         $incomingMessageText = $message->getText();
+        if ($incomingMessageText === null) {
+            echo "Warning, empty message text!\n";
+            return 'Твое сообщение было пустым';
+        }
         $toAddToPrompt = "<bot>: $incomingMessageText\n<human>:";
         echo $toAddToPrompt;
-        if (!array_key_exists($message->getFrom()->getId(), $this->chatsByUser)) {
+        if (!array_key_exists($message->getFrom()->getId(), $this->chatsByUser) || str_starts_with($incomingMessageText, '@')) {
             $this->chatsByUser[$message->getFrom()->getId()] = "\n\n";
         }
         $this->chatsByUser[$message->getFrom()->getId()] .= $toAddToPrompt;
 
-        $response = $this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]);
-        if (str_ends_with(']', $response)) {
-            $response = $this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]);
+//        $this->chatsByUser[$message->getFrom()->getId()] = mb_substr($this->chatsByUser[$message->getFrom()->getId()], -512);
+
+        $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
+        if (str_ends_with($response, ']') || str_contains($response, 'не умею')) {
+            $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
         }
-        if (str_ends_with(']', $response)) {
-            $response = $this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]);
+        if (str_ends_with($response, ']') || str_contains($response, 'не умею')) {
+            $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
+        }
+        if (str_ends_with($response, ']') || str_contains($response, 'не умею')) {
+            $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
+        }
+        if (str_ends_with($response, ']') || str_contains($response, 'не умею')) {
+            $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
+        }
+        if (str_ends_with($response, ']') || str_contains($response, 'не умею')) {
+            $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
         }
         $addToChat = "$response\n";
         echo $addToChat;
