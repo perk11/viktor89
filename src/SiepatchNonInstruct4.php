@@ -11,6 +11,8 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
 
     private array $chatsByUser = [];
 
+    private array $personalityByUser = [];
+
     private array $videos = [
         'https://www.youtube.com/watch?v=JdGgys-QQdE',
         'https://www.youtube.com/watch?v=2oe_7IRb_rI',
@@ -24,6 +26,7 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
         'https://www.youtube.com/watch?v=5P6ADakiwcg',
 
     ];
+
     public function __construct()
     {
         $this->openAi = new OpenAi('');
@@ -81,13 +84,30 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
         $incomingMessageText = $message->getText();
         if ($incomingMessageText === null) {
             echo "Warning, empty message text!\n";
+
             return 'Твое сообщение было пустым';
+        }
+        if (str_starts_with($incomingMessageText, '/personality')) {
+            $personality = trim(str_replace('/personality', '', $incomingMessageText));
+            if ($personality === 'reset' || $personality === '') {
+                unset ($this->personalityByUser[$message->getFrom()->getId()]);
+
+                return 'Теперь я буду тебе отвечать как случайный пользователь';
+            }
+            $this->personalityByUser[$message->getFrom()->getId()] = $personality;
+
+            return 'Теперь я буду тебе отвечать как ' . $personality;
         }
         $userName = $message->getFrom()->getFirstName();
         if ($message->getFrom()->getLastName() !== null) {
-            $userName .= ' '.  $message->getFrom()->getLastName();
+            $userName .= ' ' . $message->getFrom()->getLastName();
         }
-        $toAddToPrompt = "<bot>: [$userName] $incomingMessageText\n<bot>:";
+        $userName = str_replace(' ', '_', $userName);
+        $toAddToPrompt = "<bot>: [$userName] $incomingMessageText\n<bot>: [";
+        if (array_key_exists($message->getFrom()->getId(), $this->personalityByUser)) {
+            $personality = str_replace(' ', '_', $this->personalityByUser[$message->getFrom()->getId()]);
+            $toAddToPrompt .= "{$personality}] ";
+        }
         echo $toAddToPrompt;
         if (!array_key_exists($message->getFrom()->getId(), $this->chatsByUser) || str_starts_with($incomingMessageText, '@')) {
             $this->chatsByUser[$message->getFrom()->getId()] = "\n\n";
@@ -104,12 +124,14 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
         $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
         $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
         $addToChat = "$response\n";
-        echo $addToChat;
-        $this->chatsByUser[$message->getFrom()->getId()] .= $addToChat;
 
-        $response =  str_replace('[', '[отвечает ', $response);
+        if (!array_key_exists($message->getFrom()->getId(), $this->personalityByUser)) {
+            $response =  '[отвечает ' . $response;
+        }
+//        echo $addToChat;
+        $this->chatsByUser[$message->getFrom()->getId()] .= $addToChat;
         $youtube_pattern = '/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/';
-        $response = preg_replace($youtube_pattern, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', $response);
+        $response = preg_replace($youtube_pattern, array_rand($this->videos), $response);
 
         return $response;
     }
