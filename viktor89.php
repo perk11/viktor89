@@ -54,23 +54,29 @@ try {
                     continue;
                 }
                 /** @var \Longman\TelegramBot\Entities\Message $message */
-                if ($message->getType() !== 'text') {
+                if ($message->getType() !== 'text' && $message->getType() !== 'command') {
                     echo "Message of type {$message->getType()} received\n";
                     var_dump($message);
                     continue;
                 }
                 $incomingMessageText = $message->getText();
 
-                if (!str_starts_with($incomingMessageText, '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
-                    $replyToMessage = $message->getReplyToMessage();
-                    if ($replyToMessage === null) {
-                        continue;
+                if ($message->getType() !== 'command') {
+                    if (!str_starts_with($incomingMessageText, '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
+                        $replyToMessage = $message->getReplyToMessage();
+                        if ($replyToMessage === null) {
+                            continue;
+                        }
+                        if ($replyToMessage->getFrom()->getId() !== $telegram->getBotId()) {
+                            continue;
+                        }
+                    } else {
+                        $incomingMessageText = str_replace(
+                            '@' . $_ENV['TELEGRAM_BOT_USERNAME'],
+                            '',
+                            $incomingMessageText
+                        );
                     }
-                    if ($replyToMessage->getFrom()->getId() !== $telegram->getBotId()) {
-                        continue;
-                    }
-                } else {
-                    $incomingMessageText = str_replace('@' . $_ENV['TELEGRAM_BOT_USERNAME'], '', $incomingMessageText);
                 }
                 Request::sendChatAction([
                                             'chat_id' => $message->getChat()->getId(),
