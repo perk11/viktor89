@@ -80,21 +80,12 @@ class Siepatch2Responder implements TelegramResponderInterface
 //        $this->chatsByUser[$message->getFrom()->getId()] = mb_substr($this->chatsByUser[$message->getFrom()->getId()], -512);
 
         $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
-        if (str_ends_with($response, ']') || str_contains($response, 'не умею')) {
-            $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
-        }
-        if (str_ends_with($response, ']') || str_contains($response, 'не умею')) {
-            $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
-        }
-        if (str_ends_with($response, ']') || str_contains($response, 'не умею')) {
-            $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
-        }
-        if (str_ends_with($response, ']') || str_contains($response, 'не умею')) {
-            $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
-        }
-        if (str_ends_with($response, ']') || str_contains($response, 'не умею')) {
-            $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
-        }
+        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
+        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
+        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
+        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
+        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
+        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
         $addToChat = "$response\n";
         echo $addToChat;
         $this->chatsByUser[$message->getFrom()->getId()] .= $addToChat;
@@ -105,5 +96,25 @@ class Siepatch2Responder implements TelegramResponderInterface
         $response = preg_replace($youtube_pattern, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', $response);
 
         return $response;
+    }
+
+    private function checkForBadResponse(string $response, Message $message, string $resetText): string
+    {
+        $responseAfterAuthor = mb_substr($response, strpos($response, ']') + 1);
+        if (str_contains($this->chatsByUser[$message->getFrom()->getId()], $responseAfterAuthor)) {
+            //avoid repetitions
+            $this->chatsByUser[$message->getFrom()->getId()] = $resetText;
+            return $this->getResponse($message);
+        }
+        if (str_ends_with($response, ']') || str_contains(mb_strtolower($response), 'не умею')) {
+            return $this->getResponse($message);
+        }
+
+        return $response;
+    }
+
+    private function getResponse(Message $message): string
+    {
+        return trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
     }
 }
