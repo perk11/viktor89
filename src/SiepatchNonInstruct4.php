@@ -131,7 +131,7 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
 //        echo $addToChat;
         $this->chatsByUser[$message->getFrom()->getId()] .= $addToChat;
         $youtube_pattern = '/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/';
-        $response = preg_replace($youtube_pattern, array_rand($this->videos), $response);
+        $response = preg_replace($youtube_pattern, $this->videos[array_rand($this->videos)], $response);
 
         return $response;
     }
