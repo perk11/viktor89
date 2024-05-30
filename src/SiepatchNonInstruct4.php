@@ -62,7 +62,7 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
                 $parsedData = parse_completion_string($data);
                 echo $parsedData['content'];
                 $fullContent .= $parsedData['content'];
-                if (mb_strlen($fullContent) > 300) {
+                if (mb_strlen($fullContent) > 1024) {
                     return 0;
                 }
 //                if (str_contains($fullContent, "\n<")) { //todo: check for >
