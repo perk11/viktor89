@@ -35,7 +35,7 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
 
     private function getCompletion(string $prompt): string
     {
-        $prompt = mb_substr($prompt, -1024);
+//        $prompt = mb_substr($prompt, -1024);
         $opts = [
             'prompt'            => $prompt,
             'temperature'       => 0.6,
@@ -43,8 +43,8 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
             'repeat_penalty'    => 1.18,
             'repeat_last_n'     => 4096,
             "penalize_nl"       => true,
-            "top_k"             => 30,
-            "top_p"             => 0.9,
+            "top_k"             => 40,
+            "top_p"             => 0.95,
             "min_p"             => 0.1,
             "tfs_z"             => 1,
 //        "max_tokens"        => 150,
@@ -62,14 +62,9 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
                 $parsedData = parse_completion_string($data);
                 echo $parsedData['content'];
                 $fullContent .= $parsedData['content'];
-                if (mb_strlen($fullContent) > 1024) {
+                if (mb_strlen($fullContent) > 4096) {
                     return 0;
                 }
-//                if (str_contains($fullContent, "\n<")) { //todo: check for >
-//                    $fullContent = mb_substr($fullContent, 0, mb_strpos($fullContent, "\n<"));
-//
-//                    return 0;
-//                }
 
                 return strlen($data);
             });
