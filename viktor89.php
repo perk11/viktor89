@@ -104,7 +104,7 @@ try {
                         $author = mb_substr($response, mb_strlen($replyPrefix), mb_strpos($response, ']') - mb_strlen($replyPrefix));
                         $response = mb_substr($response, mb_strpos($response, '] ') + 2);
                     } else {
-                        $author = $_ENV['TELEGRAM_BOT_USERNAME']; //TODO: use username from response instead
+                        $author = 'Nanak0n'; //TODO: use username from response instead
                     }
 //                    $database->logMessage($telegramServerResponse->getResult());
                     $internalMessage = new \Perk11\Viktor89\InternalMessage();
