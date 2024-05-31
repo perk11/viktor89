@@ -44,7 +44,7 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
             'repeat_last_n'     => 4096,
             "penalize_nl"       => true,
             "top_k"             => 40,
-            "top_p"             => 0.95,
+            "top_p"             => 0.9,
             "min_p"             => 0.1,
             "tfs_z"             => 1,
 //        "max_tokens"        => 150,
@@ -58,11 +58,30 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
         ];
         $fullContent = '';
         try {
-            $this->openAi->completion($opts, function ($curl_info, $data) use (&$fullContent) {
+            $this->openAi->completion($opts, function ($curl_info, $data) use (&$fullContent, $prompt) {
                 $parsedData = parse_completion_string($data);
                 echo $parsedData['content'];
                 $fullContent .= $parsedData['content'];
-                if (mb_strlen($fullContent) > 4096) {
+                if (mb_strlen($fullContent) > 1024) {
+                    echo "Max length reached, aborting response\n";
+                    return 0;
+                }
+                if (substr_count($fullContent, "\n") > 1) {
+                    if ((mb_strlen($fullContent) - mb_strrpos($fullContent, "\n")) < 5) {
+                        $fullContent = trim(mb_substr($fullContent, 0, mb_strrpos($fullContent, "\n")));
+                    }
+                    echo "Max newLines reached, aborting response\n";
+                    return 0;
+                }
+                $indexOfAuthorEnd = strpos($fullContent, '] ');
+                if ($indexOfAuthorEnd !== false && (mb_strlen($fullContent) - $indexOfAuthorEnd) > 20 && $this->isStringStartingToRepeat($prompt . $fullContent , 20) ) {
+                    echo "Repetition detected, aborting response\n";
+                    for ($repeatingStringLength = min(20+10, mb_strlen($fullContent) - $indexOfAuthorEnd); $repeatingStringLength >= 20; $repeatingStringLength--) {
+                        if (!$this->isStringStartingToRepeat($prompt . $fullContent, $repeatingStringLength)) {
+                            break;
+                        }
+                    }
+                    $fullContent = mb_substr($fullContent, 0, -$repeatingStringLength);
                     return 0;
                 }
 
@@ -72,6 +91,18 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
         }
 
         return trim($fullContent);
+    }
+    private function isStringStartingToRepeat(string $str, int $charactersToCheck): bool
+    {
+        if (mb_strlen($str) < $charactersToCheck) {
+            return false;  // Not enough characters to perform the check
+        }
+        $lastCharacters = mb_substr($str, -$charactersToCheck);
+
+        // Get the earlier part of the string
+        $earlierPart = mb_substr($str, 0, -$charactersToCheck);
+
+        return str_contains($earlierPart, $lastCharacters);
     }
 
     public function getResponseByMessage(Message $message): string
@@ -107,7 +138,8 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
         $prompt = '';
         foreach ($previousMessages as $previousMessage) {
             $previousMessageUserName = str_replace(' ', '_', $previousMessage->userName);
-            $prompt .= "<bot>: [$previousMessageUserName] {$previousMessage->messageText}\n";
+            $messageText = trim(str_replace('@' . $_ENV['TELEGRAM_BOT_USERNAME'], '', $previousMessage->messageText));
+            $prompt .= "<bot>: [$previousMessageUserName] {$messageText}\n";
         }
         $prompt .= "<bot>: [$userName] $incomingMessageText\n<bot>: [";
         if (array_key_exists($message->getFrom()->getId(), $this->personalityByUser)) {
@@ -164,7 +196,7 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
             $responseMessage = $this->database->findMessageByIdInChat($message->getReplyToMessage()->getMessageId(), $message->getChat()->getId());
             if ($responseMessage !== null) {
                 $messages[] = $responseMessage;
-                while (count($messages) < self::CONTEXT_MESSAGES_COUNT - 1 && $responseMessage?->replyToMessageId !== null) {
+                while (count($messages) < self::CONTEXT_MESSAGES_COUNT - 2 && $responseMessage?->replyToMessageId !== null) {
                     $responseMessage = $this->database->findMessageByIdInChat(
                         $responseMessage->replyToMessageId,
                         $message->getChat()->getId()
@@ -173,7 +205,7 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
                 }
             }
         }
-        $messagesFromHistoryNumber = self::CONTEXT_MESSAGES_COUNT - count($messages) - 1;
+        $messagesFromHistoryNumber = self::CONTEXT_MESSAGES_COUNT - count($messages) - 2;
         if ($messagesFromHistoryNumber > 0) {
             $messagesFromHistory = $this->database->findNPreviousMessagesInChat($message->getChat()->getId(), $message->getMessageId(), $messagesFromHistoryNumber);
             $messages = array_merge($messages, $messagesFromHistory);
