@@ -144,7 +144,7 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
             $this->chatsByUser[$message->getFrom()->getId()] = $resetText;
             return $this->getResponse($message);
         }
-        if (str_ends_with($response, ']') || str_contains(mb_strtolower($response), 'не умею')) {
+        if (str_ends_with($response, ']') || str_contains(mb_strtolower($response), 'не умею') || str_contains(mb_strtolower($response), 'не могу')) {
             return $this->getResponse($message);
         }
 
