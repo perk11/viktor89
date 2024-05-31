@@ -56,7 +56,7 @@ try {
                 /** @var \Longman\TelegramBot\Entities\Message $message */
                 if ($message->getType() !== 'text' && $message->getType() !== 'command') {
                     echo "Message of type {$message->getType()} received\n";
-                    var_dump($message);
+//                    var_dump($message);
                     continue;
                 }
                 $incomingMessageText = $message->getText();
@@ -100,4 +100,5 @@ try {
     }
 } catch (\Longman\TelegramBot\Exception\TelegramException $e) {
     TelegramLog::error($e);
+    usleep(10000);
 }
