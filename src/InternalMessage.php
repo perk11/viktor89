@@ -6,13 +6,13 @@ class InternalMessage
 {
     public int $id;
 
-    public ?int $messageThreadId;
+    public ?int $messageThreadId = null;
 
     public int $userId;
 
     public $date;
 
-    public ?int $replyToMessageId;
+    public ?int $replyToMessageId = null;
 
     public string $userName;
 

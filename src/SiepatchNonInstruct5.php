@@ -158,9 +158,9 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
             $responseMessage = $this->database->findMessageByIdInChat($message->getReplyToMessage()->getMessageId(), $message->getChat()->getId());
             if ($responseMessage !== null) {
                 $messages[] = $responseMessage;
-                while (count($messages) < self::CONTEXT_MESSAGES_COUNT - 1 && $responseMessage->replyToMessageId !== null) {
+                while (count($messages) < self::CONTEXT_MESSAGES_COUNT - 1 && $responseMessage?->replyToMessageId !== null) {
                     $responseMessage = $this->database->findMessageByIdInChat(
-                        $message->getReplyToMessage()->getMessageId(),
+                        $responseMessage->replyToMessageId,
                         $message->getChat()->getId()
                     );
                     $messages[] = $responseMessage;
@@ -173,6 +173,6 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
             $messages = array_merge($messages, $messagesFromHistory);
         }
 
-        return $messages;
+        return array_reverse($messages);
     }
 }
