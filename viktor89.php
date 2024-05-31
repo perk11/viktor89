@@ -29,7 +29,7 @@ function parse_completion_string(string $completionString): array
 //$responder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
 //$responder = new \Perk11\Viktor89\Siepatch2Responder();
 $database = new \Perk11\Viktor89\Database('siepatch-non-instruct5');
-$responder = new \Perk11\Viktor89\SiepatchNonInstruct4();
+$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 
 try {
     $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
@@ -90,13 +90,25 @@ try {
                                         ]);
                 $response = $responder->getResponseByMessage($message);
 
-                Request::sendMessage([
+                $telegramServerResponse = Request::sendMessage([
                                          'chat_id'          => $message->getChat()->getId(),
                                          'reply_parameters' => [
                                              'message_id' => $message->getMessageId(),
                                          ],
                                          'text'             => $response,
                                      ]);
+                if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof \Longman\TelegramBot\Entities\Message) {
+                    $database->logMessage($telegramServerResponse->getResult());
+//                    $internalMessage = new \Perk11\Viktor89\InternalMessage();
+//                    $internalMessage->id = $telegramServerResponse->getResult()->getMessageId();
+//                    $internalMessage->chatId = $message->getChat()->getId();
+//                    $internalMessage->userId = $telegramServerResponse->getResult()->;
+//                    $internalMessage->messageText = $response;
+//                    $internalMessage->replyToMessageId = $message->getMessageId();
+//                    $internalMessage->date = time();
+//                    $internalMessage->userName = $_ENV['TELEGRAM_BOT_USERNAME']; //TODO: use username from response instead
+//                    $database->logInternalMessage($internalMessage);
+                }
             }
         } else {
             echo date('Y-m-d H:i:s') . ' - Failed to fetch updates' . PHP_EOL;
