@@ -2,7 +2,7 @@ Viktor89 is a Telegram bot that is meant to work in a group chat setting and be 
 
 ## Requirements
 
-php 8.3 (earlier versions might work too), llama.cpp, Telegram account
+php 8.3 (earlier versions might work too), php-sqlite3 extension, llama.cpp, Telegram account
 
 ## Running
 1. Fine-tune your model to output format expected by a bot. Each version of the bot will expect different output format from the model.
