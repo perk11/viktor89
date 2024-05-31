@@ -82,6 +82,11 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
 
             return 'Твое сообщение было пустым';
         }
+        $incomingMessageText = trim(str_replace(
+            '@' . $_ENV['TELEGRAM_BOT_USERNAME'],
+            '',
+            $incomingMessageText
+        ));
         if (str_starts_with($incomingMessageText, '/personality')) {
             $personality = trim(str_replace('/personality', '', $incomingMessageText));
             if ($personality === 'reset' || $personality === '') {
@@ -101,7 +106,8 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
         $previousMessages = $this->getPreviousMessages($message);
         $prompt = '';
         foreach ($previousMessages as $previousMessage) {
-            $prompt .= "<bot>: [{$previousMessage->userName}] {$previousMessage->messageText}\n";
+            $previousMessageUserName = str_replace(' ', '_', $previousMessage->userName);
+            $prompt .= "<bot>: [$previousMessageUserName] {$previousMessage->messageText}\n";
         }
         $prompt .= "<bot>: [$userName] $incomingMessageText\n<bot>: [";
         if (array_key_exists($message->getFrom()->getId(), $this->personalityByUser)) {
