@@ -28,6 +28,7 @@ function parse_completion_string(string $completionString): array
 }
 //$responder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
 //$responder = new \Perk11\Viktor89\Siepatch2Responder();
+$database = new \Perk11\Viktor89\Database('siepatch-non-instruct5');
 $responder = new \Perk11\Viktor89\SiepatchNonInstruct4();
 
 try {
@@ -59,6 +60,11 @@ try {
 //                    var_dump($message);
                     continue;
                 }
+                if ($message->getFrom() === null) {
+                    echo "Message without a sender received\n";
+                    continue;
+                }
+                $database->logMessage($message);
                 $incomingMessageText = $message->getText();
 
                 if ($message->getType() !== 'command') {
