@@ -8,7 +8,7 @@ max_seq_length = 2048 # Supports RoPE Scaling interally, so choose any!
 # Get LAION dataset
 # url = "https://huggingface.co/datasets/laion/OIG/resolve/main/unified_chip2.jsonl"
 # dataset = load_dataset("json", data_files = {"train" : url}, split = "train")
-dataset = load_dataset("json", data_files = "/home/perk11/LLM/unsloth-train/20240530_siepatch-non-instruct5.jsonl", split = "train")
+dataset = load_dataset("json", data_files = "/home/perk11/LLM/unsloth-train/20240530_siepatch-non-instruct5-fixed.jsonl", split = "train")
 
 
 model, tokenizer = FastLanguageModel.from_pretrained(

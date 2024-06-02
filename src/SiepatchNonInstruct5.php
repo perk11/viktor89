@@ -66,7 +66,7 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
                     echo "Max length reached, aborting response\n";
                     return 0;
                 }
-                if (substr_count($fullContent, "\n") > 1) {
+                if (substr_count($fullContent, "\n") > 20) {
                     if ((mb_strlen($fullContent) - mb_strrpos($fullContent, "\n")) < 5) {
                         $fullContent = trim(mb_substr($fullContent, 0, mb_strrpos($fullContent, "\n")));
                     }
@@ -74,7 +74,7 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
                     return 0;
                 }
                 $indexOfAuthorEnd = strpos($fullContent, '] ');
-                if ($indexOfAuthorEnd !== false && (mb_strlen($fullContent) - $indexOfAuthorEnd) > 20 && $this->isStringStartingToRepeat($prompt . $fullContent , 20) ) {
+                if ($indexOfAuthorEnd !== false && (mb_strlen($fullContent) - $indexOfAuthorEnd) > 30 && $this->isStringStartingToRepeat($prompt . $fullContent , 20) ) {
                     echo "Repetition detected, aborting response\n";
                     for ($repeatingStringLength = min(20+10, mb_strlen($fullContent) - $indexOfAuthorEnd); $repeatingStringLength >= 20; $repeatingStringLength--) {
                         if (!$this->isStringStartingToRepeat($prompt . $fullContent, $repeatingStringLength)) {

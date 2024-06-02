@@ -57,6 +57,7 @@ foreach ($messagesByIndex as $messageIndex => $message) {
 
         $rowText .= "<bot>: [$author] $messageText\n";
     }
+    $rowText .= "<human>";
     $rowTexts[] = $rowText;
 }
 
