@@ -141,52 +141,47 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
             $messageText = trim(str_replace('@' . $_ENV['TELEGRAM_BOT_USERNAME'], '', $previousMessage->messageText));
             $prompt .= "<bot>: [$previousMessageUserName] {$messageText}\n";
         }
-        $prompt .= "<bot>: [$userName] $incomingMessageText\n<bot>: [";
+        $incomingMessageConvertedToPrompt = "<bot>: [$userName] $incomingMessageText\n<bot>: [";
         if (array_key_exists($message->getFrom()->getId(), $this->personalityByUser)) {
             $personality = str_replace(' ', '_', $this->personalityByUser[$message->getFrom()->getId()]);
-            $prompt .= "{$personality}] ";
+            $incomingMessageConvertedToPrompt .= "{$personality}] ";
         }
+        $prompt .= $incomingMessageConvertedToPrompt;
         echo $prompt;
 
-//        $this->chatsByUser[$message->getFrom()->getId()] = mb_substr($this->chatsByUser[$message->getFrom()->getId()], -512);
-
         $response = trim($this->getCompletion($prompt));
-//        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
-//        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
-//        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
-//        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
-//        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
-//        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
+        for ($i =0; $i < 5; $i++) {
+            if ($this->doesResponseNeedTobeRegenerated($response, $prompt)) {
+                $response = $this->getCompletion($incomingMessageConvertedToPrompt);
+            } else {
+                break;
+            }
+        }
 
         if (!array_key_exists($message->getFrom()->getId(), $this->personalityByUser)) {
             $response =  '[отвечает ' . $response;
         }
-//        echo $addToChat;
         $youtube_pattern = '/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/';
         $response = preg_replace($youtube_pattern, $this->videos[array_rand($this->videos)], $response);
 
         return $response;
     }
 
-    private function checkForBadResponse(string $response, Message $message, string $resetText): string
+    private function doesResponseNeedTobeRegenerated(string $response, string $prompt): bool
     {
         $responseAfterAuthor = mb_substr($response, strpos($response, ']') + 1);
-        if (str_contains($this->chatsByUser[$message->getFrom()->getId()], $responseAfterAuthor)) {
-            //avoid repetitions
-            $this->chatsByUser[$message->getFrom()->getId()] = $resetText;
-            return $this->getResponse($message);
+        if (str_contains($prompt, $responseAfterAuthor)) {
+            echo "Repeat response detected, restarting with just last message in context";
+            return true;
         }
         if (str_ends_with($response, ']') || str_contains(mb_strtolower($response), 'не умею') || str_contains(mb_strtolower($response), 'не могу')) {
-            return $this->getResponse($message);
+            echo "Invalid response detected, restarting with just last message in context";
+            return true;
         }
 
-        return $response;
+        return false;
     }
 
-    private function getResponse(Message $message): string
-    {
-        return trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
-    }
 
     /** @return InternalMessage[] */
     private function getPreviousMessages(Message $message): array
