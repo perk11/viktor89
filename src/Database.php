@@ -13,7 +13,6 @@ class Database
 
     private \SQLite3Stmt|false $selectMessageStatement;
 
-    private \SQLite3Stmt|false $findNPreviousMessagesInChatStatement;
 
     public function __construct(string $name)
     {
@@ -29,9 +28,7 @@ class Database
         $this->selectMessageStatement = $this->sqlite3Database->prepare(
             'SELECT * FROM message WHERE id = :id AND chat_id = :chat_id'
         );
-        $this->findNPreviousMessagesInChatStatement = $this->sqlite3Database->prepare(
-            'SELECT * FROM message WHERE chat_id = :chat_id AND id<:message_id ORDER BY id DESC LIMIT :limit'
-        );
+
     }
 
     public function logMessage(Message $message): void
@@ -81,14 +78,25 @@ class Database
         return InternalMessage::fromSqliteAssoc($result);
     }
 
-    public function findNPreviousMessagesInChat(int $chatId, int $messageId, int $limit): array
+    public function findNPreviousMessagesInChat(int $chatId, int $messageId, int $limit, array $excludedIds): array
     {
-        $this->findNPreviousMessagesInChatStatement->bindValue(':chat_id', $chatId);
-        $this->findNPreviousMessagesInChatStatement->bindValue(':message_id', $messageId);
-        $this->findNPreviousMessagesInChatStatement->bindValue(':limit', $limit);
+        foreach ($excludedIds as $excludedId) {
+            if (!is_int($excludedId)) {
+                throw new \LogicException("Invalid value type passed for excluded id");
+            }
+        }
+        $excludedIdsString = implode(',', $excludedIds);
+        $findNPreviousMessagesInChatStatement = $this->sqlite3Database->prepare(
+            "SELECT * FROM message WHERE chat_id = :chat_id AND id<:message_id 
+                      AND id NOT in ($excludedIdsString)
+                      ORDER BY id DESC LIMIT :limit"
+        );
+        $findNPreviousMessagesInChatStatement->bindValue(':chat_id', $chatId);
+        $findNPreviousMessagesInChatStatement->bindValue(':message_id', $messageId);
+        $findNPreviousMessagesInChatStatement->bindValue(':limit', $limit);
 
         $resultingMessages = [];
-        $queryResult = $this->findNPreviousMessagesInChatStatement->execute();
+        $queryResult = $findNPreviousMessagesInChatStatement->execute();
         while ($result = $queryResult->fetchArray(SQLITE3_ASSOC)) {
             $resultingMessages[] = InternalMessage::fromSqliteAssoc($result);
         }

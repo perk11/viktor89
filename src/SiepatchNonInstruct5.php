@@ -202,7 +202,16 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
         }
         $messagesFromHistoryNumber = self::CONTEXT_MESSAGES_COUNT - count($messages) - 2;
         if ($messagesFromHistoryNumber > 0) {
-            $messagesFromHistory = $this->database->findNPreviousMessagesInChat($message->getChat()->getId(), $message->getMessageId(), $messagesFromHistoryNumber);
+            $excludedIds = [];
+            foreach ($messages as $replyMessage) {
+                $excludedIds[] = $replyMessage->id;
+            }
+            $messagesFromHistory = $this->database->findNPreviousMessagesInChat(
+                $message->getChat()->getId(),
+                $message->getMessageId(),
+                $messagesFromHistoryNumber,
+                $excludedIds,
+            );
             $messages = array_merge($messages, $messagesFromHistory);
         }
 
