@@ -41,11 +41,11 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
             'temperature'       => 0.6,
             'cache_prompt'      => false,
             'repeat_penalty'    => 1.18,
-            'repeat_last_n'     => 4096,
-            "penalize_nl"       => true,
-            "top_k"             => 40,
-            "top_p"             => 0.9,
-            "min_p"             => 0.1,
+            'repeat_last_n'     => 1024,
+            "penalize_nl"       => false,
+            "top_k"             => 50,
+            "top_p"             => 0.95,
+            "min_p"             => 0.01,
             "tfs_z"             => 1,
 //        "max_tokens"        => 150,
             "frequency_penalty" => 0,
@@ -62,7 +62,7 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
                 $parsedData = parse_completion_string($data);
                 echo $parsedData['content'];
                 $fullContent .= $parsedData['content'];
-                if (mb_strlen($fullContent) > 1024) {
+                if (mb_strlen($fullContent) > 2048) {
                     echo "Max length reached, aborting response\n";
                     return 0;
                 }
@@ -76,7 +76,7 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
                 $indexOfAuthorEnd = strpos($fullContent, '] ');
                 if ($indexOfAuthorEnd !== false && (mb_strlen($fullContent) - $indexOfAuthorEnd) > 30 && $this->isStringStartingToRepeat($prompt . $fullContent , 20) ) {
                     echo "Repetition detected, aborting response\n";
-                    for ($repeatingStringLength = min(20+10, mb_strlen($fullContent) - $indexOfAuthorEnd); $repeatingStringLength >= 20; $repeatingStringLength--) {
+                    for ($repeatingStringLength = min(20, mb_strlen($fullContent) - $indexOfAuthorEnd); $repeatingStringLength >= 20; $repeatingStringLength--) {
                         if (!$this->isStringStartingToRepeat($prompt . $fullContent, $repeatingStringLength)) {
                             break;
                         }
