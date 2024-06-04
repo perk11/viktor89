@@ -30,7 +30,8 @@ function parse_completion_string(string $completionString): array
 //$responder = new \Perk11\Viktor89\Siepatch2Responder();
 $database = new \Perk11\Viktor89\Database('siepatch-non-instruct5');
 //$responder = new \Perk11\Viktor89\SiepatchNonInstruct4();
-$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
+//$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
+$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
 
 try {
     $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
