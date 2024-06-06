@@ -18,7 +18,7 @@ if (!isset($_ENV['OPENAI_SERVER'])) {
     die('OPENAI_SERVER is undefined');
 }
 
-function parse_completion_string(string $completionString): array
+function parse_completion_string(string $completionString)
 {
     if (!str_starts_with($completionString, 'data: ')) {
         die("Unexpected completion string: $completionString");
@@ -70,7 +70,7 @@ try {
                 $incomingMessageText = $message->getText();
 
                 if ($message->getType() !== 'command') {
-                    if (!str_starts_with($incomingMessageText, '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
+                    if (!str_contains($incomingMessageText, '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
                         $replyToMessage = $message->getReplyToMessage();
                         if ($replyToMessage === null) {
                             continue;

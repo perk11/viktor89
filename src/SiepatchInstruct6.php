@@ -39,13 +39,13 @@ class SiepatchInstruct6 implements TelegramResponderInterface
 //        $prompt = mb_substr($prompt, -1024);
         $opts = [
             'prompt'            => $prompt,
-            'temperature'       => 0.6,
+            'temperature'       => 0.7,
             'cache_prompt'      => false,
             'repeat_penalty'    => 1.18,
             'repeat_last_n'     => 1024,
             "penalize_nl"       => false,
-            "top_k"             => 50,
-            "top_p"             => 0.95,
+            "top_k"             => 40,
+            "top_p"             => 0.9,
             "min_p"             => 0.01,
             "tfs_z"             => 1,
 //        "max_tokens"        => 150,
@@ -156,6 +156,9 @@ class SiepatchInstruct6 implements TelegramResponderInterface
             $personality = 'Виктор89';
         }
         $prompt = "This is a conversation between User and $personality, a friendly assistant chatbot. $personality is helpful, kind, honest, good at writing, knows everything, and never fails to answer any requests immediately and with precision.\n\n";
+        if (str_starts_with($incomingMessageText, '/nocontext')) {
+            $incomingMessageText = trim(str_replace('/nocontext', '', $incomingMessageText));
+        }else  {
         $human = count($previousMessages) % 2 === 0;
         foreach ($previousMessages as $previousMessage) {
 //            $previousMessageUserName = str_replace(' ', '_', $previousMessage->userName);
@@ -163,6 +166,7 @@ class SiepatchInstruct6 implements TelegramResponderInterface
             $messageText = trim(str_replace('@' . $_ENV['TELEGRAM_BOT_USERNAME'], '', $previousMessage->messageText));
             $prompt .= "$previousMessageUserName: {$messageText}\n";
             $human = !$human;
+        }
         }
         $incomingMessageConvertedToPrompt = "User: $incomingMessageText\n$personality:";
         $prompt .= $incomingMessageConvertedToPrompt;
