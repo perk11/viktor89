@@ -195,10 +195,12 @@ class SiepatchInstruct6 implements TelegramResponderInterface
 
             return true;
         }
-        if (str_contains(mb_strtolower($response), 'не умею') || str_contains(
-                mb_strtolower($response),
-                'не могу'
-            )) {
+        if (
+            mb_strlen($response) < 30 && (
+            str_contains(mb_strtolower($response), 'не умею') ||
+            str_contains(mb_strtolower($response), 'не могу') ||
+            str_contains(mb_strtolower($response), 'не знаю'))
+        ) {
             echo "Invalid response detected, restarting with just last message in context";
 
             return true;
