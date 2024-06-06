@@ -59,7 +59,7 @@ try {
                 /** @var \Longman\TelegramBot\Entities\Message $message */
                 if ($message->getType() !== 'text' && $message->getType() !== 'command') {
                     echo "Message of type {$message->getType()} received\n";
-//                    var_dump($message);
+                    var_dump($message);
                     continue;
                 }
                 if ($message->getFrom() === null) {
@@ -68,6 +68,24 @@ try {
                 }
                 $database->logMessage($message);
                 $incomingMessageText = $message->getText();
+
+                if (str_contains(mb_strtolower($incomingMessageText), 'ты кто?')) {
+                    echo "Sending message with viktor89 sticker";
+                    $viktor89Stickers = [
+                        'CAACAgIAAxkBAAIGvGZhcMm-j-Fa2u-jsOXYTBpNHPGpAAKxTQACaw0oSRHS0GD7_dE6NQQ',
+                        'CAACAgIAAxkBAAIGvWZhcNXDnZVd9vZ4Rydl7KyKeDcCAAJyWwACpg2ISv8GUoIYyRcrNQQ',
+                    ];
+                    $result = Request::sendSticker([
+                                             'chat_id' => $message->getChat()->getId(),
+                                             'reply_parameters' => [
+                                                 'message_id' => $message->getMessageId(),
+                                             ],
+                                             'sticker' => $viktor89Stickers[array_rand($viktor89Stickers)],
+
+                                         ]);
+                    var_dump($result);
+                    continue;
+                }
 
                 if ($message->getType() !== 'command') {
                     if (!str_contains($incomingMessageText, '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
@@ -86,6 +104,7 @@ try {
                         );
                     }
                 }
+
                 Request::sendChatAction([
                                             'chat_id' => $message->getChat()->getId(),
                                             'action'  => Longman\TelegramBot\ChatAction::TYPING,
