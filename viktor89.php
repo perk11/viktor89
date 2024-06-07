@@ -68,23 +68,32 @@ try {
                 }
                 $database->logMessage($message);
                 $incomingMessageText = $message->getText();
+                $incomingMessageTextLower = mb_strtolower($incomingMessageText);
+                $whoAreYouTriggerPhrases = [
+                    'как тебя зовут',
+                    'тебя как зовут',
+                    'ты кто?',
+                    'кто ты?',
+                ];
+                foreach ($whoAreYouTriggerPhrases as $whoAreYouTriggerPhrase) {
+                    if (str_contains($incomingMessageTextLower, $whoAreYouTriggerPhrase)) {
+                        echo "Sending message with viktor89 sticker";
+                        $viktor89Stickers = [
+                            'CAACAgIAAxkBAAIGvGZhcMm-j-Fa2u-jsOXYTBpNHPGpAAKxTQACaw0oSRHS0GD7_dE6NQQ',
+                            'CAACAgIAAxkBAAIGvWZhcNXDnZVd9vZ4Rydl7KyKeDcCAAJyWwACpg2ISv8GUoIYyRcrNQQ',
+                        ];
+                        $result = Request::sendSticker([
+                                                           'chat_id' => $message->getChat()->getId(),
+                                                           'reply_parameters' => [
+                                                               'message_id' => $message->getMessageId(),
+                                                           ],
+                                                           'sticker' => $viktor89Stickers[array_rand(
+                                                               $viktor89Stickers
+                                                           )],
 
-                if (str_contains(mb_strtolower($incomingMessageText), 'ты кто?')) {
-                    echo "Sending message with viktor89 sticker";
-                    $viktor89Stickers = [
-                        'CAACAgIAAxkBAAIGvGZhcMm-j-Fa2u-jsOXYTBpNHPGpAAKxTQACaw0oSRHS0GD7_dE6NQQ',
-                        'CAACAgIAAxkBAAIGvWZhcNXDnZVd9vZ4Rydl7KyKeDcCAAJyWwACpg2ISv8GUoIYyRcrNQQ',
-                    ];
-                    $result = Request::sendSticker([
-                                             'chat_id' => $message->getChat()->getId(),
-                                             'reply_parameters' => [
-                                                 'message_id' => $message->getMessageId(),
-                                             ],
-                                             'sticker' => $viktor89Stickers[array_rand($viktor89Stickers)],
-
-                                         ]);
-                    var_dump($result);
-                    continue;
+                                                       ]);
+                        continue 2;
+                    }
                 }
 
                 if ($message->getType() !== 'command') {
