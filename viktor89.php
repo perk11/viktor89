@@ -118,38 +118,18 @@ try {
                         );
                     }
                 }
+                $responseMessage = $responder->getResponseByMessage($message);
 
-                Request::sendChatAction([
-                                            'chat_id' => $message->getChat()->getId(),
-                                            'action'  => Longman\TelegramBot\ChatAction::TYPING,
-                                        ]);
-                $response = $responder->getResponseByMessage($message);
-
-                $telegramServerResponse = Request::sendMessage([
-                                         'chat_id'          => $message->getChat()->getId(),
-                                         'reply_parameters' => [
-                                             'message_id' => $message->getMessageId(),
-                                         ],
-                                         'text'             => $response,
-                                     ]);
-                if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof \Longman\TelegramBot\Entities\Message) {
-                    $replyPrefix = '[отвечает ';
-                    if (str_starts_with($response, $replyPrefix)) {
-                        $author = mb_substr($response, mb_strlen($replyPrefix), mb_strpos($response, ']') - mb_strlen($replyPrefix));
-                        $response = mb_substr($response, mb_strpos($response, '] ') + 2);
-                    } else {
-                        $author = 'Nanak0n'; //TODO: use username from response instead
+                if ($responseMessage !== null) {
+                    $telegramServerResponse = $responseMessage->send();
+                    if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult(
+                        ) instanceof \Longman\TelegramBot\Entities\Message) {
+                        $responseMessage->id = $telegramServerResponse->getResult()->getMessageId();
+                        $responseMessage->chatId = $message->getChat()->getId();
+                        $responseMessage->userId = $telegramServerResponse->getResult()->getFrom()->getId();
+                        $responseMessage->date = time();
+                        $database->logInternalMessage($responseMessage);
                     }
-//                    $database->logMessage($telegramServerResponse->getResult());
-                    $internalMessage = new \Perk11\Viktor89\InternalMessage();
-                    $internalMessage->id = $telegramServerResponse->getResult()->getMessageId();
-                    $internalMessage->chatId = $message->getChat()->getId();
-                    $internalMessage->userId = $telegramServerResponse->getResult()->getFrom()->getId();
-                    $internalMessage->messageText = $response;
-                    $internalMessage->replyToMessageId = $message->getMessageId();
-                    $internalMessage->date = time();
-                    $internalMessage->userName = $author;
-                    $database->logInternalMessage($internalMessage);
                 }
             }
         } else {

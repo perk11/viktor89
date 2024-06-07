@@ -2,12 +2,17 @@
 
 namespace Perk11\Viktor89;
 
+use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Entities\Message;
+use Longman\TelegramBot\Request;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
+use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
+use Perk11\Viktor89\PreResponseProcessor\PreResponseSupportingGenerator;
 
-class SiepatchNonInstruct4 implements TelegramResponderInterface, AbortableStreamingResponseGenerator
+class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface, AbortableStreamingResponseGenerator,
+                                      PreResponseSupportingGenerator
 {
     private OpenAi $openAi;
 
@@ -30,14 +35,23 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface, AbortableStrea
     /** @var AbortStreamingResponseHandler[] */
     private array $abortResponseHandlers = [];
 
-    public function __construct(private HistoryReader $historyReader)
+    /** @var PreResponseProcessor[] */
+    private array $preResponseProcessors = [];
+
+    public function __construct(private readonly HistoryReader $historyReader)
     {
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_SERVER']);
     }
+
     public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void
     {
-       $this->abortResponseHandlers[] = $abortResponseHandler;
+        $this->abortResponseHandlers[] = $abortResponseHandler;
+    }
+
+    public function addPreResponseProcessor(PreResponseProcessor $preResponseProcessor): void
+    {
+        $this->preResponseProcessors[] = $preResponseProcessor;
     }
 
     private function getCompletion(string $prompt): string
@@ -73,6 +87,7 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface, AbortableStrea
                     $newResponse = $abortResponseHandler->getNewResponse($prompt, $fullContent);
                     if ($newResponse !== false) {
                         $fullContent = $newResponse;
+
                         return 0;
                     }
                 }
@@ -85,25 +100,45 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface, AbortableStrea
         return trim($fullContent);
     }
 
-    public function getResponseByMessage(Message $message): string
+    public function getResponseByMessage(Message $message): ?InternalMessage
     {
-        $incomingMessageText = $message->getText();
-        if ($incomingMessageText === null) {
-            echo "Warning, empty message text!\n";
+        $internalMessage = new InternalMessage();
+        $internalMessage->chatId = $message->getChat()->getId();
+        $internalMessage->replyToMessageId = $message->getMessageId();
+        foreach ($this->preResponseProcessors as $preResponseProcessor) {
+            $replacedMessage = $preResponseProcessor->process($message);
+            if ($replacedMessage !== false) {
+                if ($replacedMessage === null) {
+                    return null;
+                }
+                $internalMessage->userName = $_ENV['TELEGRAM_BOT_USERNAME'];
+                $internalMessage->messageText = $replacedMessage;
 
-            return 'Твое сообщение было пустым';
-        }
-        if (str_starts_with($incomingMessageText, '/personality')) {
-            $personality = trim(str_replace('/personality', '', $incomingMessageText));
-            if ($personality === 'reset' || $personality === '') {
-                unset ($this->personalityByUser[$message->getFrom()->getId()]);
-
-                return 'Теперь я буду тебе отвечать как случайный пользователь';
+                return $internalMessage;
             }
-            $this->personalityByUser[$message->getFrom()->getId()] = $personality;
-
-            return 'Теперь я буду тебе отвечать как ' . $personality;
         }
+
+        Request::sendChatAction([
+                                    'chat_id' => $message->getChat()->getId(),
+                                    'action'  => ChatAction::TYPING,
+                                ]);
+        $incomingMessageText = $message->getText();
+//        if ($incomingMessageText === null) {
+//            echo "Warning, empty message text!\n";
+//
+//            return 'Твое сообщение было пустым';
+//        }
+//        if (str_starts_with($incomingMessageText, '/personality')) {
+//            $personality = trim(str_replace('/personality', '', $incomingMessageText));
+//            if ($personality === 'reset' || $personality === '') {
+//                unset ($this->personalityByUser[$message->getFrom()->getId()]);
+//
+//                return 'Теперь я буду тебе отвечать как случайный пользователь';
+//            }
+//            $this->personalityByUser[$message->getFrom()->getId()] = $personality;
+//
+//            return 'Теперь я буду тебе отвечать как ' . $personality;
+//        }
         $incomingMessageAsInternalMessage = InternalMessage::fromTelegramMessage($message);
         $previousMessages = $this->historyReader->getPreviousMessages($message, 99, 99, 0);
         $personality = array_key_exists($message->getFrom()->getId(), $this->personalityByUser) ? str_replace(
@@ -114,24 +149,42 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface, AbortableStrea
         $context = $this->generateContext($previousMessages, $incomingMessageAsInternalMessage, $personality);
         echo $context;
 
-        $response = $this->getCompletion($context);
+        $internalMessage->messageText = $this->getCompletion($context);
         for ($i = 0; $i < 5; $i++) {
-            if ($this->doesResponseNeedTobeRegenerated($response, $context)) {
+            if ($this->doesResponseNeedTobeRegenerated($internalMessage->messageText, $context)) {
                 array_shift($previousMessages);
                 $context = $this->generateContext($previousMessages, $incomingMessageAsInternalMessage, $personality);
-                $response = $this->getCompletion($context);
+                $internalMessage->messageText = $this->getCompletion($context);
             } else {
                 break;
             }
         }
 
         if ($personality === null) {
-            $response =  '[отвечает ' . $response;
+            $authorEndPosition = mb_strpos($internalMessage->messageText, ']');
+            if ($authorEndPosition === false) {
+                $internalMessage->userName = $_ENV['TELEGRAM_BOT_USERNAME'];
+            } else {
+                $internalMessage->userName = mb_substr(
+                    $internalMessage->messageText,
+                    0,
+                    mb_strpos($internalMessage->messageText, '] ')
+                );
+            }
+            $internalMessage->actualMessageText = '[отвечает ' . $internalMessage->messageText;
+            $internalMessage->messageText = mb_substr($internalMessage->messageText, $authorEndPosition + 2);
+        } else {
+            $internalMessage->userName = $personality;
         }
-        $youtube_pattern = '/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/';
-        $response = preg_replace($youtube_pattern, $this->videos[array_rand($this->videos)], $response);
 
-        return $response;
+        $youtube_pattern = '/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/';
+        $internalMessage->messageText = preg_replace(
+            $youtube_pattern,
+            $this->videos[array_rand($this->videos)],
+            $internalMessage->messageText
+        );
+
+        return $internalMessage;
     }
 
     private function doesResponseNeedTobeRegenerated(string $response, string $prompt): bool

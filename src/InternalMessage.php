@@ -3,6 +3,8 @@
 namespace Perk11\Viktor89;
 
 use Longman\TelegramBot\Entities\Message;
+use Longman\TelegramBot\Entities\ServerResponse;
+use Longman\TelegramBot\Request;
 
 class InternalMessage
 {
@@ -19,6 +21,7 @@ class InternalMessage
     public string $userName;
 
     public string $messageText;
+    public ?string $actualMessageText = null;
 
     public int $chatId;
     public static function fromSqliteAssoc(array $result): self
@@ -52,5 +55,18 @@ class InternalMessage
         $message->messageText = $telegramMessage->getText();
 
         return $message;
+    }
+
+    public function send(): ServerResponse
+    {
+        $options = [
+            'chat_id' => $this->chatId,
+
+            'text' => $this->actualMessageText ?? $this->messageText,
+        ];
+        if ($this->replyToMessageId !== null) {
+           $options['reply_parameters'] = ['message_id' => $this->replyToMessageId];
+        }
+        return Request::sendMessage($options);
     }
 }
