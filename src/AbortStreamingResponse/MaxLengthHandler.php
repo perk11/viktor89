@@ -2,7 +2,7 @@
 
 namespace Perk11\Viktor89\AbortStreamingResponse;
 
-class MaxStreamingResponseLengthHandler implements AbortStreamingResponseHandler
+class MaxLengthHandler implements AbortStreamingResponseHandler
 {
     public function __construct(private readonly int $maxResponseLength)
     {
@@ -14,6 +14,7 @@ class MaxStreamingResponseLengthHandler implements AbortStreamingResponseHandler
             return false;
         }
 
+        echo "Max length reached\n";
         return mb_substr($currentResponse, 0, $this->maxResponseLength);
     }
 }
