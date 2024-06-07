@@ -4,6 +4,8 @@ namespace Perk11\Viktor89;
 
 use Longman\TelegramBot\Entities\Message;
 use Orhanerday\OpenAi\OpenAi;
+use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
+use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
 
 class SiepatchNonInstruct4 implements TelegramResponderInterface, AbortableStreamingResponseGenerator
 {
