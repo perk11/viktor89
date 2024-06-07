@@ -125,12 +125,6 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
                                     'chat_id' => $message->getChat()->getId(),
                                     'action'  => ChatAction::TYPING,
                                 ]);
-        $incomingMessageText = $message->getText();
-//        if ($incomingMessageText === null) {
-//            echo "Warning, empty message text!\n";
-//
-//            return 'Твое сообщение было пустым';
-//        }
 
         $incomingMessageAsInternalMessage = InternalMessage::fromTelegramMessage($message);
         $previousMessages = $this->historyReader->getPreviousMessages($message, 99, 99, 0);
