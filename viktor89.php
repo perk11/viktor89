@@ -31,7 +31,10 @@ function parse_completion_string(string $completionString)
 //$responder = new \Perk11\Viktor89\Siepatch2Responder();
 $database = new \Perk11\Viktor89\Database('siepatch-non-instruct5');
 $historyReader = new HistoryReader($database);
-$responder = new \Perk11\Viktor89\SiepatchNonInstruct4($historyReader);
+$responder = new \Perk11\Viktor89\SiepatchNonInstruct4(
+    $historyReader,
+    new \Perk11\Viktor89\PreResponseProcessor\PersonalityProcessor($database),
+);
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());

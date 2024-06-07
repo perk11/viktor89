@@ -8,6 +8,7 @@ use Longman\TelegramBot\Request;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
+use Perk11\Viktor89\PreResponseProcessor\PersonalityProcessor;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseSupportingGenerator;
 
@@ -15,8 +16,6 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
                                       PreResponseSupportingGenerator
 {
     private OpenAi $openAi;
-
-    private array $personalityByUser = [];
 
     private array $videos = [
         'https://www.youtube.com/watch?v=JdGgys-QQdE',
@@ -38,10 +37,14 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
     /** @var PreResponseProcessor[] */
     private array $preResponseProcessors = [];
 
-    public function __construct(private readonly HistoryReader $historyReader)
+    public function __construct(
+        private readonly HistoryReader $historyReader,
+        private readonly PersonalityProcessor $personalityProcessor,
+    )
     {
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_SERVER']);
+        $this->addPreResponseProcessor($this->personalityProcessor);
     }
 
     public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void
@@ -128,24 +131,10 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
 //
 //            return 'Твое сообщение было пустым';
 //        }
-//        if (str_starts_with($incomingMessageText, '/personality')) {
-//            $personality = trim(str_replace('/personality', '', $incomingMessageText));
-//            if ($personality === 'reset' || $personality === '') {
-//                unset ($this->personalityByUser[$message->getFrom()->getId()]);
-//
-//                return 'Теперь я буду тебе отвечать как случайный пользователь';
-//            }
-//            $this->personalityByUser[$message->getFrom()->getId()] = $personality;
-//
-//            return 'Теперь я буду тебе отвечать как ' . $personality;
-//        }
+
         $incomingMessageAsInternalMessage = InternalMessage::fromTelegramMessage($message);
         $previousMessages = $this->historyReader->getPreviousMessages($message, 99, 99, 0);
-        $personality = array_key_exists($message->getFrom()->getId(), $this->personalityByUser) ? str_replace(
-            ' ',
-            '_',
-            $this->personalityByUser[$message->getFrom()->getId()]
-        ) : null;
+        $personality = $this->personalityProcessor->getCurrentPersonality($incomingMessageAsInternalMessage->userId);
         $context = $this->generateContext($previousMessages, $incomingMessageAsInternalMessage, $personality);
         echo $context;
 

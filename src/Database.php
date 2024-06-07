@@ -13,6 +13,8 @@ class Database
 
     private \SQLite3Stmt|false $selectMessageStatement;
 
+    private \SQLite3Stmt|false $readPreferencesStatement;
+    private \SQLite3Stmt|false $updatePreferencesStatement;
 
     public function __construct(string $name)
     {
@@ -28,7 +30,12 @@ class Database
         $this->selectMessageStatement = $this->sqlite3Database->prepare(
             'SELECT * FROM message WHERE id = :id AND chat_id = :chat_id'
         );
-
+        $this->readPreferencesStatement = $this->sqlite3Database->prepare(
+            'SELECT preferences FROM user_preferences WHERE user_id = :user_id'
+        );
+        $this->updatePreferencesStatement = $this->sqlite3Database->prepare(
+            'INSERT INTO user_preferences (user_id, preferences) VALUES (:user_id, :preferences) ON CONFLICT DO UPDATE SET preferences = :preferences'
+        );
     }
 
     public function logMessage(Message $message): void
@@ -88,5 +95,35 @@ class Database
         }
 
         return $resultingMessages;
+    }
+
+    public function readUserPreference(int $userId, string $key): object|string|bool|null
+    {
+        $preferences = $this->readPreferencesArray($userId);
+
+        return $preferences[$key] ?? null;
+    }
+
+    public function writeUserPreference(int $userId, string $key, object|string|bool|null $value): void
+    {
+        $preferences = $this->readPreferencesArray($userId);
+        $preferences[$key] = $value;
+
+        $this->updatePreferencesStatement->bindValue(':user_id', $userId);
+        $this->updatePreferencesStatement->bindValue(':preferences', json_encode($preferences, JSON_THROW_ON_ERROR & JSON_UNESCAPED_UNICODE));
+        $this->updatePreferencesStatement->execute();
+    }
+
+    private function readPreferencesArray(int $userId): ?array
+    {
+        $this->readPreferencesStatement->bindValue(':user_id', $userId);
+        $result = $this->readPreferencesStatement->execute();
+        $preferencesArray = $result->fetchArray(SQLITE3_ASSOC);
+        if ($preferencesArray === false) {
+            return [];
+        }
+
+        return json_decode($preferencesArray['preferences'], true, flags: JSON_THROW_ON_ERROR);
+
     }
 }

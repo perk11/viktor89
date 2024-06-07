@@ -7,4 +7,10 @@ CREATE TABLE IF NOT EXISTS `message` (
     `reply_to_message`  bigint UNSIGNED DEFAULT NULL, -- 'Message that this message is reply to',
     `username`          varchar,                       -- 'Message that this message is reply to',
     `message_text` varchar --Message text
+);
+
+CREATE TABLE IF NOT EXISTS `user_preferences`
+(
+    `user_id` bigint PRIMARY KEY,
+    `preferences` text --stored as JSON
 )
