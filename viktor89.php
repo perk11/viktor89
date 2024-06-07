@@ -44,6 +44,7 @@ $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\
 //$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
 $preResponseProcessors = [
     new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
+    new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
 ];
 try {
     $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
@@ -73,6 +74,9 @@ try {
                 /** @var \Longman\TelegramBot\Entities\Message $message */
                 if ($message->getType() !== 'text' && $message->getType() !== 'command') {
                     echo "Message of type {$message->getType()} received\n";
+                    if ($message->getType() === 'sticker') {
+                        echo $message->getSticker()->getFileId() . "\n";
+                    }
 //                    var_dump($message);
                     continue;
                 }
