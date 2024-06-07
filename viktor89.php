@@ -32,6 +32,7 @@ function parse_completion_string(string $completionString)
 $database = new \Perk11\Viktor89\Database('siepatch-non-instruct5');
 $historyReader = new HistoryReader($database);
 $responder = new \Perk11\Viktor89\SiepatchNonInstruct4($historyReader);
+$responder->addAbortResponseHandler(new \Perk11\Viktor89\MaxStreamingResponseLengthHandler(2000));
 //$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
 

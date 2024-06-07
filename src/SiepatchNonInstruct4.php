@@ -5,7 +5,7 @@ namespace Perk11\Viktor89;
 use Longman\TelegramBot\Entities\Message;
 use Orhanerday\OpenAi\OpenAi;
 
-class SiepatchNonInstruct4 implements TelegramResponderInterface
+class SiepatchNonInstruct4 implements TelegramResponderInterface, AbortableStreamingResponseGenerator
 {
     private OpenAi $openAi;
 
@@ -25,10 +25,17 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
 
     ];
 
+    /** @var AbortStreamingResponseHandler[] */
+    private array $abortResponseHandlers = [];
+
     public function __construct(private HistoryReader $historyReader)
     {
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_SERVER']);
+    }
+    public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void
+    {
+       $this->abortResponseHandlers[] = $abortResponseHandler;
     }
 
     private function getCompletion(string $prompt): string
@@ -60,8 +67,12 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
                 $parsedData = parse_completion_string($data);
                 echo $parsedData['content'];
                 $fullContent .= $parsedData['content'];
-                if (mb_strlen($fullContent) > 4096) {
-                    return 0;
+                foreach ($this->abortResponseHandlers as $abortResponseHandler) {
+                    $newResponse = $abortResponseHandler->getNewResponse($fullContent);
+                    if ($newResponse !== false) {
+                        $fullContent = $newResponse;
+                        return 0;
+                    }
                 }
 
                 return strlen($data);
