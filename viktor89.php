@@ -5,6 +5,7 @@ use Longman\TelegramBot\Request;
 use Longman\TelegramBot\Telegram;
 use Longman\TelegramBot\TelegramLog;
 use Perk11\Viktor89\HistoryReader;
+use Perk11\Viktor89\InternalMessage;
 
 require 'vendor/autoload.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
@@ -27,6 +28,7 @@ function parse_completion_string(string $completionString)
 
     return json_decode(substr($completionString, strlen('data: '), JSON_THROW_ON_ERROR), true);
 }
+
 //$responder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
 //$responder = new \Perk11\Viktor89\Siepatch2Responder();
 $database = new \Perk11\Viktor89\Database('siepatch-non-instruct5');
@@ -40,7 +42,9 @@ $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
 //$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
-
+$preResponseProcessors = [
+    new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
+];
 try {
     $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
     echo "Connecting to Telegram...\n";
@@ -59,6 +63,8 @@ try {
             }
             foreach ($results as $result) {
                 $message = $result->getMessage();
+
+
                 if ($message === null) {
                     echo "Unknown update received:\n";
                     var_dump($result);
@@ -75,34 +81,23 @@ try {
                     continue;
                 }
                 $database->logMessage($message);
-                $incomingMessageText = $message->getText();
-                $incomingMessageTextLower = mb_strtolower($incomingMessageText);
-                $whoAreYouTriggerPhrases = [
-                    'как тебя зовут',
-                    'тебя как зовут',
-                    'ты кто?',
-                    'кто ты?',
-                ];
-                foreach ($whoAreYouTriggerPhrases as $whoAreYouTriggerPhrase) {
-                    if (str_contains($incomingMessageTextLower, $whoAreYouTriggerPhrase)) {
-                        echo "Sending message with viktor89 sticker";
-                        $viktor89Stickers = [
-                            'CAACAgIAAxkBAAIGvGZhcMm-j-Fa2u-jsOXYTBpNHPGpAAKxTQACaw0oSRHS0GD7_dE6NQQ',
-                            'CAACAgIAAxkBAAIGvWZhcNXDnZVd9vZ4Rydl7KyKeDcCAAJyWwACpg2ISv8GUoIYyRcrNQQ',
-                        ];
-                        $result = Request::sendSticker([
-                                                           'chat_id' => $message->getChat()->getId(),
-                                                           'reply_parameters' => [
-                                                               'message_id' => $message->getMessageId(),
-                                                           ],
-                                                           'sticker' => $viktor89Stickers[array_rand(
-                                                               $viktor89Stickers
-                                                           )],
+                foreach ($preResponseProcessors as $preResponseProcessor) {
+                    $replacedMessage = $preResponseProcessor->process($message);
+                    if ($replacedMessage !== false) {
+                        if ($replacedMessage === null) {
+                            continue 2;
+                        }
+                        $internalMessage = new InternalMessage();
+                        $internalMessage->chatId = $message->getChat()->getId();
+                        $internalMessage->replyToMessageId = $message->getMessageId();
+                        $internalMessage->userName = $_ENV['TELEGRAM_BOT_USERNAME'];
+                        $internalMessage->messageText = $replacedMessage;
 
-                                                       ]);
+                        $internalMessage->send();
                         continue 2;
                     }
                 }
+                $incomingMessageText = $message->getText();
 
                 if ($message->getType() !== 'command') {
                     if (!str_contains($incomingMessageText, '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
