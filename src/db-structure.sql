@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS `message` (
     `username`          varchar,                       -- 'Message that this message is reply to',
     `message_text` varchar --Message text
 );
-
+CREATE INDEX IF NOT EXISTS idx_chat_id_id ON message (chat_id, id);
 CREATE TABLE IF NOT EXISTS `user_preferences`
 (
     `user_id` bigint PRIMARY KEY,
