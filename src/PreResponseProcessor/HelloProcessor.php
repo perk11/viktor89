@@ -16,6 +16,7 @@ class HelloProcessor implements PreResponseProcessor
 
     private array $triggerPhrases = [
         'дарова',
+        'даровч',
         'привет',
     ];
 
