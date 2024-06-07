@@ -33,21 +33,7 @@ class Database
 
     public function logMessage(Message $message): void
     {
-        $this->insertMessageStatement->bindValue(':id', $message->getMessageId());
-        $this->insertMessageStatement->bindValue(':message_thread_id', $message->getMessageThreadId());
-        $this->insertMessageStatement->bindValue(':user_id', $message->getFrom()->getId());
-        $this->insertMessageStatement->bindValue(':date', $message->getDate());
-        $this->insertMessageStatement->bindValue(':reply_to_message', $message->getReplyToMessage()?->getMessageId());
-        $userName = $message->getFrom()->getFirstName();
-        if ($message->getFrom()->getLastName() !== null) {
-            $userName .= ' ' . $message->getFrom()->getLastName();
-        }
-        $this->insertMessageStatement->bindValue(':username', $userName);
-        $this->insertMessageStatement->bindValue(':chat_id', $message->getChat()->getId());
-        $this->insertMessageStatement->bindValue(':message_text', $message->getText());
-
-
-        $this->insertMessageStatement->execute();
+        $this->logInternalMessage(InternalMessage::fromTelegramMessage($message));
     }
 
     public function logInternalMessage(InternalMessage $message): void
