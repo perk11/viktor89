@@ -34,6 +34,7 @@ $historyReader = new HistoryReader($database);
 $responder = new \Perk11\Viktor89\SiepatchNonInstruct4($historyReader);
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
+$responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
 //$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
 

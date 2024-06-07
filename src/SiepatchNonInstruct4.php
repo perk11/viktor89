@@ -65,12 +65,12 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface, AbortableStrea
         ];
         $fullContent = '';
         try {
-            $this->openAi->completion($opts, function ($curl_info, $data) use (&$fullContent) {
+            $this->openAi->completion($opts, function ($curl_info, $data) use ($prompt, &$fullContent) {
                 $parsedData = parse_completion_string($data);
                 echo $parsedData['content'];
                 $fullContent .= $parsedData['content'];
                 foreach ($this->abortResponseHandlers as $abortResponseHandler) {
-                    $newResponse = $abortResponseHandler->getNewResponse($fullContent);
+                    $newResponse = $abortResponseHandler->getNewResponse($prompt, $fullContent);
                     if ($newResponse !== false) {
                         $fullContent = $newResponse;
                         return 0;

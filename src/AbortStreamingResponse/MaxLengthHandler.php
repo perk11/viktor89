@@ -8,7 +8,7 @@ class MaxLengthHandler implements AbortStreamingResponseHandler
     {
     }
 
-    public function getNewResponse(string $currentResponse): string|false
+    public function getNewResponse(string $prompt, string $currentResponse): string|false
     {
         if (mb_strlen($currentResponse) < $this->maxResponseLength) {
             return false;

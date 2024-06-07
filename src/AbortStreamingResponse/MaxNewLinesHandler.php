@@ -8,7 +8,7 @@ class MaxNewLinesHandler implements AbortStreamingResponseHandler
     {
     }
 
-    public function getNewResponse(string $currentResponse): string|false
+    public function getNewResponse(string $prompt, string $currentResponse): string|false
     {
         if (substr_count($currentResponse, "\n") < $this->maxNewLines) {
             return false;
