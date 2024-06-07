@@ -4,6 +4,7 @@ use Longman\TelegramBot\Entities\Update;
 use Longman\TelegramBot\Request;
 use Longman\TelegramBot\Telegram;
 use Longman\TelegramBot\TelegramLog;
+use Perk11\Viktor89\HistoryReader;
 
 require 'vendor/autoload.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
@@ -29,9 +30,10 @@ function parse_completion_string(string $completionString)
 //$responder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
 //$responder = new \Perk11\Viktor89\Siepatch2Responder();
 $database = new \Perk11\Viktor89\Database('siepatch-non-instruct5');
-//$responder = new \Perk11\Viktor89\SiepatchNonInstruct4();
+$historyReader = new HistoryReader($database);
+$responder = new \Perk11\Viktor89\SiepatchNonInstruct4($historyReader);
 //$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
-$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
+//$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
 
 try {
     $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
@@ -59,7 +61,7 @@ try {
                 /** @var \Longman\TelegramBot\Entities\Message $message */
                 if ($message->getType() !== 'text' && $message->getType() !== 'command') {
                     echo "Message of type {$message->getType()} received\n";
-                    var_dump($message);
+//                    var_dump($message);
                     continue;
                 }
                 if ($message->getFrom() === null) {

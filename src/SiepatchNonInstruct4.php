@@ -9,8 +9,6 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
 {
     private OpenAi $openAi;
 
-    private array $chatsByUser = [];
-
     private array $personalityByUser = [];
 
     private array $videos = [
@@ -27,7 +25,7 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
 
     ];
 
-    public function __construct()
+    public function __construct(private HistoryReader $historyReader)
     {
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_SERVER']);
@@ -37,7 +35,7 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
     {
 //        $prompt = mb_substr($prompt, -1024);
         $opts = [
-            'prompt'            => $prompt,
+            'prompt'            => "\n\n" . $prompt,
             'temperature'       => 0.6,
             'cache_prompt'      => false,
             'repeat_penalty'    => 1.18,
@@ -93,61 +91,82 @@ class SiepatchNonInstruct4 implements TelegramResponderInterface
 
             return 'Теперь я буду тебе отвечать как ' . $personality;
         }
-        $userName = $message->getFrom()->getFirstName();
-        if ($message->getFrom()->getLastName() !== null) {
-            $userName .= ' ' . $message->getFrom()->getLastName();
-        }
-        $userName = str_replace(' ', '_', $userName);
-        $toAddToPrompt = "<bot>: [$userName] $incomingMessageText\n<bot>: [";
-        if (array_key_exists($message->getFrom()->getId(), $this->personalityByUser)) {
-            $personality = str_replace(' ', '_', $this->personalityByUser[$message->getFrom()->getId()]);
-            $toAddToPrompt .= "{$personality}] ";
-        }
-        echo $toAddToPrompt;
-        if (!array_key_exists($message->getFrom()->getId(), $this->chatsByUser) || str_starts_with($incomingMessageText, '@')) {
-            $this->chatsByUser[$message->getFrom()->getId()] = "\n\n";
-        }
-        $this->chatsByUser[$message->getFrom()->getId()] .= $toAddToPrompt;
+        $incomingMessageAsInternalMessage = InternalMessage::fromTelegramMessage($message);
+        $previousMessages = $this->historyReader->getPreviousMessages($message, 99, 99, 0);
+        $personality = array_key_exists($message->getFrom()->getId(), $this->personalityByUser) ? str_replace(
+            ' ',
+            '_',
+            $this->personalityByUser[$message->getFrom()->getId()]
+        ) : null;
+        $context = $this->generateContext($previousMessages, $incomingMessageAsInternalMessage, $personality);
+        echo $context;
 
-//        $this->chatsByUser[$message->getFrom()->getId()] = mb_substr($this->chatsByUser[$message->getFrom()->getId()], -512);
+        $response = $this->getCompletion($context);
+        for ($i = 0; $i < 5; $i++) {
+            if ($this->doesResponseNeedTobeRegenerated($response, $context)) {
+                array_shift($previousMessages);
+                $context = $this->generateContext($previousMessages, $incomingMessageAsInternalMessage, $personality);
+                $response = $this->getCompletion($context);
+            } else {
+                break;
+            }
+        }
 
-        $response = trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
-        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
-        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
-        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
-        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
-        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
-        $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
-        $addToChat = "$response\n";
-
-        if (!array_key_exists($message->getFrom()->getId(), $this->personalityByUser)) {
+        if ($personality === null) {
             $response =  '[отвечает ' . $response;
         }
-//        echo $addToChat;
-        $this->chatsByUser[$message->getFrom()->getId()] .= $addToChat;
         $youtube_pattern = '/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/';
         $response = preg_replace($youtube_pattern, $this->videos[array_rand($this->videos)], $response);
 
         return $response;
     }
 
-    private function checkForBadResponse(string $response, Message $message, string $resetText): string
+    private function doesResponseNeedTobeRegenerated(string $response, string $prompt): bool
     {
-        $responseAfterAuthor = mb_substr($response, strpos($response, ']') + 1);
-        if (str_contains($this->chatsByUser[$message->getFrom()->getId()], $responseAfterAuthor)) {
-            //avoid repetitions
-            $this->chatsByUser[$message->getFrom()->getId()] = $resetText;
-            return $this->getResponse($message);
+        if (str_ends_with($response, ']')) {
+            return true;
         }
-        if (str_ends_with($response, ']') || str_contains(mb_strtolower($response), 'не умею') || str_contains(mb_strtolower($response), 'не могу')) {
-            return $this->getResponse($message);
+        $responseAfterAuthor = mb_substr($response, strpos($response, ']') + 1);
+        if (str_contains($prompt, $responseAfterAuthor)) {
+            echo "Repeat response detected, restarting with fewer messages in context\n";
+
+            return true;
+        }
+        if (
+            mb_strlen($responseAfterAuthor) < 30 && (
+                str_contains(mb_strtolower($responseAfterAuthor), 'не умею') ||
+                str_contains(mb_strtolower($responseAfterAuthor), 'не могу') ||
+                str_contains(mb_strtolower($responseAfterAuthor), 'не знаю'))
+        ) {
+            echo "Invalid response detected, restarting with fewer messages in context\n";
+
+            return true;
         }
 
-        return $response;
+        return false;
     }
 
-    private function getResponse(Message $message): string
+    protected function formatInternalMessageForContext(InternalMessage $internalMessage): string
     {
-        return trim($this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]));
+        $userName = str_replace(' ', '_', $internalMessage->userName);
+        return "<bot>: [$userName] {$internalMessage->messageText}\n";
+    }
+
+    private function generateContext(
+        array $previousMessages,
+        InternalMessage $incomingMessageAsInternalMessage,
+        ?string $personality
+    ): string {
+        $context = "";
+        foreach ($previousMessages as $previousMessage) {
+            $context .= $this->formatInternalMessageForContext($previousMessage);
+        }
+        $context .= $this->formatInternalMessageForContext($incomingMessageAsInternalMessage);
+        $context .= "<bot>: [";
+        if ($personality !== null) {
+            $context .= "{$personality}] ";
+        }
+
+        return $context;
     }
 }
