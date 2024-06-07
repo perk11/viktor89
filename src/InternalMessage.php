@@ -21,9 +21,11 @@ class InternalMessage
     public string $userName;
 
     public string $messageText;
+
     public ?string $actualMessageText = null;
 
     public int $chatId;
+
     public static function fromSqliteAssoc(array $result): self
     {
         $message = new self();
@@ -52,7 +54,12 @@ class InternalMessage
             $message->userName .= ' ' . $telegramMessage->getFrom()->getLastName();
         }
         $message->chatId = $telegramMessage->getChat()->getId();
-        $message->messageText = $telegramMessage->getText();
+        $message->actualMessageText = $telegramMessage->getText();
+        $message->messageText = str_replace(
+            '@' . $_ENV['TELEGRAM_BOT_USERNAME'],
+            '',
+            $message->actualMessageText
+        );
 
         return $message;
     }
@@ -65,8 +72,9 @@ class InternalMessage
             'text' => $this->actualMessageText ?? $this->messageText,
         ];
         if ($this->replyToMessageId !== null) {
-           $options['reply_parameters'] = ['message_id' => $this->replyToMessageId];
+            $options['reply_parameters'] = ['message_id' => $this->replyToMessageId];
         }
+
         return Request::sendMessage($options);
     }
 }

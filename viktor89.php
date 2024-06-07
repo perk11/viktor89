@@ -112,12 +112,6 @@ try {
                         if ($replyToMessage->getFrom()->getId() !== $telegram->getBotId()) {
                             continue;
                         }
-                    } else {
-                        $incomingMessageText = str_replace(
-                            '@' . $_ENV['TELEGRAM_BOT_USERNAME'],
-                            '',
-                            $incomingMessageText
-                        );
                     }
                 }
                 $responseMessage = $responder->getResponseByMessage($message);
