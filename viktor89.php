@@ -28,6 +28,7 @@ function parse_completion_string(string $completionString)
 
     return json_decode(substr($completionString, strlen('data: '), JSON_THROW_ON_ERROR), true);
 }
+
 $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
 
 //$responder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
@@ -44,9 +45,13 @@ $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\
 //$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
 $preResponseProcessors = [
-    new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor($database,[
-        '-1001804789551' => 4,
-    ]),
+    new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
+        $database, $telegram->getBotId(),
+        [
+            '-4233480248' => 3,
+            '-1001804789551' => 4,
+        ]
+    ),
     new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
     new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
 ];
