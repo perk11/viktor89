@@ -16,7 +16,8 @@ class Database
     private \SQLite3Stmt|false $readPreferencesStatement;
     private \SQLite3Stmt|false $updatePreferencesStatement;
 
-    public function __construct(string $name)
+
+    public function __construct(private int $botUserId, string $name)
     {
         $databaseDir = dirname(__DIR__) . '/data';
         if (!@mkdir($databaseDir) && !is_dir($databaseDir)) {
@@ -95,6 +96,25 @@ class Database
         }
 
         return $resultingMessages;
+    }
+
+    public function countMessagesInChatFromBotToUserInLast24Hours(int $chatId, int $userId): int
+    {
+        $countMessagesByUserIn24HoursStatement = $this->sqlite3Database->prepare(
+            "SELECT count(1)
+FROM message
+         JOIN message source_message ON message.reply_to_message=source_message.id AND message.chat_id=source_message.chat_id
+WHERE message.chat_id=:chat_id
+ AND message.user_id=:bot_user_id
+      AND source_message.user_id=:checked_user_id
+AND message.date>unixepoch(DATETIME(CURRENT_TIMESTAMP, '-1 day'))"
+        );
+        $countMessagesByUserIn24HoursStatement->bindValue(':chat_id', $chatId);
+        $countMessagesByUserIn24HoursStatement->bindValue(':checked_user_id', $userId);
+        $countMessagesByUserIn24HoursStatement->bindValue(':bot_user_id', $this->botUserId);
+        $result = $countMessagesByUserIn24HoursStatement->execute();
+
+        return $result->fetchArray(SQLITE3_NUM)[0];
     }
 
     public function readUserPreference(int $userId, string $key): object|string|bool|null

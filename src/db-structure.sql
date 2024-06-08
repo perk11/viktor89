@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS `message` (
     `message_text` varchar --Message text
 );
 CREATE INDEX IF NOT EXISTS idx_chat_id_id ON message (chat_id, id);
+CREATE INDEX IF NOT EXISTS idx_date ON message (date);
+CREATE INDEX IF NOT EXISTS idx_user ON message (user_id);
 CREATE TABLE IF NOT EXISTS `user_preferences`
 (
     `user_id` bigint PRIMARY KEY,

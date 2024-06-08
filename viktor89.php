@@ -28,10 +28,11 @@ function parse_completion_string(string $completionString)
 
     return json_decode(substr($completionString, strlen('data: '), JSON_THROW_ON_ERROR), true);
 }
+$telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
 
 //$responder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
 //$responder = new \Perk11\Viktor89\Siepatch2Responder();
-$database = new \Perk11\Viktor89\Database('siepatch-non-instruct5');
+$database = new \Perk11\Viktor89\Database($telegram->getBotId(), 'siepatch-non-instruct5');
 $historyReader = new HistoryReader($database);
 $responder = new \Perk11\Viktor89\SiepatchNonInstruct4(
     $historyReader,
@@ -43,11 +44,13 @@ $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\
 //$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
 $preResponseProcessors = [
+    new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor($database,[
+        '-1001804789551' => 4,
+    ]),
     new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
     new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
 ];
 try {
-    $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
     echo "Connecting to Telegram...\n";
     $telegram->useGetUpdatesWithoutDatabase();
     while (true) {
