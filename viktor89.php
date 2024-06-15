@@ -1,5 +1,6 @@
 <?php
 
+use GuzzleHttp\Exception\ConnectException;
 use Longman\TelegramBot\Entities\Update;
 use Longman\TelegramBot\Request;
 use Longman\TelegramBot\Telegram;
@@ -144,5 +145,9 @@ try {
     }
 } catch (\Longman\TelegramBot\Exception\TelegramException $e) {
     TelegramLog::error($e);
+    usleep(10000);
+} catch (ConnectException $e) {
+    echo $e->getMessage();
+    echo "Curl error received, retrying in 10 seconds...\n";
     usleep(10000);
 }
