@@ -175,7 +175,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         if (str_ends_with($response, ']')) {
             return true;
         }
-        $responseAfterAuthor = mb_substr($response, strpos($response, ']') + 1);
+        $responseAfterAuthor = mb_substr($response, mb_strpos($response, '] ') + 2);
         if (str_contains($prompt, $responseAfterAuthor)) {
             echo "Repeat response detected, restarting with fewer messages in context\n";
 
