@@ -148,6 +148,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         $incomingMessageAsInternalMessage = InternalMessage::fromTelegramMessage($message);
         $previousMessages = $this->historyReader->getPreviousMessages($message, 99, 99, 0);
         $personality = $this->personalityProcessor->getCurrentPreferenceValue($incomingMessageAsInternalMessage->userId);
+        $personality = str_replace(']' , '_', $personality);
         $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($incomingMessageAsInternalMessage->userId);
 
         $context = $this->generateContext($previousMessages, $incomingMessageAsInternalMessage, $personality, $responseStart);
