@@ -120,6 +120,10 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
                 return $internalMessage;
             }
         }
+        if ($message->getType() === 'command') {
+            //Do not respond to commands other than the ones handled by preresponse processors
+            return null;
+        }
 
         Request::sendChatAction([
                                     'chat_id' => $message->getChat()->getId(),
