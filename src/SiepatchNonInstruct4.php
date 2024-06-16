@@ -156,6 +156,9 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
             $personality = str_replace(']' , '_', $personality);
         }
         $responseStart = $continueMode ? null :$this->responseStartProcessor->getCurrentPreferenceValue($incomingMessageAsInternalMessage->userId);
+        if ($personality === null && $responseStart !== null) {
+            $personality = 'Nanak0n';
+        }
 
         $context = $this->generateContext($previousMessages, $incomingMessageAsInternalMessage, $personality, $responseStart);
         echo $context;
@@ -164,14 +167,24 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
 
         if ($continueMode) {
             $internalMessage->userName = $incomingMessageAsInternalMessage->userName;
-            for ($i = 0; $i < 5; $i++) {
+            for ($i = 0; $i < 10; $i++) {
                 if (trim($internalMessage->messageText) === '') {
                     $internalMessage->messageText = $responseStart . $this->getCompletion($context);
                 } else {
                     break;
                 }
             }
-            return $internalMessage;
+            if (trim($internalMessage->messageText) === '') {
+                Request::execute('setMessageReaction', [
+                    'chat_id'    => $message->getChat()->getId(),
+                    'message_id' => $message->getMessageId(),
+                    'reaction'   => [[
+                        'type'  => 'emoji',
+                        'emoji' => '🤔',
+                    ]],
+                ]);
+            }
+                return $internalMessage;
         }
         for ($i = 0; $i < 5; $i++) {
             if ($this->doesResponseNeedTobeRegenerated($internalMessage->messageText, $context)) {
@@ -258,9 +271,6 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
             $context .= $this->formatInternalMessageForContext($incomingMessageAsInternalMessage);
             $context .= "<bot>: [";
 
-            if ($personality === null && $responseStart !== null) {
-                $personality = 'Nanak0n';
-            }
             if ($personality !== null) {
                 $context .= "{$personality}] ";
             }
