@@ -148,10 +148,25 @@ try {
         if ($iterationId % 60 === 0) {
             $newSummary = $summaryProvider->provideSummaryIf24HoursPassedSinceLastOneA('-1001804789551');
             if ($newSummary !== null) {
-                Request::sendMessage([
-                    'chat_id' =>-4233480248,
-                    'text' => "Анализ чата за последние 24 часа\n". $newSummary,
-                 ]);
+                $newSummary = "*Анализ чата за последние 24 часа*\n$newSummary";
+                // Define the maximum size of each message
+                $maxSize = 4000;
+
+                // Split the summary into chunks of 4000 characters
+                $chunks = mb_str_split($newSummary, $maxSize);
+
+                foreach ($chunks as $chunk) {
+                    sleep(11);
+                    // Replace '**' with '*' in the chunk
+                    $formattedText = str_replace('**', '*', $chunk);
+
+                    // Send each chunk as a separate message
+                    Request::sendMessage([
+                                             'chat_id'    => -1001804789551,
+                                             'text'       => $formattedText,
+                                             'parse_mode' => 'Markdown',
+                                         ]);
+                }
             }
         }
         $iterationId++;
