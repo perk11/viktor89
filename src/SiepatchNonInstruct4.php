@@ -235,6 +235,9 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         }
         $context .= $this->formatInternalMessageForContext($incomingMessageAsInternalMessage);
         $context .= "<bot>: [";
+        if ($personality === null && $responseStart !== null) {
+            $personality = 'Nanak0n';
+        }
         if ($personality !== null) {
             $context .= "{$personality}] ";
         }
