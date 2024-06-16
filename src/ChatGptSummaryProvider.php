@@ -17,7 +17,7 @@ class ChatGptSummaryProvider
         $this->chatGpt = new OpenAi($apiKey);
     }
 
-    private const MESSAGES_ANALYZED_PER_BATCH = 200;
+    private const MESSAGES_ANALYZED_PER_BATCH = 100;
     public function provideSummaryIf24HoursPassedSinceLastOneA(int $chatId): ?string
     {
         $lastSummaryDate = $this->database->getLastChatSummaryDate($chatId);
@@ -51,6 +51,7 @@ class ChatGptSummaryProvider
             foreach ($messages as $message) {
                 $prompt .= $message->userName . ': ' . $message->messageText . "\n";
             }
+            echo "Sending prompt of size " . mb_strlen($prompt) . " to ChatGPT...\n";
             $result = $this->chatGpt->chat([
                                                'messages' => [
                                                    [
@@ -62,14 +63,18 @@ class ChatGptSummaryProvider
                                                        "content" => $prompt,
                                                    ],
                                                ],
-//                                               'model'    => 'gpt-4o',
-                                           'model'    => 'gpt-3.5-turbo',
+                                               'model'    => 'gpt-4',
+//                                           'model'    => 'gpt-3.5-turbo',
 //                                           'stream'   => false,
                                            ]);
 
             $parsedResult = json_decode($result, JSON_THROW_ON_ERROR);
+            if (!array_key_exists('choices', $parsedResult)) {
+                echo "Unexpected response from ChatGPT: $result \n";
+            }
             $summary .= "\n" . $parsedResult['choices'][0]['message']['content'];
             $offset += self::MESSAGES_ANALYZED_PER_BATCH;
+            sleep(30); //avoid gpt-4 rate limit
         }
         echo $summary;
         $this->database->recordChatSummary($chatId, $summary);
