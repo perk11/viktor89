@@ -72,7 +72,7 @@ class ChatGptSummaryProvider
             $offset += self::MESSAGES_ANALYZED_PER_BATCH;
         }
         echo $summary;
-        $this->database->recordChatSummary($chatId, $result);
+        $this->database->recordChatSummary($chatId, $summary);
 
         return $summary;
     }
