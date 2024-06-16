@@ -115,7 +115,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         } catch (\Exception $e) {
         }
 
-        return trim($fullContent);
+        return rtrim($fullContent);
     }
 
     public function getResponseByMessage(Message $message): ?InternalMessage
