@@ -135,7 +135,8 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
                 return $internalMessage;
             }
         }
-        if ($message->getType() === 'command') {
+        $continueMode = trim($message->getText()) === '/continue';
+        if ($message->getType() === 'command' && !$continueMode) {
             //Do not respond to commands other than the ones handled by preresponse processors
             return null;
         }
@@ -148,13 +149,30 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         $incomingMessageAsInternalMessage = InternalMessage::fromTelegramMessage($message);
         $previousMessages = $this->historyReader->getPreviousMessages($message, 99, 99, 0);
         $personality = $this->personalityProcessor->getCurrentPreferenceValue($incomingMessageAsInternalMessage->userId);
-        $personality = str_replace(']' , '_', $personality);
-        $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($incomingMessageAsInternalMessage->userId);
+        if ($personality === '') {
+            $personality = null;
+        }
+        if ($personality !== null) {
+            $personality = str_replace(']' , '_', $personality);
+        }
+        $responseStart = $continueMode ? null :$this->responseStartProcessor->getCurrentPreferenceValue($incomingMessageAsInternalMessage->userId);
 
         $context = $this->generateContext($previousMessages, $incomingMessageAsInternalMessage, $personality, $responseStart);
         echo $context;
 
         $internalMessage->messageText = $responseStart . $this->getCompletion($context);
+
+        if ($continueMode) {
+            $internalMessage->userName = $incomingMessageAsInternalMessage->userName;
+            for ($i = 0; $i < 5; $i++) {
+                if (trim($internalMessage->messageText) === '') {
+                    $internalMessage->messageText = $responseStart . $this->getCompletion($context);
+                } else {
+                    break;
+                }
+            }
+            return $internalMessage;
+        }
         for ($i = 0; $i < 5; $i++) {
             if ($this->doesResponseNeedTobeRegenerated($internalMessage->messageText, $context)) {
                 array_shift($previousMessages);
@@ -164,6 +182,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
                 break;
             }
         }
+
 
         if ($personality === null) {
             $authorEndPosition = mb_strpos($internalMessage->messageText, ']');
@@ -233,16 +252,21 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         foreach ($previousMessages as $previousMessage) {
             $context .= $this->formatInternalMessageForContext($previousMessage);
         }
-        $context .= $this->formatInternalMessageForContext($incomingMessageAsInternalMessage);
-        $context .= "<bot>: [";
-        if ($personality === null && $responseStart !== null) {
-            $personality = 'Nanak0n';
-        }
-        if ($personality !== null) {
-            $context .= "{$personality}] ";
-        }
-        if ($responseStart !== null) {
-            $context .= $responseStart;
+        if (trim($incomingMessageAsInternalMessage->messageText) === '/continue') {
+            $context = rtrim($context);
+        } else {
+            $context .= $this->formatInternalMessageForContext($incomingMessageAsInternalMessage);
+            $context .= "<bot>: [";
+
+            if ($personality === null && $responseStart !== null) {
+                $personality = 'Nanak0n';
+            }
+            if ($personality !== null) {
+                $context .= "{$personality}] ";
+            }
+            if ($responseStart !== null) {
+                $context .= $responseStart;
+            }
         }
 
         return $context;
