@@ -38,7 +38,7 @@ $database = new \Perk11\Viktor89\Database($telegram->getBotId(), 'siepatch-non-i
 $historyReader = new HistoryReader($database);
 $responder = new \Perk11\Viktor89\SiepatchNonInstruct4(
     $historyReader,
-    new \Perk11\Viktor89\PreResponseProcessor\PersonalityProcessor($database),
+    $database,
 );
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
