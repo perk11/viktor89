@@ -11,6 +11,7 @@ use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
 use Perk11\Viktor89\PreResponseProcessor\PersonalityProcessor;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseSupportingGenerator;
+use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 
 class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface, AbortableStreamingResponseGenerator,
                                       PreResponseSupportingGenerator
@@ -37,14 +38,28 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
     /** @var PreResponseProcessor[] */
     private array $preResponseProcessors = [];
 
+    private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor;
+    private readonly UserPreferenceSetByCommandProcessor $personalityProcessor;
+
     public function __construct(
         private readonly HistoryReader $historyReader,
-        private readonly PersonalityProcessor $personalityProcessor,
+        private readonly Database $database,
     )
     {
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_SERVER']);
+        $this->personalityProcessor = new UserPreferenceSetByCommandProcessor(
+            $this->database,
+            ['/personality'],
+            'personality',
+        );
         $this->addPreResponseProcessor($this->personalityProcessor);
+        $this->responseStartProcessor = new UserPreferenceSetByCommandProcessor(
+            $this->database,
+            ['/responsestart', '/response-start'],
+            'response-start',
+        );
+        $this->addPreResponseProcessor($this->responseStartProcessor);
     }
 
     public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void
@@ -132,16 +147,18 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
 
         $incomingMessageAsInternalMessage = InternalMessage::fromTelegramMessage($message);
         $previousMessages = $this->historyReader->getPreviousMessages($message, 99, 99, 0);
-        $personality = $this->personalityProcessor->getCurrentPersonality($incomingMessageAsInternalMessage->userId);
-        $context = $this->generateContext($previousMessages, $incomingMessageAsInternalMessage, $personality);
+        $personality = $this->personalityProcessor->getCurrentPreferenceValue($incomingMessageAsInternalMessage->userId);
+        $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($incomingMessageAsInternalMessage->userId);
+
+        $context = $this->generateContext($previousMessages, $incomingMessageAsInternalMessage, $personality, $responseStart);
         echo $context;
 
-        $internalMessage->messageText = $this->getCompletion($context);
+        $internalMessage->messageText = $responseStart . $this->getCompletion($context);
         for ($i = 0; $i < 5; $i++) {
             if ($this->doesResponseNeedTobeRegenerated($internalMessage->messageText, $context)) {
                 array_shift($previousMessages);
-                $context = $this->generateContext($previousMessages, $incomingMessageAsInternalMessage, $personality);
-                $internalMessage->messageText = $this->getCompletion($context);
+                $context = $this->generateContext($previousMessages, $incomingMessageAsInternalMessage, $personality, $responseStart);
+                $internalMessage->messageText = $responseStart . $this->getCompletion($context);
             } else {
                 break;
             }
@@ -208,7 +225,8 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
     private function generateContext(
         array $previousMessages,
         InternalMessage $incomingMessageAsInternalMessage,
-        ?string $personality
+        ?string $personality,
+        ?string $responseStart,
     ): string {
         $context = "";
         foreach ($previousMessages as $previousMessage) {
@@ -218,6 +236,9 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         $context .= "<bot>: [";
         if ($personality !== null) {
             $context .= "{$personality}] ";
+        }
+        if ($responseStart !== null) {
+            $context .= $responseStart;
         }
 
         return $context;
