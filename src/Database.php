@@ -117,6 +117,24 @@ AND message.date>unixepoch(DATETIME(CURRENT_TIMESTAMP, '-1 day'))"
         return $result->fetchArray(SQLITE3_NUM)[0];
     }
 
+    /** @return InternalMessage[] */
+    public function findMessagesSentInLast24HoursInChat(int $chatId): array
+    {
+        $fetchMessagesStatement = $this->sqlite3Database->prepare(
+            "SELECT * FROM message WHERE chat_id = :chat_id AND message.date>unixepoch(DATETIME(CURRENT_TIMESTAMP, '-1 day'))
+                      ORDER BY id ASC"
+        );
+        $fetchMessagesStatement->bindValue(':chat_id', $chatId);
+
+        $resultingMessages = [];
+        $queryResult = $fetchMessagesStatement->execute();
+        while ($result = $queryResult->fetchArray(SQLITE3_ASSOC)) {
+            $resultingMessages[] = InternalMessage::fromSqliteAssoc($result);
+        }
+
+        return $resultingMessages;
+    }
+
     public function readUserPreference(int $userId, string $key): object|string|bool|null
     {
         $preferences = $this->readPreferencesArray($userId);
@@ -145,5 +163,32 @@ AND message.date>unixepoch(DATETIME(CURRENT_TIMESTAMP, '-1 day'))"
 
         return json_decode($preferencesArray['preferences'], true, flags: JSON_THROW_ON_ERROR);
 
+    }
+
+    public function getLastChatSummaryDate(int $chatId): ?int
+    {
+        $fetchMessagesStatement = $this->sqlite3Database->prepare(
+            "SELECT date FROM chat_summary WHERE chat_id = :chat_id ORDER BY date DESC LIMIT 1"
+        );
+        $fetchMessagesStatement->bindValue(':chat_id', $chatId);
+        $result = $fetchMessagesStatement->execute();
+
+        $resultArray =  $result->fetchArray(SQLITE3_NUM);
+        if ($resultArray === false) {
+            return null;
+        }
+        return $resultArray[0];
+    }
+
+    public function recordChatSummary(int $chatId, string $summary): void
+    {
+        $statement = $this->sqlite3Database->prepare(
+            'INSERT INTO chat_summary (chat_id, summary, date) VALUES (:chat_id, :summary, :date)'
+        );
+
+        $statement->bindValue(':chat_id', $chatId);
+        $statement->bindValue(':summary', $summary);
+        $statement->bindValue(':date', time());
+        $statement->execute();
     }
 }

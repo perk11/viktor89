@@ -15,4 +15,12 @@ CREATE TABLE IF NOT EXISTS `user_preferences`
 (
     `user_id` bigint PRIMARY KEY,
     `preferences` text --stored as JSON
-)
+);
+
+
+CREATE TABLE IF NOT EXISTS `chat_summary`
+(
+    `chat_id` bigint,
+    `date` timestamp,
+    `summary` varchar
+);

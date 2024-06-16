@@ -43,6 +43,8 @@ $responder = new \Perk11\Viktor89\SiepatchNonInstruct4(
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
+$summaryProvider = new \Perk11\Viktor89\ChatGptSummaryProvider($database);
+
 //$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
 $preResponseProcessors = [
@@ -59,6 +61,7 @@ $preResponseProcessors = [
 try {
     echo "Connecting to Telegram...\n";
     $telegram->useGetUpdatesWithoutDatabase();
+    $iterationId = 0;
     while (true) {
         $serverResponse = $telegram->handleGetUpdates([
                                                           'allowed_updates' => [
@@ -141,6 +144,17 @@ try {
             echo date('Y-m-d H:i:s') . ' - Failed to fetch updates' . PHP_EOL;
             echo $serverResponse->printError();
         }
+
+        if ($iterationId % 60 === 0) {
+            $newSummary = $summaryProvider->provideSummaryIf24HoursPassedSinceLastOneA('-1001804789551');
+            if ($newSummary !== null) {
+                Request::sendMessage([
+                    'chat_id' =>-4233480248,
+                    'text' => "Анализ чата за последние 24 часа\n". $newSummary,
+                 ]);
+            }
+        }
+        $iterationId++;
         usleep(1000);
     }
 } catch (\Longman\TelegramBot\Exception\TelegramException $e) {
