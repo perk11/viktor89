@@ -49,7 +49,7 @@ $preResponseProcessors = [
     new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
         $database, $telegram->getBotId(),
         [
-            '-4233480248' => 3,
+//            '-4233480248' => 3,
             '-1001804789551' => 4,
         ]
     ),
