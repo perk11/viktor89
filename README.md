@@ -20,4 +20,4 @@ For versions 4 and 5 expected format is:
 4. Start llama.cpp:  ./server -m llama3-20240530_siepatch-non-instruct4_5epoch_q8_0-unsloth.Q8_0.gguf -fa -c 2048 -n 2048
 5. [Download composer](https://getcomposer.org/download/) 
 6. Run `php ./composer.phar install`
-7. Run `php viktor89.php.`
+7. Run `php viktor89.php`
