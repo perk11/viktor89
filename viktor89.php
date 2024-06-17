@@ -100,7 +100,7 @@ try {
                 }
 
                 if ($message->getType() === 'new_chat_members') {
-                    echo "New member detected, sending tutorial";
+                    echo "New member detected, sending tutorial\n";
                     $tresponse = Request::sendVideo([
                         'chat_id'    => $message->getChat()->getId(),
                         'reply_to_message_id' => $message->getMessageId(),
