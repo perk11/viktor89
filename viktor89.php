@@ -45,7 +45,11 @@ $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
 $summaryProvider = new \Perk11\Viktor89\ChatGptSummaryProvider($database);
 
-$tutors = array('https://cloud.nw-sys.ru/index.php/s/z97QnXmfcM8QKDn/download', 'https://cloud.nw-sys.ru/index.php/s/xqpNxq6Akk6SbDX/download', 'https://cloud.nw-sys.ru/index.php/s/eCkqzWGqGAFRjMQ/download' );
+$tutors = [
+    'https://cloud.nw-sys.ru/index.php/s/z97QnXmfcM8QKDn/download',
+    'https://cloud.nw-sys.ru/index.php/s/xqpNxq6Akk6SbDX/download',
+    'https://cloud.nw-sys.ru/index.php/s/eCkqzWGqGAFRjMQ/download',
+];
 
 //$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
@@ -95,7 +99,7 @@ try {
                     continue;
                 }
 
-                if ($message->getType() == 'new_chat_members') {
+                if ($message->getType() === 'new_chat_members') {
                     echo "New member detected, sending tutorial";
                     $tresponse = Request::sendVideo([
                         'chat_id'    => $message->getChat()->getId(),
