@@ -192,8 +192,8 @@ while (true) {
         TelegramLog::error($e);
         usleep(10000000);
     } catch (ConnectException $e) {
-        echo $e->getMessage();
-        echo "Curl error received, retrying in 10 seconds...\n";
+        echo "Curl error received, retrying in 10 seconds:\n";
+        echo $e->getMessage()."\n";
         usleep(10000000);
     }
 }
