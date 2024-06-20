@@ -64,11 +64,11 @@ $preResponseProcessors = [
     new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
     new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
 ];
-try {
-    echo "Connecting to Telegram...\n";
-    $telegram->useGetUpdatesWithoutDatabase();
-    $iterationId = 0;
-    while (true) {
+echo "Connecting to Telegram...\n";
+$telegram->useGetUpdatesWithoutDatabase();
+$iterationId = 0;
+while (true) {
+    try {
         $serverResponse = $telegram->handleGetUpdates([
                                                           'allowed_updates' => [
                                                               Update::TYPE_MESSAGE,
@@ -90,7 +90,8 @@ try {
                     continue;
                 }
                 /** @var \Longman\TelegramBot\Entities\Message $message */
-                if ($message->getType() !== 'text' && $message->getType() !== 'command' && $message->getType() !== 'new_chat_members') {
+                if ($message->getType() !== 'text' && $message->getType() !== 'command' && $message->getType(
+                    ) !== 'new_chat_members') {
                     echo "Message of type {$message->getType()} received\n";
                     if ($message->getType() === 'sticker') {
                         echo $message->getSticker()->getFileId() . "\n";
@@ -102,13 +103,13 @@ try {
                 if ($message->getType() === 'new_chat_members') {
                     echo "New member detected, sending tutorial\n";
                     Request::sendVideo([
-                        'chat_id'    => $message->getChat()->getId(),
-                        'reply_to_message_id' => $message->getMessageId(),
-                        'video' => $tutors[array_rand($tutors)]]);
+                                           'chat_id'             => $message->getChat()->getId(),
+                                           'reply_to_message_id' => $message->getMessageId(),
+                                           'video'               => $tutors[array_rand($tutors)],
+                                       ]);
                     continue;
-                    
                 }
-                
+
                 if ($message->getFrom() === null) {
                     echo "Message without a sender received\n";
                     continue;
@@ -179,20 +180,20 @@ try {
                     // Send each chunk as a separate message
                     Request::sendMessage([
                                              'chat_id'    => -1001804789551,
-                                             'text' => $chunk,
+                                             'text'       => $chunk,
                                              'parse_mode' => 'Markdown',
                                          ]);
                 }
             }
         }
         $iterationId++;
-        usleep(1000);
+        usleep(1000000);
+    } catch (\Longman\TelegramBot\Exception\TelegramException $e) {
+        TelegramLog::error($e);
+        usleep(10000000);
+    } catch (ConnectException $e) {
+        echo $e->getMessage();
+        echo "Curl error received, retrying in 10 seconds...\n";
+        usleep(10000000);
     }
-} catch (\Longman\TelegramBot\Exception\TelegramException $e) {
-    TelegramLog::error($e);
-    usleep(10000);
-} catch (ConnectException $e) {
-    echo $e->getMessage();
-    echo "Curl error received, retrying in 10 seconds...\n";
-    usleep(10000);
 }
