@@ -49,8 +49,6 @@ class Automatic1111APiClient
             'height' => 1024,
             'sampler_name' => 'DPM++ 2M',
             'steps' => 30,
-            'refiner_checkpoint' => 'sd_xl_refiner_1.0_0.9vae.safetensors',
-            'refiner_switch_at' => 0.8,
         ]);
         $decoded = json_decode($response->getBody(), true, 512, JSON_THROW_ON_ERROR);
         if (!array_key_exists('images', $decoded) || !is_array($decoded['images'])) {
