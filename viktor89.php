@@ -61,6 +61,10 @@ $preResponseProcessors = [
             '-1001804789551' => 4,
         ]
     ),
+    new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
+        ['/image'],
+        new \Perk11\Viktor89\Automatic1111APiClient(),
+    ),
     new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
     new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
 ];
