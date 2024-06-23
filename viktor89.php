@@ -178,11 +178,11 @@ while (true) {
                 foreach ($chunks as $chunk) {
                     sleep(20);
                     // Send each chunk as a separate message
-                    Request::sendMessage([
+                    var_dump(Request::sendMessage([
                                              'chat_id'    => -1001804789551,
                                              'text'       => $chunk,
                                              'parse_mode' => 'Markdown',
-                                         ]);
+                                         ]));
                 }
             }
         }
