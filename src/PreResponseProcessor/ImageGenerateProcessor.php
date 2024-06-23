@@ -43,6 +43,7 @@ class ImageGenerateProcessor implements PreResponseProcessor
         try {
             $image = $this->automatic1111APiClient->getPngContentsByPromptTxt2Img($prompt);
             $imagePath = tempnam(sys_get_temp_dir(), 'viktor89-image-generator');
+            echo "Temporary image recorded to $imagePath\n";
             file_put_contents($imagePath, $image);
             Request::sendPhoto([
                                    'chat_id'          => $message->getChat()->getId(),
@@ -51,6 +52,7 @@ class ImageGenerateProcessor implements PreResponseProcessor
                                    ],
                                    'photo'            => Request::encodeFile($imagePath),
                                ]);
+            echo "Deleting $imagePath\n";
             unlink($imagePath);
             Request::execute('setMessageReaction', [
                 'chat_id'    => $message->getChat()->getId(),
