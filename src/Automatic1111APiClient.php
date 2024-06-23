@@ -21,10 +21,11 @@ class Automatic1111APiClient
     public function getPngContentsByPromptTxt2Img(string $prompt): string
     {
         $response = $this->request('txt2img', [
+            'model' => 'sd_xl_base_1.0_0.9vae.safetensors',
             'prompt' => $prompt,
             'width' => 1024,
             'height' => 1024,
-            'sampler' => 'k_dpmpp_2m',
+            'sampler_name' => 'DPM++ 2M',
             'steps' => 30,
             'refiner_checkpoint' => 'sd_xl_refiner_1.0_0.9vae.safetensors',
             'refiner_switch_at' => 0.8,
