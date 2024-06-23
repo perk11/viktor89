@@ -1,37 +1,38 @@
 <?php
 
-namespace Perk11\Viktor89\PreResponseProcessor;
+namespace Perk11\Viktor89;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
-use Perk11\Viktor89\Automatic1111APiClient;
-use Perk11\Viktor89\PhotoResponder;
 
-class ImageGenerateProcessor implements PreResponseProcessor
+class PhotoImg2ImgProcessor
 {
     public function __construct(
-        private readonly array $triggeringCommands,
+        private readonly TelegramPhotoDownloader $telegramPhotoDownloader,
         private readonly Automatic1111APiClient $automatic1111APiClient,
         private readonly PhotoResponder $photoResponder,
     ) {
     }
 
-    public function process(Message $message): false|string|null
+    public function processPhoto(Message $message): void
     {
-        $messageText = $message->getText();
-        foreach ($this->triggeringCommands as $triggeringCommand) {
-            if (str_starts_with($messageText, $triggeringCommand)) {
-                $prompt = trim(str_replace($triggeringCommand, '', $messageText));
-                break;
-            }
+        $caption = $message->getCaption();
+        echo "Photo received with caption $caption\n";
+        if (!str_contains($caption, '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
+            return;
         }
-        if (!isset($prompt)) {
-            return false;
-        }
+
+        $prompt = trim(
+            str_replace(
+                '@' . $_ENV['TELEGRAM_BOT_USERNAME'],
+                '',
+                $message->getCaption()
+            )
+        );
         if ($prompt === '') {
-            return 'Непонятно, что генерировать...';
+            return;
         }
-        echo "Generating image for prompt: $prompt\n";
+        echo "Generating img2img for prompt: $prompt\n";
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->getChat()->getId(),
             'message_id' => $message->getMessageId(),
@@ -43,8 +44,13 @@ class ImageGenerateProcessor implements PreResponseProcessor
             ],
         ]);
         try {
-            $image = $this->automatic1111APiClient->getPngContentsByPromptTxt2Img($prompt);
-            $this->photoResponder->sendPhoto($message, $image);
+            $photo = $this->telegramPhotoDownloader->downloadPhotoFromMessage($message);
+            $transformedPhoto = $this->automatic1111APiClient->getPngContentsByPromptAndImageImg2Img(
+                $photo,
+                'image/jpeg',
+                $prompt
+            );
+            $this->photoResponder->sendPhoto($message, $transformedPhoto);
         } catch (\Exception $e) {
             echo "Failed to generate image:\n" . $e->getMessage(),
             Request::execute('setMessageReaction', [
@@ -58,7 +64,5 @@ class ImageGenerateProcessor implements PreResponseProcessor
                 ],
             ]);
         }
-
-        return null;
     }
 }
