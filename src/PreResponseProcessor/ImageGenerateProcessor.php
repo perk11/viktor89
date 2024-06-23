@@ -30,6 +30,16 @@ class ImageGenerateProcessor implements PreResponseProcessor
             return 'Непонятно, что генерировать...';
         }
         echo "Generating image for prompt: $prompt\n";
+        Request::execute('setMessageReaction', [
+            'chat_id'    => $message->getChat()->getId(),
+            'message_id' => $message->getMessageId(),
+            'reaction'   => [
+                [
+                    'type'  => 'emoji',
+                    'emoji' => '👀',
+                ],
+            ],
+        ]);
         try {
             $image = $this->automatic1111APiClient->getPngContentsByPromptTxt2Img($prompt);
             $imagePath = tempnam(sys_get_temp_dir(), 'viktor89-image-generator');
@@ -42,6 +52,16 @@ class ImageGenerateProcessor implements PreResponseProcessor
                                    'photo'            => Request::encodeFile($imagePath),
                                ]);
             unlink($imagePath);
+            Request::execute('setMessageReaction', [
+                'chat_id'    => $message->getChat()->getId(),
+                'message_id' => $message->getMessageId(),
+                'reaction'   => [
+                    [
+                        'type'  => 'emoji',
+                        'emoji' => '😎',
+                    ],
+                ],
+            ]);
         } catch (\Exception $e) {
             echo "Failed to generate image:\n" . $e->getMessage(),
             Request::execute('setMessageReaction', [
