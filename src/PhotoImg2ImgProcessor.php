@@ -47,8 +47,8 @@ class PhotoImg2ImgProcessor
             $photo = $this->telegramPhotoDownloader->downloadPhotoFromMessage($message);
             $transformedPhoto = $this->automatic1111APiClient->getPngContentsByPromptAndImageImg2Img(
                 $photo,
-                'image/jpeg',
-                $prompt
+                $prompt,
+                $message->getFrom()->getId(),
             );
             $this->photoResponder->sendPhoto($message, $transformedPhoto);
         } catch (\Exception $e) {

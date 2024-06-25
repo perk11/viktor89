@@ -9,6 +9,7 @@ use Perk11\Viktor89\HistoryReader;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\PhotoResponder;
+use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 
 require 'vendor/autoload.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
@@ -47,7 +48,8 @@ $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
 $summaryProvider = new \Perk11\Viktor89\ChatGptSummaryProvider($database);
 $telegramPhotoDownloader = new \Perk11\Viktor89\TelegramPhotoDownloader($telegram->getApiKey());
-$automatic1111APiClient = new \Perk11\Viktor89\Automatic1111APiClient();
+$denoisingStrengthProcessor = new UserPreferenceSetByCommandProcessor($database, ['/denoising_strength', '/denoisingstrength'], 'denoising-strength');
+$automatic1111APiClient = new \Perk11\Viktor89\Automatic1111APiClient($denoisingStrengthProcessor);
 $photoResponder = new PhotoResponder();
 $photoImg2ImgProcessor = new PhotoImg2ImgProcessor(
     $telegramPhotoDownloader,
@@ -76,8 +78,10 @@ $preResponseProcessors = [
         $automatic1111APiClient,
         $photoResponder,
     ),
+    $denoisingStrengthProcessor,
     new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
     new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
+
 ];
 echo "Connecting to Telegram...\n";
 $telegram->useGetUpdatesWithoutDatabase();
