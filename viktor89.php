@@ -9,6 +9,7 @@ use Perk11\Viktor89\HistoryReader;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\PhotoResponder;
+use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 
 require 'vendor/autoload.php';
@@ -48,7 +49,13 @@ $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\
 $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
 $summaryProvider = new \Perk11\Viktor89\ChatGptSummaryProvider($database);
 $telegramPhotoDownloader = new \Perk11\Viktor89\TelegramPhotoDownloader($telegram->getApiKey());
-$denoisingStrengthProcessor = new UserPreferenceSetByCommandProcessor($database, ['/denoising_strength', '/denoisingstrength'], 'denoising-strength');
+$denoisingStrengthProcessor = new NumericPreferenceInRangeByCommandProcessor(
+    $database,
+    ['/denoising_strength', '/denoisingstrength'],
+    'denoising-strength',
+    0,
+    1,
+);
 $automatic1111APiClient = new \Perk11\Viktor89\Automatic1111APiClient($denoisingStrengthProcessor);
 $photoResponder = new PhotoResponder();
 $photoImg2ImgProcessor = new PhotoImg2ImgProcessor(

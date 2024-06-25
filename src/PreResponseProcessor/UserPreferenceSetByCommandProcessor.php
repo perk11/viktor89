@@ -16,6 +16,20 @@ class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
     {
     }
 
+    protected function getValueValidationErrors(?string $value): array
+    {
+        return [];
+    }
+
+    protected function transformValue(string $value): mixed
+    {
+        if ($value === 'reset' || $value === '') {
+            return null;
+        }
+
+        return $value;
+    }
+
     public function process(Message $message): false|string|null
     {
         $messageText = $message->getText();
@@ -30,8 +44,10 @@ class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
         if (!$triggerFound) {
             return false;
         }
-        if ($preferenceValue === 'reset' || $preferenceValue === '') {
-            $preferenceValue = null;
+        $preferenceValue = $this->transformValue($preferenceValue);
+        $validationErrors = $this->getValueValidationErrors($preferenceValue);
+        if (count($validationErrors) > 0) {
+            return "Ошибка: " . implode("\n", $validationErrors);
         }
         $this->database->writeUserPreference($message->getFrom()->getId(), $this->preferenceName, $preferenceValue);
 
@@ -43,7 +59,7 @@ class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
                     'type'  => 'emoji',
                     'emoji' => '👌',
                 ]],
-                'is_big' => true
+                'is_big' => true,
             ]);
             echo "Reacting to message result: $response\n";
         } catch (\Exception $e) {
