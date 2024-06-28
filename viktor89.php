@@ -56,7 +56,23 @@ $denoisingStrengthProcessor = new NumericPreferenceInRangeByCommandProcessor(
     0,
     1,
 );
-$automatic1111APiClient = new \Perk11\Viktor89\Automatic1111APiClient($denoisingStrengthProcessor);
+$stepsProcessor = new NumericPreferenceInRangeByCommandProcessor(
+    $database,
+    ['/steps',],
+    'steps',
+    1,
+    75,
+);
+$seedProcessor = new UserPreferenceSetByCommandProcessor(
+    $database,
+    ['/seed',],
+    'seed',
+);
+$automatic1111APiClient = new \Perk11\Viktor89\Automatic1111APiClient(
+    $denoisingStrengthProcessor,
+    $stepsProcessor,
+    $seedProcessor,
+);
 $photoResponder = new PhotoResponder();
 $photoImg2ImgProcessor = new PhotoImg2ImgProcessor(
     $telegramPhotoDownloader,
@@ -86,6 +102,8 @@ $preResponseProcessors = [
         $photoResponder,
     ),
     $denoisingStrengthProcessor,
+    $stepsProcessor,
+    $seedProcessor,
     new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
     new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
 
