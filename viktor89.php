@@ -106,6 +106,7 @@ $preResponseProcessors = [
     $seedProcessor,
     new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
     new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
+    new \Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant(['/assistant'], $database),
 
 ];
 echo "Connecting to Telegram...\n";
