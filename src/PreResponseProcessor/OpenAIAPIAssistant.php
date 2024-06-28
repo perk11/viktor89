@@ -2,12 +2,9 @@
 
 namespace Perk11\Viktor89\PreResponseProcessor;
 
-use Longman\TelegramBot\Entities\Message;
 use Orhanerday\OpenAi\OpenAi;
-use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\TelegramChainBasedResponderInterface;
-use Perk11\Viktor89\TelegramResponderInterface;
 
 class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
 {
@@ -15,6 +12,7 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
     private OpenAi $openAi;
 
     public function __construct(
+        private UserPreferenceSetByCommandProcessor $systemPromptProcessor,
     ) {
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_ASSISTANT_SERVER']);
@@ -59,7 +57,9 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
     {
         $personality = 'Gemma';
 
-        $prompt = "This is a conversation between User and $personality, a friendly assistant chatbot. $personality is helpful, kind, honest, good at writing, knows everything, and never fails to answer any requests immediately and with precision.\n\n";
+        $systemPrompt = $this->systemPromptProcessor->getCurrentPreferenceValue($messageChain[count($messageChain) - 1]->userId) ??
+            "This is a conversation between User and $personality, a friendly assistant chatbot. $personality is helpful, kind, honest, good at writing, knows everything, and never fails to answer any requests immediately and with precision.";
+        $prompt = "$systemPrompt\n\n";
 
         $human = count($messageChain) % 2 === 1;
         foreach ($messageChain as $message) {

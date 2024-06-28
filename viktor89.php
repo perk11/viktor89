@@ -79,7 +79,11 @@ $photoImg2ImgProcessor = new PhotoImg2ImgProcessor(
     $automatic1111APiClient,
     $photoResponder,
 );
-
+$systemPromptProcessor = new UserPreferenceSetByCommandProcessor(
+    $database,
+    ['/system_prompt', '/systemprompt'],
+    'system_prompt',
+);
 $tutors = [
     'https://cloud.nw-sys.ru/index.php/s/z97QnXmfcM8QKDn/download',
     'https://cloud.nw-sys.ru/index.php/s/xqpNxq6Akk6SbDX/download',
@@ -104,13 +108,14 @@ $preResponseProcessors = [
     $denoisingStrengthProcessor,
     $stepsProcessor,
     $seedProcessor,
-    new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
-    new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
+    $systemPromptProcessor,
     new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
         ['/assistant'],
         $database,
-        new \Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant(),
+        new \Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant($systemPromptProcessor),
     ),
+    new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
+    new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
 ];
 echo "Connecting to Telegram...\n";
 $telegram->useGetUpdatesWithoutDatabase();
