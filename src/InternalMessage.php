@@ -55,10 +55,10 @@ class InternalMessage
         }
         $message->chatId = $telegramMessage->getChat()->getId();
         $message->actualMessageText = $telegramMessage->getText();
-        $message->messageText = str_replace(
+        $message->messageText = ltrim(str_replace(
             '@' . $_ENV['TELEGRAM_BOT_USERNAME'],
             '',
-            $message->actualMessageText
+            $message->actualMessageText)
         );
 
         return $message;
