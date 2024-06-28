@@ -22,6 +22,8 @@ class InternalMessage
 
     public string $messageText;
 
+    public string $parseMode = 'Default';
+
     public ?string $actualMessageText = null;
 
     public int $chatId;
@@ -73,6 +75,9 @@ class InternalMessage
         ];
         if ($this->replyToMessageId !== null) {
             $options['reply_parameters'] = ['message_id' => $this->replyToMessageId];
+        }
+        if ($this->parseMode !== 'Default') {
+            $options['parse_mode'] = $this->parseMode;
         }
 
         return Request::sendMessage($options);
