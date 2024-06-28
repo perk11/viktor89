@@ -237,7 +237,6 @@ while (true) {
                     var_dump(Request::sendMessage([
                                              'chat_id'    => -1001804789551,
                                              'text'       => $chunk,
-                                             'parse_mode' => 'Markdown',
                                          ]));
                 }
             }
