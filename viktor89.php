@@ -40,13 +40,8 @@ $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNA
 //$responder = new \Perk11\Viktor89\Siepatch2Responder();
 $database = new \Perk11\Viktor89\Database($telegram->getBotId(), 'siepatch-non-instruct5');
 $historyReader = new HistoryReader($database);
-$responder = new \Perk11\Viktor89\SiepatchNonInstruct4(
-    $historyReader,
-    $database,
-);
-$responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
-$responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
-$responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
+
+
 $summaryProvider = new \Perk11\Viktor89\ChatGptSummaryProvider($database);
 $telegramPhotoDownloader = new \Perk11\Viktor89\TelegramPhotoDownloader($telegram->getApiKey());
 $denoisingStrengthProcessor = new NumericPreferenceInRangeByCommandProcessor(
@@ -84,6 +79,11 @@ $systemPromptProcessor = new UserPreferenceSetByCommandProcessor(
     ['/system_prompt', '/systemprompt'],
     'system_prompt',
 );
+$responseStartProcessor = new UserPreferenceSetByCommandProcessor(
+    $database,
+    ['/responsestart', '/response-start'],
+    'response-start',
+);
 $tutors = [
     'https://cloud.nw-sys.ru/index.php/s/z97QnXmfcM8QKDn/download',
     'https://cloud.nw-sys.ru/index.php/s/xqpNxq6Akk6SbDX/download',
@@ -92,6 +92,14 @@ $tutors = [
 
 //$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
+$responder = new \Perk11\Viktor89\SiepatchNonInstruct4(
+    $historyReader,
+    $database,
+    $responseStartProcessor,
+);
+$responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
+$responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
+$responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
 $preResponseProcessors = [
     new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
         $database, $telegram->getBotId(),
@@ -109,10 +117,11 @@ $preResponseProcessors = [
     $stepsProcessor,
     $seedProcessor,
     $systemPromptProcessor,
+    $responseStartProcessor,
     new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
         ['/assistant'],
         $database,
-        new \Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant($systemPromptProcessor),
+        new \Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant($systemPromptProcessor, $responseStartProcessor),
     ),
     new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
     new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),

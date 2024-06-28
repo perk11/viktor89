@@ -38,12 +38,12 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
     /** @var PreResponseProcessor[] */
     private array $preResponseProcessors = [];
 
-    private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor;
     private readonly UserPreferenceSetByCommandProcessor $personalityProcessor;
 
     public function __construct(
         private readonly HistoryReader $historyReader,
         private readonly Database $database,
+        private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor,
     )
     {
         $this->openAi = new OpenAi('');
@@ -54,12 +54,6 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
             'personality',
         );
         $this->addPreResponseProcessor($this->personalityProcessor);
-        $this->responseStartProcessor = new UserPreferenceSetByCommandProcessor(
-            $this->database,
-            ['/responsestart', '/response-start'],
-            'response-start',
-        );
-        $this->addPreResponseProcessor($this->responseStartProcessor);
     }
 
     public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void

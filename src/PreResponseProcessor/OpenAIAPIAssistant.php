@@ -12,7 +12,8 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
     private OpenAi $openAi;
 
     public function __construct(
-        private UserPreferenceSetByCommandProcessor $systemPromptProcessor,
+        private readonly UserPreferenceSetByCommandProcessor $systemPromptProcessor,
+        private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor,
     ) {
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_ASSISTANT_SERVER']);
@@ -57,7 +58,8 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
     {
         $personality = 'Gemma';
 
-        $systemPrompt = $this->systemPromptProcessor->getCurrentPreferenceValue($messageChain[count($messageChain) - 1]->userId) ??
+        $userId = $messageChain[count($messageChain) - 1]->userId;
+        $systemPrompt = $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
             "This is a conversation between User and $personality, a friendly assistant chatbot. $personality is helpful, kind, honest, good at writing, knows everything, and never fails to answer any requests immediately and with precision.";
         $prompt = "$systemPrompt\n\n";
 
@@ -67,8 +69,11 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
             $prompt .= "$previousMessageUserName: " . $message->messageText . "\n";
             $human = !$human;
         }
-        $incomingMessageConvertedToPrompt = "$personality: ";
-        $prompt .= $incomingMessageConvertedToPrompt;
+        $prompt .= "$personality: ";
+        $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($userId);
+        if ($responseStart !== null) {
+            $prompt .= $responseStart;
+        }
         echo $prompt;
 
         $lastMessage = $messageChain[count($messageChain) - 1];
@@ -76,7 +81,7 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
         $message->replyToMessageId = $lastMessage->id;
         $message->chatId = $lastMessage->chatId;
 //        $message->parseMode = 'MarkdownV2';
-        $message->messageText = trim($this->getCompletion($prompt, $personality));
+        $message->messageText = $responseStart . trim($this->getCompletion($prompt, $personality));
 
         return $message;
     }
