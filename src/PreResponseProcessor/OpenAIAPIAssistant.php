@@ -82,6 +82,14 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
         $message->chatId = $lastMessage->chatId;
 //        $message->parseMode = 'MarkdownV2';
         $message->messageText = $responseStart . trim($this->getCompletion($prompt, $personality));
+        for ($i = 0; $i < 5; $i++) {
+            if (trim($message->messageText) === '') {
+                echo "Bad response detected, trying again\n";
+                $message->messageText = $responseStart . $this->getCompletion($prompt, $personality);
+            } else {
+                break;
+            }
+        }
 
         return $message;
     }
