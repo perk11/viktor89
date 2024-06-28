@@ -113,8 +113,10 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
                 return strlen($data);
             });
         } catch (\Exception $e) {
+            echo "Got error when accessing Sipeatch OpenAI API: ";
+            echo $e->getMessage() . "\n";
+            return '] Ошибка подключения к llama.cpp по-сипатчевски';
         }
-
         return rtrim($fullContent);
     }
 
