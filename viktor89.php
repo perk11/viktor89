@@ -175,7 +175,14 @@ while (true) {
                         $internalMessage->userName = $_ENV['TELEGRAM_BOT_USERNAME'];
                         $internalMessage->messageText = $replacedMessage;
 
-                        $internalMessage->send();
+                        $response = $internalMessage->send();
+                        if ($response->isOk()) {
+                            $database->logMessage($response->getResult());
+                        } else {
+                            echo "Failed to send message: ";
+                            print_r($response->getRawData());
+                            echo "\n";
+                        }
                         continue 2;
                     }
                 }
