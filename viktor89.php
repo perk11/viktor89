@@ -106,8 +106,11 @@ $preResponseProcessors = [
     $seedProcessor,
     new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
     new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
-    new \Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant(['/assistant'], $database),
-
+    new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+        ['/assistant'],
+        $database,
+        new \Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant(),
+    ),
 ];
 echo "Connecting to Telegram...\n";
 $telegram->useGetUpdatesWithoutDatabase();
