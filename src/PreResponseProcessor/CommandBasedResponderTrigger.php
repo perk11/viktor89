@@ -83,7 +83,13 @@ class CommandBasedResponderTrigger implements PreResponseProcessor
                         $message->getChat()->getId()
                     );
                     if ($responseMessage === null) {
-                        echo "Reference to message not found in database in current response chain, skipping\n";
+                        $previousMessage = $messages[count($messages) - 1];
+                        echo sprintf(
+                            "Reference to message %s in chat %s not found in database in current response chain, skipping\n",
+                            $previousMessage->replyToMessageId,
+                            $previousMessage->chatId,
+                        );
+                        continue;
                     }
                     $messages[] = $responseMessage;
                 }
