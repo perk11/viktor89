@@ -14,31 +14,25 @@ class Automatic1111APiClient
         private readonly UserPreferenceSetByCommandProcessor $denoisingStrengthPreference,
         private readonly UserPreferenceSetByCommandProcessor $stepsPreference,
         private readonly UserPreferenceSetByCommandProcessor $seedPreference,
+        private readonly UserPreferenceSetByCommandProcessor $imageModelPreference,
+        private readonly array $modelConfig,
     )
     {
         if (!isset($_ENV['AUTOMATIC1111_API_URL'])) {
             throw new \Exception('Environment variable AUTOMATIC1111_API_URL is not defined');
         }
+        if (!isset($this->modelConfig['default'])) {
+            throw new \Exception('"default" model is not defined');
+        }
         $this->httpClient = new Client([
                                            'base_uri' => rtrim($_ENV['AUTOMATIC1111_API_URL'], '/'),
                                        ]);
     }
+
     public function getPngContentsByPromptTxt2Img(string $prompt, int $userId): string
     {
-        $params = [
-            'model' => 'sd_xl_base_1.0_0.9vae.safetensors',
-            'prompt' => $prompt,
-            'width' => 1024,
-            'height' => 1024,
-            'sampler_name' => 'DPM++ 2M',
-            'steps' => (int) ($this->stepsPreference->getCurrentPreferenceValue($userId) ?? 10),
-            'refiner_checkpoint' => 'sd_xl_refiner_1.0_0.9vae.safetensors',
-            'refiner_switch_at' => 0.8,
-        ];
-        $seed = $this->seedPreference->getCurrentPreferenceValue($userId);
-        if ($seed !== null) {
-            $params['seed'] = $seed;
-        }
+        $params = $this->getParamsBasedOnUserPreferences($userId);
+        $params['prompt'] = $prompt;
         $response = $this->request('txt2img', $params);
 
         $decoded = json_decode($response->getBody(), true, 512, JSON_THROW_ON_ERROR);
@@ -50,22 +44,11 @@ class Automatic1111APiClient
 
     public function getPngContentsByPromptAndImageImg2Img(string $imageContent, string $prompt, int $userId): string
     {
-        $params = [
-            'init_images' => [
-                base64_encode($imageContent),
-            ],
-            'model' => 'sd_xl_base_1.0_0.9vae.safetensors',
-            'prompt' => $prompt,
-            'width' => 1024,
-            'height' => 1024,
-            'sampler_name' => 'DPM++ 2M',
-            'steps' => 30,
-            'denoising_strength' => (float) ($this->denoisingStrengthPreference->getCurrentPreferenceValue($userId) ?? '0.75'),
-        ];
-        $seed = $this->seedPreference->getCurrentPreferenceValue($userId);
-        if ($seed !== null) {
-            $params['seed'] = $seed;
-        }
+        $params = $this->getParamsBasedOnUserPreferences($userId);
+        $params['prompt'] = $prompt;
+        $params['init_images'] = [base64_encode($imageContent)];
+        $params['denoising_strength'] = (float) ($this->denoisingStrengthPreference->getCurrentPreferenceValue($userId) ?? '0.75');
+        unset($params['refiner_checkpoint'], $params['refiner_switch_at']);
         $response = $this->request('img2img', $params);
         $decoded = json_decode($response->getBody(), true, 512, JSON_THROW_ON_ERROR);
         if (!array_key_exists('images', $decoded) || !is_array($decoded['images'])) {
@@ -80,6 +63,29 @@ class Automatic1111APiClient
         return $this->httpClient->post('/sdapi/v1/' . urlencode($method), [
             'json' => $data,
         ]);
+    }
+
+    /**
+     * @param int $userId
+     * @return mixed
+     */
+    private function getParamsBasedOnUserPreferences(int $userId): mixed
+    {
+        $modelName = $this->imageModelPreference->getCurrentPreferenceValue($userId);
+        if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
+            $modelName = 'default';
+        }
+        $params = $this->modelConfig[$modelName];
+        $steps = $this->stepsPreference->getCurrentPreferenceValue($userId);
+        if ($steps !== null) {
+            $params['steps'] = $steps;
+        }
+        $seed = $this->seedPreference->getCurrentPreferenceValue($userId);
+        if ($seed !== null) {
+            $params['seed'] = $seed;
+        }
+
+        return $params;
     }
 
 }

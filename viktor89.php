@@ -63,10 +63,24 @@ $seedProcessor = new UserPreferenceSetByCommandProcessor(
     ['/seed',],
     'seed',
 );
+$modelConfigFilePath =__DIR__ . '/automatic1111-model-config.json';
+$modelConfigString = file_get_contents($modelConfigFilePath);
+if ($modelConfigString === false) {
+    throw new \Exception("Failed to read $modelConfigFilePath");
+}
+$modelConfig = json_decode($modelConfigString, true, 512, JSON_THROW_ON_ERROR);
+$imageModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+    $database,
+    ['/imagemodel'],
+    'imagemodel',
+    array_keys($modelConfig),
+);
 $automatic1111APiClient = new \Perk11\Viktor89\Automatic1111APiClient(
     $denoisingStrengthProcessor,
     $stepsProcessor,
     $seedProcessor,
+    $imageModelProcessor,
+    $modelConfig,
 );
 $photoResponder = new PhotoResponder();
 $photoImg2ImgProcessor = new PhotoImg2ImgProcessor(
@@ -108,6 +122,7 @@ $preResponseProcessors = [
             '-1001804789551' => 4,
         ]
     ),
+    $imageModelProcessor,
     new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
         ['/image'],
         $automatic1111APiClient,

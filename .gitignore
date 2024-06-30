@@ -1,3 +1,4 @@
 /vendor/
 .env
+automatic1111-model-config.json
 /data/
