@@ -22,7 +22,7 @@ class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandPr
             return [];
         }
         if (!in_array($value, $this->acceptedValuesList, true)) {
-            return ["Эта настройка принимает следующие значения:\n\n" . implode("\n\n", $this->acceptedValuesList)];
+            return ["Эта настройка принимает следующие значения:\n\n" . implode("\n", $this->acceptedValuesList)];
         }
 
         return [];
