@@ -127,6 +127,7 @@ $preResponseProcessors = [
         ['/image'],
         $automatic1111APiClient,
         $photoResponder,
+        $photoImg2ImgProcessor,
     ),
     $denoisingStrengthProcessor,
     $stepsProcessor,
@@ -167,7 +168,7 @@ while (true) {
                     continue;
                 }
                 if ($message->getType() === 'photo') {
-                    $photoImg2ImgProcessor->processPhoto($message);
+                    $photoImg2ImgProcessor->processMessage($message);
                     continue;
                 }
                 /** @var \Longman\TelegramBot\Entities\Message $message */

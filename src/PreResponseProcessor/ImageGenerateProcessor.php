@@ -5,6 +5,7 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Automatic1111APiClient;
+use Perk11\Viktor89\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\PhotoResponder;
 
 class ImageGenerateProcessor implements PreResponseProcessor
@@ -13,6 +14,7 @@ class ImageGenerateProcessor implements PreResponseProcessor
         private readonly array $triggeringCommands,
         private readonly Automatic1111APiClient $automatic1111APiClient,
         private readonly PhotoResponder $photoResponder,
+        private readonly PhotoImg2ImgProcessor $photoImg2ImgProcessor,
     ) {
     }
 
@@ -30,6 +32,14 @@ class ImageGenerateProcessor implements PreResponseProcessor
         }
         if ($prompt === '') {
             return 'Непонятно, что генерировать...';
+        }
+
+        if ($message->getReplyToMessage() !== null) {
+            if ($message->getReplyToMessage()->getPhoto() === null) {
+                return 'Не вижу фото в сообщении на которое ответ. Чтобы сгенерировать новое изображение, повторите команду без ответа';
+            }
+            $this->photoImg2ImgProcessor->respondWithImg2ImgResultBasedOnPhotoInMessage($message->getReplyToMessage(), $message, $prompt);
+            return null;
         }
         echo "Generating image for prompt: $prompt\n";
         Request::execute('setMessageReaction', [
