@@ -89,7 +89,6 @@ class Automatic1111APiClient
             $params['seed'] = $seed;
         }
         //TODO: improve this and add validation
-        unset($params['model']);
         $options = json_decode($this->httpClient->get('/sdapi/v1/options')->getBody()->getContents());
         if ($options !== null) {
             $options->sd_model_checkpoint = $params['model'];
