@@ -45,12 +45,13 @@ class PhotoImg2ImgProcessor
         ]);
         try {
             $photo = $this->telegramPhotoDownloader->downloadPhotoFromMessage($message);
-            $transformedPhoto = $this->automatic1111APiClient->getPngContentsByPromptAndImageImg2Img(
+            $transformedPhotoResponse = $this->automatic1111APiClient->generatePromptAndImageImg2Img(
                 $photo,
                 $prompt,
                 $message->getFrom()->getId(),
             );
-            $this->photoResponder->sendPhoto($message, $transformedPhoto);
+            $caption = $transformedPhotoResponse->info['infotexts'][0] ?? null;
+            $this->photoResponder->sendPhoto($message, $transformedPhotoResponse->getFirstImageAsPng(), $caption);
         } catch (\Exception $e) {
             echo "Failed to generate image:\n" . $e->getMessage(),
             Request::execute('setMessageReaction', [

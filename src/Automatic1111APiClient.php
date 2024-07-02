@@ -29,20 +29,16 @@ class Automatic1111APiClient
                                        ]);
     }
 
-    public function getPngContentsByPromptTxt2Img(string $prompt, int $userId): string
+    public function generateByPromptTxt2Img(string $prompt, int $userId): Automatic1111ImageApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
         $params['prompt'] = $prompt;
         $response = $this->request('txt2img', $params);
 
-        $decoded = json_decode($response->getBody(), true, 512, JSON_THROW_ON_ERROR);
-        if (!array_key_exists('images', $decoded) || !is_array($decoded['images'])) {
-            throw new \RuntimeException("Unexpected response from Automatic1111 API:\n" . $response->getBody());
-        }
-        return base64_decode($decoded['images'][0]);
+        return Automatic1111ImageApiResponse::fromString($response->getBody()->getContents());
     }
 
-    public function getPngContentsByPromptAndImageImg2Img(string $imageContent, string $prompt, int $userId): string
+    public function generatePromptAndImageImg2Img(string $imageContent, string $prompt, int $userId): Automatic1111ImageApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
         if (isset($params['promptPrefix'])) {
@@ -54,12 +50,7 @@ class Automatic1111APiClient
         $params['denoising_strength'] = (float) ($this->denoisingStrengthPreference->getCurrentPreferenceValue($userId) ?? '0.75');
         unset($params['refiner_checkpoint'], $params['refiner_switch_at']);
         $response = $this->request('img2img', $params);
-        $decoded = json_decode($response->getBody(), true, 512, JSON_THROW_ON_ERROR);
-        if (!array_key_exists('images', $decoded) || !is_array($decoded['images'])) {
-            throw new \RuntimeException("Unexpected response from Automatic1111 API:\n" . $response->getBody());
-        }
-        return base64_decode($decoded['images'][0]);
-
+        return Automatic1111ImageApiResponse::fromString($response->getBody()->getContents());
     }
 
     private function request(string $method, array $data): ResponseInterface
