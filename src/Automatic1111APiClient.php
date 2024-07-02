@@ -45,8 +45,12 @@ class Automatic1111APiClient
     public function getPngContentsByPromptAndImageImg2Img(string $imageContent, string $prompt, int $userId): string
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
-        $params['prompt'] = $prompt;
+        if (isset($params['promptPrefix'])) {
+            $prompt = $params['promptPrefix'] . $prompt;
+            unset($params['promptPrefix']);
+        }
         $params['init_images'] = [base64_encode($imageContent)];
+        $params['prompt'] = $prompt;
         $params['denoising_strength'] = (float) ($this->denoisingStrengthPreference->getCurrentPreferenceValue($userId) ?? '0.75');
         unset($params['refiner_checkpoint'], $params['refiner_switch_at']);
         $response = $this->request('img2img', $params);
