@@ -7,5 +7,56 @@
     "steps": 30,
     "refiner_checkpoint": "sd_xl_refiner_1.0_0.9vae.safetensors",
     "refiner_switch_at": 0.8
+  },
+  "Juggernaut_X_RunDiffusion": {
+    "model": "Juggernaut_X_RunDiffusion.safetensors",
+    "width": 1024,
+    "height": 1024,
+    "sampler_name": "DPM++ 2M",
+    "scheduler": "karras",
+    "steps": 35
+  },
+  "animaPencilXL_v500": {
+    "model": "animaPencilXL_v500.safetensors",
+    "width": 1024,
+    "height": 1024,
+    "sampler_name": "DPM++ 2M",
+    "scheduler": "karras",
+    "steps": 35
+  },
+  "animagineXLV31": {
+    "model": "animagineXLV31_v31.safetensors",
+    "width": 1024,
+    "height": 1024,
+    "sampler_name": "DPM++ 2M",
+    "scheduler": "karras",
+    "negative_prompt": "worst quality, low quality, lowres, (bad), text, error, fewer, extra, missing, worst quality, jpeg artifacts, low quality, watermark, unfinished, displeasing, oldest, early, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]",
+    "steps": 35
+  },
+  "rmsdxlHybridTurboXL_scorpius": {
+    "model": "rmsdxlHybridTurboXL_scorpius.safetensors",
+    "width": 832,
+    "height": 1216,
+    "sampler_name": "DPM++ 2S a",
+    "scheduler": "karras",
+    "cfg_scale": 2.75,
+    "negative_prompt": "((blurry)),worst quality,platform,ugly,deformed,noisy,low poly,blurry,disfigured,studio,ai generated",
+    "steps": 7
+  },
+  "revAnimated_v2Rebirth": {
+    "model": "revAnimated_v2Rebirth.safetensors",
+    "width": 512,
+    "height": 512,
+    "sampler_name": "Euler a",
+    "promptPrefix": "((best quality)), ((masterpiece)), (detailed) ",
+    "negative_prompt": "(worst quality, low quality:1.4)",
+    "steps": 50
+  },
+  "stable-diffusion-1-5": {
+    "model": "1.5.ckpt",
+    "width": 512,
+    "height": 512,
+    "sampler_name": "Euler a",
+    "steps": 50
   }
 }
