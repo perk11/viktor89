@@ -44,8 +44,11 @@ class ImageGenerateProcessor implements PreResponseProcessor
         ]);
         try {
             $response = $this->automatic1111APiClient->generateByPromptTxt2Img($prompt, $message->getFrom()->getId());
-            $caption = $response->info['infotexts'][0] ?? null;
-            $this->photoResponder->sendPhoto($message, $response->getFirstImageAsPng(), $caption);
+            $this->photoResponder->sendPhoto(
+                $message,
+                $response->getFirstImageAsPng(),
+                $response->getCaption()
+            );
         } catch (\Exception $e) {
             echo "Failed to generate image:\n" . $e->getMessage(),
             Request::execute('setMessageReaction', [

@@ -29,4 +29,9 @@ class Automatic1111ImageApiResponse
     {
         return base64_decode($this->images[0]);
     }
+
+    public function getCaption(): ?string
+    {
+        return $this->info['infotexts'][0] ?? null;
+    }
 }

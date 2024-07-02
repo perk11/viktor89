@@ -50,8 +50,11 @@ class PhotoImg2ImgProcessor
                 $prompt,
                 $message->getFrom()->getId(),
             );
-            $caption = $transformedPhotoResponse->info['infotexts'][0] ?? null;
-            $this->photoResponder->sendPhoto($message, $transformedPhotoResponse->getFirstImageAsPng(), $caption);
+            $this->photoResponder->sendPhoto(
+                $message,
+                $transformedPhotoResponse->getFirstImageAsPng(),
+                $transformedPhotoResponse->getCaption(),
+            );
         } catch (\Exception $e) {
             echo "Failed to generate image:\n" . $e->getMessage(),
             Request::execute('setMessageReaction', [
