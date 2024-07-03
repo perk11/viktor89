@@ -6,7 +6,6 @@ use Longman\TelegramBot\Request;
 use Longman\TelegramBot\Telegram;
 use Longman\TelegramBot\TelegramLog;
 use Perk11\Viktor89\HistoryReader;
-use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\PhotoResponder;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
@@ -36,8 +35,8 @@ function parse_completion_string(string $completionString)
 
 $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
 
-//$responder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
-//$responder = new \Perk11\Viktor89\Siepatch2Responder();
+//$fallBackResponder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
+//$fallBackResponder = new \Perk11\Viktor89\Siepatch2Responder();
 $database = new \Perk11\Viktor89\Database($telegram->getBotId(), 'siepatch-non-instruct5');
 $historyReader = new HistoryReader($database);
 
@@ -98,14 +97,9 @@ $responseStartProcessor = new UserPreferenceSetByCommandProcessor(
     ['/responsestart', '/response-start'],
     'response-start',
 );
-$tutors = [
-    'https://cloud.nw-sys.ru/index.php/s/z97QnXmfcM8QKDn/download',
-    'https://cloud.nw-sys.ru/index.php/s/xqpNxq6Akk6SbDX/download',
-    'https://cloud.nw-sys.ru/index.php/s/eCkqzWGqGAFRjMQ/download',
-];
 
-//$responder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
-//$responder = new \Perk11\Viktor89\SiepatchInstruct6($database);
+//$fallBackResponder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
+//$fallBackResponder = new \Perk11\Viktor89\SiepatchInstruct6($database);
 $responder = new \Perk11\Viktor89\SiepatchNonInstruct4(
     $historyReader,
     $database,
@@ -145,6 +139,7 @@ $preResponseProcessors = [
 echo "Connecting to Telegram...\n";
 $telegram->useGetUpdatesWithoutDatabase();
 $iterationId = 0;
+$engine = new \Perk11\Viktor89\Engine($photoImg2ImgProcessor, $database, $preResponseProcessors, $telegram, $responder);
 while (true) {
     try {
         $serverResponse = $telegram->handleGetUpdates([
@@ -159,94 +154,11 @@ while (true) {
                 echo date('Y-m-d H:i:s') . ' - Processing ' . count($results) . " updates\n";
             }
             foreach ($results as $result) {
-                $message = $result->getMessage();
-
-
-                if ($message === null) {
+                if ($result->getMessage() === null) {
                     echo "Unknown update received:\n";
-                    var_dump($result);
-                    continue;
+                    return;
                 }
-                if ($message->getType() === 'photo') {
-                    $photoImg2ImgProcessor->processMessage($message);
-                    continue;
-                }
-                /** @var \Longman\TelegramBot\Entities\Message $message */
-                if ($message->getType() !== 'text' && $message->getType() !== 'command' && $message->getType(
-                    ) !== 'new_chat_members') {
-                    echo "Message of type {$message->getType()} received\n";
-                    if ($message->getType() === 'sticker') {
-                        echo $message->getSticker()->getFileId() . "\n";
-                    }
-//                    var_dump($message);
-                    continue;
-                }
-
-                if ($message->getType() === 'new_chat_members') {
-                    echo "New member detected, sending tutorial\n";
-                    Request::sendVideo([
-                                           'chat_id'             => $message->getChat()->getId(),
-                                           'reply_to_message_id' => $message->getMessageId(),
-                                           'video'               => $tutors[array_rand($tutors)],
-                                       ]);
-                    continue;
-                }
-
-                if ($message->getFrom() === null) {
-                    echo "Message without a sender received\n";
-                    continue;
-                }
-                $database->logMessage($message);
-                foreach ($preResponseProcessors as $preResponseProcessor) {
-                    $replacedMessage = $preResponseProcessor->process($message);
-                    if ($replacedMessage !== false) {
-                        if ($replacedMessage === null) {
-                            continue 2;
-                        }
-                        $internalMessage = new InternalMessage();
-                        $internalMessage->chatId = $message->getChat()->getId();
-                        $internalMessage->replyToMessageId = $message->getMessageId();
-                        $internalMessage->userName = $_ENV['TELEGRAM_BOT_USERNAME'];
-                        $internalMessage->messageText = $replacedMessage;
-
-                        $response = $internalMessage->send();
-                        if ($response->isOk()) {
-                            $database->logMessage($response->getResult());
-                        } else {
-                            echo "Failed to send message: ";
-                            print_r($response->getRawData());
-                            echo "\n";
-                        }
-                        continue 2;
-                    }
-                }
-
-                $incomingMessageText = $message->getText();
-
-                if ($message->getType() !== 'command') {
-                    if (!str_contains($incomingMessageText, '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
-                        $replyToMessage = $message->getReplyToMessage();
-                        if ($replyToMessage === null) {
-                            continue;
-                        }
-                        if ($replyToMessage->getFrom()->getId() !== $telegram->getBotId()) {
-                            continue;
-                        }
-                    }
-                }
-                $responseMessage = $responder->getResponseByMessage($message);
-
-                if ($responseMessage !== null) {
-                    $telegramServerResponse = $responseMessage->send();
-                    if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult(
-                        ) instanceof \Longman\TelegramBot\Entities\Message) {
-                        $responseMessage->id = $telegramServerResponse->getResult()->getMessageId();
-                        $responseMessage->chatId = $message->getChat()->getId();
-                        $responseMessage->userId = $telegramServerResponse->getResult()->getFrom()->getId();
-                        $responseMessage->date = time();
-                        $database->logInternalMessage($responseMessage);
-                    }
-                }
+                $engine->handleMessage($result->getMessage());
             }
         } else {
             echo date('Y-m-d H:i:s') . ' - Failed to fetch updates' . PHP_EOL;
