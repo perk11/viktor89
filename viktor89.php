@@ -6,10 +6,11 @@ use Longman\TelegramBot\Request;
 use Longman\TelegramBot\Telegram;
 use Longman\TelegramBot\TelegramLog;
 use Perk11\Viktor89\HistoryReader;
-use Perk11\Viktor89\PhotoImg2ImgProcessor;
-use Perk11\Viktor89\PhotoResponder;
-use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
-use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
+
+use Revolt\EventLoop;
+
+use function Amp\delay;
+use function Amp\Parallel\Worker\workerPool;
 
 require 'vendor/autoload.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
@@ -39,108 +40,13 @@ $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNA
 //$fallBackResponder = new \Perk11\Viktor89\Siepatch2Responder();
 $database = new \Perk11\Viktor89\Database($telegram->getBotId(), 'siepatch-non-instruct5');
 $historyReader = new HistoryReader($database);
-
-
 $summaryProvider = new \Perk11\Viktor89\ChatGptSummaryProvider($database);
-$telegramPhotoDownloader = new \Perk11\Viktor89\TelegramPhotoDownloader($telegram->getApiKey());
-$denoisingStrengthProcessor = new NumericPreferenceInRangeByCommandProcessor(
-    $database,
-    ['/denoising_strength', '/denoisingstrength'],
-    'denoising-strength',
-    0,
-    1,
-);
-$stepsProcessor = new NumericPreferenceInRangeByCommandProcessor(
-    $database,
-    ['/steps',],
-    'steps',
-    1,
-    75,
-);
-$seedProcessor = new UserPreferenceSetByCommandProcessor(
-    $database,
-    ['/seed',],
-    'seed',
-);
-$modelConfigFilePath =__DIR__ . '/automatic1111-model-config.json';
-$modelConfigString = file_get_contents($modelConfigFilePath);
-if ($modelConfigString === false) {
-    throw new \Exception("Failed to read $modelConfigFilePath");
-}
-$modelConfig = json_decode($modelConfigString, true, 512, JSON_THROW_ON_ERROR);
-$imageModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
-    $database,
-    ['/imagemodel'],
-    'imagemodel',
-    array_keys($modelConfig),
-);
-$automatic1111APiClient = new \Perk11\Viktor89\Automatic1111APiClient(
-    $denoisingStrengthProcessor,
-    $stepsProcessor,
-    $seedProcessor,
-    $imageModelProcessor,
-    $modelConfig,
-);
-$photoResponder = new PhotoResponder();
-$photoImg2ImgProcessor = new PhotoImg2ImgProcessor(
-    $telegramPhotoDownloader,
-    $automatic1111APiClient,
-    $photoResponder,
-);
-$systemPromptProcessor = new UserPreferenceSetByCommandProcessor(
-    $database,
-    ['/system_prompt', '/systemprompt'],
-    'system_prompt',
-);
-$responseStartProcessor = new UserPreferenceSetByCommandProcessor(
-    $database,
-    ['/responsestart', '/response-start'],
-    'response-start',
-);
 
-//$fallBackResponder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
-//$fallBackResponder = new \Perk11\Viktor89\SiepatchInstruct6($database);
-$responder = new \Perk11\Viktor89\SiepatchNonInstruct4(
-    $historyReader,
-    $database,
-    $responseStartProcessor,
-);
-$responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
-$responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
-$responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
-$preResponseProcessors = [
-    new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
-        $database, $telegram->getBotId(),
-        [
-//            '-4233480248' => 3,
-            '-1001804789551' => 4,
-        ]
-    ),
-    $imageModelProcessor,
-    new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
-        ['/image'],
-        $automatic1111APiClient,
-        $photoResponder,
-        $photoImg2ImgProcessor,
-    ),
-    $denoisingStrengthProcessor,
-    $stepsProcessor,
-    $seedProcessor,
-    $systemPromptProcessor,
-    $responseStartProcessor,
-    new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
-        ['/assistant'],
-        $database,
-        new \Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant($systemPromptProcessor, $responseStartProcessor),
-    ),
-    new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
-    new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
-];
+$workerPool = workerPool();
 echo "Connecting to Telegram...\n";
 $telegram->useGetUpdatesWithoutDatabase();
-$iterationId = 0;
-$engine = new \Perk11\Viktor89\Engine($photoImg2ImgProcessor, $database, $preResponseProcessors, $telegram, $responder);
-while (true) {
+$iterationId =0;
+\Revolt\EventLoop::repeat(1, static function () use ($telegram, $workerPool, &$iterationId, $summaryProvider) {
     try {
         $serverResponse = $telegram->handleGetUpdates([
                                                           'allowed_updates' => [
@@ -158,7 +64,13 @@ while (true) {
                     echo "Unknown update received:\n";
                     return;
                 }
-                $engine->handleMessage($result->getMessage());
+                $handleTask = new \Perk11\Viktor89\ProcessMessageTask(
+                    $result->getMessage(),
+                    $telegram->getBotId(),
+                    $telegram->getApiKey(),
+                    $_ENV['TELEGRAM_BOT_USERNAME'],
+                );
+                $workerPool->submit($handleTask);
             }
         } else {
             echo date('Y-m-d H:i:s') . ' - Failed to fetch updates' . PHP_EOL;
@@ -187,13 +99,15 @@ while (true) {
             }
         }
         $iterationId++;
-        usleep(1000000);
+        delay(1);
     } catch (\Longman\TelegramBot\Exception\TelegramException $e) {
+        echo "Telegram error\n";
         TelegramLog::error($e);
-        usleep(10000000);
+        delay(10);
     } catch (ConnectException $e) {
         echo "Curl error received, retrying in 10 seconds:\n";
         echo $e->getMessage()."\n";
-        usleep(10000000);
+        delay(10);
     }
-}
+});
+EventLoop::run();

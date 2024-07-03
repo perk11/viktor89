@@ -21,7 +21,7 @@ class Engine
         private readonly Database $database,
         /** @var PreResponseProcessor[] */
         private readonly array $preResponseProcessors,
-        private readonly Telegram $telegram,
+        private readonly string $telegramBotUserName,
         private readonly TelegramInternalMessageResponderInterface $fallBackResponder,
     ) {
     }
@@ -71,7 +71,7 @@ class Engine
                 $internalMessage = new InternalMessage();
                 $internalMessage->chatId = $message->getChat()->getId();
                 $internalMessage->replyToMessageId = $message->getMessageId();
-                $internalMessage->userName = $_ENV['TELEGRAM_BOT_USERNAME'];
+                $internalMessage->userName = $this->telegramBotUserName;
                 $internalMessage->messageText = $replacedMessage;
 
                 $response = $internalMessage->send();
@@ -91,7 +91,7 @@ class Engine
         $incomingMessageText = $message->getText();
 
         if ($message->getType() !== 'command') {
-            if (!str_contains($incomingMessageText, '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
+            if (!str_contains($incomingMessageText, '@' . $this->telegramBotUserName)) {
                 $replyToMessage = $message->getReplyToMessage();
                 if ($replyToMessage === null) {
                     return;
