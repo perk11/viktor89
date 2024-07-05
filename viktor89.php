@@ -51,17 +51,21 @@ $iterationId =0;
                 echo date('Y-m-d H:i:s') . ' - Processing ' . count($results) . " updates\n";
             }
             foreach ($results as $result) {
-                if ($result->getMessage() === null) {
+                $message = $result->getMessage();
+                if ($message === null) {
                     echo "Unknown update received:\n";
                     return;
                 }
                 $handleTask = new \Perk11\Viktor89\ProcessMessageTask(
-                    $result->getMessage(),
+                    $message,
                     $telegram->getBotId(),
                     $telegram->getApiKey(),
                     $_ENV['TELEGRAM_BOT_USERNAME'],
                 );
-                $workerPool->submit($handleTask);
+                $taskExecution = $workerPool->submit($handleTask);
+                $taskExecution->getFuture()->catch(function (\Throwable $e) use ($message) {
+                    echo "Error when handling message " . $message->getMessageId(). $e->getMessage();
+                });
             }
         } else {
             echo date('Y-m-d H:i:s') . ' - Failed to fetch updates' . PHP_EOL;
