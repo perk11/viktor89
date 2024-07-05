@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\TelegramChainBasedResponderInterface;
 
 class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
@@ -14,6 +15,7 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
     public function __construct(
         private readonly UserPreferenceSetByCommandProcessor $systemPromptProcessor,
         private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor,
+        private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
     ) {
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_ASSISTANT_SERVER']);
@@ -32,8 +34,8 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
         ];
         $fullContent = '';
         try {
-            $this->openAi->completion($opts, function ($curl_info, $data) use (&$fullContent, $prompt) {
-                $parsedData = parse_completion_string($data);
+            $this->openAi->completion($opts, function ($curl_info, $data) use (&$fullContent) {
+                $parsedData = $this->openAiCompletionStringParser->parse($data);
                 echo $parsedData['content'];
                 $fullContent .= $parsedData['content'];
                 if (mb_strlen($fullContent) > 8192) {

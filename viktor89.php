@@ -25,15 +25,6 @@ if (!isset($_ENV['OPENAI_SERVER'])) {
     die('OPENAI_SERVER is undefined');
 }
 
-function parse_completion_string(string $completionString)
-{
-    if (!str_starts_with($completionString, 'data: ')) {
-        die("Unexpected completion string: $completionString");
-    }
-
-    return json_decode(substr($completionString, strlen('data: '), JSON_THROW_ON_ERROR), true);
-}
-
 $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
 
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();

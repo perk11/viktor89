@@ -40,10 +40,12 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
 
     private readonly UserPreferenceSetByCommandProcessor $personalityProcessor;
 
+
     public function __construct(
         private readonly HistoryReader $historyReader,
         private readonly Database $database,
         private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor,
+        private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
     )
     {
         $this->openAi = new OpenAi('');
@@ -92,7 +94,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         $fullContent = '';
         try {
             $this->openAi->completion($opts, function ($curl_info, $data) use ($prompt, &$fullContent) {
-                $parsedData = parse_completion_string($data);
+                $parsedData = $this->openAiCompletionStringParser->parse($data);
                 echo $parsedData['content'];
                 $fullContent .= $parsedData['content'];
                 foreach ($this->abortResponseHandlers as $abortResponseHandler) {

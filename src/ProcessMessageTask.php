@@ -9,6 +9,7 @@ use Dotenv\Dotenv;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
+use Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 
 class ProcessMessageTask implements Task
@@ -96,13 +97,14 @@ class ProcessMessageTask implements Task
             ['/responsestart', '/response-start'],
             'response-start',
         );
-
+        $openAiCompletionStringParser = new OpenAiCompletionStringParser();
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchInstruct6($database);
         $responder = new \Perk11\Viktor89\SiepatchNonInstruct4(
             $historyReader,
             $database,
             $responseStartProcessor,
+            $openAiCompletionStringParser,
         );
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
@@ -130,7 +132,11 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],
                 $database,
-                new \Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant($systemPromptProcessor, $responseStartProcessor),
+                new OpenAIAPIAssistant(
+                    $systemPromptProcessor,
+                    $responseStartProcessor,
+                    $openAiCompletionStringParser,
+                ),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
