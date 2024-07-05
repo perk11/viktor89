@@ -142,7 +142,13 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
         ];
 
-        $engine = new \Perk11\Viktor89\Engine($photoImg2ImgProcessor, $database, $preResponseProcessors, $this->telegramBotUsername, $responder);
+        $engine = new \Perk11\Viktor89\Engine($photoImg2ImgProcessor,
+                                              $database,
+                                              $preResponseProcessors,
+                                              $this->telegramBotUsername,
+                                              $this->telegramBotId,
+                                              $responder
+        );
         $engine->handleMessage($this->message);
     }
 }

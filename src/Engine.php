@@ -22,6 +22,7 @@ class Engine
         /** @var PreResponseProcessor[] */
         private readonly array $preResponseProcessors,
         private readonly string $telegramBotUserName,
+        private readonly int $telegramBotId,
         private readonly TelegramInternalMessageResponderInterface $fallBackResponder,
     ) {
     }
@@ -96,7 +97,7 @@ class Engine
                 if ($replyToMessage === null) {
                     return;
                 }
-                if ($replyToMessage->getFrom()->getId() !== $this->telegram->getBotId()) {
+                if ($replyToMessage->getFrom()->getId() !== $this->telegramBotId) {
                     return;
                 }
             }
