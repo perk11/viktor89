@@ -92,8 +92,9 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
             ],
         ];
         $fullContent = '';
+        $aborted = false;
         try {
-            $this->openAi->completion($opts, function ($curl_info, $data) use ($prompt, &$fullContent) {
+            $this->openAi->completion($opts, function ($curl_info, $data) use ($prompt, &$fullContent, &$aborted) {
                 $parsedData = $this->openAiCompletionStringParser->parse($data);
                 echo $parsedData['content'];
                 $fullContent .= $parsedData['content'];
@@ -101,6 +102,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
                     $newResponse = $abortResponseHandler->getNewResponse($prompt, $fullContent);
                     if ($newResponse !== false) {
                         $fullContent = $newResponse;
+                        $aborted = true;
 
                         return 0;
                     }
@@ -109,6 +111,9 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
                 return strlen($data);
             });
         } catch (\Exception $e) {
+            if ($aborted) {
+                return trim($fullContent);
+            }
             echo "Got error when accessing Sipeatch OpenAI API: ";
             echo $e->getMessage() . "\n";
             return '] Ошибка подключения к llama.cpp по-сипатчевски';
