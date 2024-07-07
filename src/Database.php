@@ -24,6 +24,7 @@ class Database
             throw new \RuntimeException(sprintf('Failed to create directory "%s"', $databaseDir));
         }
         $this->sqlite3Database = new SQLite3($databaseDir . "/" . $name);
+        $this->sqlite3Database->busyTimeout(30000);
         $this->sqlite3Database->query(file_get_contents(__DIR__ . '/db-structure.sql'));
         $this->insertMessageStatement = $this->sqlite3Database->prepare(
             'INSERT INTO message (chat_id, id, message_thread_id, user_id, `date`, reply_to_message, username, message_text) VALUES (:chat_id, :id, :message_thread_id, :user_id, :date, :reply_to_message, :username, :message_text)'

@@ -1,3 +1,4 @@
+PRAGMA journal_mode = wal;
 CREATE TABLE IF NOT EXISTS `message` (
     `chat_id`           bigint,                       -- 'Unique chat identifier',
     `id`                bigint UNSIGNED,              -- 'Unique message identifier',
