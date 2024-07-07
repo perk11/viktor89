@@ -144,6 +144,7 @@ class ProcessMessageTask implements Task
 
         $engine = new \Perk11\Viktor89\Engine($photoImg2ImgProcessor,
                                               $database,
+                                              $historyReader,
                                               $preResponseProcessors,
                                               $this->telegramBotUsername,
                                               $this->telegramBotId,

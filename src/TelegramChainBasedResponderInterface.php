@@ -7,6 +7,6 @@ use Longman\TelegramBot\Entities\Message;
 interface TelegramChainBasedResponderInterface
 {
     /** @param InternalMessage[] $messageChain */
-    public function getResponseByMessageChain(array $messageChain): InternalMessage;
+    public function getResponseByMessageChain(array $messageChain): ?InternalMessage;
 
 }

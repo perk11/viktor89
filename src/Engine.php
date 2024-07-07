@@ -17,19 +17,20 @@ class Engine
     ];
 
     public function __construct(
-        private readonly PhotoImg2ImgProcessor $photoImg2ImgProcessor,
+        private readonly ?PhotoImg2ImgProcessor $photoImg2ImgProcessor,
         private readonly Database $database,
+        private readonly HistoryReader $historyReader,
         /** @var PreResponseProcessor[] */
         private readonly array $preResponseProcessors,
         private readonly string $telegramBotUserName,
         private readonly int $telegramBotId,
-        private readonly TelegramInternalMessageResponderInterface $fallBackResponder,
+        private readonly TelegramInternalMessageResponderInterface|TelegramChainBasedResponderInterface $fallBackResponder,
     ) {
     }
 
     public function handleMessage(Message $message): void
     {
-        if ($message->getType() === 'photo') {
+        if ($this->photoImg2ImgProcessor !== null && $message->getType() === 'photo') {
             $this->photoImg2ImgProcessor->processMessage($message);
 
             return;
@@ -102,7 +103,13 @@ class Engine
                 }
             }
         }
-        $responseMessage = $this->fallBackResponder->getResponseByMessage($message);
+        if ($this->fallBackResponder instanceof TelegramChainBasedResponderInterface) {
+            $chain = $this->historyReader->getPreviousMessages($message, 9, 9, 0);
+            $chain = array_values(array_merge($chain, [InternalMessage::fromTelegramMessage($message)]));
+            $responseMessage = $this->fallBackResponder->getResponseByMessageChain($chain);
+        } else {
+            $responseMessage = $this->fallBackResponder->getResponseByMessage($message);
+        }
 
         if ($responseMessage === null) {
             echo "Null response returned by fallback responder\n";
