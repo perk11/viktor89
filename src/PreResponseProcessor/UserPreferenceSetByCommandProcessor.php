@@ -10,8 +10,8 @@ class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
 {
     public function __construct(
         private readonly Database $database,
-        private readonly array $triggeringCommands,
-        private readonly string $preferenceName,
+        protected readonly array $triggeringCommands,
+        protected readonly string $preferenceName,
     )
     {
     }
@@ -19,6 +19,10 @@ class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
     protected function getValueValidationErrors(?string $value): array
     {
         return [];
+    }
+    protected function processValueAsSetting(Message $message, ?string $value): bool
+    {
+        return true;
     }
 
     protected function transformValue(string $value): mixed
@@ -45,6 +49,9 @@ class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
             return false;
         }
         $preferenceValue = $this->transformValue($preferenceValue);
+        if (!$this->processValueAsSetting($message, $preferenceValue)) {
+            return null;
+        }
         $validationErrors = $this->getValueValidationErrors($preferenceValue);
         if (count($validationErrors) > 0) {
             return "Ошибка: " . implode("\n", $validationErrors);
