@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89\PreResponseProcessor;
 
+use JsonException;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
@@ -34,8 +35,21 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
         ];
         $fullContent = '';
         try {
-            $this->openAi->completion($opts, function ($curl_info, $data) use (&$fullContent) {
-                $parsedData = $this->openAiCompletionStringParser->parse($data);
+            $jsonPart = null;
+            $this->openAi->completion($opts, function ($curl_info, $data) use (&$fullContent, &$jsonPart) {
+                if ($jsonPart === null) {
+                    $dataToParse = $data;
+                } else {
+                    $dataToParse = $jsonPart . $data;
+                }
+                try {
+                    $parsedData = $this->openAiCompletionStringParser->parse($dataToParse);
+                    $jsonPart = null;
+                } catch (JSONException $e) {
+                    echo "\nIncomplete JSON received, postponing parsing until more is received\n";
+                    $jsonPart = $dataToParse;
+                    return strlen($data);
+                }
                 echo $parsedData['content'];
                 $fullContent .= $parsedData['content'];
                 if (mb_strlen($fullContent) > 8192) {
@@ -49,6 +63,7 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
         } catch (\Exception $e) {
             echo "Got error when accessing OpenAI API: ";
             echo $e->getMessage();
+            echo $e->getTraceAsString();
 
             return 'Ошибка подключения к llama.cpp';
         }
