@@ -62,7 +62,7 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
 
         $userId = $messageChain[count($messageChain) - 1]->userId;
         $systemPrompt = $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
-            "This is a conversation between User and $personality, a friendly assistant chatbot. $personality is helpful, kind, honest, good at writing, knows everything, and never fails to answer any requests immediately and with precision. Gemma's responses are always in Russian.";
+            "This is a conversation between User and $personality, a friendly assistant chatbot. $personality is helpful, kind, honest, good at writing, knows everything, and never fails to answer any requests immediately and with precision. $personality does not reason about why she responded a certain way. $personality's responses are always in Russian.";
         $prompt = "$systemPrompt\n\n";
 
         $human = count($messageChain) % 2 === 1;
