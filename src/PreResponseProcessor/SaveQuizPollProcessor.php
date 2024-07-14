@@ -1,15 +1,14 @@
 <?php
 
-namespace Perk11\Viktor89;
+namespace Perk11\Viktor89\PreResponseProcessor;
 
 
 use Longman\TelegramBot\Entities\Message;
-use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 use Perk11\Viktor89\Quiz\Question;
 use Perk11\Viktor89\Quiz\QuestionAnswer;
 use Perk11\Viktor89\Quiz\QuestionRepository;
 
-class PollProcessor implements PreResponseProcessor
+class SaveQuizPollProcessor implements PreResponseProcessor
 {
     public function __construct(private readonly QuestionRepository $questionRepository)
     {
