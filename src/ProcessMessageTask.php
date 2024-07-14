@@ -65,6 +65,7 @@ class ProcessMessageTask implements Task
             ['/seed',],
             'seed',
         );
+        $openAiCompletionStringParser = new OpenAiCompletionStringParser();
         $modelConfigFilePath =__DIR__ . '/../automatic1111-model-config.json';
         $modelConfigString = file_get_contents($modelConfigFilePath);
         if ($modelConfigString === false) {
@@ -84,6 +85,10 @@ class ProcessMessageTask implements Task
             $imageModelProcessor,
             $modelConfig,
         );
+        $assistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
+            $automatic1111APiClient,
+            $openAiCompletionStringParser,
+        );
         $photoResponder = new PhotoResponder();
         $photoImg2ImgProcessor = new PhotoImg2ImgProcessor(
             $telegramPhotoDownloader,
@@ -100,7 +105,6 @@ class ProcessMessageTask implements Task
             ['/responsestart', '/response-start'],
             'response-start',
         );
-        $openAiCompletionStringParser = new OpenAiCompletionStringParser();
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchInstruct6($database);
         $responder = new \Perk11\Viktor89\SiepatchNonInstruct4(
@@ -131,6 +135,12 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
                 ['/image'],
                 $automatic1111APiClient,
+                $photoResponder,
+                $photoImg2ImgProcessor,
+            ),
+            new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
+                ['/imagine'],
+                $assistedImageGenerator,
                 $photoResponder,
                 $photoImg2ImgProcessor,
             ),

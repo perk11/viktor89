@@ -6,7 +6,7 @@ use GuzzleHttp\Client;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Psr\Http\Message\ResponseInterface;
 
-class Automatic1111APiClient
+class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGenerator
 {
     private readonly Client $httpClient;
 

@@ -4,15 +4,15 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
-use Perk11\Viktor89\Automatic1111APiClient;
 use Perk11\Viktor89\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\PhotoResponder;
+use Perk11\Viktor89\Prompt2ImgGenerator;
 
 class ImageGenerateProcessor implements PreResponseProcessor
 {
     public function __construct(
         private readonly array $triggeringCommands,
-        private readonly Automatic1111APiClient $automatic1111APiClient,
+        private readonly Prompt2ImgGenerator $automatic1111APiClient,
         private readonly PhotoResponder $photoResponder,
         private readonly PhotoImg2ImgProcessor $photoImg2ImgProcessor,
     ) {
