@@ -26,7 +26,9 @@ class RandomQuizResponder implements TelegramChainBasedResponderInterface
         }
         $options = [];
         $answerIndex = 0;
-        foreach ($question->answers as $answer) {
+        $answers = $question->answers;
+        shuffle($answers);
+        foreach ($answers as $answer) {
             $options[] = new PollOption([
                                             'text' => $answer->text,
                                         ]);
