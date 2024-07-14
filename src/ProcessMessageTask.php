@@ -11,6 +11,7 @@ use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
+use Perk11\Viktor89\Quiz\QuestionRepository;
 
 class ProcessMessageTask implements Task
 {
@@ -117,6 +118,7 @@ class ProcessMessageTask implements Task
                     '-1001804789551' => 4,
                 ]
             ),
+            new PollProcessor(new QuestionRepository($database)),
             $imageModelProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
                 ['/image'],

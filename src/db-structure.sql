@@ -25,3 +25,20 @@ CREATE TABLE IF NOT EXISTS `chat_summary`
     `date` timestamp,
     `summary` varchar
 );
+CREATE TABLE IF NOT EXISTS `quiz_question`
+(
+    `id` integer PRIMARY KEY AUTOINCREMENT,
+    `namespace` text,
+    `added_at` timestamp,
+    `added_by_user_id` bigint,
+    `added_by_user_name` text,
+    `text` text,
+    `explanation` text
+);
+CREATE TABLE IF NOT EXISTS `quiz_question_answer`
+(
+    `id` integer PRIMARY KEY AUTOINCREMENT,
+    `question_id` bigint REFERENCES quiz_question(id),
+    `text` text,
+    `correct` boolean
+);

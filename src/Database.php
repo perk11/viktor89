@@ -7,7 +7,7 @@ use SQLite3;
 
 class Database
 {
-    private SQLite3 $sqlite3Database;
+    public readonly SQLite3 $sqlite3Database;
 
     private \SQLite3Stmt $insertMessageStatement;
 

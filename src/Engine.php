@@ -16,6 +16,13 @@ class Engine
         'https://cloud.nw-sys.ru/index.php/s/eCkqzWGqGAFRjMQ/download',
     ];
 
+    private array $messageTypesSupportedByCommonCode = [
+        'command',
+        'text',
+        'new_chat_members',
+        'poll',
+    ];
+
     public function __construct(
         private readonly ?PhotoImg2ImgProcessor $photoImg2ImgProcessor,
         private readonly Database $database,
@@ -35,8 +42,8 @@ class Engine
 
             return;
         }
-        if ($message->getType() !== 'text' && $message->getType() !== 'command' && $message->getType(
-            ) !== 'new_chat_members') {
+
+        if (!in_array($message->getType(), $this->messageTypesSupportedByCommonCode, true)) {
             echo "Message of type {$message->getType()} received\n";
             if ($message->getType() === 'sticker') {
                 echo $message->getSticker()->getFileId() . "\n";
