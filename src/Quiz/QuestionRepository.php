@@ -60,6 +60,20 @@ class QuestionRepository
             $insertAnswerStatement->execute();
         }
     }
+    public function findRandom(): ?Question
+    {
+        $sql = self::buildSelectSQL();
+        $sql = "WITH RandomQuestion AS (
+    SELECT id FROM quiz_question
+    ORDER BY RANDOM()
+    LIMIT 1
+) $sql WHERE 
+    quiz_question.id IN (SELECT id FROM RandomQuestion);
+";
+        $statement = $this->database->sqlite3Database->prepare($sql);
+
+        return $this->readByStatement($statement);
+    }
 
     public function findById(int $id): ?Question
     {
@@ -75,7 +89,7 @@ class QuestionRepository
     {
         $result = $statement->execute();
         $answers = [];
-        while ($answer =  $result->fetchArray(SQLITE3_ASSOC)) {
+        while ($answer = $result->fetchArray(SQLITE3_ASSOC)) {
             $answers[] = $answer;
         }
         if (count($answers) === 0) {
@@ -95,8 +109,8 @@ class QuestionRepository
         quiz_question.text as question_text,
         quiz_question.explanation as explanation,
         
-        quiz_question_answer.id as answer_Id
-        quiz_question_answer.text as answer_text
+        quiz_question_answer.id as answer_id,
+        quiz_question_answer.text as answer_text,
         quiz_question_answer.correct as correct
         
         FROM quiz_question

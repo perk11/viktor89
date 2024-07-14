@@ -10,8 +10,10 @@ use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant;
+use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\Quiz\QuestionRepository;
+use Perk11\Viktor89\Quiz\RandomQuizResponder;
 
 class ProcessMessageTask implements Task
 {
@@ -110,6 +112,7 @@ class ProcessMessageTask implements Task
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
+        $questionRepository = new QuestionRepository($database);
         $preResponseProcessors = [
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
                 $database, $this->telegramBotId,
@@ -118,7 +121,12 @@ class ProcessMessageTask implements Task
                     '-1001804789551' => 4,
                 ]
             ),
-            new PollProcessor(new QuestionRepository($database)),
+            new SaveQuizPollProcessor($questionRepository),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/quiz'],
+                $database,
+                new RandomQuizResponder($questionRepository)
+            ),
             $imageModelProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
                 ['/image'],

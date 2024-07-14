@@ -33,9 +33,6 @@ class CommandBasedResponderTrigger implements PreResponseProcessor
         if (!$triggerFound) {
             return false;
         }
-        if ($chain[count($chain) - 1]->messageText === '') {
-            return 'Непонятно, на что отвечать';
-        }
         //todo: rework PreResponseProcessor interface to accept message instead
 
         Request::sendChatAction([
@@ -44,6 +41,9 @@ class CommandBasedResponderTrigger implements PreResponseProcessor
                                 ]);
 
         $responseMessage = $this->responder->getResponseByMessageChain($chain);
+        if ($responseMessage === null) {
+             return null;
+        }
         $response = $responseMessage->send();
         if ($response->isOk()) {
             $this->database->logMessage($response->getResult());

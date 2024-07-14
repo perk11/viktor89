@@ -12,7 +12,7 @@ class QuestionAnswer
     public static function fromSqliteAssocAnswersArray(array $assocArray): self
     {
         $answer = new self($assocArray['answer_text'], $assocArray['correct']);
-        $answer->id = $assocArray['id'];
+        $answer->id = $assocArray['question_id'];
 
         return $answer;
     }
