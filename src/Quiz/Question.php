@@ -37,7 +37,7 @@ class Question
     {
         $text = $this->text;
         if ($this->addedByUserName !== null) {
-            $text = "Вопрос от  " . $this->addedByUserName .": $text";
+            $text = "Вопрос от " . $this->addedByUserName .": $text";
         }
         return $text;
     }
