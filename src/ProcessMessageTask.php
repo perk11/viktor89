@@ -95,6 +95,11 @@ class ProcessMessageTask implements Task
             $automatic1111APiClient,
             $photoResponder,
         );
+        $assistedPhotoImg2ImgProcessor = new PhotoImg2ImgProcessor(
+            $telegramPhotoDownloader,
+            $assistedImageGenerator,
+            $photoResponder,
+        );
         $systemPromptProcessor = new UserPreferenceSetByCommandProcessor(
             $database,
             ['/system_prompt', '/systemprompt'],
@@ -142,7 +147,7 @@ class ProcessMessageTask implements Task
                 ['/imagine'],
                 $assistedImageGenerator,
                 $photoResponder,
-                $photoImg2ImgProcessor,
+                $assistedPhotoImg2ImgProcessor,
             ),
             $denoisingStrengthProcessor,
             $stepsProcessor,

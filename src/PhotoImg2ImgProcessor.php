@@ -9,7 +9,7 @@ class PhotoImg2ImgProcessor
 {
     public function __construct(
         private readonly TelegramPhotoDownloader $telegramPhotoDownloader,
-        private readonly Automatic1111APiClient $automatic1111APiClient,
+        private readonly PromptAndImg2ImgGenerator $automatic1111APiClient,
         private readonly PhotoResponder $photoResponder,
     ) {
     }
