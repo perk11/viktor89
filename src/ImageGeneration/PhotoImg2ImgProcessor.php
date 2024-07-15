@@ -1,9 +1,10 @@
 <?php
 
-namespace Perk11\Viktor89;
+namespace Perk11\Viktor89\ImageGeneration;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\TelegramPhotoDownloader;
 
 class PhotoImg2ImgProcessor
 {

@@ -8,6 +8,8 @@ use Amp\Sync\Channel;
 use Dotenv\Dotenv;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
+use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
+use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant;
 use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
@@ -78,7 +80,7 @@ class ProcessMessageTask implements Task
             'imagemodel',
             array_keys($modelConfig),
         );
-        $automatic1111APiClient = new \Perk11\Viktor89\Automatic1111APiClient(
+        $automatic1111APiClient = new ImageGeneration\Automatic1111APiClient(
             $denoisingStrengthProcessor,
             $stepsProcessor,
             $seedProcessor,

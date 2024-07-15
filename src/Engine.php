@@ -5,7 +5,7 @@ namespace Perk11\Viktor89;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
-use Longman\TelegramBot\Telegram;
+use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 
 class Engine

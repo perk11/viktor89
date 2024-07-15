@@ -1,6 +1,6 @@
 <?php
 
-namespace Perk11\Viktor89;
+namespace Perk11\Viktor89\ImageGeneration;
 
 use GuzzleHttp\Client;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;

@@ -3,6 +3,10 @@
 namespace Perk11\Viktor89;
 
 use Orhanerday\OpenAi\OpenAi;
+use Perk11\Viktor89\ImageGeneration\Automatic1111APiClient;
+use Perk11\Viktor89\ImageGeneration\Automatic1111ImageApiResponse;
+use Perk11\Viktor89\ImageGeneration\Prompt2ImgGenerator;
+use Perk11\Viktor89\ImageGeneration\PromptAndImg2ImgGenerator;
 
 class AssistedImageGenerator implements Prompt2ImgGenerator, PromptAndImg2ImgGenerator
 {

@@ -4,9 +4,9 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
-use Perk11\Viktor89\PhotoImg2ImgProcessor;
-use Perk11\Viktor89\PhotoResponder;
-use Perk11\Viktor89\Prompt2ImgGenerator;
+use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
+use Perk11\Viktor89\ImageGeneration\PhotoResponder;
+use Perk11\Viktor89\ImageGeneration\Prompt2ImgGenerator;
 
 class ImageGenerateProcessor implements PreResponseProcessor
 {

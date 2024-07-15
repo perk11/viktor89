@@ -1,6 +1,6 @@
 <?php
 
-namespace Perk11\Viktor89;
+namespace Perk11\Viktor89\ImageGeneration;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
