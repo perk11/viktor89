@@ -23,7 +23,7 @@ class SaveQuizPollProcessor implements PreResponseProcessor
         $poll = $message->getPoll();
         if ($poll->getCorrectOptionId() === null) {
             echo "Poll does not have a correct answer, not doing anything\n";
-            if (!$message->getChat()->isGroupChat()) {
+            if ($message->getChat()->isPrivateChat()) {
                 return 'Для того чтобы прислать свой вопрос, пожалуйста пришлите мне опрос виде quiz. Опрос который вы прислали не содержит правильного ответа.';
             }
             return false;
