@@ -37,7 +37,7 @@ class AssistedImageGenerator implements Prompt2ImgGenerator, PromptAndImg2ImgGen
 
     private function processPrompt(string $originalPrompt): string
     {
-        $systemPrompt = "You are Gemma. Given a message from the user, you expand on the ideas in the message and output text that will be used to generate an image using automatic text to image generator. Your output should contain a literal description of the image. Be brief since long outputs are not handled very well. Your output will be directly passed to Automatic1111 API, so don't output anything extra. Do not use any syntax or code formatting, just output raw text describing the image and nothing else.";
+        $systemPrompt = "You are Gemma. Given a message from the user, reword and expand on it in a way that describes an image. This text will be used to generate an image using automatic text to image generator. Your output should contain only a literal description of the image in a single sentence. Be brief since long outputs are not handled very well. Only describe what an observer will see. Your output will be directly passed to an API, so don't output anything extra. Do not use any syntax or code formatting, just output raw text describing the image and nothing else. Translate the output to English.";
         $prompt = "$systemPrompt\n\nUser: $originalPrompt\nGemma: ";
         return $this->getCompletion($prompt);
     }
