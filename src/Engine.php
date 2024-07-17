@@ -14,6 +14,9 @@ class Engine
         'https://cloud.nw-sys.ru/index.php/s/z97QnXmfcM8QKDn/download',
         'https://cloud.nw-sys.ru/index.php/s/xqpNxq6Akk6SbDX/download',
         'https://cloud.nw-sys.ru/index.php/s/eCkqzWGqGAFRjMQ/download',
+        'https://cloud.nw-sys.ru/index.php/s/wXeDasYwe44FaBx/download',
+        'https://cloud.nw-sys.ru/index.php/s/7cNH875Dq2HpFWH/download',
+        'https://cloud.nw-sys.ru/index.php/s/QatfCjzHn7ae5t2/download'
     ];
 
     private array $messageTypesSupportedByCommonCode = [
