@@ -16,6 +16,9 @@ class Gemma2Assistant implements TelegramChainBasedResponderInterface
         '<end_of_turn>',
         '<start_of_turn>',
         '<bos>',
+        '<eos>',
+        '<pad>',
+        '<unk>',
     ];
 
     private readonly array $tokenReplacements;
@@ -37,6 +40,7 @@ class Gemma2Assistant implements TelegramChainBasedResponderInterface
             'stream' => true,
             "stop"   => [
                 "<end_of_turn>",
+                "<eos>",
             ],
         ];
         $fullContent = '';
@@ -89,7 +93,7 @@ class Gemma2Assistant implements TelegramChainBasedResponderInterface
         foreach ($messageChain as $message) {
             $previousMessageUserName = $human ? 'user' : 'model';
             if ($firstUserMessage && $previousMessageUserName === 'user') {
-                $prompt = "<bos><start_of_turn>user\n$systemPrompt\n";
+                $prompt = "<start_of_turn>user\n$systemPrompt\n";
                 $firstUserMessage = false;
             } else {
                 $prompt .= "<start_of_turn>$previousMessageUserName\n";
