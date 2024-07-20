@@ -12,6 +12,14 @@ class Gemma2Assistant implements TelegramChainBasedResponderInterface
 {
     private OpenAi $openAi;
 
+    private array $tokens = [
+        '<end_of_turn>',
+        '<start_of_turn>',
+        '<bos>',
+    ];
+
+    private readonly array $tokenReplacements;
+
     public function __construct(
         private readonly UserPreferenceSetByCommandProcessor $systemPromptProcessor,
         private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor,
@@ -19,6 +27,7 @@ class Gemma2Assistant implements TelegramChainBasedResponderInterface
     ) {
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_ASSISTANT_SERVER']);
+        $this->tokenReplacements = array_fill(0, count($this->tokens) - 1, '');
     }
 
     private function getCompletion(string $prompt): string
@@ -85,7 +94,8 @@ class Gemma2Assistant implements TelegramChainBasedResponderInterface
             } else {
                 $prompt .= "<start_of_turn>$previousMessageUserName\n";
             }
-            $prompt .= $message->messageText . "<end_of_turn>";
+            $escapedMessageText = str_replace($this->tokens, $this->tokenReplacements, $message->messageText);
+            $prompt .= "$escapedMessageText<end_of_turn>";
             $human = !$human;
         }
         $prompt .= "<start_of_turn>model\n";
