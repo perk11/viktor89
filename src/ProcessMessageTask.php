@@ -10,6 +10,7 @@ use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
+use Perk11\Viktor89\PreResponseProcessor\Gemma2Assistant;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant;
 use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
@@ -159,7 +160,7 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],
                 $database,
-                new OpenAIAPIAssistant(
+                new Gemma2Assistant(
                     $systemPromptProcessor,
                     $responseStartProcessor,
                     $openAiCompletionStringParser,
