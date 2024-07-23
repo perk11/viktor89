@@ -8,7 +8,7 @@ use Psr\Http\Message\ResponseInterface;
 
 class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGenerator
 {
-    private readonly Client $httpClient;
+    private Client $httpClient;
 
     public function __construct(
         private readonly UserPreferenceSetByCommandProcessor $denoisingStrengthPreference,
@@ -24,9 +24,6 @@ class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGen
         if (!isset($this->modelConfig['default'])) {
             throw new \Exception('"default" model is not defined');
         }
-        $this->httpClient = new Client([
-                                           'base_uri' => rtrim($_ENV['AUTOMATIC1111_API_URL'], '/'),
-                                       ]);
     }
 
     public function generateByPromptTxt2Img(string $prompt, int $userId): Automatic1111ImageApiResponse
@@ -71,6 +68,13 @@ class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGen
             $modelName = 'default';
         }
         $params = $this->modelConfig[$modelName];
+        if (array_key_exists('customUrl', $params)) {
+            $apiUrl = rtrim($params['customUrl'], '/');
+        } else {
+            $apiUrl = rtrim($_ENV['AUTOMATIC1111_API_URL'], '/');
+        }
+        $this->httpClient = new Client(['base_uri' => $apiUrl]);
+
         $steps = $this->stepsPreference->getCurrentPreferenceValue($userId);
         if ($steps !== null) {
             $params['steps'] = $steps;
@@ -79,11 +83,14 @@ class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGen
         if ($seed !== null) {
             $params['seed'] = $seed;
         }
+        $useOptions = array_key_exists('useOptions', $params) ? $params['useOptions'] : true;
         //TODO: improve this and add validation
-        $options = json_decode($this->httpClient->get('/sdapi/v1/options')->getBody()->getContents());
-        if ($options !== null) {
-            $options->sd_model_checkpoint = $params['model'];
-            $this->httpClient->post('/sdapi/v1/options', ['json' => $options]);
+        if ($useOptions) {
+            $options = json_decode($this->httpClient->get('/sdapi/v1/options')->getBody()->getContents());
+            if ($options !== null) {
+                $options->sd_model_checkpoint = $params['model'];
+                $this->httpClient->post('/sdapi/v1/options', ['json' => $options]);
+            }
         }
         return $params;
     }
