@@ -1,4 +1,5 @@
 import json
+import threading
 
 from flask import Flask, request, jsonify
 from diffusers import AuraFlowPipeline
@@ -13,8 +14,8 @@ pipeline = AuraFlowPipeline.from_pretrained(
     "fal/AuraFlow",
     torch_dtype=torch.float16
 ).to("cuda")
-
-
+generator = torch.Generator()
+sem = threading.Semaphore()
 @app.route('/sdapi/v1/txt2img', methods=['POST'])
 def generate_image():
     data = request.json
@@ -28,12 +29,12 @@ def generate_image():
     cfg_scale = float(data.get('cfg_scale', 3.5))
 
     # Generate image
-    generator = torch.Generator()
     if seed == 0:
         seed = generator.seed()
     else:
-        generator = generator.manual_seed(seed)
+        generator.manual_seed(seed)
     with torch.no_grad():
+        sem.acquire()
         image = pipeline(
             prompt=prompt,
             height=height,
@@ -42,6 +43,7 @@ def generate_image():
             generator=generator,
             guidance_scale=cfg_scale,
         ).images[0]
+        sem.release()
 
     # Convert image to base64
     buffered = BytesIO()
