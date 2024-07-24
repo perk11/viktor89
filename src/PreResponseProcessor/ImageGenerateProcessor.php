@@ -60,7 +60,7 @@ class ImageGenerateProcessor implements PreResponseProcessor
                 $response->getCaption()
             );
         } catch (\Exception $e) {
-            echo "Failed to generate image:\n" . $e->getTraceAsString() . "\n";
+            echo "Failed to generate image:\n" . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
             Request::execute('setMessageReaction', [
                 'chat_id'    => $message->getChat()->getId(),
                 'message_id' => $message->getMessageId(),
