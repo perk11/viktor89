@@ -70,6 +70,7 @@ class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGen
         $params = $this->modelConfig[$modelName];
         if (array_key_exists('customUrl', $params)) {
             $apiUrl = rtrim($params['customUrl'], '/');
+            unset ($params['customUrl']);
         } else {
             $apiUrl = rtrim($_ENV['AUTOMATIC1111_API_URL'], '/');
         }
@@ -83,7 +84,12 @@ class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGen
         if ($seed !== null) {
             $params['seed'] = $seed;
         }
-        $useOptions = array_key_exists('useOptions', $params) ? $params['useOptions'] : true;
+        if (array_key_exists('useOptions', $params)) {
+            $useOptions = $params['useOptions'];
+            unset($params['useOptions']);
+        } else {
+            $useOptions = true;
+        }
         //TODO: improve this and add validation
         if ($useOptions) {
             $options = json_decode($this->httpClient->get('/sdapi/v1/options')->getBody()->getContents());
