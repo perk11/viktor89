@@ -113,7 +113,7 @@ class Gemma2Assistant implements TelegramChainBasedResponderInterface
         $message = new InternalMessage();
         $message->replyToMessageId = $lastMessage->id;
         $message->chatId = $lastMessage->chatId;
-//        $message->parseMode = 'MarkdownV2';
+        $message->parseMode = 'MarkdownV2';
         $message->messageText = $responseStart . trim($this->getCompletion($prompt));
         for ($i = 0; $i < 5; $i++) {
             if (trim($message->messageText) === '') {

@@ -80,6 +80,28 @@ class InternalMessage
             $options['parse_mode'] = $this->parseMode;
         }
 
+        $response =  Request::sendMessage($options);
+        if ($options['parse_mode'] === 'Default') {
+            return $response;
+        }
+        if ($response->isOk()) {
+            return $response;
+        }
+        if ($options['parse_mode'] === 'MarkdownV2') {
+            print_r($response->getRawData());
+            echo "\nMessage failed to send in " . $options['parse_mode'] . " mode, trying again in Markdown mode\n";
+            $options['parse_mode'] = 'markdown';
+
+            $response =  Request::sendMessage($options);
+            if ($response->isOk()) {
+                return $response;
+            }
+        }
+
+        print_r($response->getRawData());
+        echo "\nMessage failed to send in ". $options['parse_mode'] . " mode, trying again in Default mode\n";
+
+        unset($options['parse_mode']);
         return Request::sendMessage($options);
     }
 }
