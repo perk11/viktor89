@@ -31,7 +31,7 @@ $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNA
 //$fallBackResponder = new \Perk11\Viktor89\Siepatch2Responder();
 $database = new \Perk11\Viktor89\Database($telegram->getBotId(), 'siepatch-non-instruct5');
 $historyReader = new HistoryReader($database);
-$summaryProvider = new \Perk11\Viktor89\ChatGptSummaryProvider($database);
+$summaryProvider = new \Perk11\Viktor89\OpenAISummaryProvider($database);
 
 $workerPool = workerPool();
 echo "Connecting to Telegram...\n";

@@ -4,17 +4,21 @@ namespace Perk11\Viktor89;
 
 use Orhanerday\OpenAi\OpenAi;
 
-class ChatGptSummaryProvider
+class OpenAISummaryProvider
 {
-    private readonly OpenAi $chatGpt;
+    private readonly OpenAi $openAiClient;
 
     public function __construct(private Database $database)
     {
         $apiKey = $_ENV['SUMMARY_OPENAI_KEY'];
-        if (strlen($apiKey) === 0) {
-            throw new \Exception('Summary OpenAI api key is empty');
+        $this->openAiClient = new OpenAi($apiKey);
+        if (strlen($apiKey) === 0 && strlen($_ENV['SUMMARY_SERVER']) === 0) {
+            throw new \Exception('SUMMARY_OPENAI_KEY and SUMMARY_SERVER are both  empty, at least one is required');
         }
-        $this->chatGpt = new OpenAi($apiKey);
+        if (isset($_ENV['SUMMARY_SERVER'])) {
+            $this->openAiClient->setBaseURL($_ENV['SUMMARY_SERVER']);
+        }
+
     }
 
     private const MESSAGES_ANALYZED_PER_BATCH = 100;
@@ -51,12 +55,12 @@ class ChatGptSummaryProvider
             foreach ($messages as $message) {
                 $prompt .= $message->userName . ': ' . $message->messageText . "\n";
             }
-            echo "Sending prompt of size " . mb_strlen($prompt) . " to ChatGPT...\n";
-            $result = $this->chatGpt->chat([
+            echo "Sending prompt of size " . mb_strlen($prompt) . " to OpenAI API...\n";
+            $result = $this->openAiClient->chat([
                                                'messages' => [
                                                    [
                                                        "role"    => "system",
-                                                       "content" => "You summarize messages from a group chat for someone who missed them. You respond in Russian. Provide at least 1 mention of every author. Mention author names in the summary.",
+                                                       "content" => "Summarize messages from a group chat for someone who missed them. Respond in Russian. Provide at least 1 mention of every author. Mention author names in the summary. Do not add output other than the summary itself.",
                                                    ],
                                                    [
                                                        "role"    => "user",
@@ -70,11 +74,11 @@ class ChatGptSummaryProvider
 
             $parsedResult = json_decode($result, JSON_THROW_ON_ERROR);
             if (!array_key_exists('choices', $parsedResult)) {
-                echo "Unexpected response from ChatGPT: $result \n";
+                echo "Unexpected response from OpenAI: $result \n";
             }
             $summary .= "\n" . $parsedResult['choices'][0]['message']['content'];
             $offset += self::MESSAGES_ANALYZED_PER_BATCH;
-            sleep(30); //avoid gpt-4 rate limit
+//            sleep(30); //avoid gpt-4 rate limit
         }
         echo $summary;
         $this->database->recordChatSummary($chatId, $summary);
