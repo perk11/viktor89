@@ -84,7 +84,6 @@ $iterationId =0;
                 $chunks = mb_str_split($newSummary, $maxSize);
 
                 foreach ($chunks as $chunk) {
-                    sleep(20);
                     // Send each chunk as a separate message
                     var_dump(Request::sendMessage([
                                              'chat_id'    => -1001804789551,
