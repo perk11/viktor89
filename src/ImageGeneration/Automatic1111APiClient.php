@@ -69,6 +69,7 @@ class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGen
         } else {
             $params = $this->modelConfig[$modelName];
         }
+        unset($params['assistantPrompt']);
         if (array_key_exists('customUrl', $params)) {
             $apiUrl = rtrim($params['customUrl'], '/');
             unset ($params['customUrl']);

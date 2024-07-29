@@ -25,7 +25,8 @@
       "height": 1024,
       "steps": 45,
       "customUrl": "http://localhost:8093",
-      "useOptions": false
+      "useOptions": false,
+      "assistantPrompt": "Given a message, translate it to Chinese, add details, reword and expand on it in a way that describes an image illustrating user's message and output it in Chinese. This text will be used to generate an image using automatic text to image generator that does not understand emotions, metaphors or negatives. Your output should contain only a literal description of the image in Chinese. Only describe what an observer will see. Your output will be directly passed to an API, so don't output anything extra. Do not use any syntax or code formatting, just output raw text describing the image in Chinese  and nothing else. Your message to describe follows bellow:"
     },
     "stable-diffusion-xl": {
       "model": "sd_xl_base_1.0_0.9vae.safetensors",

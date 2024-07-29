@@ -107,6 +107,8 @@ class ProcessMessageTask implements Task
         $assistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
             $automatic1111APiClient,
             $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
+            $imageModelProcessor,
+            $imageModelConfig,
         );
         $photoResponder = new PhotoResponder();
         $photoImg2ImgProcessor = new PhotoImg2ImgProcessor(
