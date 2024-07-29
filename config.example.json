@@ -1,7 +1,22 @@
 {
   "assistantModels": {
     "gemma2": {
-      "url": "http://localhost:8081/"
+      "url": "http://localhost:8081/",
+      "class": "Perk11\\Viktor89\\Assistant\\Gemma2Assistant",
+      "abortResponseHandlers": {
+        "\\Perk11\\Viktor89\\AbortStreamingResponse\\MaxLengthHandler": [
+          4096
+        ]
+      }
+    },
+    "gemma2-for-imagine": {
+      "url": "http://localhost:8082/",
+      "class": "Perk11\\Viktor89\\Assistant\\Gemma2Assistant",
+      "abortResponseHandlers": {
+        "\\Perk11\\Viktor89\\AbortStreamingResponse\\MaxLengthHandler": [
+          800
+        ]
+      }
     }
   },
   "imageModels": {

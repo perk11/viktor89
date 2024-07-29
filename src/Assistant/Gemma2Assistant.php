@@ -1,12 +1,10 @@
 <?php
 
-namespace Perk11\Viktor89\PreResponseProcessor;
+namespace Perk11\Viktor89\Assistant;
 
-use JsonException;
 use Orhanerday\OpenAi\OpenAi;
-use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
-use Perk11\Viktor89\TelegramChainBasedResponderInterface;
+use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 
 class Gemma2Assistant extends AbstractOpenAIAPICompletionAssistant
 {
@@ -26,16 +24,17 @@ class Gemma2Assistant extends AbstractOpenAIAPICompletionAssistant
         UserPreferenceSetByCommandProcessor $systemPromptProcessor,
         UserPreferenceSetByCommandProcessor $responseStartProcessor,
         OpenAiCompletionStringParser $openAiCompletionStringParser,
+        string $url,
     ) {
         $openAi = new OpenAi('');
-        $openAi->setBaseURL($_ENV['OPENAI_ASSISTANT_SERVER']);
+        $openAi->setBaseURL(rtrim($url, '/'));
         parent::__construct($openAi, $systemPromptProcessor, $responseStartProcessor, $openAiCompletionStringParser);
         $this->tokenReplacements = array_fill(0, count($this->tokens) - 1, '');
     }
 
     protected function convertMessageChainToPrompt(
         array $messageChain,
-        string $systemPrompt,
+        ?string $systemPrompt,
         ?string $responseStart
     ): string
     {
@@ -45,7 +44,10 @@ class Gemma2Assistant extends AbstractOpenAIAPICompletionAssistant
         foreach ($messageChain as $message) {
             $previousMessageUserName = $human ? 'user' : 'model';
             if ($firstUserMessage && $previousMessageUserName === 'user') {
-                $prompt = "<start_of_turn>user\n$systemPrompt\n";
+                $prompt = "<start_of_turn>user\n";
+                if ($systemPrompt !== 'null' && $systemPrompt !== '') {
+                    $prompt .= "$systemPrompt\n";
+                }
                 $firstUserMessage = false;
             } else {
                 $prompt .= "<start_of_turn>$previousMessageUserName\n";

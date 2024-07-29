@@ -1,6 +1,6 @@
 <?php
 
-namespace Perk11\Viktor89\PreResponseProcessor;
+namespace Perk11\Viktor89\Assistant;
 
 use JsonException;
 use Orhanerday\OpenAi\OpenAi;
@@ -8,6 +8,7 @@ use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
+use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\TelegramChainBasedResponderInterface;
 
 abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBasedResponderInterface,
@@ -29,7 +30,26 @@ abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBase
         $this->abortResponseHandlers[] = $abortResponseHandler;
     }
 
-    abstract protected function convertMessageChainToPrompt(array $messageChain, string $systemPrompt, ?string $responseStart): string;
+    public function getCompletionBasedOnSingleStringQuestion(
+        string $question,
+        ?string $systemPrompt = null,
+        ?string $responseStart = null
+    ): string {
+        $message = new InternalMessage();
+        $message->userId = 1;
+        $message->userName = 'User';
+        $message->messageText = $question;
+        $prompt = $this->convertMessageChainToPrompt([$message], $systemPrompt, $responseStart);
+
+        return $this->getCompletion($prompt);
+    }
+
+    /** @param InternalMessage[] $messageChain */
+    abstract protected function convertMessageChainToPrompt(
+        array $messageChain,
+        ?string $systemPrompt,
+        ?string $responseStart
+    ): string;
 
     public function getResponseByMessageChain(array $messageChain): InternalMessage
     {

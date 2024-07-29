@@ -8,11 +8,10 @@ use Amp\Sync\Channel;
 use Dotenv\Dotenv;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
+use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
-use Perk11\Viktor89\PreResponseProcessor\Gemma2Assistant;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
-use Perk11\Viktor89\PreResponseProcessor\OpenAIAPIAssistant;
 use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\Quiz\QuestionRepository;
@@ -69,13 +68,13 @@ class ProcessMessageTask implements Task
             'seed',
         );
         $openAiCompletionStringParser = new OpenAiCompletionStringParser();
-        $modelConfigFilePath =__DIR__ . '/../config.json';
-        $modelConfigString = file_get_contents($modelConfigFilePath);
-        if ($modelConfigString === false) {
-            throw new \Exception("Failed to read $modelConfigFilePath");
+        $configFilePath =__DIR__ . '/../config.json';
+        $configString = file_get_contents($configFilePath);
+        if ($configString === false) {
+            throw new \Exception("Failed to read $configFilePath");
         }
-        $modelConfig = json_decode($modelConfigString, true, 512, JSON_THROW_ON_ERROR);
-        $imageModelConfig = $modelConfig['imageModels'];
+        $config = json_decode($configString, true, 512, JSON_THROW_ON_ERROR);
+        $imageModelConfig = $config['imageModels'];
         $imageModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
             $database,
             ['/imagemodel'],
@@ -89,9 +88,25 @@ class ProcessMessageTask implements Task
             $imageModelProcessor,
             $imageModelConfig,
         );
+        $systemPromptProcessor = new UserPreferenceSetByCommandProcessor(
+            $database,
+            ['/system_prompt', '/systemprompt'],
+            'system_prompt',
+        );
+        $responseStartProcessor = new UserPreferenceSetByCommandProcessor(
+            $database,
+            ['/responsestart', '/response-start'],
+            'response-start',
+        );
+        $assistantFactory = new AssistantFactory(
+            $config['assistantModels'],
+            $systemPromptProcessor,
+            $responseStartProcessor,
+            $openAiCompletionStringParser,
+        );
         $assistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
             $automatic1111APiClient,
-            $openAiCompletionStringParser,
+            $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
         );
         $photoResponder = new PhotoResponder();
         $photoImg2ImgProcessor = new PhotoImg2ImgProcessor(
@@ -103,16 +118,6 @@ class ProcessMessageTask implements Task
             $telegramPhotoDownloader,
             $assistedImageGenerator,
             $photoResponder,
-        );
-        $systemPromptProcessor = new UserPreferenceSetByCommandProcessor(
-            $database,
-            ['/system_prompt', '/systemprompt'],
-            'system_prompt',
-        );
-        $responseStartProcessor = new UserPreferenceSetByCommandProcessor(
-            $database,
-            ['/responsestart', '/response-start'],
-            'response-start',
         );
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchInstruct6($database);
@@ -126,12 +131,6 @@ class ProcessMessageTask implements Task
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
         $questionRepository = new QuestionRepository($database);
-        $gemma2Assistant = new Gemma2Assistant(
-            $systemPromptProcessor,
-            $responseStartProcessor,
-            $openAiCompletionStringParser,
-        );
-        $gemma2Assistant->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(4096));
         $preResponseProcessors = [
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
                 $database, $this->telegramBotId,
@@ -167,7 +166,7 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],
                 $database,
-                $gemma2Assistant,
+                $assistantFactory->getAssistantInstanceByName('gemma2'),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
