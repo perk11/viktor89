@@ -37,14 +37,18 @@ def generate_image():
         generator.manual_seed(seed)
     with torch.no_grad():
         sem.acquire()
-        image = pipeline(
-            prompt=prompt,
-            height=height,
-            width=width,
-            num_inference_steps=steps,
-            generator=generator,
-        ).images[0]
-        sem.release()
+        try:
+            image = pipeline(
+                prompt=prompt,
+                height=height,
+                width=width,
+                num_inference_steps=steps,
+                generator=generator,
+            ).images[0]
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        finally:
+            sem.release()
 
     # Convert image to base64
     buffered = BytesIO()
