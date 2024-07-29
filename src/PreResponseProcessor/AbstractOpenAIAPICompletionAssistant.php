@@ -3,7 +3,6 @@
 namespace Perk11\Viktor89\PreResponseProcessor;
 
 use JsonException;
-use Longman\TelegramBot\Request;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
@@ -48,7 +47,6 @@ abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBase
         $message->replyToMessageId = $lastMessage->id;
         $message->chatId = $lastMessage->chatId;
         $message->parseMode = 'MarkdownV2';
-        try {
             $message->messageText = $responseStart . trim($this->getCompletion($prompt));
             for ($i = 0; $i < 5; $i++) {
                 if (trim($message->messageText) === '') {
@@ -58,21 +56,7 @@ abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBase
                     break;
                 }
             }
-        } catch (\Exception $e) {
-            echo "Got error when getting completion";
-            echo $e->getMessage();
-            echo $e->getTraceAsString();
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $lastMessage->chatId,
-                'message_id' => $lastMessage->id,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '🤔',
-                    ],
-                ],
-            ]);
-        }
+
 
         return $message;
     }

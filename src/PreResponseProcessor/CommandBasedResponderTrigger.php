@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Entities\Message;
+use Longman\TelegramBot\Exception\TelegramException;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
@@ -40,7 +41,24 @@ class CommandBasedResponderTrigger implements PreResponseProcessor
                                     'action'  => ChatAction::TYPING,
                                 ]);
 
-        $responseMessage = $this->responder->getResponseByMessageChain($chain);
+        try {
+            $responseMessage = $this->responder->getResponseByMessageChain($chain);
+        } catch (\Exception $e) {
+            echo "Got error when getting response to message chain from " . get_class($this->responder) .": \n";
+            echo $e->getMessage();
+            echo $e->getTraceAsString();
+            Request::execute('setMessageReaction', [
+                'chat_id'    => $message->getChat()->getId(),
+                'message_id' => $message->getMessageId(),
+                'reaction'   => [
+                    [
+                        'type'  => 'emoji',
+                        'emoji' => '🤔',
+                    ],
+                ],
+            ]);
+            return null;
+        }
         if ($responseMessage === null) {
              return null;
         }
