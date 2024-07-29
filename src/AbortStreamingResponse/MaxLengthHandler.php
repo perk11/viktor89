@@ -14,7 +14,7 @@ class MaxLengthHandler implements AbortStreamingResponseHandler
             return false;
         }
 
-        echo "Max length reached\n";
+        echo "\nMax length reached\n";
         return mb_substr($currentResponse, 0, $this->maxResponseLength);
     }
 }
