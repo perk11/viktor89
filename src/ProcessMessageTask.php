@@ -125,6 +125,12 @@ class ProcessMessageTask implements Task
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
         $questionRepository = new QuestionRepository($database);
+        $gemma2Assistant = new Gemma2Assistant(
+            $systemPromptProcessor,
+            $responseStartProcessor,
+            $openAiCompletionStringParser,
+        );
+        $gemma2Assistant->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(4096));
         $preResponseProcessors = [
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
                 $database, $this->telegramBotId,
@@ -160,11 +166,7 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],
                 $database,
-                new Gemma2Assistant(
-                    $systemPromptProcessor,
-                    $responseStartProcessor,
-                    $openAiCompletionStringParser,
-                ),
+                $gemma2Assistant,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),

@@ -3,14 +3,19 @@
 namespace Perk11\Viktor89\PreResponseProcessor;
 
 use JsonException;
+use Longman\TelegramBot\Request;
 use Orhanerday\OpenAi\OpenAi;
+use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
+use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\TelegramChainBasedResponderInterface;
 
-abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBasedResponderInterface
+abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBasedResponderInterface,
+                                                               AbortableStreamingResponseGenerator
 {
-
+    /** @var AbortStreamingResponseHandler[] */
+    private array $abortResponseHandlers = [];
     public function __construct(
         protected readonly OpenAI $openAi,
         private readonly UserPreferenceSetByCommandProcessor $systemPromptProcessor,
@@ -18,6 +23,11 @@ abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBase
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
     )
     {
+    }
+
+    public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void
+    {
+        $this->abortResponseHandlers[] = $abortResponseHandler;
     }
 
     abstract protected function convertMessageChainToPrompt(array $messageChain, string $systemPrompt, ?string $responseStart): string;
@@ -32,19 +42,36 @@ abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBase
         $prompt = $this->convertMessageChainToPrompt($messageChain, $systemPrompt, $responseStart);
         echo $prompt;
 
+        /** @var InternalMessage $lastMessage */
         $lastMessage = $messageChain[count($messageChain) - 1];
         $message = new InternalMessage();
         $message->replyToMessageId = $lastMessage->id;
         $message->chatId = $lastMessage->chatId;
         $message->parseMode = 'MarkdownV2';
-        $message->messageText = $responseStart . trim($this->getCompletion($prompt));
-        for ($i = 0; $i < 5; $i++) {
-            if (trim($message->messageText) === '') {
-                echo "Bad response detected, trying again\n";
-                $message->messageText = $responseStart . $this->getCompletion($prompt);
-            } else {
-                break;
+        try {
+            $message->messageText = $responseStart . trim($this->getCompletion($prompt));
+            for ($i = 0; $i < 5; $i++) {
+                if (trim($message->messageText) === '') {
+                    echo "Bad response detected, trying again\n";
+                    $message->messageText = $responseStart . $this->getCompletion($prompt);
+                } else {
+                    break;
+                }
             }
+        } catch (\Exception $e) {
+            echo "Got error when getting completion";
+            echo $e->getMessage();
+            echo $e->getTraceAsString();
+            Request::execute('setMessageReaction', [
+                'chat_id'    => $lastMessage->chatId,
+                'message_id' => $lastMessage->id,
+                'reaction'   => [
+                    [
+                        'type'  => 'emoji',
+                        'emoji' => '🤔',
+                    ],
+                ],
+            ]);
         }
 
         return $message;
@@ -61,10 +88,13 @@ abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBase
     protected function getCompletion(string $prompt): string
     {
         $opts = $this->getCompletionOptions($prompt);
+        $aborted = false;
         $fullContent = '';
+        $jsonPart = null;
         try {
-            $jsonPart = null;
-            $this->openAi->completion($opts, function ($curl_info, $data) use (&$fullContent, &$jsonPart) {
+            $this->openAi->completion(
+                $opts,
+                function ($curl_info, $data) use (&$fullContent, &$jsonPart, &$aborted, $prompt) {
                 if ($jsonPart === null) {
                     $dataToParse = $data;
                 } else {
@@ -81,20 +111,25 @@ abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBase
                 }
                 echo $parsedData['content'];
                 $fullContent .= $parsedData['content'];
-                if (mb_strlen($fullContent) > 8192) {
-                    echo "Max length reached, aborting response\n";
+                    foreach ($this->abortResponseHandlers as $abortResponseHandler) {
+                        $newResponse = $abortResponseHandler->getNewResponse($prompt, $fullContent);
+                        if ($newResponse !== false) {
+                            $fullContent = $newResponse;
+                            $aborted = true;
 
-                    return 0;
+                            return 0;
+                        }
                 }
 
                 return strlen($data);
             });
         } catch (\Exception $e) {
-            echo "Got error when accessing OpenAI API: ";
-            echo $e->getMessage();
-            echo $e->getTraceAsString();
+            if ($aborted) {
+                return trim($fullContent);
+            }
+            throw $e;
         }
 
-        return trim($fullContent);
+        return rtrim($fullContent);
     }
 }
