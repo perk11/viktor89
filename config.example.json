@@ -1,0 +1,127 @@
+{
+  "assistantModels": {
+    "gemma2": {
+      "url": "http://localhost:8081/"
+    }
+  },
+  "imageModels": {
+    "Kolors": {
+      "width": 1024,
+      "height": 1024,
+      "steps": 45,
+      "customUrl": "http://localhost:8093",
+      "useOptions": false
+    },
+    "stable-diffusion-xl": {
+      "model": "sd_xl_base_1.0_0.9vae.safetensors",
+      "width": 1024,
+      "height": 1024,
+      "sampler_name": "DPM++ 2M",
+      "steps": 30,
+      "refiner_checkpoint": "sd_xl_refiner_1.0_0.9vae.safetensors",
+      "refiner_switch_at": 0.8
+    },
+    "AuraFlow": {
+      "width": 1024,
+      "height": 1024,
+      "steps": 35,
+      "customUrl": "http://localhost:8090",
+      "useOptions": false
+    },
+    "HunyuanDiT": {
+      "width": 1024,
+      "height": 1024,
+      "steps": 50,
+      "customUrl": "http://localhost:8091",
+      "useOptions": false
+    },
+    "Lumina-Next-SFT": {
+      "width": 1024,
+      "height": 1024,
+      "steps": 35,
+      "customUrl": "http://localhost:8092",
+      "useOptions": false
+    },
+    "Juggernaut_X_RunDiffusion": {
+      "model": "Juggernaut_X_RunDiffusion.safetensors",
+      "width": 1024,
+      "height": 1024,
+      "sampler_name": "DPM++ 2M",
+      "scheduler": "karras",
+      "cfg_scale": 3,
+      "steps": 35,
+      "negative_prompt": "bad eyes, cgi, airbrushed, plastic, deformed, watermark"
+    },
+    "leosamsHelloworldXL_hw50EulerALightning": {
+      "model": "leosamsHelloworldXL_hw50EulerALightning.safetensors",
+      "width": 1024,
+      "height": 1024,
+      "sampler_name": "Euler a",
+      "cfg_scale": 1,
+      "steps": 8,
+      "negative_prompt": "low quality, jpeg artifacts, blurry, poorly drawn, ugly, worst quality"
+    },
+    "leosamsHelloworldXL_helloworldXL70": {
+      "model": "leosamsHelloworldXL_helloworldXL70.safetensors",
+      "width": 1024,
+      "height": 1024,
+      "sampler_name": "DPM++ 2M",
+      "scheduler": "karras",
+      "cfg_scale": 10,
+      "steps": 35,
+      "negative_prompt": "low quality, jpeg artifacts, blurry, poorly drawn, ugly, worst quality"
+    },
+    "realvisxlV40_v40Bakedvae": {
+      "model": "realvisxlV40_v40Bakedvae.safetensors",
+      "width": 1024,
+      "height": 1024,
+      "sampler_name": "DPM++ 2M",
+      "scheduler": "karras",
+      "steps": 35,
+      "negative_prompt": "(worst quality, low quality, illustration, 3d, 2d, painting, cartoons, sketch), open mouth"
+    },
+    "animaPencilXL_v500": {
+      "model": "animaPencilXL_v500.safetensors",
+      "width": 1024,
+      "height": 1024,
+      "sampler_name": "DPM++ 2M",
+      "scheduler": "karras",
+      "steps": 35
+    },
+    "animagineXLV31": {
+      "model": "animagineXLV31_v31.safetensors",
+      "width": 1024,
+      "height": 1024,
+      "sampler_name": "DPM++ 2M",
+      "scheduler": "karras",
+      "negative_prompt": "worst quality, low quality, lowres, (bad), text, error, fewer, extra, missing, worst quality, jpeg artifacts, low quality, watermark, unfinished, displeasing, oldest, early, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]",
+      "steps": 35
+    },
+    "AnythingXL": {
+      "model": "AnythingXL_xl.safetensors",
+      "width": 960,
+      "height": 1536,
+      "sampler_name": "DPM++ 2M",
+      "scheduler": "karras",
+      "negative_prompt": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, artist name",
+      "steps": 35
+    },
+    "rmsdxlHybridTurboXL_scorpius": {
+      "model": "rmsdxlHybridTurboXL_scorpius.safetensors",
+      "width": 832,
+      "height": 1216,
+      "sampler_name": "DPM++ 2S a",
+      "scheduler": "karras",
+      "cfg_scale": 2.75,
+      "negative_prompt": "((blurry)),worst quality,platform,ugly,deformed,noisy,low poly,blurry,disfigured,studio,ai generated",
+      "steps": 7
+    },
+    "stable-diffusion-1-5": {
+      "model": "1.5.ckpt",
+      "width": 512,
+      "height": 512,
+      "sampler_name": "Euler a",
+      "steps": 50
+    }
+  }
+}

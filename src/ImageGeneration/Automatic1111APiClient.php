@@ -21,8 +21,8 @@ class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGen
         if (!isset($_ENV['AUTOMATIC1111_API_URL'])) {
             throw new \Exception('Environment variable AUTOMATIC1111_API_URL is not defined');
         }
-        if (!isset($this->modelConfig['default'])) {
-            throw new \Exception('"default" model is not defined');
+        if (count($modelConfig) === 0) {
+            throw new \Exception('At least one image model should be defined');
         }
     }
 
@@ -65,9 +65,10 @@ class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGen
     {
         $modelName = $this->imageModelPreference->getCurrentPreferenceValue($userId);
         if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
-            $modelName = 'default';
+            $params = current($this->modelConfig);
+        } else {
+            $params = $this->modelConfig[$modelName];
         }
-        $params = $this->modelConfig[$modelName];
         if (array_key_exists('customUrl', $params)) {
             $apiUrl = rtrim($params['customUrl'], '/');
             unset ($params['customUrl']);

@@ -69,24 +69,25 @@ class ProcessMessageTask implements Task
             'seed',
         );
         $openAiCompletionStringParser = new OpenAiCompletionStringParser();
-        $modelConfigFilePath =__DIR__ . '/../automatic1111-model-config.json';
+        $modelConfigFilePath =__DIR__ . '/../config.json';
         $modelConfigString = file_get_contents($modelConfigFilePath);
         if ($modelConfigString === false) {
             throw new \Exception("Failed to read $modelConfigFilePath");
         }
         $modelConfig = json_decode($modelConfigString, true, 512, JSON_THROW_ON_ERROR);
+        $imageModelConfig = $modelConfig['imageModels'];
         $imageModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
             $database,
             ['/imagemodel'],
             'imagemodel',
-            array_keys($modelConfig),
+            array_keys($imageModelConfig),
         );
         $automatic1111APiClient = new ImageGeneration\Automatic1111APiClient(
             $denoisingStrengthProcessor,
             $stepsProcessor,
             $seedProcessor,
             $imageModelProcessor,
-            $modelConfig,
+            $imageModelConfig,
         );
         $assistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
             $automatic1111APiClient,
