@@ -45,7 +45,7 @@ class AssistedImageGenerator implements Prompt2ImgGenerator, PromptAndImg2ImgGen
             $params = $this->modelConfig[$modelName];
         }
         $systemPrompt = $params['assistantPrompt'] ??
-            "Given a message, add details, reword and expand on it in a way that describes an image illustrating user's message.  This text will be used to generate an image using automatic text to image generator that does not understand emotions, metaphors or negatives. Your output should contain only a literal description of the image in a single sentence. Only describe what an observer will see. Your output will be directly passed to an API, so don't output anything extra. Do not use any syntax or code formatting, just output raw text describing the image and nothing else. Translate the output to English. Your message to describe follows bellow:";
+            "Given a message, add details, reword and expand on it in a way that describes an image illustrating user's message.  This text will be used to generate an image using automatic text to image generator that does not understand emotions, metaphors, negatives, abstract concepts. Important parts of the image should be specifically described, leaving no room for interpretation. Your output should contain only a literal description of the image in a single sentence. Only describe what an observer will see. Your output will be directly passed to an API, so don't output anything extra. Do not use any syntax or code formatting, just output raw text describing the image and nothing else. Translate the output to English. Your message to describe follows bellow:";
 
         return $this->assistant->getCompletionBasedOnSingleStringQuestion($originalPrompt, $systemPrompt);
     }
