@@ -7,7 +7,7 @@ class OpenAiCompletionStringParser
     public function parse(string $completionString): array
     {
         if (!str_starts_with($completionString, 'data: ')) {
-            die("Unexpected completion string: $completionString");
+            throw new \Exception("Unexpected completion string: $completionString");
         }
 
         return json_decode(
