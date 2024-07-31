@@ -81,7 +81,7 @@ class InternalMessage
         }
 
         $response =  Request::sendMessage($options);
-        if ($options['parse_mode'] === 'Default') {
+        if (!isset($options['parse_mode']) || $options['parse_mode'] === 'Default') {
             return $response;
         }
         if ($response->isOk()) {
