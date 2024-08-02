@@ -59,6 +59,7 @@ def get_images(prompt):
                 images_output.append(out[8:])
                 output_images[current_node] = images_output
 
+    ws.close()
     return output_images
 
 
