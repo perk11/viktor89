@@ -29,6 +29,10 @@ class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGen
     public function generateByPromptTxt2Img(string $prompt, int $userId): Automatic1111ImageApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
+        if (isset($params['promptPrefix'])) {
+            $prompt = $params['promptPrefix'] . $prompt;
+            unset($params['promptPrefix']);
+        }
         $params['prompt'] = $prompt;
         $response = $this->request('txt2img', $params);
 
