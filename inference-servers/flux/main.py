@@ -239,7 +239,7 @@ def generate_image():
     comfy_workflow_object["5"]["inputs"]["height"] = height
     comfy_workflow_object["6"]["inputs"]["text"] = prompt
     comfy_workflow_object["17"]["inputs"]["steps"] = steps
-    comfy_workflow_object["22"]["inputs"]["noise_seed"] = seed
+    comfy_workflow_object["25"]["inputs"]["noise_seed"] = seed
 
     sem.acquire()
 
