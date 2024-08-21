@@ -1,5 +1,5 @@
 <?php
-
+ini_set('memory_limit', '-1');
 use GuzzleHttp\Exception\ConnectException;
 use Longman\TelegramBot\Entities\Update;
 use Longman\TelegramBot\Request;
