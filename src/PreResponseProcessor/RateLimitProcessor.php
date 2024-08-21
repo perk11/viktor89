@@ -25,15 +25,18 @@ class RateLimitProcessor implements PreResponseProcessor
         if (!array_key_exists($chatId, $this->rateLimitByChatId)) {
             return false;
         }
-        if (!str_contains($message->getText(), '@' . $_ENV['TELEGRAM_BOT_USERNAME'])) {
-            $replyToMessage = $message->getReplyToMessage();
-            if ($replyToMessage === null) {
-                return false;
+        if (
+            $message->getType() !== 'command' && //TODO: ignore unknown commands
+            !str_contains($message->getText(), '@' . $_ENV['TELEGRAM_BOT_USERNAME'])
+        ) {
+                $replyToMessage = $message->getReplyToMessage();
+                if ($replyToMessage === null) {
+                    return false;
+                }
+                if ($replyToMessage->getFrom()->getId() !== $this->botUserId) {
+                    return false;
+                }
             }
-            if ($replyToMessage->getFrom()->getId() !== $this->botUserId) {
-                return false;
-            }
-        }
         $limit = $this->rateLimitByChatId[$message->getChat()->getId()];
         $priorMessages = $this->database->countMessagesInChatFromBotToUserInLast24Hours(
             $chatId,
