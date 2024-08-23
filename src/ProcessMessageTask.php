@@ -171,6 +171,7 @@ class ProcessMessageTask implements Task
                 $assistantFactory->getAssistantInstanceByName('gemma2'),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
+            new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
         ];
 
         $engine = new \Perk11\Viktor89\Engine($photoImg2ImgProcessor,

@@ -18,10 +18,18 @@ class HelloProcessor implements PreResponseProcessor
         'дарова',
         'даровч',
         'привет',
+        'хау'
+    ];
+
+    private array $triggerUsers = [
+        5461833561,
     ];
 
     public function process(Message $message): false|string|null
     {
+        if (!in_array($message->getFrom()->getId(), $this->triggerUsers, true)) {
+            return false;
+        }
         $incomingMessageTextLower = mb_strtolower($message->getText());
 
         foreach ($this->triggerPhrases as $triggerPhrase) {
