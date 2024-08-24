@@ -18,6 +18,24 @@ class AssistantFactory
     {
     }
 
+    /** @return string[] */
+    public function getSupportedModels(): array
+    {
+        $models = [];
+        foreach ($this->assistantConfig as $modelName => $assistantConfig) {
+            if ($assistantConfig['selectableByUser']) {
+                $models[] = $modelName;
+            }
+        }
+
+        return $models;
+    }
+
+    public function getDefaultAssistantInstance(): AbstractOpenAIAPICompletionAssistant
+    {
+        return $this->getAssistantInstanceByName($this->getSupportedModels()[0]);
+    }
+
     public function getAssistantInstanceByName(string $name): AbstractOpenAIAPICompletionAssistant
     {
         if (isset($this->assistantInstanceByName[$name])) {
@@ -25,7 +43,7 @@ class AssistantFactory
         }
 
         if (!array_key_exists($name, $this->assistantConfig)) {
-            throw new \Exception("Unknown assistant name passed $name");
+            throw new UnknownAssistantException("Unknown assistant name passed $name");
         }
 
         $requestedAssistantConfig = $this->assistantConfig[$name];

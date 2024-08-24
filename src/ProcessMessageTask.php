@@ -9,6 +9,7 @@ use Dotenv\Dotenv;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\Assistant\AssistantFactory;
+use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
@@ -104,6 +105,12 @@ class ProcessMessageTask implements Task
             $responseStartProcessor,
             $openAiCompletionStringParser,
         );
+        $assistantModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+            $database,
+            ['/assistantmodel'],
+            'assistantmodel',
+            $assistantFactory->getSupportedModels(),
+        );
         $assistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
             $automatic1111APiClient,
             $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
@@ -133,6 +140,7 @@ class ProcessMessageTask implements Task
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
         $questionRepository = new QuestionRepository($database);
+        $userSelectedAssistant = new UserSelectedAssistant($assistantFactory, $assistantModelProcessor);
         $preResponseProcessors = [
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
                 $database, $this->telegramBotId,
@@ -148,6 +156,7 @@ class ProcessMessageTask implements Task
                 new RandomQuizResponder($questionRepository)
             ),
             $imageModelProcessor,
+            $assistantModelProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
                 ['/image'],
                 $automatic1111APiClient,
@@ -168,7 +177,7 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],
                 $database,
-                $assistantFactory->getAssistantInstanceByName('gemma2'),
+                $userSelectedAssistant,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
