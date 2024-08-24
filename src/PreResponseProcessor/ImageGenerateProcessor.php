@@ -20,24 +20,27 @@ class ImageGenerateProcessor implements PreResponseProcessor
 
     public function process(Message $message): false|string|null
     {
+        $triggerFound = false;
         $messageText = $message->getText();
         foreach ($this->triggeringCommands as $triggeringCommand) {
             if (str_starts_with($messageText, $triggeringCommand)) {
+                $triggerFound = true;
                 $prompt = trim(str_replace($triggeringCommand, '', $messageText));
                 break;
             }
         }
-        if (!isset($prompt)) {
+
+        if (!$triggerFound) {
             return false;
+        }
+        if ($message->getReplyToMessage() !== null && $message->getPhoto() === null) {
+            $prompt = trim($message->getReplyToMessage()->getText() . "\n\n" . $prompt);
         }
         if ($prompt === '') {
             return 'Непонятно, что генерировать...';
         }
 
-        if ($message->getReplyToMessage() !== null) {
-            if ($message->getReplyToMessage()->getPhoto() === null) {
-                return 'Не вижу фото в сообщении на которое ответ. Чтобы сгенерировать новое изображение, повторите команду без ответа';
-            }
+        if ($message->getReplyToMessage() !== null && $message->getReplyToMessage()->getPhoto() !== null) {
             $this->photoImg2ImgProcessor->respondWithImg2ImgResultBasedOnPhotoInMessage($message->getReplyToMessage(), $message, $prompt);
             return null;
         }
