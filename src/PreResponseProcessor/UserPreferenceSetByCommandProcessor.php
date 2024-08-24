@@ -12,6 +12,7 @@ class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
         private readonly Database $database,
         protected readonly array $triggeringCommands,
         protected readonly string $preferenceName,
+        protected readonly string $botUserName,
     )
     {
     }
@@ -38,6 +39,9 @@ class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
     {
         $messageText = $message->getText();
         $triggerFound = false;
+        if (str_starts_with($messageText, '@' . $this->botUserName)) {
+            $messageText = ltrim(str_replace('@' . $this->botUserName, '', $messageText));
+        }
         foreach ($this->triggeringCommands as $triggeringCommand) {
             if (str_starts_with($messageText, $triggeringCommand)) {
                 $preferenceValue = trim(str_replace($triggeringCommand, '', $messageText));

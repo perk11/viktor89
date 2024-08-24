@@ -12,9 +12,10 @@ class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandPr
         Database $database,
         array $triggeringCommands,
         string $preferenceName,
+        string $botUserName,
         private readonly array $acceptedValuesList,
     ) {
-        parent::__construct($database, $triggeringCommands, $preferenceName);
+        parent::__construct($database, $triggeringCommands, $preferenceName, $botUserName);
     }
 
     protected function processValueAsSetting(Message $message, ?string $value): bool

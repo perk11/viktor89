@@ -53,6 +53,7 @@ class ProcessMessageTask implements Task
             $database,
             ['/denoising_strength', '/denoisingstrength'],
             'denoising-strength',
+            $this->telegramBotUsername,
             0,
             1,
         );
@@ -60,6 +61,7 @@ class ProcessMessageTask implements Task
             $database,
             ['/steps',],
             'steps',
+            $this->telegramBotUsername,
             1,
             75,
         );
@@ -67,6 +69,7 @@ class ProcessMessageTask implements Task
             $database,
             ['/seed',],
             'seed',
+            $this->telegramBotUsername,
         );
         $openAiCompletionStringParser = new OpenAiCompletionStringParser();
         $configFilePath =__DIR__ . '/../config.json';
@@ -80,6 +83,7 @@ class ProcessMessageTask implements Task
             $database,
             ['/imagemodel'],
             'imagemodel',
+            $this->telegramBotUsername,
             array_keys($imageModelConfig),
         );
         $automatic1111APiClient = new ImageGeneration\Automatic1111APiClient(
@@ -93,11 +97,13 @@ class ProcessMessageTask implements Task
             $database,
             ['/system_prompt', '/systemprompt'],
             'system_prompt',
+            $this->telegramBotUsername,
         );
         $responseStartProcessor = new UserPreferenceSetByCommandProcessor(
             $database,
             ['/responsestart', '/response-start'],
             'response-start',
+            $this->telegramBotUsername,
         );
         $assistantFactory = new AssistantFactory(
             $config['assistantModels'],
@@ -109,6 +115,7 @@ class ProcessMessageTask implements Task
             $database,
             ['/assistantmodel'],
             'assistantmodel',
+            $this->telegramBotUsername,
             $assistantFactory->getSupportedModels(),
         );
         $assistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
@@ -135,6 +142,7 @@ class ProcessMessageTask implements Task
             $database,
             $responseStartProcessor,
             $openAiCompletionStringParser,
+            $this->telegramBotUsername,
         );
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));

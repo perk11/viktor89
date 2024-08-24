@@ -10,10 +10,11 @@ class NumericPreferenceInRangeByCommandProcessor extends UserPreferenceSetByComm
         Database $database,
         array $triggeringCommands,
         string $preferenceName,
+        string $botUserName,
         private readonly float $minValue,
         private readonly float $maxValue,
     ) {
-        parent::__construct($database, $triggeringCommands, $preferenceName);
+        parent::__construct($database, $triggeringCommands, $preferenceName, $botUserName);
     }
 
     private function getExpectedValueHelpMessage(): string

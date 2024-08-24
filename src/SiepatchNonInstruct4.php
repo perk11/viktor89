@@ -46,6 +46,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         private readonly Database $database,
         private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
+        private readonly string $telegramBotUsername,
     )
     {
         $this->openAi = new OpenAi('');
@@ -54,6 +55,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
             $this->database,
             ['/personality'],
             'personality',
+            $this->telegramBotUsername,
         );
         $this->addPreResponseProcessor($this->personalityProcessor);
     }
