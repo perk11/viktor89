@@ -71,7 +71,7 @@ def generate_image():
 
     prompt = data.get('prompt')
     seed = int(data.get('seed', random.randint(1, 99999999999999)))
-    model = data.get('model', 'flux1-dev')
+    model = data.get('model', 'flux1-dev.sft')
     steps = int(data.get('steps', 20))
     width = int(data.get('width', 1024))
     height = int(data.get('height', 1024))
