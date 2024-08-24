@@ -2,6 +2,7 @@
 import base64
 import io
 import json
+import os
 import random
 import threading
 import urllib.parse
@@ -70,6 +71,7 @@ def generate_image():
 
     prompt = data.get('prompt')
     seed = int(data.get('seed', random.randint(1, 99999999999999)))
+    model = data.get('model', 'flux1-dev')
     steps = int(data.get('steps', 20))
     width = int(data.get('width', 1024))
     height = int(data.get('height', 1024))
@@ -238,6 +240,7 @@ def generate_image():
     comfy_workflow_object["5"]["inputs"]["width"] = width
     comfy_workflow_object["5"]["inputs"]["height"] = height
     comfy_workflow_object["6"]["inputs"]["text"] = prompt
+    comfy_workflow_object["12"]["inputs"]["unet_name"] = model
     comfy_workflow_object["17"]["inputs"]["steps"] = steps
     comfy_workflow_object["25"]["inputs"]["noise_seed"] = seed
 
@@ -254,7 +257,9 @@ def generate_image():
                 'images': [image_base64],
                 'parameters': {},
                 'info': json.dumps({
-                    'infotexts': [f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: flux-dev']
+                    'infotexts': [f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: '
+                                  + os.path.splitext(model)[0]
+                                  ]
                 })
             }
 
