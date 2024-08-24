@@ -12,6 +12,10 @@ class HelloProcessor implements PreResponseProcessor
         'CAACAgIAAxkBAAIHmWZiqtzEzuJ8IjZwpw0RcsJkMCzKAAJPVwACB675SKEDKWsW3b-wNQQ',
         'CAACAgIAAxkBAAIHmmZiqu2u7XfyUyc2UNsTQZIhkZChAAIvSwACMjMpSQABIO6vm_ba0DUE',
         'CAACAgIAAxkBAAIHm2ZiqxRI6qN4j9Oez-BnBPDcW-cVAALSRgACVR94SXnh337D0AoQNQQ',
+        'CAACAgIAAx0CfgRFTAACejtmyK_6_fwWAAEJfF6uqYOEuyI2874AAqdbAAIyVyhK1C-bb5CVf001BA', //хаухрен
+        'CAACAgIAAx0CfgRFTAACejxmyK_8v5UXST8LbhiV236jAAFfwmkAAtZSAALgOPhLRGX-azlQ4uo1BA', //кучерт
+        'CAACAgIAAx0CfgRFTAACej9myLAhM2_CccQtR9oXpLDDsVapxQACj0MAAsZ-oEikwEx-jhVAPTUE', //дарова хрены
+
     ];
 
     private array $triggerPhrases = [
