@@ -17,6 +17,9 @@ use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\Quiz\QuestionRepository;
 use Perk11\Viktor89\Quiz\RandomQuizResponder;
+use Perk11\Viktor89\VideoGeneration\Txt2VideoClient;
+use Perk11\Viktor89\VideoGeneration\VideoProcessor;
+use Perk11\Viktor89\VideoGeneration\VideoResponder;
 
 class ProcessMessageTask implements Task
 {
@@ -149,6 +152,8 @@ class ProcessMessageTask implements Task
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
         $questionRepository = new QuestionRepository($database);
         $userSelectedAssistant = new UserSelectedAssistant($assistantFactory, $assistantModelProcessor);
+        $txt2VideoClient = new Txt2VideoClient($stepsProcessor, $seedProcessor, $config['videoModels']);
+        $videoProcessor = new VideoProcessor($txt2VideoClient, new VideoResponder());
         $preResponseProcessors = [
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
                 $database, $this->telegramBotId,
@@ -186,6 +191,11 @@ class ProcessMessageTask implements Task
                 ['/assistant'],
                 $database,
                 $userSelectedAssistant,
+            ),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/video'],
+                $database,
+                $videoProcessor,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),

@@ -139,5 +139,11 @@
       "sampler_name": "Euler a",
       "steps": 50
     }
+  },
+  "videoModels": {
+    "cogvideo": {
+      "steps": 50,
+      "url": "http://localhost:8100"
+    }
   }
 }
