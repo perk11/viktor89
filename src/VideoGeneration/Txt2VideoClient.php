@@ -12,6 +12,7 @@ class Txt2VideoClient
     public function __construct(
         private readonly UserPreferenceSetByCommandProcessor $stepsPreference,
         private readonly UserPreferenceSetByCommandProcessor $seedPreference,
+        private readonly UserPreferenceSetByCommandProcessor $videoModelPreference,
         private readonly array $modelConfig,
     ){}
     public function generateByPromptTxt2Vid(string $prompt, int $userId): VideoApiResponse
@@ -28,7 +29,12 @@ class Txt2VideoClient
      */
     private function getParamsBasedOnUserPreferences(int $userId): mixed
     {
-        $params = current($this->modelConfig);
+        $modelName = $this->videoModelPreference->getCurrentPreferenceValue($userId);
+        if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
+            $params = current($this->modelConfig);
+        } else {
+            $params = $this->modelConfig[$modelName];
+        }
         $apiUrl = rtrim($params['url'], '/');
         unset ($params['url']);
         $this->httpClient = new Client(['base_uri' => $apiUrl]);

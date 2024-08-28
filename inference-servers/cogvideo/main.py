@@ -1,3 +1,4 @@
+import argparse
 import base64
 import json
 import os
@@ -9,11 +10,17 @@ from diffusers import CogVideoXPipeline
 from diffusers.utils import export_to_video
 from flask import Flask, request, jsonify
 
+parser = argparse.ArgumentParser(description="Inference server for cogvideo.")
+parser.add_argument('--port', type=int, help='port to listen on')
+parser.add_argument('--model', type=str, choices=['2b', '5b'], help="The argument must be either '2b' or '5b'.")
+args = parser.parse_args()
+
 app = Flask(__name__)
 
-# Load the model
+model = "CogVideoX-" + args.model
+print("Loading model {}".format(model))
 pipeline = CogVideoXPipeline.from_pretrained(
-    "THUDM/CogVideoX-2b",
+    "THUDM/" + model,
     torch_dtype=torch.bfloat16
 )
 pipeline.enable_model_cpu_offload()
@@ -64,7 +71,7 @@ def generate_video():
         'videos': [video_contents_base64],
         'parameters': {},
         'info': json.dumps({
-            'infotexts': [f'{prompt}\nSteps: {steps}, frames: {frames}, Model: CogVideoX-2b']
+            'infotexts': [f'{prompt}\nSteps: {steps}, frames: {frames}, Model: {model}']
         })
     }
     # Clear cache
@@ -74,4 +81,4 @@ def generate_video():
 
 
 if __name__ == '__main__':
-    app.run(host='localhost', port=18100)
+    app.run(host='localhost', port=args.port)

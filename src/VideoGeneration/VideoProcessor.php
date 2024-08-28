@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\VideoGeneration;
 
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\TelegramChainBasedResponderInterface;
 
 class VideoProcessor implements TelegramChainBasedResponderInterface
@@ -23,7 +24,11 @@ class VideoProcessor implements TelegramChainBasedResponderInterface
             $prompt = trim($messageChain[count($messageChain) - 2]->messageText. "\n\n" . $prompt);
         }
         if ($prompt === '') {
-            return 'Непонятно, что генерировать...';
+            $response = new InternalMessage();
+            $response->chatId = $message->chatId;
+            $response->replyToMessageId = $message->id;
+            $response->messageText = 'Непонятно, что генерировать...';
+            return $response;
         }
 
         echo "Generating video for prompt: $prompt\n";

@@ -152,7 +152,14 @@ class ProcessMessageTask implements Task
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
         $questionRepository = new QuestionRepository($database);
         $userSelectedAssistant = new UserSelectedAssistant($assistantFactory, $assistantModelProcessor);
-        $txt2VideoClient = new Txt2VideoClient($stepsProcessor, $seedProcessor, $config['videoModels']);
+        $videoModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+            $database,
+            ['/videomodel'],
+            'videomodel',
+            $this->telegramBotUsername,
+            array_keys($config['videoModels']),
+        );
+        $txt2VideoClient = new Txt2VideoClient($stepsProcessor, $seedProcessor, $videoModelProcessor, $config['videoModels']);
         $videoProcessor = new VideoProcessor($txt2VideoClient, new VideoResponder());
         $preResponseProcessors = [
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
@@ -192,6 +199,7 @@ class ProcessMessageTask implements Task
                 $database,
                 $userSelectedAssistant,
             ),
+            $videoModelProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/video'],
                 $database,

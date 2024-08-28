@@ -141,7 +141,11 @@
     }
   },
   "videoModels": {
-    "cogvideo": {
+    "CogVideoX-5b": {
+      "steps": 50,
+      "url": "http://localhost:8101"
+    },
+    "CogVideoX-2b": {
       "steps": 50,
       "url": "http://localhost:8100"
     }
