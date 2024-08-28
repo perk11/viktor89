@@ -71,7 +71,7 @@ def generate_video():
         'videos': [video_contents_base64],
         'parameters': {},
         'info': json.dumps({
-            'infotexts': [f'{prompt}\nSteps: {steps}, frames: {frames}, Model: {model}']
+            'infotexts': [f'{prompt}\nSteps: {steps}, Seed: {seed}, Frames: {frames}, Model: {model}']
         })
     }
     # Clear cache
