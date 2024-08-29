@@ -51,7 +51,7 @@ class ProcessMessageTask implements Task
         $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
         $database = new Database($this->telegramBotId, 'siepatch-non-instruct5');
         $historyReader = new HistoryReader($database);
-        $telegramPhotoDownloader = new TelegramPhotoDownloader($this->telegramApiKey);
+        $telegramFileDownloader = new TelegramFileDownloader($this->telegramApiKey);
         $denoisingStrengthProcessor = new NumericPreferenceInRangeByCommandProcessor(
             $database,
             ['/denoising_strength', '/denoisingstrength'],
@@ -129,12 +129,12 @@ class ProcessMessageTask implements Task
         );
         $photoResponder = new PhotoResponder();
         $photoImg2ImgProcessor = new PhotoImg2ImgProcessor(
-            $telegramPhotoDownloader,
+            $telegramFileDownloader,
             $automatic1111APiClient,
             $photoResponder,
         );
         $assistedPhotoImg2ImgProcessor = new PhotoImg2ImgProcessor(
-            $telegramPhotoDownloader,
+            $telegramFileDownloader,
             $assistedImageGenerator,
             $photoResponder,
         );
@@ -162,6 +162,7 @@ class ProcessMessageTask implements Task
         $txt2VideoClient = new Txt2VideoClient($stepsProcessor, $seedProcessor, $videoModelProcessor, $config['videoModels']);
         $videoProcessor = new VideoProcessor($txt2VideoClient, new VideoResponder());
         $preResponseProcessors = [
+            new VoiceProcessor($telegramFileDownloader, $config['whisperCppUrl']),
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
                 $database, $this->telegramBotId,
                 [

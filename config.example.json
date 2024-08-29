@@ -149,5 +149,6 @@
       "steps": 50,
       "url": "http://localhost:8100"
     }
-  }
+  },
+  "whisperCppUrl": "http://localhost:8102"
 }

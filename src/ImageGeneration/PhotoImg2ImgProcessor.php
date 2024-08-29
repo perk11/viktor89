@@ -4,12 +4,12 @@ namespace Perk11\Viktor89\ImageGeneration;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
-use Perk11\Viktor89\TelegramPhotoDownloader;
+use Perk11\Viktor89\TelegramFileDownloader;
 
 class PhotoImg2ImgProcessor
 {
     public function __construct(
-        private readonly TelegramPhotoDownloader $telegramPhotoDownloader,
+        private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly PromptAndImg2ImgGenerator $automatic1111APiClient,
         private readonly PhotoResponder $photoResponder,
     ) {
@@ -54,7 +54,7 @@ class PhotoImg2ImgProcessor
             ],
         ]);
         try {
-            $photo = $this->telegramPhotoDownloader->downloadPhotoFromMessage($messageWithPhoto);
+            $photo = $this->telegramFileDownloader->downloadPhotoFromMessage($messageWithPhoto);
             $transformedPhotoResponse = $this->automatic1111APiClient->generatePromptAndImageImg2Img(
                 $photo,
                 $prompt,

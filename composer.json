@@ -17,7 +17,8 @@
         "orhanerday/open-ai": "^5.1",
       "ext-sqlite3": "*",
         "amphp/amp": "^3.0",
-        "amphp/parallel": "^2.2"
+        "amphp/parallel": "^2.2",
+      "ext-curl": "*"
     },
     "config": {
         "allow-plugins": {
