@@ -82,7 +82,13 @@ $iterationId =0;
 
                 // Split the summary into chunks of 4000 characters
                 $chunks = mb_str_split($newSummary, $maxSize);
-
+                foreach ($chunks as $chunk) {
+                    $message = new \Perk11\Viktor89\InternalMessage();
+                    $message->chatId = -1001804789551;
+                    $message->parseMode = 'markdown';
+                    $message->messageText = "#summary\n" . $chunk;
+                    $message->send();
+                }
                 foreach ($chunks as $chunk) {
                     // Send each chunk as a separate message
                     var_dump(Request::sendMessage([
