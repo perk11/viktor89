@@ -32,7 +32,7 @@ class OpenAISummaryProvider
         }
         return $this->provideSummary($chatId);
     }
-    public function provideSummary(int $chatId): ?string
+    public function provideSummary(int $chatId, int $maxMessages = 10000): ?string
     {
         $allMessages = $this->database->findMessagesSentInLast24HoursInChat($chatId);
         if (count($allMessages) < 10) {
@@ -40,9 +40,9 @@ class OpenAISummaryProvider
             return null;
         }
         $summary = "Сообщений проанализировано: ";
-        if (count($allMessages) > 100000) {
-            $summary .= '1000';
-            $allMessages = array_slice($allMessages, 0, 1000);
+        if (count($allMessages) > $maxMessages) {
+            $summary .= $maxMessages;
+            $allMessages = array_slice($allMessages, 0, $maxMessages);
         } else {
             $summary .= count($allMessages);
         }
