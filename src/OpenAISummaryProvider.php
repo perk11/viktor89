@@ -36,7 +36,7 @@ class OpenAISummaryProvider
     {
         $allMessages = $this->database->findMessagesSentInLast24HoursInChat($chatId);
         if (count($allMessages) < 10) {
-            echo count($allMessages) . " messages found in chat $chatId in last 24 hours, no summary to provide\n";
+//            echo count($allMessages) . " messages found in chat $chatId in last 24 hours, no summary to provide\n";
             return null;
         }
         $summary = "Сообщений проанализировано: ";
@@ -60,7 +60,7 @@ class OpenAISummaryProvider
                                                'messages' => [
                                                    [
                                                        "role"    => "system",
-                                                       "content" => "Summarize messages sent in a group chat. Respond in Russian. Use past tense. When describing a topic, mention author names and their opinions. Do not add intro or outro, go straight to topics. Messages start below:",
+                                                       "content" => "Summarize messages sent in a group chat, grouping them by topic. Respond in Russian. Use past tense. Do not add intro or outro, go straight to topics. Messages start below:",
                                                    ],
                                                    [
                                                        "role"    => "user",
