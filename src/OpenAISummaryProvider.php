@@ -40,7 +40,7 @@ class OpenAISummaryProvider
             return null;
         }
         $summary = "Сообщений проанализировано: ";
-        if (count($allMessages) > 1000) {
+        if (count($allMessages) > 100000) {
             $summary .= '1000';
             $allMessages = array_slice($allMessages, 0, 1000);
         } else {
@@ -60,7 +60,7 @@ class OpenAISummaryProvider
                                                'messages' => [
                                                    [
                                                        "role"    => "system",
-                                                       "content" => "Summarize messages from a group chat for someone who missed them. Respond in Russian. Provide at least 1 mention of every author. Mention author names in the summary. Do not add output other than the summary itself.",
+                                                       "content" => "Summarize messages sent in a group chat. Respond in Russian. Use past tense. When describing a topic, mention author names and their opinions. Do not add intro or outro, go straight to topics. Messages start below:",
                                                    ],
                                                    [
                                                        "role"    => "user",
