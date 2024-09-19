@@ -25,7 +25,7 @@ class VoiceProcessor implements PreResponseProcessor
         $tmpFilePath = tempnam(sys_get_temp_dir(), 'viktor89-voice');
         $tmpPathWithExtension = $tmpFilePath . '.ogg';
         rename($tmpFilePath, $tmpPathWithExtension);
-        echo "Temporary image recorded to $tmpPathWithExtension\n";
+        echo "Temporary audio recorded to $tmpPathWithExtension\n";
         $file = $this->telegramFileDownloader->downloadVoice($message);
 
         file_put_contents($tmpPathWithExtension, $file);
