@@ -73,28 +73,34 @@ $iterationId =0;
         }
 
         if ($iterationId % 60 === 0) {
-            $newSummary = $summaryProvider->provideSummaryIf24HoursPassedSinceLastOneA('-1001804789551');
-            if ($newSummary !== null) {
-                $formattedText = str_replace('**', '*', $newSummary);
-                $newSummary = "*Анализ чата за последние 24 часа*\n$newSummary";
-                // Define the maximum size of each message
-                $maxSize = 4000;
+            $chats = [
+                '-1001804789551',
+                '-1001537530453',
+                '-1002114209100',
+                '-1001284940664',
+                '-4233480248',
+                '-1002076350723',
+                '-1001634709774',
+                '-4285233729',
 
-                // Split the summary into chunks of 4000 characters
-                $chunks = mb_str_split($newSummary, $maxSize);
-                foreach ($chunks as $chunk) {
-                    $message = new \Perk11\Viktor89\InternalMessage();
-                    $message->chatId = -1001804789551;
-                    $message->parseMode = 'markdown';
-                    $message->messageText = "#summary\n" . $chunk;
-                    $message->send();
-                }
-                foreach ($chunks as $chunk) {
-                    // Send each chunk as a separate message
-                    var_dump(Request::sendMessage([
-                                             'chat_id'    => -1001804789551,
-                                             'text'       => $chunk,
-                                         ]));
+            ];
+            foreach ($chats as $chat) {
+                $newSummary = $summaryProvider->provideSummaryIf24HoursPassedSinceLastOneA($chat);
+                if ($newSummary !== null) {
+                    $formattedText = str_replace('**', '*', $newSummary);
+                    $newSummary = "*Анализ чата за последние 24 часа*\n$newSummary";
+                    // Define the maximum size of each message
+                    $maxSize = 4000;
+
+                    // Split the summary into chunks of 4000 characters
+                    $chunks = mb_str_split($newSummary, $maxSize);
+                    foreach ($chunks as $chunk) {
+                        $message = new \Perk11\Viktor89\InternalMessage();
+                        $message->parseMode = 'Default';
+                        $message->chatId = $chat;
+                        $message->messageText = "#summary\n" . $chunk;
+                        $message->send();
+                    }
                 }
             }
         }
