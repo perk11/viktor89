@@ -12,6 +12,7 @@ use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
+use Perk11\Viktor89\PreResponseProcessor\AllowedChatProcessor;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
@@ -147,6 +148,10 @@ class ProcessMessageTask implements Task
             $openAiCompletionStringParser,
             $this->telegramBotUsername,
         );
+        $responder->addPreResponseProcessor(new AllowedChatProcessor([
+                                                                         '-1001804789551',
+                                                                         '-1002114209100',
+                                                                     ]));
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
