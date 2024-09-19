@@ -21,7 +21,7 @@ class OpenAISummaryProvider
 
     }
 
-    private const MESSAGES_ANALYZED_PER_BATCH = 100;
+    private const MESSAGES_ANALYZED_PER_BATCH = 150;
     public function provideSummaryIf24HoursPassedSinceLastOneA(int $chatId): ?string
     {
         $lastSummaryDate = $this->database->getLastChatSummaryDate($chatId);
@@ -60,7 +60,7 @@ class OpenAISummaryProvider
                                                'messages' => [
                                                    [
                                                        "role"    => "system",
-                                                       "content" => "Summarize messages sent in a group chat, grouping them by topic and briefly mentioning authors. Respond in Russian. Use past tense. Do not add intro or outro, go straight to topics. Use plain text rather than Markdown. Messages start below:",
+                                                       "content" => "Summarize messages sent in a group chat. Respond in Russian. Be brief, but avoid too much generalization, always use specific terms and names. Do not add intro or outro. Use plain text, do not add any formatting. Use past tense. Messages start below:",
                                                    ],
                                                    [
                                                        "role"    => "user",
