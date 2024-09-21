@@ -30,16 +30,17 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
 
-        return $this->generateByPromptTxt2ImgAndParams($prompt, $params);
+        return $this->generateImageByPromptAndModelParams($prompt, $params);
     }
 
-    public function generateByPromptTxt2ImgAndParams(string $prompt, array $params): Automatic1111ImageApiResponse
+    public function generateImageByPromptAndModelParams(string $prompt, array $params): Automatic1111ImageApiResponse
     {
         if (isset($params['promptPrefix'])) {
             $prompt = $params['promptPrefix'] . $prompt;
             unset($params['promptPrefix']);
         }
         $params['prompt'] = $prompt;
+        $this->processParamsAndInitHttpClient($params);
         $response = $this->request('txt2img', $params);
 
         return Automatic1111ImageApiResponse::fromString($response->getBody()->getContents());
@@ -67,18 +68,8 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         ]);
     }
 
-    /**
-     * @param int $userId
-     * @return mixed
-     */
-    private function getParamsBasedOnUserPreferences(int $userId): mixed
+    private function processParamsAndInitHttpClient(array $params): array
     {
-        $modelName = $this->imageModelPreference->getCurrentPreferenceValue($userId);
-        if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
-            $params = current($this->modelConfig);
-        } else {
-            $params = $this->modelConfig[$modelName];
-        }
         unset($params['assistantPrompt']);
         if (array_key_exists('customUrl', $params)) {
             $apiUrl = rtrim($params['customUrl'], '/');
@@ -88,14 +79,6 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         }
         $this->httpClient = new Client(['base_uri' => $apiUrl]);
 
-        $steps = $this->stepsPreference->getCurrentPreferenceValue($userId);
-        if ($steps !== null) {
-            $params['steps'] = $steps;
-        }
-        $seed = $this->seedPreference->getCurrentPreferenceValue($userId);
-        if ($seed !== null) {
-            $params['seed'] = $seed;
-        }
         if (array_key_exists('useOptions', $params)) {
             $useOptions = $params['useOptions'];
             unset($params['useOptions']);
@@ -110,6 +93,32 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
                 $this->httpClient->post('/sdapi/v1/options', ['json' => $options]);
             }
         }
+
+        return $params;
+    }
+
+    /**
+     * @param int $userId
+     * @return mixed
+     */
+    private function getParamsBasedOnUserPreferences(int $userId): mixed
+    {
+        $modelName = $this->imageModelPreference->getCurrentPreferenceValue($userId);
+        if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
+            $params = current($this->modelConfig);
+        } else {
+            $params = $this->modelConfig[$modelName];
+        }
+        $params = $this->processParamsAndInitHttpClient($params);
+        $steps = $this->stepsPreference->getCurrentPreferenceValue($userId);
+        if ($steps !== null) {
+            $params['steps'] = $steps;
+        }
+        $seed = $this->seedPreference->getCurrentPreferenceValue($userId);
+        if ($seed !== null) {
+            $params['seed'] = $seed;
+        }
+
         return $params;
     }
 

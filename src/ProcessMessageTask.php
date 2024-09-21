@@ -19,6 +19,7 @@ use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\Quiz\QuestionRepository;
 use Perk11\Viktor89\Quiz\RandomQuizResponder;
+use Perk11\Viktor89\VideoGeneration\AssistedVideoProcessor;
 use Perk11\Viktor89\VideoGeneration\Img2VideoClient;
 use Perk11\Viktor89\VideoGeneration\Txt2VideoClient;
 use Perk11\Viktor89\VideoGeneration\VideoImg2VidProcessor;
@@ -176,7 +177,16 @@ class ProcessMessageTask implements Task
         $txt2VideoClient = new Txt2VideoClient($stepsProcessor, $seedProcessor, $videoModelProcessor, $config['videoModels']);
         $img2VideoClient = new Img2VideoClient($stepsProcessor, $seedProcessor, $config['img2videoModels']);
         $videoResponder = new VideoResponder();
-        $videoProcessor = new VideoProcessor($txt2VideoClient, $videoResponder, new VideoImg2VidProcessor($telegramFileDownloader, $img2VideoClient, $videoResponder));
+        $videoImg2VidProcessor = new VideoImg2VidProcessor($telegramFileDownloader, $img2VideoClient, $videoResponder);
+        $videoProcessor = new VideoProcessor($txt2VideoClient, $videoResponder, $videoImg2VidProcessor);
+        $assistedVideoProcessor = new AssistedVideoProcessor(
+            $automatic1111APiClient,
+            $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
+            $videoImg2VidProcessor,
+            $img2VideoClient,
+            $videoResponder,
+            current($config['videoFirstFrameImageModels']),
+        );
         $preResponseProcessors = [
             new VoiceProcessor($telegramFileDownloader, $config['whisperCppUrl']),
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
@@ -223,6 +233,11 @@ class ProcessMessageTask implements Task
                 ['/video'],
                 $database,
                 $videoProcessor,
+            ),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/vid'],
+                $database,
+                $assistedVideoProcessor,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),

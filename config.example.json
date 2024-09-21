@@ -156,5 +156,14 @@
       "url": "http://localhost:8103"
     }
   },
+  "videoFirstFrameImageModels":  {
+    "flux-dev-720x480": {
+      "width": 720,
+      "height": 480,
+      "steps": 20,
+      "customUrl": "http://localhost:8094",
+      "useOptions": false
+    }
+  },
   "whisperCppUrl": "http://localhost:8102"
 }
