@@ -36,7 +36,7 @@ class AssistantContext
                         $message->isUser = false;
                         break;
                     case 'system':
-                        $context->systemPrompt = $message['content'];
+                        $context->systemPrompt = $item['content'];
                         continue 2;
                     default:
                         throw new OpenAiContextParsingException("Unknown message role: " . $item['role']);
