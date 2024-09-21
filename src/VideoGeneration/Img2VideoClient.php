@@ -7,21 +7,21 @@ use Perk11\Viktor89\ImageGeneration\Automatic1111ImageApiResponse;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Psr\Http\Message\ResponseInterface;
 
-class Txt2VideoClient
+class Img2VideoClient
 {
     private Client $httpClient;
 
     public function __construct(
         private readonly UserPreferenceSetByCommandProcessor $stepsPreference,
         private readonly UserPreferenceSetByCommandProcessor $seedPreference,
-        private readonly UserPreferenceSetByCommandProcessor $videoModelPreference,
         private readonly array $modelConfig,
     ){}
-    public function generateByPromptTxt2Vid(string $prompt, int $userId): VideoApiResponse
+    public function generateByPromptImg2Vid( string $imageContent, string $prompt, int $userId): VideoApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
+        $params['init_images'] = [base64_encode($imageContent)];
         $params['prompt'] = $prompt;
-        $response = $this->request('txt2vid', $params);
+        $response = $this->request('img2vid', $params);
 
         return VideoApiResponse::fromString($response->getBody()->getContents());
     }
@@ -31,12 +31,7 @@ class Txt2VideoClient
      */
     private function getParamsBasedOnUserPreferences(int $userId): mixed
     {
-        $modelName = $this->videoModelPreference->getCurrentPreferenceValue($userId);
-        if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
-            $params = current($this->modelConfig);
-        } else {
-            $params = $this->modelConfig[$modelName];
-        }
+        $params = current($this->modelConfig);
         $apiUrl = rtrim($params['url'], '/');
         unset ($params['url']);
         $this->httpClient = new Client(['base_uri' => $apiUrl]);

@@ -12,6 +12,7 @@ class VideoProcessor implements TelegramChainBasedResponderInterface
     public function __construct(
         private readonly Txt2VideoClient $txt2VideoClient,
         private readonly VideoResponder $videoResponder,
+        private readonly VideoImg2VidProcessor $videoImg2ImgProcessor,
     ) {
     }
 
@@ -30,7 +31,10 @@ class VideoProcessor implements TelegramChainBasedResponderInterface
             $response->messageText = 'Непонятно, что генерировать...';
             return $response;
         }
-
+        if ($message->replyToPhoto !== null) {
+            $this->videoImg2ImgProcessor->respondWithImg2VidResultBasedOnPhotoInMessage($message->replyToPhoto, $message, $prompt);
+            return null;
+        }
         echo "Generating video for prompt: $prompt\n";
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,

@@ -18,7 +18,9 @@ use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\Quiz\QuestionRepository;
 use Perk11\Viktor89\Quiz\RandomQuizResponder;
+use Perk11\Viktor89\VideoGeneration\Img2VideoClient;
 use Perk11\Viktor89\VideoGeneration\Txt2VideoClient;
+use Perk11\Viktor89\VideoGeneration\VideoImg2VidProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoResponder;
 
@@ -165,7 +167,9 @@ class ProcessMessageTask implements Task
             array_keys($config['videoModels']),
         );
         $txt2VideoClient = new Txt2VideoClient($stepsProcessor, $seedProcessor, $videoModelProcessor, $config['videoModels']);
-        $videoProcessor = new VideoProcessor($txt2VideoClient, new VideoResponder());
+        $img2VideoClient = new Img2VideoClient($stepsProcessor, $seedProcessor, $config['img2videoModels']);
+        $videoResponder = new VideoResponder();
+        $videoProcessor = new VideoProcessor($txt2VideoClient, $videoResponder, new VideoImg2VidProcessor($telegramFileDownloader, $img2VideoClient, $videoResponder));
         $preResponseProcessors = [
             new VoiceProcessor($telegramFileDownloader, $config['whisperCppUrl']),
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(

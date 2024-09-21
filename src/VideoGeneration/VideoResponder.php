@@ -8,11 +8,11 @@ use Perk11\Viktor89\InternalMessage;
 
 class VideoResponder
 {
-    public function sendVideo(InternalMessage $message, string $photoContents, ?string $caption = null): void
+    public function sendVideo(InternalMessage $message, string $videoContents, ?string $caption = null): void
     {
         $videoPath = tempnam(sys_get_temp_dir(), 'viktor89-video-generator');
         echo "Temporary video recorded to $videoPath\n";
-        file_put_contents($videoPath, $photoContents);
+        file_put_contents($videoPath, $videoContents);
         $options = [
             'chat_id'          => $message->chatId,
             'reply_parameters' => [

@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89;
 
 use Longman\TelegramBot\Entities\Message;
+use Longman\TelegramBot\Entities\PhotoSize;
 use Longman\TelegramBot\Entities\ServerResponse;
 use Longman\TelegramBot\Request;
 
@@ -27,6 +28,9 @@ class InternalMessage
     public ?string $actualMessageText = null;
 
     public int $chatId;
+
+    /** @var PhotoSize[]|null */
+    public ?array $replyToPhoto = null;
 
     public static function fromSqliteAssoc(array $result): self
     {
@@ -62,6 +66,7 @@ class InternalMessage
             '',
             $message->actualMessageText)
         );
+        $message->replyToPhoto = $telegramMessage->getReplyToMessage()?->getPhoto();
 
         return $message;
     }
