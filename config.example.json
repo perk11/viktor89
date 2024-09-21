@@ -150,5 +150,11 @@
       "url": "http://localhost:8100"
     }
   },
+  "img2videoModels": {
+    "CogVideoX-5B-I2V": {
+      "steps": 50,
+      "url": "http://localhost:8103"
+    }
+  },
   "whisperCppUrl": "http://localhost:8102"
 }
