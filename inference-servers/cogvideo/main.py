@@ -23,8 +23,9 @@ pipeline = CogVideoXPipeline.from_pretrained(
     "THUDM/" + model,
     torch_dtype=torch.bfloat16
 )
-pipeline.enable_model_cpu_offload()
+pipeline.enable_sequential_cpu_offload()
 pipeline.vae.enable_tiling()
+pipeline.vae.enable_slicing()
 generator = torch.Generator(device="cuda")
 sem = threading.Semaphore()
 @app.route('/txt2vid', methods=['POST'])

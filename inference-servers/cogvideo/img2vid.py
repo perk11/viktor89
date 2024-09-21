@@ -31,7 +31,7 @@ pipeline = CogVideoXImageToVideoPipeline.from_pretrained(
 
 pipeline.vae.enable_slicing()
 pipeline.vae.enable_tiling()
-pipeline.enable_model_cpu_offload()
+pipeline.enable_sequential_cpu_offload()
 pipeline.scheduler = CogVideoXDPMScheduler.from_config(pipeline.scheduler.config, timestep_spacing="trailing")
 
 generator = torch.Generator(device="cuda")
