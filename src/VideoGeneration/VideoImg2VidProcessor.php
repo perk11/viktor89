@@ -2,10 +2,7 @@
 
 namespace Perk11\Viktor89\VideoGeneration;
 
-use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
-use Perk11\Viktor89\ImageGeneration\PhotoResponder;
-use Perk11\Viktor89\ImageGeneration\PromptAndImg2ImgGenerator;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\TelegramFileDownloader;
 

@@ -6,13 +6,13 @@ use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
-use Perk11\Viktor89\ImageGeneration\Prompt2ImgGenerator;
+use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 
 class ImageGenerateProcessor implements PreResponseProcessor
 {
     public function __construct(
         private readonly array $triggeringCommands,
-        private readonly Prompt2ImgGenerator $automatic1111APiClient,
+        private readonly ImageByPromptGenerator $automatic1111APiClient,
         private readonly PhotoResponder $photoResponder,
         private readonly PhotoImg2ImgProcessor $photoImg2ImgProcessor,
     ) {
@@ -56,7 +56,7 @@ class ImageGenerateProcessor implements PreResponseProcessor
             ],
         ]);
         try {
-            $response = $this->automatic1111APiClient->generateByPromptTxt2Img($prompt, $message->getFrom()->getId());
+            $response = $this->automatic1111APiClient->generateImageByPrompt($prompt, $message->getFrom()->getId());
             $this->photoResponder->sendPhoto(
                 $message,
                 $response->getFirstImageAsPng(),

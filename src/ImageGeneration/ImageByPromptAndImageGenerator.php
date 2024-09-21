@@ -2,9 +2,9 @@
 
 namespace Perk11\Viktor89\ImageGeneration;
 
-interface PromptAndImg2ImgGenerator
+interface ImageByPromptAndImageGenerator
 {
-    public function generatePromptAndImageImg2Img(
+    public function generateImageByPromptAndImage(
         string $imageContent,
         string $prompt,
         int $userId

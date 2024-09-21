@@ -10,7 +10,7 @@ class PhotoImg2ImgProcessor
 {
     public function __construct(
         private readonly TelegramFileDownloader $telegramFileDownloader,
-        private readonly PromptAndImg2ImgGenerator $automatic1111APiClient,
+        private readonly ImageByPromptAndImageGenerator $automatic1111APiClient,
         private readonly PhotoResponder $photoResponder,
     ) {
     }
@@ -55,7 +55,7 @@ class PhotoImg2ImgProcessor
         ]);
         try {
             $photo = $this->telegramFileDownloader->downloadPhotoFromMessage($messageWithPhoto);
-            $transformedPhotoResponse = $this->automatic1111APiClient->generatePromptAndImageImg2Img(
+            $transformedPhotoResponse = $this->automatic1111APiClient->generateImageByPromptAndImage(
                 $photo,
                 $prompt,
                 $messageWithCommand->getFrom()->getId(),

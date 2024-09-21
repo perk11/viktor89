@@ -6,7 +6,7 @@ use GuzzleHttp\Client;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Psr\Http\Message\ResponseInterface;
 
-class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGenerator
+class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAndImageGenerator
 {
     private Client $httpClient;
 
@@ -26,7 +26,7 @@ class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGen
         }
     }
 
-    public function generateByPromptTxt2Img(string $prompt, int $userId): Automatic1111ImageApiResponse
+    public function generateImageByPrompt(string $prompt, int $userId): Automatic1111ImageApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
 
@@ -45,7 +45,7 @@ class Automatic1111APiClient implements Prompt2ImgGenerator, PromptAndImg2ImgGen
         return Automatic1111ImageApiResponse::fromString($response->getBody()->getContents());
     }
 
-    public function generatePromptAndImageImg2Img(string $imageContent, string $prompt, int $userId): Automatic1111ImageApiResponse
+    public function generateImageByPromptAndImage(string $imageContent, string $prompt, int $userId): Automatic1111ImageApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
         if (isset($params['promptPrefix'])) {

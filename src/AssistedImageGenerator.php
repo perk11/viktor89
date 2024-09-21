@@ -7,11 +7,11 @@ use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\ContextCompletingAssistantInterface;
 use Perk11\Viktor89\ImageGeneration\Automatic1111APiClient;
 use Perk11\Viktor89\ImageGeneration\Automatic1111ImageApiResponse;
-use Perk11\Viktor89\ImageGeneration\Prompt2ImgGenerator;
-use Perk11\Viktor89\ImageGeneration\PromptAndImg2ImgGenerator;
+use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
+use Perk11\Viktor89\ImageGeneration\ImageByPromptAndImageGenerator;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 
-class AssistedImageGenerator implements Prompt2ImgGenerator, PromptAndImg2ImgGenerator
+class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAndImageGenerator
 {
 
     public function __construct(
@@ -22,19 +22,24 @@ class AssistedImageGenerator implements Prompt2ImgGenerator, PromptAndImg2ImgGen
     ) {
     }
 
-    public function generateByPromptTxt2Img(string $prompt, int $userId): Automatic1111ImageApiResponse
+    public function generateImageByPrompt(string $prompt, int $userId): Automatic1111ImageApiResponse
     {
         $improvedPrompt = $this->processPrompt($prompt, $userId);
-        return $this->automatic1111APiClient->generateByPromptTxt2Img($improvedPrompt, $userId);
+        return $this->automatic1111APiClient->generateImageByPrompt($improvedPrompt, $userId);
     }
 
-    public function generatePromptAndImageImg2Img(
+    public function generateImageByPromptAndImage(
         string $imageContent,
         string $prompt,
         int $userId
     ): Automatic1111ImageApiResponse {
         $improvedPrompt = $this->processPrompt($prompt, $userId);
-        return $this->automatic1111APiClient->generatePromptAndImageImg2Img($imageContent, $improvedPrompt, $userId);
+
+        return $this->automatic1111APiClient->generateImageByPromptAndImage(
+            $imageContent,
+            $improvedPrompt,
+            $userId
+        );
     }
 
     private function processPrompt(string $originalPrompt, int $userId): string
