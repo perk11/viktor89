@@ -12,6 +12,9 @@ class AllowedChatProcessor implements PreResponseProcessor
 
     public function process(Message $message): false|string|null
     {
+        if ($message->getType() === 'command') {
+            return false;
+        }
         if (!in_array($message->getChat()->getId(), $this->allowedChatIds, false)) {
             return 'Эта функция отключена в вашем чате 🤣🤣🤣';
         }
