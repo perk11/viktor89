@@ -14,6 +14,7 @@ use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\PreResponseProcessor\AllowedChatProcessor;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
+use Perk11\Viktor89\PreResponseProcessor\ReactProcessor;
 use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\Quiz\QuestionRepository;
@@ -75,6 +76,12 @@ class ProcessMessageTask implements Task
             $database,
             ['/seed',],
             'seed',
+            $this->telegramBotUsername,
+        );
+        $clownProcessor = new UserPreferenceSetByCommandProcessor(
+            $database,
+            ['/clown',],
+            'clown',
             $this->telegramBotUsername,
         );
         $openAiCompletionStringParser = new OpenAiCompletionStringParser();
@@ -179,6 +186,8 @@ class ProcessMessageTask implements Task
                     '-1001804789551' => 4,
                 ]
             ),
+            new ReactProcessor($clownProcessor, '🤡'),
+            $clownProcessor,
             new SaveQuizPollProcessor($questionRepository),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/quiz'],
