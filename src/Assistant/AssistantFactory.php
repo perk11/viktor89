@@ -31,12 +31,12 @@ class AssistantFactory
         return $models;
     }
 
-    public function getDefaultAssistantInstance(): AbstractOpenAIAPICompletionAssistant
+    public function getDefaultAssistantInstance(): AbstractOpenAIAPICompletingAssistantAssistant
     {
         return $this->getAssistantInstanceByName($this->getSupportedModels()[0]);
     }
 
-    public function getAssistantInstanceByName(string $name): AbstractOpenAIAPICompletionAssistant
+    public function getAssistantInstanceByName(string $name): AbstractOpenAIAPICompletingAssistantAssistant
     {
         if (isset($this->assistantInstanceByName[$name])) {
             return $this->assistantInstanceByName[$name];

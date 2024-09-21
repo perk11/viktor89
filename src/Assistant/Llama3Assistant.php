@@ -6,7 +6,7 @@ use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 
-class Llama3Assistant extends AbstractOpenAIAPICompletionAssistant
+class Llama3Assistant extends AbstractOpenAIAPICompletingAssistantAssistant
 {
 
     private array $tokens = [
@@ -30,22 +30,22 @@ class Llama3Assistant extends AbstractOpenAIAPICompletionAssistant
         parent::__construct($openAi, $systemPromptProcessor, $responseStartProcessor, $openAiCompletionStringParser);
         $this->tokenReplacements = array_fill(0, count($this->tokens) - 1, '');
     }
-    protected function convertContextToPrompt(array $context, ?string $systemPrompt, ?string $responseStart): string
+    protected function convertContextToPrompt(AssistantContext $assistantContext): string
     {
         $prompt = '';
         $firstUserMessage = true;
-        foreach ($context as $contextMessage) {
+        foreach ($assistantContext->messages as $contextMessage) {
             $userName = $contextMessage->isUser ? 'user' : 'assistant';
-            if ($systemPrompt !== null && $systemPrompt !== '' && $firstUserMessage && $userName === 'user') {
-                $prompt = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n$systemPrompt<|eot_id|>";
+            if ($assistantContext->systemPrompt !== null && $assistantContext->systemPrompt !== '' && $firstUserMessage && $contextMessage->isUser) {
+                $prompt = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n$assistantContext->systemPrompt<|eot_id|>";
                 $firstUserMessage = false;
             }
             $escapedMessageText = str_replace($this->tokens, $this->tokenReplacements, $contextMessage->text);
             $prompt .= "<|start_header_id|>$userName<|end_header_id|>\n\n$escapedMessageText<|eot_id|>";
         }
         $prompt .= "<|start_header_id|>assistant<|end_header_id|>\n\n";
-        if ($responseStart !== null) {
-            $prompt .= $responseStart;
+        if ($assistantContext->responseStart !== null) {
+            $prompt .= $assistantContext->responseStart;
         }
 
         return $prompt;

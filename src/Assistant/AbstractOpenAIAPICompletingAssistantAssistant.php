@@ -11,8 +11,9 @@ use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\TelegramChainBasedResponderInterface;
 
-abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBasedResponderInterface,
-                                                               AbortableStreamingResponseGenerator
+abstract class AbstractOpenAIAPICompletingAssistantAssistant implements TelegramChainBasedResponderInterface,
+                                                                        AbortableStreamingResponseGenerator,
+                                                                        ContextCompletingAssistantInterface
 {
     /** @var AbortStreamingResponseHandler[] */
     private array $abortResponseHandlers = [];
@@ -31,10 +32,9 @@ abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBase
         $this->abortResponseHandlers[] = $abortResponseHandler;
     }
 
-    /** @param AssistantContextMessage[] $context */
-    public function getCompletionBasedOnContext(array $context, ?string $systemPrompt = null, ?string $responseStart = null): string
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext): string
     {
-        $prompt = $this->convertContextToPrompt($context, $systemPrompt, $responseStart);
+        $prompt = $this->convertContextToPrompt($assistantContext);
 
         return $this->getCompletion($prompt);
     }
@@ -46,24 +46,21 @@ abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBase
         ?string $responseStart
     ): string {
         $isUser = count($messageChain) % 2 === 1;
-        $assistantContextMessages = [];
+        $assistantContext = new AssistantContext();
+        $assistantContext->systemPrompt = $systemPrompt;
+        $assistantContext->responseStart = $responseStart;
         foreach ($messageChain as $message) {
             $assistantContextMessage = new AssistantContextMessage();
             $assistantContextMessage->isUser = $isUser;
             $assistantContextMessage->text = $message->messageText;
-            $assistantContextMessages[] = $assistantContextMessage;
+            $assistantContext->messages[] = $assistantContextMessage;
             $isUser = !$isUser;
         }
 
-        return $this->convertContextToPrompt($assistantContextMessages, $systemPrompt, $responseStart);
+        return $this->convertContextToPrompt($assistantContext);
     }
 
-    /** @param AssistantContextMessage[] $context */
-    abstract protected function convertContextToPrompt(
-        array $context,
-        ?string $systemPrompt,
-        ?string $responseStart
-    ): string;
+    abstract protected function convertContextToPrompt(AssistantContext $assistantContext): string;
 
     public function getResponseByMessageChain(array $messageChain): InternalMessage
     {

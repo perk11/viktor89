@@ -6,7 +6,7 @@ use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 
-class Gemma2Assistant extends AbstractOpenAIAPICompletionAssistant
+class Gemma2Assistant extends AbstractOpenAIAPICompletingAssistantAssistant
 {
 
     private array $tokens = [
@@ -32,16 +32,16 @@ class Gemma2Assistant extends AbstractOpenAIAPICompletionAssistant
         $this->tokenReplacements = array_fill(0, count($this->tokens) - 1, '');
     }
 
-    protected function convertContextToPrompt(array $context, ?string $systemPrompt, ?string $responseStart): string
+    protected function convertContextToPrompt(AssistantContext $assistantContext): string
     {
         $prompt = '';
         $firstUserMessage = true;
-        foreach ($context as $contextMessage) {
+        foreach ($assistantContext->messages as $contextMessage) {
             $userName = $contextMessage->isUser ? 'user' : 'model';
             if ($firstUserMessage && $contextMessage->isUser) {
                 $prompt = "<start_of_turn>user\n";
-                if ($systemPrompt !== 'null' && $systemPrompt !== '') {
-                    $prompt .= "$systemPrompt\n";
+                if ($assistantContext->systemPrompt !== null && $assistantContext->systemPrompt !== '') {
+                    $prompt .= "$assistantContext->systemPrompt\n";
                 }
                 $firstUserMessage = false;
             } else {
@@ -51,8 +51,8 @@ class Gemma2Assistant extends AbstractOpenAIAPICompletionAssistant
             $prompt .= "$escapedMessageText<end_of_turn>";
         }
         $prompt .= "<start_of_turn>model\n";
-        if ($responseStart !== null) {
-            $prompt .= $responseStart;
+        if ($assistantContext->responseStart !== null) {
+            $prompt .= $assistantContext->responseStart;
         }
 
         return $prompt;
