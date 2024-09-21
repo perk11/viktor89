@@ -32,29 +32,23 @@ class Gemma2Assistant extends AbstractOpenAIAPICompletionAssistant
         $this->tokenReplacements = array_fill(0, count($this->tokens) - 1, '');
     }
 
-    protected function convertMessageChainToPrompt(
-        array $messageChain,
-        ?string $systemPrompt,
-        ?string $responseStart
-    ): string
+    protected function convertContextToPrompt(array $context, ?string $systemPrompt, ?string $responseStart): string
     {
         $prompt = '';
         $firstUserMessage = true;
-        $human = count($messageChain) % 2 === 1;
-        foreach ($messageChain as $message) {
-            $previousMessageUserName = $human ? 'user' : 'model';
-            if ($firstUserMessage && $previousMessageUserName === 'user') {
+        foreach ($context as $contextMessage) {
+            $userName = $contextMessage->isUser ? 'user' : 'model';
+            if ($firstUserMessage && $contextMessage->isUser) {
                 $prompt = "<start_of_turn>user\n";
                 if ($systemPrompt !== 'null' && $systemPrompt !== '') {
                     $prompt .= "$systemPrompt\n";
                 }
                 $firstUserMessage = false;
             } else {
-                $prompt .= "<start_of_turn>$previousMessageUserName\n";
+                $prompt .= "<start_of_turn>$userName\n";
             }
-            $escapedMessageText = str_replace($this->tokens, $this->tokenReplacements, $message->messageText);
+            $escapedMessageText = str_replace($this->tokens, $this->tokenReplacements, $contextMessage->text);
             $prompt .= "$escapedMessageText<end_of_turn>";
-            $human = !$human;
         }
         $prompt .= "<start_of_turn>model\n";
         if ($responseStart !== null) {

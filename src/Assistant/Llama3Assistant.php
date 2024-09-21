@@ -30,25 +30,18 @@ class Llama3Assistant extends AbstractOpenAIAPICompletionAssistant
         parent::__construct($openAi, $systemPromptProcessor, $responseStartProcessor, $openAiCompletionStringParser);
         $this->tokenReplacements = array_fill(0, count($this->tokens) - 1, '');
     }
-
-    protected function convertMessageChainToPrompt(
-        array $messageChain,
-        ?string $systemPrompt,
-        ?string $responseStart
-    ): string
+    protected function convertContextToPrompt(array $context, ?string $systemPrompt, ?string $responseStart): string
     {
         $prompt = '';
         $firstUserMessage = true;
-        $human = count($messageChain) % 2 === 1;
-        foreach ($messageChain as $message) {
-            $previousMessageUserName = $human ? 'user' : 'assistant';
-            if ($systemPrompt !== null && $systemPrompt !== '' && $firstUserMessage && $previousMessageUserName === 'user') {
+        foreach ($context as $contextMessage) {
+            $userName = $contextMessage->isUser ? 'user' : 'assistant';
+            if ($systemPrompt !== null && $systemPrompt !== '' && $firstUserMessage && $userName === 'user') {
                 $prompt = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n$systemPrompt<|eot_id|>";
                 $firstUserMessage = false;
             }
-            $escapedMessageText = str_replace($this->tokens, $this->tokenReplacements, $message->messageText);
-            $prompt .= "<|start_header_id|>$previousMessageUserName<|end_header_id|>\n\n$escapedMessageText<|eot_id|>";
-            $human = !$human;
+            $escapedMessageText = str_replace($this->tokens, $this->tokenReplacements, $contextMessage->text);
+            $prompt .= "<|start_header_id|>$userName<|end_header_id|>\n\n$escapedMessageText<|eot_id|>";
         }
         $prompt .= "<|start_header_id|>assistant<|end_header_id|>\n\n";
         if ($responseStart !== null) {

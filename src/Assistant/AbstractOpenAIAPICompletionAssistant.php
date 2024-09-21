@@ -16,6 +16,7 @@ abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBase
 {
     /** @var AbortStreamingResponseHandler[] */
     private array $abortResponseHandlers = [];
+
     public function __construct(
         protected readonly OpenAI $openAi,
         private readonly UserPreferenceSetByCommandProcessor $systemPromptProcessor,
@@ -30,23 +31,36 @@ abstract class AbstractOpenAIAPICompletionAssistant implements TelegramChainBase
         $this->abortResponseHandlers[] = $abortResponseHandler;
     }
 
-    public function getCompletionBasedOnSingleStringQuestion(
-        string $question,
-        ?string $systemPrompt = null,
-        ?string $responseStart = null
-    ): string {
-        $message = new InternalMessage();
-        $message->userId = 1;
-        $message->userName = 'User';
-        $message->messageText = $question;
-        $prompt = $this->convertMessageChainToPrompt([$message], $systemPrompt, $responseStart);
+    /** @param AssistantContextMessage[] $context */
+    public function getCompletionBasedOnContext(array $context, ?string $systemPrompt = null, ?string $responseStart = null): string
+    {
+        $prompt = $this->convertContextToPrompt($context, $systemPrompt, $responseStart);
 
         return $this->getCompletion($prompt);
     }
 
     /** @param InternalMessage[] $messageChain */
-    abstract protected function convertMessageChainToPrompt(
+    protected function convertMessageChainToPrompt(
         array $messageChain,
+        ?string $systemPrompt,
+        ?string $responseStart
+    ): string {
+        $isUser = count($messageChain) % 2 === 1;
+        $assistantContextMessages = [];
+        foreach ($messageChain as $message) {
+            $assistantContextMessage = new AssistantContextMessage();
+            $assistantContextMessage->isUser = $isUser;
+            $assistantContextMessage->text = $message->messageText;
+            $assistantContextMessages[] = $assistantContextMessage;
+            $isUser = !$isUser;
+        }
+
+        return $this->convertContextToPrompt($assistantContextMessages, $systemPrompt, $responseStart);
+    }
+
+    /** @param AssistantContextMessage[] $context */
+    abstract protected function convertContextToPrompt(
+        array $context,
         ?string $systemPrompt,
         ?string $responseStart
     ): string;
