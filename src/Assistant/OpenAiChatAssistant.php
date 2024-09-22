@@ -8,11 +8,8 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
     {
         echo "Calling OpenAI chat API...\n";
         echo $assistantContext . PHP_EOL;
-        $messages = $assistantContext->toOpenAiArray();
         $response = $this->openAi->chat(
-            [
-                'messages' => $messages,
-            ]
+            $this->getResponseParameters($assistantContext)
         );
 
         echo $response;
@@ -22,5 +19,12 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         }
 
         return $parsedResult['choices'][0]['message']['content'];
+    }
+
+    protected function getResponseParameters(AssistantContext $assistantContext): array
+    {
+        return [
+            'messages' => $assistantContext->toOpenAiArray(),
+        ];
     }
 }
