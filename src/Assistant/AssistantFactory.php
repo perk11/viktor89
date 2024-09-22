@@ -51,12 +51,20 @@ class AssistantFactory
             throw new \Exception("$name assistant in config is missing class property");
         }
         //todo: use interface for this
-        $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
-            $this->systemPromptProcessor,
-            $this->responseStartProcessor,
-            $this->openAiCompletionStringParser,
-            $requestedAssistantConfig['url']
-        );
+        if (is_subclass_of($requestedAssistantConfig['class'], AbstractOpenAIAPICompletingAssistant::class)) {
+            $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
+                $this->systemPromptProcessor,
+                $this->responseStartProcessor,
+                $requestedAssistantConfig['url'],
+                $this->openAiCompletionStringParser,
+            );
+        } else {
+            $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
+                $this->systemPromptProcessor,
+                $this->responseStartProcessor,
+                $requestedAssistantConfig['url'],
+            );
+        }
         if (array_key_exists('abortResponseHandlers', $requestedAssistantConfig)) {
             if (!$this->assistantInstanceByName[$name] instanceof  AbortableStreamingResponseGenerator) {
                 throw new \Exception("Invalid configuration \"abortResponseHandlers\" value for $name: " . $requestedAssistantConfig['class']. " does not support it");

@@ -11,6 +11,39 @@ class AssistantContext
     /** @var AssistantContextMessage[] */
     public array $messages = [];
 
+    public function __toString(): string
+    {
+        $string = json_encode($this->toOpenAiArray(), JSON_UNESCAPED_UNICODE);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return 'Failed to convert context to JSON: ' . json_last_error_msg();
+        }
+
+        return $string;
+    }
+
+    public function toOpenAiArray(): array
+    {
+        if ($this->responseStart !== null) {
+            throw new \Exception('responseStart specified, but it can not be converted to OpenAi array');
+        }
+        $openAiMessages = [];
+        if ($this->systemPrompt !== null) {
+            $openAiMessages[] = [
+                'role'    => 'system',
+                'content' => $this->systemPrompt,
+            ];
+        }
+
+        foreach ($this->messages as $message) {
+            $openAiMessages[] = [
+                'role'    => $message->isUser ? 'user' : 'assistant',
+                'content' => $message->text,
+            ];
+        }
+
+        return $openAiMessages;
+    }
+
     public static function fromOpenAiMessagesJson(string $json): self
     {
         try {

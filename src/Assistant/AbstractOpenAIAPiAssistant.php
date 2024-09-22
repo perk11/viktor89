@@ -10,12 +10,15 @@ abstract class AbstractOpenAIAPiAssistant  implements TelegramChainBasedResponde
                                                       ContextCompletingAssistantInterface
 
 {
+    protected readonly OpenAI $openAi;
     public function __construct(
-        protected readonly OpenAI $openAi,
         private readonly UserPreferenceSetByCommandProcessor $systemPromptProcessor,
         private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor,
+        string $url,
     )
     {
+        $this->openAi = new OpenAi('');
+        $this->openAi->setBaseURL(rtrim($url, '/'));
     }
 
     public function getResponseByMessageChain(array $messageChain): ?InternalMessage

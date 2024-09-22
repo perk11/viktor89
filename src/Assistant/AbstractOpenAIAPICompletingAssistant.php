@@ -16,13 +16,13 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
     private array $abortResponseHandlers = [];
 
     public function __construct(
-        OpenAI $openAi,
         UserPreferenceSetByCommandProcessor $systemPromptProcessor,
         UserPreferenceSetByCommandProcessor $responseStartProcessor,
+        string $url,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
     )
     {
-        parent::__construct($openAi, $systemPromptProcessor, $responseStartProcessor);
+        parent::__construct($systemPromptProcessor, $responseStartProcessor, $url);
     }
 
     public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void

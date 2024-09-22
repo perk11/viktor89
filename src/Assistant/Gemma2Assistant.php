@@ -23,12 +23,10 @@ class Gemma2Assistant extends AbstractOpenAIAPICompletingAssistant
     public function __construct(
         UserPreferenceSetByCommandProcessor $systemPromptProcessor,
         UserPreferenceSetByCommandProcessor $responseStartProcessor,
-        OpenAiCompletionStringParser $openAiCompletionStringParser,
         string $url,
+        OpenAiCompletionStringParser $openAiCompletionStringParser,
     ) {
-        $openAi = new OpenAi('');
-        $openAi->setBaseURL(rtrim($url, '/'));
-        parent::__construct($openAi, $systemPromptProcessor, $responseStartProcessor, $openAiCompletionStringParser);
+        parent::__construct($systemPromptProcessor, $responseStartProcessor, $url, $openAiCompletionStringParser);
         $this->tokenReplacements = array_fill(0, count($this->tokens) - 1, '');
     }
 
