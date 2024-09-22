@@ -9,22 +9,20 @@ use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
-use Perk11\Viktor89\TelegramChainBasedResponderInterface;
 
-abstract class AbstractOpenAIAPICompletingAssistantAssistant implements TelegramChainBasedResponderInterface,
-                                                                        AbortableStreamingResponseGenerator,
-                                                                        ContextCompletingAssistantInterface
+abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAssistant implements AbortableStreamingResponseGenerator
 {
     /** @var AbortStreamingResponseHandler[] */
     private array $abortResponseHandlers = [];
 
     public function __construct(
-        protected readonly OpenAI $openAi,
-        private readonly UserPreferenceSetByCommandProcessor $systemPromptProcessor,
-        private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor,
+        OpenAI $openAi,
+        UserPreferenceSetByCommandProcessor $systemPromptProcessor,
+        UserPreferenceSetByCommandProcessor $responseStartProcessor,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
     )
     {
+        parent::__construct($openAi, $systemPromptProcessor, $responseStartProcessor);
     }
 
     public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void
@@ -35,62 +33,12 @@ abstract class AbstractOpenAIAPICompletingAssistantAssistant implements Telegram
     public function getCompletionBasedOnContext(AssistantContext $assistantContext): string
     {
         $prompt = $this->convertContextToPrompt($assistantContext);
+        echo $prompt;
 
         return $this->getCompletion($prompt);
     }
 
-    /** @param InternalMessage[] $messageChain */
-    protected function convertMessageChainToPrompt(
-        array $messageChain,
-        ?string $systemPrompt,
-        ?string $responseStart
-    ): string {
-        $isUser = count($messageChain) % 2 === 1;
-        $assistantContext = new AssistantContext();
-        $assistantContext->systemPrompt = $systemPrompt;
-        $assistantContext->responseStart = $responseStart;
-        foreach ($messageChain as $message) {
-            $assistantContextMessage = new AssistantContextMessage();
-            $assistantContextMessage->isUser = $isUser;
-            $assistantContextMessage->text = $message->messageText;
-            $assistantContext->messages[] = $assistantContextMessage;
-            $isUser = !$isUser;
-        }
-
-        return $this->convertContextToPrompt($assistantContext);
-    }
-
     abstract protected function convertContextToPrompt(AssistantContext $assistantContext): string;
-
-    public function getResponseByMessageChain(array $messageChain): InternalMessage
-    {
-        $userId = $messageChain[count($messageChain) - 1]->userId;
-        $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($userId);
-        $systemPrompt = $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
-            "Always respond in Russian.\n";
-
-        $prompt = $this->convertMessageChainToPrompt($messageChain, $systemPrompt, $responseStart);
-        echo $prompt;
-
-        /** @var InternalMessage $lastMessage */
-        $lastMessage = $messageChain[count($messageChain) - 1];
-        $message = new InternalMessage();
-        $message->replyToMessageId = $lastMessage->id;
-        $message->chatId = $lastMessage->chatId;
-        $message->parseMode = 'MarkdownV2';
-            $message->messageText = $responseStart . trim($this->getCompletion($prompt));
-            for ($i = 0; $i < 5; $i++) {
-                if (trim($message->messageText) === '') {
-                    echo "Bad response detected, trying again\n";
-                    $message->messageText = $responseStart . $this->getCompletion($prompt);
-                } else {
-                    break;
-                }
-            }
-
-
-        return $message;
-    }
 
     protected function getCompletionOptions(string $prompt): array
     {
@@ -100,6 +48,7 @@ abstract class AbstractOpenAIAPICompletingAssistantAssistant implements Telegram
         ];
 
     }
+
     protected function getCompletion(string $prompt): string
     {
         $opts = $this->getCompletionOptions($prompt);

@@ -6,7 +6,7 @@ use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 
-class Llama3Assistant extends AbstractOpenAIAPICompletingAssistantAssistant
+class Llama3Assistant extends AbstractOpenAIAPICompletingAssistant
 {
 
     private array $tokens = [

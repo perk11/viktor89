@@ -6,7 +6,7 @@ use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 
-class Gemma2Assistant extends AbstractOpenAIAPICompletingAssistantAssistant
+class Gemma2Assistant extends AbstractOpenAIAPICompletingAssistant
 {
 
     private array $tokens = [
