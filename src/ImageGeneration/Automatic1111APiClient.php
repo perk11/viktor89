@@ -97,11 +97,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         return $params;
     }
 
-    /**
-     * @param int $userId
-     * @return mixed
-     */
-    private function getParamsBasedOnUserPreferences(int $userId): mixed
+    private function getParamsBasedOnUserPreferences(int $userId): array
     {
         $modelName = $this->imageModelPreference->getCurrentPreferenceValue($userId);
         if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
@@ -109,7 +105,6 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         } else {
             $params = $this->modelConfig[$modelName];
         }
-        $params = $this->processParamsAndInitHttpClient($params);
         $steps = $this->stepsPreference->getCurrentPreferenceValue($userId);
         if ($steps !== null) {
             $params['steps'] = $steps;
