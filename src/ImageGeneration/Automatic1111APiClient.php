@@ -49,6 +49,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
     public function generateImageByPromptAndImage(string $imageContent, string $prompt, int $userId): Automatic1111ImageApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
+        $params = $this->processParamsAndInitHttpClient($params);
         if (isset($params['promptPrefix'])) {
             $prompt = $params['promptPrefix'] . $prompt;
             unset($params['promptPrefix']);
