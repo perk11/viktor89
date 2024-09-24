@@ -14,6 +14,7 @@ class CommandBasedResponderTrigger implements PreResponseProcessor
 {
     public function __construct(
         private readonly array $triggeringCommands,
+        private readonly bool $responsesAlsoTrigger,
         private readonly Database $database,
         private readonly TelegramChainBasedResponderInterface $responder,
     ) {
@@ -22,6 +23,9 @@ class CommandBasedResponderTrigger implements PreResponseProcessor
     public function process(Message $message): false|string|null
     {
         $chain = array_values(array_merge($this->getPreviousMessages($message), [InternalMessage::fromTelegramMessage($message)]));
+        if (!$this->responsesAlsoTrigger && count($chain) > 1) {
+            return false;
+        }
         $firstMessageText = $chain[0]->messageText;
         $triggerFound = false;
         foreach ($this->triggeringCommands as $triggeringCommand) {

@@ -201,6 +201,7 @@ class ProcessMessageTask implements Task
             new SaveQuizPollProcessor($questionRepository),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/quiz'],
+                false,
                 $database,
                 new RandomQuizResponder($questionRepository)
             ),
@@ -225,22 +226,26 @@ class ProcessMessageTask implements Task
             $responseStartProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],
+                true,
                 $database,
                 $userSelectedAssistant,
             ),
             $videoModelProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/video'],
+                false,
                 $database,
                 $videoProcessor,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/vid'],
+                false,
                 $database,
                 $assistedVideoProcessor,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/preferences'],
+                false,
                 $database,
                 new PrintUserPreferencesResponder($database),
             ),
