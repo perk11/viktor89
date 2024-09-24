@@ -153,7 +153,7 @@ AND message.date>unixepoch(DATETIME(CURRENT_TIMESTAMP, '-1 day'))"
         $this->updatePreferencesStatement->execute();
     }
 
-    private function readPreferencesArray(int $userId): ?array
+    public function readPreferencesArray(int $userId): ?array
     {
         $this->readPreferencesStatement->bindValue(':user_id', $userId);
         $result = $this->readPreferencesStatement->execute();

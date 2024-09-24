@@ -239,6 +239,11 @@ class ProcessMessageTask implements Task
                 $database,
                 $assistedVideoProcessor,
             ),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/preferences'],
+                $database,
+                new PrintUserPreferencesResponder($database),
+            ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
         ];
