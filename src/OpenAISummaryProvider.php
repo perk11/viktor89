@@ -67,8 +67,7 @@ class OpenAISummaryProvider
                                                        "content" => $prompt,
                                                    ],
                                                ],
-                                               'model'    => 'gpt-4',
-//                                           'model'    => 'gpt-3.5-turbo',
+//                                               'model'    => 'gpt-4',
 //                                           'stream'   => false,
                                            ]);
 
