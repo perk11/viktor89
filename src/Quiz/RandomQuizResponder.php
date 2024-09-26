@@ -5,16 +5,17 @@ namespace Perk11\Viktor89\Quiz;
 use Longman\TelegramBot\Entities\PollOption;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
-use Perk11\Viktor89\TelegramChainBasedResponderInterface;
+use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\ProcessingResult;
 
-class RandomQuizResponder implements TelegramChainBasedResponderInterface
+class RandomQuizResponder implements MessageChainProcessor
 {
 
     public function __construct(private readonly QuestionRepository $questionRepository)
     {
     }
 
-    public function getResponseByMessageChain(array $messageChain): ?InternalMessage
+    public function processMessageChain(array $messageChain): ProcessingResult
     {
         /** @var ?InternalMessage $lastMessage */
         $lastMessage = $messageChain[count($messageChain) - 1];
@@ -22,7 +23,7 @@ class RandomQuizResponder implements TelegramChainBasedResponderInterface
         if ($question === null) {
             echo "Failed to find a random question\n";
 
-            return null;
+            return new ProcessingResult(null, true);
         }
         $options = [];
         $answerIndex = 0;
@@ -53,6 +54,6 @@ class RandomQuizResponder implements TelegramChainBasedResponderInterface
             $pollData['explanation'] = $question->explanation;
         }
         Request::sendPoll($pollData);
-        return null;
+        return new ProcessingResult(null, true);
     }
 }

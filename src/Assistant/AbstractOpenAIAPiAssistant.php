@@ -4,9 +4,10 @@ namespace Perk11\Viktor89\Assistant;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
-use Perk11\Viktor89\TelegramChainBasedResponderInterface;
+use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\ProcessingResult;
 
-abstract class AbstractOpenAIAPiAssistant  implements TelegramChainBasedResponderInterface,
+abstract class AbstractOpenAIAPiAssistant  implements MessageChainProcessor,
                                                       ContextCompletingAssistantInterface
 
 {
@@ -21,7 +22,7 @@ abstract class AbstractOpenAIAPiAssistant  implements TelegramChainBasedResponde
         $this->openAi->setBaseURL(rtrim($url, '/'));
     }
 
-    public function getResponseByMessageChain(array $messageChain): ?InternalMessage
+    public function processMessageChain(array $messageChain): ProcessingResult
     {
         $userId = $messageChain[count($messageChain) - 1]->userId;
         $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($userId);
@@ -46,7 +47,7 @@ abstract class AbstractOpenAIAPiAssistant  implements TelegramChainBasedResponde
             }
         }
 
-        return $message;
+        return new ProcessingResult($message, true);
     }
 
     protected function convertMessageChainToAssistantContext(

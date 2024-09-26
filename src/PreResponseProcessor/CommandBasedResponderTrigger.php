@@ -8,7 +8,7 @@ use Longman\TelegramBot\Exception\TelegramException;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
-use Perk11\Viktor89\TelegramChainBasedResponderInterface;
+use Perk11\Viktor89\MessageChainProcessor;
 
 class CommandBasedResponderTrigger implements PreResponseProcessor
 {
@@ -16,7 +16,7 @@ class CommandBasedResponderTrigger implements PreResponseProcessor
         private readonly array $triggeringCommands,
         private readonly bool $responsesAlsoTrigger,
         private readonly Database $database,
-        private readonly TelegramChainBasedResponderInterface $responder,
+        private readonly MessageChainProcessor $responder,
     ) {
     }
 
@@ -46,7 +46,7 @@ class CommandBasedResponderTrigger implements PreResponseProcessor
                                 ]);
 
         try {
-            $responseMessage = $this->responder->getResponseByMessageChain($chain);
+            $response  = $this->responder->processMessageChain($chain);
         } catch (\Exception $e) {
             echo "Got error when getting response to message chain from " . get_class($this->responder) .": \n";
             echo $e->getMessage();
@@ -63,15 +63,15 @@ class CommandBasedResponderTrigger implements PreResponseProcessor
             ]);
             return null;
         }
-        if ($responseMessage === null) {
+        if ($response->response === null) {
              return null;
         }
-        $response = $responseMessage->send();
-        if ($response->isOk()) {
-            $this->database->logMessage($response->getResult());
+        $telegramSendResult = $response->response->send();
+        if ($telegramSendResult->isOk()) {
+            $this->database->logMessage($telegramSendResult->getResult());
         } else {
             echo "Failed to send message in CommandBaseResponderTrigger: ";
-            print_r($response->getRawData());
+            print_r($telegramSendResult->getRawData());
             echo "\n";
             Request::execute('setMessageReaction', [
                 'chat_id'    => $message->getChat()->getId(),

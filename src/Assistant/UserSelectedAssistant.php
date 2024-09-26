@@ -2,11 +2,11 @@
 
 namespace Perk11\Viktor89\Assistant;
 
-use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
-use Perk11\Viktor89\TelegramChainBasedResponderInterface;
+use Perk11\Viktor89\ProcessingResult;
 
-class UserSelectedAssistant implements TelegramChainBasedResponderInterface
+class UserSelectedAssistant implements MessageChainProcessor
 {
     public function __construct(
         private readonly AssistantFactory $assistantFactory,
@@ -15,7 +15,7 @@ class UserSelectedAssistant implements TelegramChainBasedResponderInterface
     {
     }
 
-    public function getResponseByMessageChain(array $messageChain): ?InternalMessage
+    public function processMessageChain(array $messageChain): ProcessingResult
     {
         $lastMessage = $messageChain[count($messageChain) - 1];
 
@@ -30,6 +30,6 @@ class UserSelectedAssistant implements TelegramChainBasedResponderInterface
             }
         }
 
-        return $assistant->getResponseByMessageChain($messageChain);
+        return $assistant->processMessageChain($messageChain);
     }
 }

@@ -257,6 +257,7 @@ class ProcessMessageTask implements Task
                                               $database,
                                               $historyReader,
                                               $preResponseProcessors,
+                                              [],
                                               $this->telegramBotUsername,
                                               $this->telegramBotId,
                                               $responder

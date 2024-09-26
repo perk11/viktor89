@@ -33,9 +33,10 @@ class Engine
         private readonly HistoryReader $historyReader,
         /** @var PreResponseProcessor[] */
         private readonly array $preResponseProcessors,
+        private readonly array $chainBasedProcessors,
         private readonly string $telegramBotUserName,
         private readonly int $telegramBotId,
-        private readonly TelegramInternalMessageResponderInterface|TelegramChainBasedResponderInterface $fallBackResponder,
+        private readonly TelegramInternalMessageResponderInterface|MessageChainProcessor $fallBackResponder,
     ) {
     }
 
@@ -114,10 +115,10 @@ class Engine
                 }
             }
         }
-        if ($this->fallBackResponder instanceof TelegramChainBasedResponderInterface) {
+        if ($this->fallBackResponder instanceof MessageChainProcessor) {
             $chain = $this->historyReader->getPreviousMessages($message, 9, 9, 0);
             $chain = array_values(array_merge($chain, [InternalMessage::fromTelegramMessage($message)]));
-            $responseMessage = $this->fallBackResponder->getResponseByMessageChain($chain);
+            $responseMessage = $this->fallBackResponder->processMessageChain($chain)->response;
         } else {
             $responseMessage = $this->fallBackResponder->getResponseByMessage($message);
         }

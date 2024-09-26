@@ -2,13 +2,13 @@
 
 namespace Perk11\Viktor89;
 
-class PrintUserPreferencesResponder implements TelegramChainBasedResponderInterface
+class PrintUserPreferencesResponder implements MessageChainProcessor
 {
     public function __construct(private readonly Database $database)
     {
     }
 
-    public function getResponseByMessageChain(array $messageChain): ?InternalMessage
+    public function processMessageChain(array $messageChain): ProcessingResult
     {
         $lastMessage = $messageChain[count($messageChain) - 1];
         $preferences = $this->database->readPreferencesArray($lastMessage->userId);
@@ -25,6 +25,6 @@ class PrintUserPreferencesResponder implements TelegramChainBasedResponderInterf
         }
         $message->messageText .= "\n";
 
-        return $message;
+        return new ProcessingResult($message, true);
     }
 }

@@ -6,9 +6,10 @@ use JsonException;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
-use Perk11\Viktor89\TelegramChainBasedResponderInterface;
+use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\ProcessingResult;
 
-class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
+class OpenAIAPIAssistant implements MessageChainProcessor
 {
 
     private OpenAi $openAi;
@@ -71,7 +72,7 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
         return trim($fullContent);
     }
 
-    public function getResponseByMessageChain(array $messageChain): InternalMessage
+    public function processMessageChain(array $messageChain): ProcessingResult
     {
         $personality = 'Gemma';
 
@@ -108,6 +109,6 @@ class OpenAIAPIAssistant implements TelegramChainBasedResponderInterface
             }
         }
 
-        return $message;
+        return new ProcessingResult($message, true);
     }
 }

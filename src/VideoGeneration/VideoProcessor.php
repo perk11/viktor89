@@ -5,9 +5,10 @@ namespace Perk11\Viktor89\VideoGeneration;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
-use Perk11\Viktor89\TelegramChainBasedResponderInterface;
+use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\ProcessingResult;
 
-class VideoProcessor implements TelegramChainBasedResponderInterface
+class VideoProcessor implements MessageChainProcessor
 {
     public function __construct(
         private readonly Txt2VideoClient $txt2VideoClient,
@@ -16,7 +17,7 @@ class VideoProcessor implements TelegramChainBasedResponderInterface
     ) {
     }
 
-    public function getResponseByMessageChain(array $messageChain): ?InternalMessage
+    public function processMessageChain(array $messageChain): ProcessingResult
     {
         /** @var ?InternalMessage $lastMessage */
         $message = $messageChain[count($messageChain) - 1];
@@ -29,7 +30,7 @@ class VideoProcessor implements TelegramChainBasedResponderInterface
             $response->chatId = $message->chatId;
             $response->replyToMessageId = $message->id;
             $response->messageText = 'Непонятно, что генерировать...';
-            return $response;
+            return new ProcessingResult($response, true);
         }
         if ($message->replyToPhoto !== null) {
             $this->videoImg2ImgProcessor->respondWithImg2VidResultBasedOnPhotoInMessage($message->replyToPhoto, $message, $prompt);

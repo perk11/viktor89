@@ -8,9 +8,10 @@ use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\ContextCompletingAssistantInterface;
 use Perk11\Viktor89\ImageGeneration\Automatic1111APiClient;
 use Perk11\Viktor89\InternalMessage;
-use Perk11\Viktor89\TelegramChainBasedResponderInterface;
+use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\ProcessingResult;
 
-class AssistedVideoProcessor implements TelegramChainBasedResponderInterface
+class AssistedVideoProcessor implements MessageChainProcessor
 {
     public function __construct(
         private readonly Automatic1111APiClient $automatic1111APiClient,
@@ -22,7 +23,7 @@ class AssistedVideoProcessor implements TelegramChainBasedResponderInterface
     ) {
     }
 
-    public function getResponseByMessageChain(array $messageChain): ?InternalMessage
+    public function processMessageChain(array $messageChain): ProcessingResult
     {
         /** @var ?InternalMessage $lastMessage */
         $message = $messageChain[count($messageChain) - 1];
@@ -36,7 +37,7 @@ class AssistedVideoProcessor implements TelegramChainBasedResponderInterface
             $response->replyToMessageId = $message->id;
             $response->messageText = 'Непонятно, что генерировать...';
 
-            return $response;
+            return new ProcessingResult($response, true);
         }
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,
@@ -59,7 +60,7 @@ class AssistedVideoProcessor implements TelegramChainBasedResponderInterface
                 $newPrompt
             );
 
-            return null;
+            return new ProcessingResult(null,true);
         }
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,
@@ -112,7 +113,7 @@ class AssistedVideoProcessor implements TelegramChainBasedResponderInterface
             ]);
         }
 
-        return null;
+        return new ProcessingResult(null,true);
     }
 
     // Based on https://github.com/THUDM/CogVideo/blob/main/inference/convert_demo.py
