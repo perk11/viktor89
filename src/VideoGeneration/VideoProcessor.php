@@ -34,7 +34,7 @@ class VideoProcessor implements MessageChainProcessor
         }
         if ($message->replyToPhoto !== null) {
             $this->videoImg2ImgProcessor->respondWithImg2VidResultBasedOnPhotoInMessage($message->replyToPhoto, $message, $prompt);
-            return null;
+            return new ProcessingResult(null, true);
         }
         echo "Generating video for prompt: $prompt\n";
         Request::execute('setMessageReaction', [
@@ -68,6 +68,6 @@ class VideoProcessor implements MessageChainProcessor
             ]);
         }
 
-        return null;
+        return new ProcessingResult(null, true);
     }
 }
