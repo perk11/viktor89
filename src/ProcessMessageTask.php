@@ -12,6 +12,8 @@ use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
+use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
+use Perk11\Viktor89\ImageGeneration\UpscaleProcessor;
 use Perk11\Viktor89\PreResponseProcessor\AllowedChatProcessor;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\ReactProcessor;
@@ -177,6 +179,7 @@ class ProcessMessageTask implements Task
         );
         $txt2VideoClient = new Txt2VideoClient($stepsProcessor, $seedProcessor, $videoModelProcessor, $config['videoModels']);
         $img2VideoClient = new Img2VideoClient($stepsProcessor, $seedProcessor, $config['img2videoModels']);
+        $upscaleClient = new UpscaleApiClient($stepsProcessor, $seedProcessor, $config['upscaleModels']);
         $videoResponder = new VideoResponder();
         $videoImg2VidProcessor = new VideoImg2VidProcessor($telegramFileDownloader, $img2VideoClient, $videoResponder);
         $videoProcessor = new VideoProcessor($txt2VideoClient, $videoResponder, $videoImg2VidProcessor);
@@ -219,6 +222,12 @@ class ProcessMessageTask implements Task
                 $assistedImageGenerator,
                 $photoResponder,
                 $assistedPhotoImg2ImgProcessor,
+            ),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/upscale'],
+                false,
+                $database,
+                new UpscaleProcessor($telegramFileDownloader, $upscaleClient, $photoResponder)
             ),
             $denoisingStrengthProcessor,
             $stepsProcessor,

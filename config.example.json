@@ -156,6 +156,12 @@
       "url": "http://localhost:8103"
     }
   },
+  "upscaleModels": {
+    "Flux.1-dev-Controlnet-Upscaler": {
+      "steps": 28,
+      "url": "http://localhost:8104"
+    }
+  },
   "videoFirstFrameImageModels":  {
     "flux-dev-720x480": {
       "width": 720,
