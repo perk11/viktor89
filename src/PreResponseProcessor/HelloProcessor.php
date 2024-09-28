@@ -4,8 +4,11 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\MessageChain;
+use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\ProcessingResult;
 
-class HelloProcessor implements PreResponseProcessor
+class HelloProcessor implements MessageChainProcessor
 {
     private array $responseStickers = [
         'CAACAgIAAxkBAAIHmGZiqlXg4Xu_vdudCfhdVlxFwkoyAAKfUQACrcMZSqpvZIWPpX_uNQQ',
@@ -29,30 +32,31 @@ class HelloProcessor implements PreResponseProcessor
         5461833561,
     ];
 
-    public function process(Message $message): false|string|null
+    public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
-        if (!in_array($message->getFrom()->getId(), $this->triggerUsers, true)) {
-            return false;
+        if (!in_array($messageChain->last()->userId, $this->triggerUsers, true)) {
+            return new ProcessingResult(null, false);
         }
-        $incomingMessageTextLower = mb_strtolower($message->getText());
+        $incomingMessageTextLower = mb_strtolower($messageChain->last()->messageText);
 
         foreach ($this->triggerPhrases as $triggerPhrase) {
             if (str_contains($incomingMessageTextLower, $triggerPhrase)) {
-                echo "Sending message with hello sticker\n";
-                Request::sendSticker([
-                                         'chat_id'          => $message->getChat()->getId(),
-                                         'reply_parameters' => [
-                                             'message_id' => $message->getMessageId(),
-                                         ],
-                                         'sticker'          => $this->responseStickers[array_rand(
-                                             $this->responseStickers
-                                         )],
-                                     ]);
+                return new ProcessingResult(null, true, callback: function (Message $message) use ($incomingMessageTextLower, $triggerPhrase) {
+                    echo "Sending message with hello sticker\n";
+                    Request::sendSticker([
+                                             'chat_id'          => $message->getChat()->getId(),
+                                             'reply_parameters' => [
+                                                 'message_id' => $message->getMessageId(),
+                                             ],
+                                             'sticker'          => $this->responseStickers[array_rand(
+                                                 $this->responseStickers
+                                             )],
+                                         ]);
 
-                return null;
+                });
             }
         }
 
-        return false;
+        return new ProcessingResult(null, false);
     }
 }

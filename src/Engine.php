@@ -31,9 +31,10 @@ class Engine
         private readonly ?PhotoImg2ImgProcessor $photoImg2ImgProcessor,
         private readonly Database $database,
         private readonly HistoryReader $historyReader,
-        /** @var PreResponseProcessor[] */
+        /** @var PreResponseProcessor[] $preResponseProcessors */
         private readonly array $preResponseProcessors,
-        private readonly array $chainBasedProcessors,
+        /** @var MessageChainProcessor[] $messageChainProcessors */
+        private readonly array $messageChainProcessors,
         private readonly string $telegramBotUserName,
         private readonly int $telegramBotId,
         private readonly TelegramInternalMessageResponderInterface|MessageChainProcessor $fallBackResponder,
@@ -102,6 +103,21 @@ class Engine
             }
         }
 
+        $chain = new MessageChain(
+            array_merge(
+                $this->historyReader->getPreviousMessages($message, 99, 99, 0),
+                [InternalMessage::fromTelegramMessage($message)],
+            )
+        );
+        foreach ($this->messageChainProcessors as $messageChainProcessor) {
+            $processingResult = $messageChainProcessor->processMessageChain($chain);
+            $processingResult->execute($this->database);
+            if ($processingResult->abortProcessing) {
+                echo get_class($messageChainProcessor) . " has aborted further processing\n";
+                return;
+            }
+        }
+
         $incomingMessageText = $message->getText();
 
         if ($message->getType() !== 'command') {
@@ -116,8 +132,6 @@ class Engine
             }
         }
         if ($this->fallBackResponder instanceof MessageChainProcessor) {
-            $chain = $this->historyReader->getPreviousMessages($message, 9, 9, 0);
-            $chain = array_values(array_merge($chain, [InternalMessage::fromTelegramMessage($message)]));
             $responseMessage = $this->fallBackResponder->processMessageChain($chain)->response;
         } else {
             $responseMessage = $this->fallBackResponder->getResponseByMessage($message);

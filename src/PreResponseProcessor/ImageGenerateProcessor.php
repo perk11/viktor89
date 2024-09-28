@@ -7,8 +7,11 @@ use Longman\TelegramBot\Request;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
+use Perk11\Viktor89\MessageChain;
+use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\ProcessingResult;
 
-class ImageGenerateProcessor implements PreResponseProcessor
+class ImageGenerateProcessor implements MessageChainProcessor
 {
     public function __construct(
         private readonly array $triggeringCommands,
@@ -18,10 +21,11 @@ class ImageGenerateProcessor implements PreResponseProcessor
     ) {
     }
 
-    public function process(Message $message): false|string|null
+    public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
         $triggerFound = false;
-        $messageText = $message->getText();
+        $lastMessage = $messageChain->last();
+        $messageText = $lastMessage->messageText;
         foreach ($this->triggeringCommands as $triggeringCommand) {
             if (str_starts_with($messageText, $triggeringCommand)) {
                 $triggerFound = true;
@@ -31,23 +35,23 @@ class ImageGenerateProcessor implements PreResponseProcessor
         }
 
         if (!$triggerFound) {
-            return false;
+            return new ProcessingResult(null, false);
         }
-        if ($message->getReplyToMessage() !== null && $message->getPhoto() === null) {
-            $prompt = trim($message->getReplyToMessage()->getText() . "\n\n" . $prompt);
+        if ($messageChain->count() > 1 && $lastMessage->replyToPhoto === null) {
+            $prompt = trim($messageChain->getMessages()[$messageChain->count() - 2]->messageText . "\n\n" . $prompt);
         }
         if ($prompt === '') {
             return 'Непонятно, что генерировать...';
         }
 
-        if ($message->getReplyToMessage() !== null && $message->getReplyToMessage()->getPhoto() !== null) {
-            $this->photoImg2ImgProcessor->respondWithImg2ImgResultBasedOnPhotoInMessage($message->getReplyToMessage(), $message, $prompt);
-            return null;
+        if ($lastMessage->replyToPhoto !== null) {
+            $this->photoImg2ImgProcessor->respondWithImg2ImgResultBasedOnPhotoInMessage($lastMessage->replyToPhoto, $lastMessage, $prompt);
+            return new ProcessingResult(null, true);
         }
         echo "Generating image for prompt: $prompt\n";
         Request::execute('setMessageReaction', [
-            'chat_id'    => $message->getChat()->getId(),
-            'message_id' => $message->getMessageId(),
+            'chat_id'    => $lastMessage->chatId,
+            'message_id' => $lastMessage->id,
             'reaction'   => [
                 [
                     'type'  => 'emoji',
@@ -56,17 +60,17 @@ class ImageGenerateProcessor implements PreResponseProcessor
             ],
         ]);
         try {
-            $response = $this->automatic1111APiClient->generateImageByPrompt($prompt, $message->getFrom()->getId());
+            $response = $this->automatic1111APiClient->generateImageByPrompt($prompt, $lastMessage->userId);
             $this->photoResponder->sendPhoto(
-                $message,
+                $lastMessage,
                 $response->getFirstImageAsPng(),
                 $response->getCaption()
             );
         } catch (\Exception $e) {
             echo "Failed to generate image:\n" . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
             Request::execute('setMessageReaction', [
-                'chat_id'    => $message->getChat()->getId(),
-                'message_id' => $message->getMessageId(),
+                'chat_id'    => $lastMessage->chatId,
+                'message_id' => $lastMessage->id,
                 'reaction'   => [
                     [
                         'type'  => 'emoji',
@@ -76,6 +80,6 @@ class ImageGenerateProcessor implements PreResponseProcessor
             ]);
         }
 
-        return null;
+        return new ProcessingResult(null, true);
     }
 }

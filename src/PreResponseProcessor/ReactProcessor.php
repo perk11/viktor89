@@ -2,10 +2,11 @@
 
 namespace Perk11\Viktor89\PreResponseProcessor;
 
-use Longman\TelegramBot\Entities\Message;
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\MessageChain;
+use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\ProcessingResult;
 
-class ReactProcessor implements PreResponseProcessor
+class ReactProcessor implements MessageChainProcessor
 {
     public function __construct(
         private readonly UserPreferenceSetByCommandProcessor $enabledProcessor,
@@ -13,23 +14,13 @@ class ReactProcessor implements PreResponseProcessor
     )
     {
     }
-    public function process(Message $message): false|string|null
+    public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
-        if ($this->enabledProcessor->getCurrentPreferenceValue($message->getFrom()->getId()) === null) {
-            return false;
+        $lastMessage = $messageChain->last();
+        if ($this->enabledProcessor->getCurrentPreferenceValue($lastMessage->userId) === null) {
+            return new ProcessingResult(null, false);
         }
 
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $message->getChat()->getId(),
-            'message_id' => $message->getMessageId(),
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => $this->reactEmoji,
-                ],
-            ],
-        ]);
-
-        return false;
+        return new ProcessingResult(null, false, $this->reactEmoji, $lastMessage);
     }
 }

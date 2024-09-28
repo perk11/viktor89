@@ -8,13 +8,10 @@ class PrintUserPreferencesResponder implements MessageChainProcessor
     {
     }
 
-    public function processMessageChain(array $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
-        $lastMessage = $messageChain[count($messageChain) - 1];
-        $preferences = $this->database->readPreferencesArray($lastMessage->userId);
-        $message = new InternalMessage();
-        $message->replyToMessageId = $lastMessage->id;
-        $message->chatId = $lastMessage->chatId;
+        $preferences = $this->database->readPreferencesArray($messageChain->last()->userId);
+        $message = InternalMessage::asResponseTo($messageChain->last());
         $message->messageText = "Вот ваши настройки:\n\n";
         $message->parseMode = 'HTML';
         foreach ($preferences as $preference => $value) {

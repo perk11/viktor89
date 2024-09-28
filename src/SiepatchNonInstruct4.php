@@ -65,7 +65,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         $this->abortResponseHandlers[] = $abortResponseHandler;
     }
 
-    public function addPreResponseProcessor(PreResponseProcessor $preResponseProcessor): void
+    public function addPreResponseProcessor(PreResponseProcessor|MessageChainProcessor $preResponseProcessor): void
     {
         $this->preResponseProcessors[] = $preResponseProcessor;
     }
@@ -128,16 +128,26 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         $internalMessage = new InternalMessage();
         $internalMessage->chatId = $message->getChat()->getId();
         $internalMessage->replyToMessageId = $message->getMessageId();
+        $previousMessages = $this->historyReader->getPreviousMessages($message, 99, 99, 0);
+        $chain = new MessageChain(array_merge($previousMessages, [InternalMessage::fromTelegramMessage($message)]));
         foreach ($this->preResponseProcessors as $preResponseProcessor) {
-            $replacedMessage = $preResponseProcessor->process($message);
-            if ($replacedMessage !== false) {
-                if ($replacedMessage === null) {
+            if ($preResponseProcessor instanceof MessageChainProcessor) {
+                $result = $preResponseProcessor->processMessageChain($chain);
+                $result->execute($this->database);
+                if ($result->abortProcessing) {
                     return null;
                 }
-                $internalMessage->userName = $_ENV['TELEGRAM_BOT_USERNAME'];
-                $internalMessage->messageText = $replacedMessage;
+            } else {
+                $replacedMessage = $preResponseProcessor->process($message);
+                if ($replacedMessage !== false) {
+                    if ($replacedMessage === null) {
+                        return null;
+                    }
+                    $internalMessage->userName = $_ENV['TELEGRAM_BOT_USERNAME'];
+                    $internalMessage->messageText = $replacedMessage;
 
-                return $internalMessage;
+                    return $internalMessage;
+                }
             }
         }
         $continueMode = trim($message->getText()) === '/continue';
@@ -152,7 +162,6 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
                                 ]);
 
         $incomingMessageAsInternalMessage = InternalMessage::fromTelegramMessage($message);
-        $previousMessages = $this->historyReader->getPreviousMessages($message, 99, 99, 0);
         $personality = $this->personalityProcessor->getCurrentPreferenceValue($incomingMessageAsInternalMessage->userId);
         if ($personality === '') {
             $personality = null;

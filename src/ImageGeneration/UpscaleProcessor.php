@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\ImageGeneration;
 
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
@@ -18,9 +19,9 @@ class UpscaleProcessor implements MessageChainProcessor
     ) {
     }
 
-    public function processMessageChain(array $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
-        $lastMessage = $messageChain[count($messageChain) - 1];
+        $lastMessage = $messageChain->last();
         if ($lastMessage->replyToPhoto === null) {
             $response = new InternalMessage();
             $response->chatId = $lastMessage->chatId;

@@ -30,6 +30,9 @@ class InternalMessage
     public int $chatId;
 
     /** @var PhotoSize[]|null */
+    public ?array $photo = null;
+
+    /** @var PhotoSize[]|null */
     public ?array $replyToPhoto = null;
 
     public static function fromSqliteAssoc(array $result): self
@@ -66,6 +69,7 @@ class InternalMessage
             '',
             $message->actualMessageText)
         );
+        $message->photo = $telegramMessage->getPhoto();
         $message->replyToPhoto = $telegramMessage->getReplyToMessage()?->getPhoto();
 
         return $message;
@@ -108,5 +112,19 @@ class InternalMessage
 
         unset($options['parse_mode']);
         return Request::sendMessage($options);
+    }
+
+    public static function asResponseTo(InternalMessage $messageToRespondTo): self
+    {
+        $message = new self();
+        $message->replyToMessageId = $messageToRespondTo->id;
+        $message->chatId = $messageToRespondTo->chatId;
+
+        return $message;
+    }
+
+    public function isCommand(): bool
+    {
+        return str_starts_with($this->messageText, '/');
     }
 }

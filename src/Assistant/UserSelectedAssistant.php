@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89\Assistant;
 
+use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -15,9 +16,9 @@ class UserSelectedAssistant implements MessageChainProcessor
     {
     }
 
-    public function processMessageChain(array $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
-        $lastMessage = $messageChain[count($messageChain) - 1];
+        $lastMessage = $messageChain->last();
 
         $modelName = $this->assistantPreference->getCurrentPreferenceValue($lastMessage->userId);
         if ($modelName === null) {

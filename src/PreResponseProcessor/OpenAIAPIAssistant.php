@@ -5,6 +5,7 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 use JsonException;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -72,17 +73,17 @@ class OpenAIAPIAssistant implements MessageChainProcessor
         return trim($fullContent);
     }
 
-    public function processMessageChain(array $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
         $personality = 'Gemma';
 
-        $userId = $messageChain[count($messageChain) - 1]->userId;
+        $userId = $messageChain->last()->userId;
         $systemPrompt = $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
             "This is a conversation between User and $personality, a friendly assistant chatbot. $personality is helpful, kind, honest, good at writing, knows everything, and never fails to answer any requests immediately and with precision. $personality does not reason about why she responded a certain way. $personality's responses are always in Russian.";
         $prompt = "$systemPrompt\n\n";
 
-        $human = count($messageChain) % 2 === 1;
-        foreach ($messageChain as $message) {
+        $human = $messageChain->count() % 2 === 1;
+        foreach ($messageChain->getMessages() as $message) {
             $previousMessageUserName = $human ? 'User' : $personality;
             $prompt .= "$previousMessageUserName: " . $message->messageText . "\n";
             $human = !$human;
@@ -94,7 +95,7 @@ class OpenAIAPIAssistant implements MessageChainProcessor
         }
         echo $prompt;
 
-        $lastMessage = $messageChain[count($messageChain) - 1];
+        $lastMessage = $messageChain->last();
         $message = new InternalMessage();
         $message->replyToMessageId = $lastMessage->id;
         $message->chatId = $lastMessage->chatId;

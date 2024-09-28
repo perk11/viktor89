@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\Assistant;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -22,17 +23,16 @@ abstract class AbstractOpenAIAPiAssistant  implements MessageChainProcessor,
         $this->openAi->setBaseURL(rtrim($url, '/'));
     }
 
-    public function processMessageChain(array $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
-        $userId = $messageChain[count($messageChain) - 1]->userId;
+        $userId = $messageChain->last()->userId;
         $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($userId);
         $systemPrompt = $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
             "Always respond in Russian.\n";
 
         $assistantContext = $this->convertMessageChainToAssistantContext($messageChain, $systemPrompt, $responseStart);
 
-        /** @var InternalMessage $lastMessage */
-        $lastMessage = $messageChain[count($messageChain) - 1];
+        $lastMessage = $messageChain->last();
         $message = new InternalMessage();
         $message->replyToMessageId = $lastMessage->id;
         $message->chatId = $lastMessage->chatId;
@@ -51,15 +51,15 @@ abstract class AbstractOpenAIAPiAssistant  implements MessageChainProcessor,
     }
 
     protected function convertMessageChainToAssistantContext(
-        array $messageChain,
+        MessageChain $messageChain,
         ?string $systemPrompt,
         ?string $responseStart
     ): AssistantContext {
-        $isUser = count($messageChain) % 2 === 1;
+        $isUser = $messageChain->count() % 2 === 1;
         $assistantContext = new AssistantContext();
         $assistantContext->systemPrompt = $systemPrompt;
         $assistantContext->responseStart = $responseStart;
-        foreach ($messageChain as $message) {
+        foreach ($messageChain->getMessages() as $message) {
             $assistantContextMessage = new AssistantContextMessage();
             $assistantContextMessage->isUser = $isUser;
             $assistantContextMessage->text = $message->messageText;

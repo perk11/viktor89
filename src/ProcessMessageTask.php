@@ -200,17 +200,25 @@ class ProcessMessageTask implements Task
                     '-1001804789551' => 4,
                 ]
             ),
-            new ReactProcessor($clownProcessor, '🤡'),
             $clownProcessor,
             new SaveQuizPollProcessor($questionRepository),
+            $imageModelProcessor,
+            $videoModelProcessor,
+            $assistantModelProcessor,
+            $denoisingStrengthProcessor,
+            $stepsProcessor,
+            $seedProcessor,
+            $systemPromptProcessor,
+            $responseStartProcessor,
+        ];
+
+        $messageChainProcessors = [
+            new ReactProcessor($clownProcessor, '🤡'),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/quiz'],
                 false,
-                $database,
                 new RandomQuizResponder($questionRepository)
             ),
-            $imageModelProcessor,
-            $assistantModelProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
                 ['/image'],
                 $automatic1111APiClient,
@@ -226,48 +234,36 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/upscale'],
                 false,
-                $database,
                 new UpscaleProcessor($telegramFileDownloader, $upscaleClient, $photoResponder)
             ),
-            $denoisingStrengthProcessor,
-            $stepsProcessor,
-            $seedProcessor,
-            $systemPromptProcessor,
-            $responseStartProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],
                 true,
-                $database,
                 $userSelectedAssistant,
             ),
-            $videoModelProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/video'],
                 false,
-                $database,
                 $videoProcessor,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/vid'],
                 false,
-                $database,
                 $assistedVideoProcessor,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/preferences'],
                 false,
-                $database,
                 new PrintUserPreferencesResponder($database),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
         ];
-
         $engine = new \Perk11\Viktor89\Engine($photoImg2ImgProcessor,
                                               $database,
                                               $historyReader,
                                               $preResponseProcessors,
-                                              [],
+                                              $messageChainProcessors,
                                               $this->telegramBotUsername,
                                               $this->telegramBotId,
                                               $responder

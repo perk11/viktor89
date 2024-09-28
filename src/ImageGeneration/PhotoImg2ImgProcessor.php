@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\ImageGeneration;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\TelegramFileDownloader;
 
 class PhotoImg2ImgProcessor
@@ -33,19 +34,19 @@ class PhotoImg2ImgProcessor
         if ($prompt === '') {
             return;
         }
-        $this->respondWithImg2ImgResultBasedOnPhotoInMessage($message, $message, $prompt);
+        $this->respondWithImg2ImgResultBasedOnPhotoInMessage($message->getPhoto(), InternalMessage::fromTelegramMessage($message), $prompt);
     }
 
     public function respondWithImg2ImgResultBasedOnPhotoInMessage(
-        Message $messageWithPhoto,
-        Message $messageWithCommand,
+        array $photoArray,
+        InternalMessage $messageToReplyTo,
         string $prompt,
     ): void
     {
         echo "Generating img2img for prompt: $prompt\n";
         Request::execute('setMessageReaction', [
-            'chat_id'    => $messageWithCommand->getChat()->getId(),
-            'message_id' => $messageWithCommand->getMessageId(),
+            'chat_id'    => $messageToReplyTo->chatId,
+            'message_id' => $messageToReplyTo->id,
             'reaction'   => [
                 [
                     'type'  => 'emoji',
@@ -54,22 +55,22 @@ class PhotoImg2ImgProcessor
             ],
         ]);
         try {
-            $photo = $this->telegramFileDownloader->downloadPhotoFromMessage($messageWithPhoto);
+            $photo = $this->telegramFileDownloader->downloadPhoto($photoArray);
             $transformedPhotoResponse = $this->automatic1111APiClient->generateImageByPromptAndImage(
                 $photo,
                 $prompt,
-                $messageWithCommand->getFrom()->getId(),
+                $messageToReplyTo->userId,
             );
             $this->photoResponder->sendPhoto(
-                $messageWithCommand,
+                $messageToReplyTo,
                 $transformedPhotoResponse->getFirstImageAsPng(),
                 $transformedPhotoResponse->getCaption(),
             );
         } catch (\Exception $e) {
             echo "Failed to generate image:\n" . $e->getMessage(),
             Request::execute('setMessageReaction', [
-                'chat_id'    => $messageWithCommand->getChat()->getId(),
-                'message_id' => $messageWithCommand->getMessageId(),
+                'chat_id'    => $messageToReplyTo->chatId,
+                'message_id' => $messageToReplyTo->id,
                 'reaction'   => [
                     [
                         'type'  => 'emoji',

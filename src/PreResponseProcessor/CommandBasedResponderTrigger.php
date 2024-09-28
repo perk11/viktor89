@@ -3,122 +3,50 @@
 namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Longman\TelegramBot\ChatAction;
-use Longman\TelegramBot\Entities\Message;
-use Longman\TelegramBot\Exception\TelegramException;
 use Longman\TelegramBot\Request;
-use Perk11\Viktor89\Database;
-use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\ProcessingResult;
 
-class CommandBasedResponderTrigger implements PreResponseProcessor
+class CommandBasedResponderTrigger implements MessageChainProcessor
 {
     public function __construct(
         private readonly array $triggeringCommands,
         private readonly bool $responsesAlsoTrigger,
-        private readonly Database $database,
         private readonly MessageChainProcessor $responder,
     ) {
     }
 
-    public function process(Message $message): false|string|null
+    public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
-        $chain = array_values(array_merge($this->getPreviousMessages($message), [InternalMessage::fromTelegramMessage($message)]));
-        if (!$this->responsesAlsoTrigger && count($chain) > 1) {
-            return false;
+        if (!$this->responsesAlsoTrigger && $messageChain->count() > 1) {
+            return new ProcessingResult(null, false);
         }
-        $firstMessageText = $chain[0]->messageText;
+        $firstMessageText = $messageChain->first()->messageText;
         $triggerFound = false;
         foreach ($this->triggeringCommands as $triggeringCommand) {
             if (str_starts_with($firstMessageText, $triggeringCommand)) {
                 $triggerFound = true;
-                $chain[0]->messageText = trim(str_replace($triggeringCommand, '', $firstMessageText));
+                $messageChain->first()->messageText = trim(str_replace($triggeringCommand, '', $firstMessageText));
                 break;
             }
         }
         if (!$triggerFound) {
-            return false;
+            return new ProcessingResult(null, false);
         }
-        //todo: rework PreResponseProcessor interface to accept message instead
 
         Request::sendChatAction([
-                                    'chat_id' => $message->getChat()->getId(),
+                                    'chat_id' => $messageChain->last()->chatId,
                                     'action'  => ChatAction::TYPING,
                                 ]);
 
         try {
-            $response  = $this->responder->processMessageChain($chain);
+            return $this->responder->processMessageChain($messageChain);
         } catch (\Exception $e) {
             echo "Got error when getting response to message chain from " . get_class($this->responder) .": \n";
             echo $e->getMessage();
             echo $e->getTraceAsString();
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $message->getChat()->getId(),
-                'message_id' => $message->getMessageId(),
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '🤔',
-                    ],
-                ],
-            ]);
-            return null;
+            return new ProcessingResult(null, true, 🤔, $messageChain->last());
         }
-        if ($response->response === null) {
-             return null;
-        }
-        $telegramSendResult = $response->response->send();
-        if ($telegramSendResult->isOk()) {
-            $this->database->logMessage($telegramSendResult->getResult());
-        } else {
-            echo "Failed to send message in CommandBaseResponderTrigger: ";
-            print_r($telegramSendResult->getRawData());
-            echo "\n";
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $message->getChat()->getId(),
-                'message_id' => $message->getMessageId(),
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '🤔',
-                    ],
-                ],
-            ]);
-        }
-
-        return null;
-    }
-
-    /** @return InternalMessage[] */
-    private function getPreviousMessages(Message $message): array
-    {
-        $messages = [];
-        if ($message->getReplyToMessage() !== null) {
-            $responseMessage = $this->database->findMessageByIdInChat(
-                $message->getReplyToMessage()->getMessageId(),
-                $message->getChat()->getId()
-            );
-            if ($responseMessage !== null) {
-                $messages[] = $responseMessage;
-                while ($responseMessage?->replyToMessageId !== null) {
-                    $responseMessage = $this->database->findMessageByIdInChat(
-                        $responseMessage->replyToMessageId,
-                        $message->getChat()->getId()
-                    );
-                    if ($responseMessage === null) {
-                        $previousMessage = $messages[count($messages) - 1];
-                        echo sprintf(
-                            "Reference to message %s in chat %s not found in database in current response chain, skipping\n",
-                            $previousMessage->replyToMessageId,
-                            $previousMessage->chatId,
-                        );
-                        continue;
-                    }
-                    $messages[] = $responseMessage;
-                }
-            }
-        }
-
-
-        return array_reverse($messages);
     }
 }

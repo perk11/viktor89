@@ -5,6 +5,7 @@ namespace Perk11\Viktor89\Quiz;
 use Longman\TelegramBot\Entities\PollOption;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 
@@ -15,10 +16,9 @@ class RandomQuizResponder implements MessageChainProcessor
     {
     }
 
-    public function processMessageChain(array $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
-        /** @var ?InternalMessage $lastMessage */
-        $lastMessage = $messageChain[count($messageChain) - 1];
+        $lastMessage = $messageChain->last();
         $question = $this->questionRepository->findRandom();
         if ($question === null) {
             echo "Failed to find a random question\n";

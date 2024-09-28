@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\VideoGeneration;
 
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -17,13 +18,12 @@ class VideoProcessor implements MessageChainProcessor
     ) {
     }
 
-    public function processMessageChain(array $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
-        /** @var ?InternalMessage $lastMessage */
-        $message = $messageChain[count($messageChain) - 1];
+        $message = $messageChain->last();
         $prompt = $message->messageText;
-        if (count($messageChain) > 1 ) {
-            $prompt = trim($messageChain[count($messageChain) - 2]->messageText. "\n\n" . $prompt);
+        if ($messageChain->count() > 1) {
+            $prompt = trim($messageChain->getMessages()[$messageChain->count() - 2]->messageText . "\n\n" . $prompt);
         }
         if ($prompt === '') {
             $response = new InternalMessage();
