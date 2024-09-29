@@ -8,7 +8,6 @@ use Longman\TelegramBot\Request;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
-use Perk11\Viktor89\PreResponseProcessor\PersonalityProcessor;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseSupportingGenerator;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
