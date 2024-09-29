@@ -44,6 +44,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
     public function __construct(
         private readonly HistoryReader $historyReader,
         private readonly Database $database,
+        private readonly ProcessingResultExecutor $processingResultExecutor,
         private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
         private readonly string $telegramBotUsername,
@@ -133,7 +134,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         foreach ($this->preResponseProcessors as $preResponseProcessor) {
             if ($preResponseProcessor instanceof MessageChainProcessor) {
                 $result = $preResponseProcessor->processMessageChain($chain);
-                $result->execute($this->database);
+                $this->processingResultExecutor->execute($result);
                 if ($result->abortProcessing) {
                     return null;
                 }

@@ -38,6 +38,7 @@ class Engine
         private readonly string $telegramBotUserName,
         private readonly int $telegramBotId,
         private readonly TelegramInternalMessageResponderInterface|MessageChainProcessor $fallBackResponder,
+        private readonly ProcessingResultExecutor $processingResultExecutor,
     ) {
     }
 
@@ -111,7 +112,7 @@ class Engine
         );
         foreach ($this->messageChainProcessors as $messageChainProcessor) {
             $processingResult = $messageChainProcessor->processMessageChain($chain);
-            $processingResult->execute($this->database);
+            $this->processingResultExecutor->execute($processingResult);
             if ($processingResult->abortProcessing) {
                 echo get_class($messageChainProcessor) . " has aborted further processing\n";
                 return;

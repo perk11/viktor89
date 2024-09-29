@@ -151,11 +151,13 @@ class ProcessMessageTask implements Task
             $assistedImageGenerator,
             $photoResponder,
         );
+        $processingResultExecutor= new ProcessingResultExecutor($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchInstruct6($database);
         $responder = new \Perk11\Viktor89\SiepatchNonInstruct4(
             $historyReader,
             $database,
+            $processingResultExecutor,
             $responseStartProcessor,
             $openAiCompletionStringParser,
             $this->telegramBotUsername,
@@ -266,7 +268,8 @@ class ProcessMessageTask implements Task
                                               $messageChainProcessors,
                                               $this->telegramBotUsername,
                                               $this->telegramBotId,
-                                              $responder
+                                              $responder,
+                                              $processingResultExecutor,
         );
         $engine->handleMessage($this->message);
     }
