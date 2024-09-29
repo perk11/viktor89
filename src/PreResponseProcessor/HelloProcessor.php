@@ -25,7 +25,7 @@ class HelloProcessor implements MessageChainProcessor
         'дарова',
         'даровч',
         'привет',
-        'хау'
+        'хау',
     ];
 
     private array $triggerUsers = [
@@ -37,22 +37,22 @@ class HelloProcessor implements MessageChainProcessor
         if (!in_array($messageChain->last()->userId, $this->triggerUsers, true)) {
             return new ProcessingResult(null, false);
         }
-        $incomingMessageTextLower = mb_strtolower($messageChain->last()->messageText);
+        $lastMessage = $messageChain->last();
+        $incomingMessageTextLower = mb_strtolower($lastMessage->messageText);
 
         foreach ($this->triggerPhrases as $triggerPhrase) {
             if (str_contains($incomingMessageTextLower, $triggerPhrase)) {
-                return new ProcessingResult(null, true, callback: function (Message $message) use ($incomingMessageTextLower, $triggerPhrase) {
+                return new ProcessingResult(null, true, callback: function () use ($lastMessage) {
                     echo "Sending message with hello sticker\n";
                     Request::sendSticker([
-                                             'chat_id'          => $message->getChat()->getId(),
+                                             'chat_id'          => $lastMessage->chatId,
                                              'reply_parameters' => [
-                                                 'message_id' => $message->getMessageId(),
+                                                 'message_id' => $lastMessage->id,
                                              ],
                                              'sticker'          => $this->responseStickers[array_rand(
                                                  $this->responseStickers
                                              )],
                                          ]);
-
                 });
             }
         }
