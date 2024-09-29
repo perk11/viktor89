@@ -19,8 +19,10 @@ class AllowedChatProcessor implements MessageChainProcessor
             return new ProcessingResult(null, false);
         }
         if (!in_array($lastMessage->chatId, $this->allowedChatIds, false)) {
-            $message = InternalMessage::asResponseTo($lastMessage);
-            $message->messageText = 'Эта функция отключена в вашем чате 🤣🤣🤣';
+            $message = InternalMessage::asResponseTo(
+                $lastMessage,
+                'Эта функция отключена в вашем чате 🤣🤣🤣'
+            );
 
             return new ProcessingResult($message, true);
         }

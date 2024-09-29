@@ -202,8 +202,11 @@ class ProcessMessageTask implements Task
                     '-1001804789551' => 4,
                 ]
             ),
-            $clownProcessor,
             new SaveQuizPollProcessor($questionRepository),
+        ];
+
+        $messageChainProcessors = [
+            $clownProcessor,
             $imageModelProcessor,
             $videoModelProcessor,
             $assistantModelProcessor,
@@ -212,9 +215,6 @@ class ProcessMessageTask implements Task
             $seedProcessor,
             $systemPromptProcessor,
             $responseStartProcessor,
-        ];
-
-        $messageChainProcessors = [
             new ReactProcessor($clownProcessor, '🤡'),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/quiz'],

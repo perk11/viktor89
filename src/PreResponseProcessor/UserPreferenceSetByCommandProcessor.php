@@ -5,8 +5,12 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Database;
+use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\MessageChain;
+use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\ProcessingResult;
 
-class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
+class UserPreferenceSetByCommandProcessor implements MessageChainProcessor
 {
     public function __construct(
         private readonly Database $database,
@@ -21,7 +25,8 @@ class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
     {
         return [];
     }
-    protected function processValueAsSetting(Message $message, ?string $value): bool
+
+    protected function processValueAsSetting(InternalMessage $message, ?string $value): bool
     {
         return true;
     }
@@ -35,9 +40,10 @@ class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
         return $value;
     }
 
-    public function process(Message $message): false|string|null
+    public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
-        $messageText = $message->getText();
+        $lastMessage = $messageChain->last();
+        $messageText = $lastMessage->messageText;
         $triggerFound = false;
         if (str_starts_with($messageText, '@' . $this->botUserName)) {
             $messageText = ltrim(str_replace('@' . $this->botUserName, '', $messageText));
@@ -50,22 +56,31 @@ class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
             }
         }
         if (!$triggerFound) {
-            return false;
+            return new ProcessingResult(null, false);
         }
         $preferenceValue = $this->transformValue($preferenceValue);
-        if (!$this->processValueAsSetting($message, $preferenceValue)) {
-            return null;
+        if (!$this->processValueAsSetting($lastMessage, $preferenceValue)) {
+            return new ProcessingResult(null, true);
         }
         $validationErrors = $this->getValueValidationErrors($preferenceValue);
         if (count($validationErrors) > 0) {
-            return "Ошибка: " . implode("\n", $validationErrors);
+            return new ProcessingResult(
+                InternalMessage::asResponseTo(
+                    $lastMessage,
+                    "Ошибка: " . implode(
+                        "\n",
+                        $validationErrors,
+                    )
+                ),
+                true,
+            );
         }
-        $this->database->writeUserPreference($message->getFrom()->getId(), $this->preferenceName, $preferenceValue);
+        $this->database->writeUserPreference($lastMessage->userId, $this->preferenceName, $preferenceValue);
 
         try {
             $response = Request::execute('setMessageReaction', [
-                'chat_id'    => $message->getChat()->getId(),
-                'message_id' => $message->getMessageId(),
+                'chat_id'    => $lastMessage->chatId,
+                'message_id' => $lastMessage->id,
                 'reaction'   => [[
                     'type'  => 'emoji',
                     'emoji' => '👌',
@@ -76,10 +91,11 @@ class UserPreferenceSetByCommandProcessor implements PreResponseProcessor
         } catch (\Exception $e) {
             echo("Failed to react to message: " . $e->getMessage() . "\n");
 
-            return $preferenceValue === null ? "Настройка $this->preferenceName сброшена в состояние по умолчанию" : "Настройка $this->preferenceName установлена в $preferenceValue";
+            $messageText =  $preferenceValue === null ? "Настройка $this->preferenceName сброшена в состояние по умолчанию" : "Настройка $this->preferenceName установлена в $preferenceValue";
+            return new ProcessingResult(InternalMessage::asResponseTo($lastMessage, $messageText), true);
         }
 
-        return null;
+        return new ProcessingResult(null, true);
     }
 
     public function getCurrentPreferenceValue(int $userId): ?string

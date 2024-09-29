@@ -5,6 +5,7 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Database;
+use Perk11\Viktor89\InternalMessage;
 
 class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandProcessor
 {
@@ -18,8 +19,12 @@ class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandPr
         parent::__construct($database, $triggeringCommands, $preferenceName, $botUserName);
     }
 
-    protected function processValueAsSetting(Message $message, ?string $value): bool
+    protected function processValueAsSetting(InternalMessage $message, ?string $value): bool
     {
+        if ($value !== null) {
+            return true;
+        }
+
         $buttons = [];
         foreach ($this->acceptedValuesList as $acceptedValue) {
             $buttons[] = [
@@ -29,19 +34,15 @@ class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandPr
                 ],
             ];
         }
-        if ($value === null) {
-            Request::sendMessage([
-                                     'chat_id'      => $message->getChat()->getId(),
-                                     'text'         => 'Pick a value for ' . $this->preferenceName,
-                                     'reply_markup' => [
-                                         'inline_keyboard' => $buttons,
-                                     ],
-                                 ]);
+        Request::sendMessage([
+                                 'chat_id'      => $message->chatId,
+                                 'text'         => 'Pick a value for ' . $this->preferenceName,
+                                 'reply_markup' => [
+                                     'inline_keyboard' => $buttons,
+                                 ],
+                             ]);
 
-            return false;
-        }
-
-        return true;
+        return false;
     }
 
 

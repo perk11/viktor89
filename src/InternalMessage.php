@@ -114,11 +114,14 @@ class InternalMessage
         return Request::sendMessage($options);
     }
 
-    public static function asResponseTo(InternalMessage $messageToRespondTo): self
+    public static function asResponseTo(InternalMessage $messageToRespondTo, ?string $responseText = null): self
     {
         $message = new self();
         $message->replyToMessageId = $messageToRespondTo->id;
         $message->chatId = $messageToRespondTo->chatId;
+        if ($responseText !== null) {
+            $message->messageText = $responseText;
+        }
 
         return $message;
     }

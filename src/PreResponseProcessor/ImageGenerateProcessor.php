@@ -42,8 +42,10 @@ class ImageGenerateProcessor implements MessageChainProcessor
             $prompt = trim($messageChain->getMessages()[$messageChain->count() - 2]->messageText . "\n\n" . $prompt);
         }
         if ($prompt === '') {
-            $message = InternalMessage::asResponseTo($lastMessage);
-            $message->messageText = 'Непонятно, что генерировать...';
+            $message = InternalMessage::asResponseTo(
+                $lastMessage,
+                'Непонятно, что генерировать...',
+            );
             return new ProcessingResult($message, true);
         }
 
