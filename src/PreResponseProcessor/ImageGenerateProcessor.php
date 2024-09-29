@@ -7,6 +7,7 @@ use Longman\TelegramBot\Request;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
+use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -41,7 +42,9 @@ class ImageGenerateProcessor implements MessageChainProcessor
             $prompt = trim($messageChain->getMessages()[$messageChain->count() - 2]->messageText . "\n\n" . $prompt);
         }
         if ($prompt === '') {
-            return 'Непонятно, что генерировать...';
+            $message = InternalMessage::asResponseTo($lastMessage);
+            $message->messageText = 'Непонятно, что генерировать...';
+            return new ProcessingResult($message, true);
         }
 
         if ($lastMessage->replyToPhoto !== null) {
