@@ -16,11 +16,7 @@ class ProcessingResultExecutor
         if ($result->response !== null) {
             $telegramServerResponse = $result->response->send();
             if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof Message) {
-                $result->response->id = $telegramServerResponse->getResult()->getMessageId();
-                $result->response->userId = $telegramServerResponse->getResult()->getFrom()->getId();
-                $result->response->userName = $telegramServerResponse->getResult()->getFrom()->getUsername();
-                $result->response->date = time();
-                $this->database->logInternalMessage($result->response);
+                $this->database->logMessage($telegramServerResponse->getResult());
             } else {
                 echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
             }
