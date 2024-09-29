@@ -119,13 +119,14 @@ AND message.date>unixepoch(DATETIME(CURRENT_TIMESTAMP, '-1 day'))"
     }
 
     /** @return InternalMessage[] */
-    public function findMessagesSentInLast24HoursInChat(int $chatId): array
+    public function findMessagesSentAfterTimestampInChat(int $chatId, int $startTimeStamp): array
     {
         $fetchMessagesStatement = $this->sqlite3Database->prepare(
-            "SELECT * FROM message WHERE chat_id = :chat_id AND message.date>unixepoch(DATETIME(CURRENT_TIMESTAMP, '-1 day'))
+            "SELECT * FROM message WHERE chat_id = :chat_id AND message.date>:start_timestamp
                       ORDER BY id ASC"
         );
         $fetchMessagesStatement->bindValue(':chat_id', $chatId);
+        $fetchMessagesStatement->bindValue(':start_timestamp', $startTimeStamp);
 
         $resultingMessages = [];
         $queryResult = $fetchMessagesStatement->execute();
@@ -191,5 +192,36 @@ AND message.date>unixepoch(DATETIME(CURRENT_TIMESTAMP, '-1 day'))"
         $statement->bindValue(':summary', $summary);
         $statement->bindValue(':date', time());
         $statement->execute();
+    }
+
+    public function readSystemVariable(string $variableName): ?string
+    {
+        $fetchMessagesStatement = $this->sqlite3Database->prepare(
+            "SELECT value FROM system_variable WHERE name = :variable_name"
+        );
+        $fetchMessagesStatement->bindValue('variable_name', $variableName);
+        $result = $fetchMessagesStatement->execute();
+
+        $resultArray = $result->fetchArray(SQLITE3_NUM);
+        if ($resultArray === false) {
+            return null;
+        }
+
+        return $resultArray[0];
+    }
+
+    public function writeSystemVariable(string $variableName, string $variableValue): void
+    {
+        $fetchMessagesStatement = $this->sqlite3Database->prepare(
+            "
+INSERT INTO system_variable (name,value,updated_at) VALUES(:variable_name, :variable_value, CURRENT_TIMESTAMP)
+ON CONFLICT(name) DO UPDATE SET 
+    value = :variable_value,
+    updated_at = CURRENT_TIMESTAMP
+"
+        );
+        $fetchMessagesStatement->bindValue('variable_name', $variableName);
+        $fetchMessagesStatement->bindValue('variable_value', $variableValue);
+        $fetchMessagesStatement->execute();
     }
 }

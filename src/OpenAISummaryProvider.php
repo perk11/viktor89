@@ -6,6 +6,7 @@ use Orhanerday\OpenAi\OpenAi;
 
 class OpenAISummaryProvider
 {
+    public const LAST_SUMMARY_TIMESTAMP_SYSTEM_VARIABLE_NAME = 'last-summary-timestamp';
     private readonly OpenAi $openAiClient;
 
     public function __construct(private Database $database)
@@ -22,24 +23,40 @@ class OpenAISummaryProvider
     }
 
     private const MESSAGES_ANALYZED_PER_BATCH = 150;
-    public function provideSummaryIf24HoursPassedSinceLastOneA(int $chatId): ?string
+
+    public function sendChatSummaryWithMessagesSinceLastOne(int $chatId): bool
     {
         $lastSummaryDate = $this->database->getLastChatSummaryDate($chatId);
-        if ($lastSummaryDate !== false) {
-            if (time() - $lastSummaryDate < 24*60*60) {
-                return null;
-            }
+        if ($lastSummaryDate === null) {
+            $lastSummaryDate = 0;
         }
-        return $this->provideSummary($chatId);
+
+        $summary = $this->provideSummary($chatId, $lastSummaryDate);
+        if ($summary === null) {
+            return false;
+        }
+        // Split the summary into chunks of 4000 characters
+        $maxSize = 4000;
+        $chunks = mb_str_split($summary, $maxSize);
+        foreach ($chunks as $chunk) {
+            $message = new InternalMessage();
+            $message->parseMode = 'Default';
+            $message->chatId = $chatId;
+            $message->messageText = "#summary\n" . $chunk;
+            $message->send();
+        }
+
+        return true;
     }
-    public function provideSummary(int $chatId, int $maxMessages = 10000): ?string
+
+    public function provideSummary(int $chatId, int $startTimestamp, int $maxMessages = 10000): ?string
     {
-        $allMessages = $this->database->findMessagesSentInLast24HoursInChat($chatId);
+        $allMessages = $this->database->findMessagesSentAfterTimestampInChat($chatId, $startTimestamp);
         if (count($allMessages) < 10) {
 //            echo count($allMessages) . " messages found in chat $chatId in last 24 hours, no summary to provide\n";
             return null;
         }
-        $summary = "Сообщений проанализировано: ";
+        $summary = "Анализ чата за последние 24 часа\nСообщений проанализировано: ";
         if (count($allMessages) > $maxMessages) {
             $summary .= $maxMessages;
             $allMessages = array_slice($allMessages, 0, $maxMessages);

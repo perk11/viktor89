@@ -7,6 +7,7 @@ use Longman\TelegramBot\Telegram;
 use Longman\TelegramBot\TelegramLog;
 use Perk11\Viktor89\HistoryReader;
 
+use Perk11\Viktor89\OpenAISummaryProvider;
 use Revolt\EventLoop;
 
 use function Amp\delay;
@@ -37,7 +38,13 @@ $workerPool = workerPool();
 echo "Connecting to Telegram...\n";
 $telegram->useGetUpdatesWithoutDatabase();
 $iterationId =0;
-\Revolt\EventLoop::repeat(1, static function () use ($telegram, $workerPool, &$iterationId, $summaryProvider) {
+
+$lastSummaryTimestamp = $database->readSystemVariable(
+    OpenAISummaryProvider::LAST_SUMMARY_TIMESTAMP_SYSTEM_VARIABLE_NAME
+) ?? 0;
+\Revolt\EventLoop::repeat(
+    1,
+    static function () use ($telegram, $workerPool, &$iterationId, &$lastSummaryTimestamp, $database) {
     try {
         $serverResponse = $telegram->handleGetUpdates([
                                                           'allowed_updates' => [
@@ -72,7 +79,9 @@ $iterationId =0;
             echo $serverResponse->printError();
         }
 
-        if ($iterationId % 60 === 0) {
+        $secondsSinceLastSummary = time() - $lastSummaryTimestamp;
+        if ($secondsSinceLastSummary > 25 * 60 * 60 || ($secondsSinceLastSummary > 7200 && date('H') === '05')) {
+            echo "Running chat summaries\n";
             $chats = [
                 '-1001804789551',
                 '-1001537530453',
@@ -85,24 +94,23 @@ $iterationId =0;
                 '-4285233729',
 
             ];
-            foreach ($chats as $chat) {
-                $newSummary = $summaryProvider->provideSummaryIf24HoursPassedSinceLastOneA($chat);
-                if ($newSummary !== null) {
-                    $formattedText = str_replace('**', '*', $newSummary);
-                    $newSummary = "*Анализ чата за последние 24 часа*\n$newSummary";
-                    // Define the maximum size of each message
-                    $maxSize = 4000;
+            $lastSummaryTimestamp = time();
+            $database->writeSystemVariable(
+                OpenAISummaryProvider::LAST_SUMMARY_TIMESTAMP_SYSTEM_VARIABLE_NAME,
+                $lastSummaryTimestamp
+            );
 
-                    // Split the summary into chunks of 4000 characters
-                    $chunks = mb_str_split($newSummary, $maxSize);
-                    foreach ($chunks as $chunk) {
-                        $message = new \Perk11\Viktor89\InternalMessage();
-                        $message->parseMode = 'Default';
-                        $message->chatId = $chat;
-                        $message->messageText = "#summary\n" . $chunk;
-                        $message->send();
-                    }
-                }
+            foreach ($chats as $chat) {
+                $handleTask = new \Perk11\Viktor89\SummaryTask(
+                    $chat,
+                    $telegram->getBotId(),
+                    $telegram->getApiKey(),
+                    $_ENV['TELEGRAM_BOT_USERNAME'],
+                );
+                $taskExecution = $workerPool->submit($handleTask);
+                $taskExecution->getFuture()->catch(function (\Throwable $e) use ($chat) {
+                    echo "Error when providing summary for chat" . $chat . $e->getMessage();
+                });
             }
         }
         $iterationId++;

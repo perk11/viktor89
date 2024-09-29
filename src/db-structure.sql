@@ -42,3 +42,10 @@ CREATE TABLE IF NOT EXISTS `quiz_question_answer`
     `text` text,
     `correct` boolean
 );
+
+CREATE TABLE IF NOT EXISTS `system_variable`
+(
+    `name` text UNIQUE,
+    `value` text,
+    `updated_at` timestamp
+)
