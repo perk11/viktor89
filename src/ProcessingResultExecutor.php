@@ -14,6 +14,8 @@ class ProcessingResultExecutor
     public function execute(ProcessingResult $result): void
     {
         if ($result->response !== null) {
+            echo "Sending message in chat {$result->response->chatId}: {$result->response->messageText}\n";
+
             $telegramServerResponse = $result->response->send();
             if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof Message) {
                 $this->database->logMessage($telegramServerResponse->getResult());
@@ -26,6 +28,7 @@ class ProcessingResultExecutor
             if ($result->messageToReactTo === null) {
                 throw new \LogicException("Reaction property is set, but not messageToReactTo");
             }
+            echo "Reacting to message from {$result->messageToReactTo->userName} in chat {$result->messageToReactTo->chatId} \n";
             Request::execute('setMessageReaction', [
                 'chat_id'    => $result->messageToReactTo->chatId,
                 'message_id' => $result->messageToReactTo->id,
