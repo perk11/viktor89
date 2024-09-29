@@ -46,7 +46,7 @@ class CommandBasedResponderTrigger implements MessageChainProcessor
             echo "Got error when getting response to message chain from " . get_class($this->responder) .": \n";
             echo $e->getMessage();
             echo $e->getTraceAsString();
-            return new ProcessingResult(null, true, 🤔, $messageChain->last());
+            return new ProcessingResult(null, true, '🤔', $messageChain->last());
         }
     }
 }
