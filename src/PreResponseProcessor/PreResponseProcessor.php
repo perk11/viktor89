@@ -4,6 +4,9 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Longman\TelegramBot\Entities\Message;
 
+/**
+ * @deprecated Use MessageChainProcessor interface instead
+ */
 interface PreResponseProcessor
 {
     /*

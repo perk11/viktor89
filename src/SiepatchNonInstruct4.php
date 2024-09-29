@@ -34,7 +34,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
     /** @var AbortStreamingResponseHandler[] */
     private array $abortResponseHandlers = [];
 
-    /** @var PreResponseProcessor[] */
+    /** @var MessageChainProcessor[] $preResponseProcessors */
     private array $preResponseProcessors = [];
 
     private readonly UserPreferenceSetByCommandProcessor $personalityProcessor;
@@ -65,7 +65,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         $this->abortResponseHandlers[] = $abortResponseHandler;
     }
 
-    public function addPreResponseProcessor(PreResponseProcessor|MessageChainProcessor $preResponseProcessor): void
+    public function addPreResponseProcessor(MessageChainProcessor $preResponseProcessor): void
     {
         $this->preResponseProcessors[] = $preResponseProcessor;
     }
@@ -131,23 +131,10 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         $previousMessages = $this->historyReader->getPreviousMessages($message, 99, 99, 0);
         $chain = new MessageChain(array_merge($previousMessages, [InternalMessage::fromTelegramMessage($message)]));
         foreach ($this->preResponseProcessors as $preResponseProcessor) {
-            if ($preResponseProcessor instanceof MessageChainProcessor) {
-                $result = $preResponseProcessor->processMessageChain($chain);
-                $this->processingResultExecutor->execute($result);
-                if ($result->abortProcessing) {
-                    return null;
-                }
-            } else {
-                $replacedMessage = $preResponseProcessor->process($message);
-                if ($replacedMessage !== false) {
-                    if ($replacedMessage === null) {
-                        return null;
-                    }
-                    $internalMessage->userName = $_ENV['TELEGRAM_BOT_USERNAME'];
-                    $internalMessage->messageText = $replacedMessage;
-
-                    return $internalMessage;
-                }
+            $result = $preResponseProcessor->processMessageChain($chain);
+            $this->processingResultExecutor->execute($result);
+            if ($result->abortProcessing) {
+                return null;
             }
         }
         $continueMode = trim($message->getText()) === '/continue';
