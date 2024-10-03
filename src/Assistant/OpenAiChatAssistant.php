@@ -14,8 +14,8 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
 
         echo $response;
         $parsedResult = json_decode($response, JSON_THROW_ON_ERROR);
-        if (!array_key_exists('choices', $parsedResult)) {
-            echo "Unexpected response from OpenAI: $response \n";
+        if (!is_array($parsedResult) || !array_key_exists('choices', $parsedResult)) {
+            throw new \Exception("Unexpected response from OpenAI: $response");
         }
 
         return $parsedResult['choices'][0]['message']['content'];
