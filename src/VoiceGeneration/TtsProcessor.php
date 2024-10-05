@@ -2,17 +2,18 @@
 
 namespace Perk11\Viktor89\VoiceGeneration;
 
-use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
-use Perk11\Viktor89\MessageChain;
 
 class TtsProcessor implements MessageChainProcessor
 {
+    private const VOICE_STORAGE_DIR = __DIR__ . '/../../data/voice';
     public function __construct(
         private readonly TtsApiClient $voiceClient,
         private readonly VoiceResponder $voiceResponder,
+        private readonly array $modelConfig,
     ) {
     }
 
@@ -31,9 +32,24 @@ class TtsProcessor implements MessageChainProcessor
 
             return new ProcessingResult($response, true);
         }
+        $model = current($this->modelConfig);
+        $modelName = key($this->modelConfig);
+        if (isset($model['voice_source'])) {
+            $voiceSource = file_get_contents(self::VOICE_STORAGE_DIR . '/' . $model['voice_source']);
+        } else {
+            $voiceSource = null;
+        }
         echo "Generating voice for prompt: $prompt\n";
         try {
-            $response = $this->voiceClient->text2Voice($prompt, null, 'Claribel Dervla', 'ru', 'ogg', '');
+            $response = $this->voiceClient->text2Voice(
+                $prompt,
+                $voiceSource,
+                $model['speakerId'] ?? null,
+                'ru',
+                'ogg',
+                $model['speed'] ?? null,
+                $modelName,
+            );
             $this->voiceResponder->sendVoice(
                 $message,
                 $response->voiceFileContents,

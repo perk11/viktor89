@@ -142,7 +142,8 @@
   },
   "voiceModels": {
     "xtts_v2" : {
-      "url": "http://localhost:8105"
+      "url": "http://localhost:8105",
+      "voice_source": "voice.ogg"
     }
   },
   "videoModels": {

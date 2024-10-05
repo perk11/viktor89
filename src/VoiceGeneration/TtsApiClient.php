@@ -14,7 +14,7 @@ class TtsApiClient
     ) {
     }
 
-    public function text2Voice(string $prompt, ?string $voice, ?string $speakerId, string $language, string $outputFormat, string $model): TtsApiResponse
+    public function text2Voice(string $prompt, ?string $voice, ?string $speakerId, string $language, string $outputFormat, ?string $speed, string $model): TtsApiResponse
     {
         $this->initClientBasedOnModel($model);
         $params = [
@@ -25,21 +25,23 @@ class TtsApiClient
         if ($speakerId !== null) {
             $params['speaker_id'] = $speakerId;
         }
+        if ($speed !== null) {
+            $params['speed'] = $speed;
+        }
         if ($voice !== null) {
-            $params['source_voice'] = $voice;
+            $params['source_voice'] = base64_encode($voice);
+            $params['source_voice_format'] = 'ogg';
         }
         $result = $this->request('txt2voice', $params);
 
         return TtsApiResponse::fromString($result->getBody()->getContents());
     }
 
-    private function initClientBasedOnModel(string $model): mixed
+    private function initClientBasedOnModel(string $model): void
     {
         $params = current($this->modelConfig); //todo: use model
         $apiUrl = rtrim($params['url'], '/');
         $this->httpClient = new Client(['base_uri' => $apiUrl]);
-
-        return $params;
     }
 
     private function request(string $method, array $data): ResponseInterface

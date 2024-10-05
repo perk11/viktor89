@@ -43,6 +43,7 @@ class ProcessMessageTask implements Task
 
     public function run(Channel $channel, Cancellation $cancellation): bool
     {
+        ini_set('memory_limit', -1);
 
         try {
          $this->handle();
@@ -264,7 +265,11 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/say'],
                 false,
-                new TtsProcessor(new TtsApiClient($config['voiceModels']), new VoiceResponder()),
+                new TtsProcessor(
+                    new TtsApiClient($config['voiceModels']),
+                    new VoiceResponder(),
+                    $config['voiceModels'],
+                ),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
