@@ -140,6 +140,11 @@
       "steps": 50
     }
   },
+  "voiceModels": {
+    "xtts_v2" : {
+      "url": "http://localhost:8105"
+    }
+  },
   "videoModels": {
     "CogVideoX-5b": {
       "steps": 50,

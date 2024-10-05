@@ -27,6 +27,9 @@ use Perk11\Viktor89\VideoGeneration\Txt2VideoClient;
 use Perk11\Viktor89\VideoGeneration\VideoImg2VidProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoResponder;
+use Perk11\Viktor89\VoiceGeneration\TtsProcessor;
+use Perk11\Viktor89\VoiceGeneration\TtsApiClient;
+use Perk11\Viktor89\VoiceGeneration\VoiceResponder;
 
 class ProcessMessageTask implements Task
 {
@@ -257,6 +260,11 @@ class ProcessMessageTask implements Task
                 ['/preferences'],
                 false,
                 new PrintUserPreferencesResponder($database),
+            ),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/say'],
+                false,
+                new TtsProcessor(new TtsApiClient($config['voiceModels']), new VoiceResponder()),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
