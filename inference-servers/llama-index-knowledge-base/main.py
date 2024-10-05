@@ -17,7 +17,7 @@ parser.add_argument('--index', type=str, help='llama-index pickle index path', r
 
 args = parser.parse_args()
 Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-m3")
-Settings.llm = OpenAI(api_key="BAD_KEY", api_base="http://localhost:" + str(args.llm_port))
+Settings.llm = OpenAI(api_key="BAD_KEY", api_base="http://localhost:" + str(args.llm_port), timeout=999999)
 
 app = FastAPI()
 with open(args.index, 'rb') as f:
