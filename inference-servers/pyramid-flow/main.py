@@ -44,6 +44,7 @@ def generate_image():
     prompt = data.get('prompt')
     seed = int(data.get('seed', 0))
     steps = int(data.get('steps', 10))
+    tmp_file = tempfile.NamedTemporaryFile(suffix='.mp4')
 
     if seed == 0:
         seed = generator.seed()
@@ -65,7 +66,6 @@ def generate_image():
                 save_memory=True,  # If you have enough GPU memory, set it to `False` to improve vae decoding speed
                 generator=generator,
             )
-            tmp_file = tempfile.NamedTemporaryFile(suffix='.mp4')
             print("Video temporary file {}".format(tmp_file.name))
             export_to_video(frames, tmp_file.name, fps=24)
             video_contents_base64 = base64.b64encode(tmp_file.read()).decode('utf-8')
