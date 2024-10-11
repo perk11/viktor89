@@ -30,6 +30,7 @@ class HelloProcessor implements MessageChainProcessor
 
     private array $triggerUsers = [
         5461833561,
+        7010262656,
     ];
 
     public function processMessageChain(MessageChain $messageChain): ProcessingResult
