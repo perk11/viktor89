@@ -1,6 +1,7 @@
 import argparse
 import base64
 import json
+import os
 import tempfile
 import threading
 
@@ -42,36 +43,44 @@ def generate_image():
     print(data)
     prompt = data.get('prompt')
     seed = int(data.get('seed', 0))
+    steps = int(data.get('steps', 10))
 
     if seed == 0:
         seed = generator.seed()
     else:
         generator.manual_seed(seed)
 
-    with torch.no_grad(), torch.cuda.amp.autocast(enabled=True, dtype=torch_dtype):
-        frames = model.generate(
-            prompt=prompt,
-            num_inference_steps=[20, 20, 20],
-            video_num_inference_steps=[10, 10, 10],
-            height=768,
-            width=1280,
-            temp=16,  # temp=16: 5s, temp=31: 10s
-            guidance_scale=9.0,  # The guidance for the first frame
-            video_guidance_scale=5.0,  # The guidance for the other video latent
-            output_type="pil",
-            save_memory=True,  # If you have enough GPU memory, set it to `False` to improve vae decoding speed
-            generator=generator,
-        )
-        tmp_file = tempfile.NamedTemporaryFile(suffix='.mp4')
-        print("Video temporary file {}".format(tmp_file.name))
-        export_to_video(frames, tmp_file.name, fps=24)
-        video_contents_base64 = base64.b64encode(tmp_file.read()).decode('utf-8')
+    try:
+        with torch.no_grad(), torch.cuda.amp.autocast(enabled=True, dtype=torch_dtype):
+            frames = model.generate(
+                prompt=prompt,
+                num_inference_steps=[20, 20, 20],
+                video_num_inference_steps=[steps, steps, steps],
+                height=768,
+                width=1280,
+                temp=16,  # temp=16: 5s, temp=31: 10s
+                guidance_scale=9.0,  # The guidance for the first frame
+                video_guidance_scale=5.0,  # The guidance for the other video latent
+                output_type="pil",
+                save_memory=True,  # If you have enough GPU memory, set it to `False` to improve vae decoding speed
+                generator=generator,
+            )
+            tmp_file = tempfile.NamedTemporaryFile(suffix='.mp4')
+            print("Video temporary file {}".format(tmp_file.name))
+            export_to_video(frames, tmp_file.name, fps=24)
+            video_contents_base64 = base64.b64encode(tmp_file.read()).decode('utf-8')
+    except Exception as e:
+        print(e, flush=True)
+        return jsonify({'error': str(e)}), 500
+    finally:
+        sem.release()
+        os.remove(tmp_file.name)
 
     response = {
         'videos': [video_contents_base64],
         'parameters': {},
         'info': json.dumps({
-            'infotexts': [f'{prompt}\n, Seed: {seed}, Model: pyramid-flow-768p']
+            'infotexts': [f'{prompt}\n, Seed: {seed}, Steps: {steps}, Model: pyramid-flow-768p']
         })
     }
     return jsonify(response)
