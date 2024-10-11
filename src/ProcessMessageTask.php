@@ -183,8 +183,15 @@ class ProcessMessageTask implements Task
             $this->telegramBotUsername,
             array_keys($config['videoModels']),
         );
+        $imv2VideModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+            $database,
+            ['/img2videomodel'],
+            'img2videomodel',
+            $this->telegramBotUsername,
+            array_keys($config['img2videoModels']),
+        );
         $txt2VideoClient = new Txt2VideoClient($stepsProcessor, $seedProcessor, $videoModelProcessor, $config['videoModels']);
-        $img2VideoClient = new Img2VideoClient($stepsProcessor, $seedProcessor, $config['img2videoModels']);
+        $img2VideoClient = new Img2VideoClient($stepsProcessor, $seedProcessor, $imv2VideModelProcessor, $config['img2videoModels']);
         $upscaleClient = new UpscaleApiClient($stepsProcessor, $seedProcessor, $config['upscaleModels']);
         $videoResponder = new VideoResponder();
         $videoImg2VidProcessor = new VideoImg2VidProcessor($telegramFileDownloader, $img2VideoClient, $videoResponder);
@@ -213,6 +220,7 @@ class ProcessMessageTask implements Task
             $clownProcessor,
             $imageModelProcessor,
             $videoModelProcessor,
+            $imv2VideModelProcessor,
             $assistantModelProcessor,
             $denoisingStrengthProcessor,
             $stepsProcessor,

@@ -14,6 +14,7 @@ class Img2VideoClient
     public function __construct(
         private readonly UserPreferenceSetByCommandProcessor $stepsPreference,
         private readonly UserPreferenceSetByCommandProcessor $seedPreference,
+        private readonly UserPreferenceSetByCommandProcessor $img2VideoModelPreference,
         private readonly array $modelConfig,
     ){}
     public function generateByPromptImg2Vid( string $imageContent, string $prompt, int $userId): VideoApiResponse
@@ -31,7 +32,12 @@ class Img2VideoClient
      */
     private function getParamsBasedOnUserPreferences(int $userId): mixed
     {
-        $params = current($this->modelConfig);
+        $modelName = $this->img2VideoModelPreference->getCurrentPreferenceValue($userId);
+        if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
+            $params = current($this->modelConfig);
+        } else {
+            $params = $this->modelConfig[$modelName];
+        }
         $apiUrl = rtrim($params['url'], '/');
         unset ($params['url']);
         $this->httpClient = new Client(['base_uri' => $apiUrl]);
