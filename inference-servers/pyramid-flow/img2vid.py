@@ -87,7 +87,7 @@ def generate_video():
         'videos': [video_contents_base64],
         'parameters': {},
         'info': json.dumps({
-            'infotexts': [f'{prompt}\n Seed: {seed}, Steps: {steps}, Model:  pyramid-flow-768p']
+            'infotexts': [f'{prompt}\nSteps: {steps}, Seed: {seed}, Model:  pyramid-flow-768p']
         })
     }
     # Clear cache
