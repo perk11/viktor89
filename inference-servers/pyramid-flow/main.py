@@ -51,6 +51,7 @@ def generate_image():
     else:
         generator.manual_seed(seed)
 
+    sem.acquire()
     try:
         with torch.no_grad(), torch.cuda.amp.autocast(enabled=True, dtype=torch_dtype):
             frames = model.generate(
