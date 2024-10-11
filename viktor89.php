@@ -114,7 +114,6 @@ $lastSummaryTimestamp = $database->readSystemVariable(
             }
         }
         $iterationId++;
-        delay(1);
     } catch (\Longman\TelegramBot\Exception\TelegramException $e) {
         echo "Telegram error\n";
         TelegramLog::error($e);
