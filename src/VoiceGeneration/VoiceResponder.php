@@ -16,7 +16,7 @@ class VoiceResponder
             Request::sendVoice(
                 [
                     'chat_id'             => $messageToReplyTo->chatId,
-                    'reply_to_message_id' => $messageToReplyTo->replyToMessageId,
+                    'reply_to_message_id' => $messageToReplyTo->id,
                     'voice'               => Request::encodeFile($temporaryVoiceFile),
                 ]
             );
