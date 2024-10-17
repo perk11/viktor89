@@ -10,6 +10,8 @@ use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
+use Perk11\Viktor89\ImageGeneration\ClownifyApiClient;
+use Perk11\Viktor89\ImageGeneration\ClownifyProcessor;
 use Perk11\Viktor89\ImageGeneration\DownscaleProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
@@ -218,7 +220,6 @@ class ProcessMessageTask implements Task
         ];
 
         $messageChainProcessors = [
-            $clownProcessor,
             $imageModelProcessor,
             $videoModelProcessor,
             $imv2VideModelProcessor,
@@ -256,6 +257,12 @@ class ProcessMessageTask implements Task
                 false,
                 new DownscaleProcessor($telegramFileDownloader, $photoResponder)
             ),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/clownify'],
+                false,
+                new ClownifyProcessor($telegramFileDownloader,new ClownifyApiClient($config['clownifyModels']), $photoResponder)
+            ),
+            $clownProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],
                 true,
