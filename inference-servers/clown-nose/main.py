@@ -41,6 +41,7 @@ def generate_image():
     try:
         image = add_clown_nose(image)
     except Exception as e:
+        print(e)
         return jsonify({'error': str(e)}), 500
 
     # Convert image to base64
@@ -65,6 +66,8 @@ def add_clown_nose(image):
     # Detect faces in the image
     faces = detector(gray)
 
+    if len(faces) == 0:
+        raise ValueError("No faces detected in the image.")
     # Loop through each detected face
     for face in faces:
         # Get the landmarks
