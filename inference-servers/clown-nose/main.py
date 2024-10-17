@@ -2,6 +2,7 @@ import argparse
 import base64
 import json
 from pathlib import Path
+import random
 
 import cv2
 import dlib
@@ -21,9 +22,12 @@ detector = dlib.get_frontal_face_detector()  # Face detector
 predictor = dlib.shape_predictor(args.model)
 
 # Load the clown nose image (PNG with transparency)
-clown_nose_path = str(Path(__file__).with_name("clown_nose.png"))  # Replace with your PNG image path
-clown_nose = cv2.imread(clown_nose_path, cv2.IMREAD_UNCHANGED)  # Load with alpha channel
-
+clown_noses = []
+clown_noses_dir = Path(__file__).parent / "noses"
+for image_path in clown_noses_dir.glob("*.*"):  # Adjust the pattern as needed (e.g., "*.png" or "*.jpg")
+    img = cv2.imread(str(image_path), cv2.IMREAD_UNCHANGED)
+    if img is not None:
+        clown_noses.append(img)
 
 @app.route('/sdapi/v1/img2img', methods=['POST'])
 def generate_image():
@@ -68,6 +72,7 @@ def add_clown_nose(image):
 
     if len(faces) == 0:
         raise ValueError("No faces detected in the image.")
+    print("Detected faces:", len(faces), flush=True)
     # Loop through each detected face
     for face in faces:
         # Get the landmarks
@@ -79,10 +84,10 @@ def add_clown_nose(image):
         # Calculate the size of the clown nose (make it larger)
         nose_width = int(((landmarks.part(31).x - landmarks.part(35).x) ** 2 +
                           (landmarks.part(31).y - landmarks.part(35).y) ** 2) ** 0.5)
-        nose_size = int(nose_width * 1.5)  # Make the clown nose 1.5 times bigger
+        nose_size = int(nose_width * 1.7)  # Make the clown nose 1.7 times larger
 
         # Resize the clown nose image to the calculated size
-        clown_nose_resized = cv2.resize(clown_nose, (nose_size, nose_size))
+        clown_nose_resized = cv2.resize(random.choice(clown_noses), (nose_size, nose_size))
 
         # Get the dimensions of the resized clown nose
         nose_height, nose_width, _ = clown_nose_resized.shape
