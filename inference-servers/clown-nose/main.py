@@ -10,7 +10,8 @@ from flask import Flask, request, jsonify
 
 parser = argparse.ArgumentParser(description="Inference server for Flux.1-dev-Controlnet-Upscaler.")
 parser.add_argument('--port', type=int, help='port to listen on')
-parser.add_argument('--model', type=str, help='path to shape_predictor_68_face_landmarks_GTX.dat or other similar model')
+parser.add_argument('--model', type=str,
+                    help='path to shape_predictor_68_face_landmarks_GTX.dat or other similar model')
 args = parser.parse_args()
 
 app = Flask(__name__)
@@ -22,6 +23,7 @@ predictor = dlib.shape_predictor(args.model)
 # Load the clown nose image (PNG with transparency)
 clown_nose_path = str(Path(__file__).with_name("clown_nose.png"))  # Replace with your PNG image path
 clown_nose = cv2.imread(clown_nose_path, cv2.IMREAD_UNCHANGED)  # Load with alpha channel
+
 
 @app.route('/sdapi/v1/img2img', methods=['POST'])
 def generate_image():
@@ -43,7 +45,7 @@ def generate_image():
 
     # Convert image to base64
     _, png_image = cv2.imencode('.png', image)
-    image_base64 = base64.b64encode( png_image.tobytes()).decode('utf-8')
+    image_base64 = base64.b64encode(png_image.tobytes()).decode('utf-8')
 
     response = {
         'images': [image_base64],
@@ -111,5 +113,7 @@ def add_clown_nose(image):
 
                 image[top_left_y + i, top_left_x + j] = blended_color
     return image
+
+
 if __name__ == '__main__':
     app.run(host='localhost', port=args.port)
