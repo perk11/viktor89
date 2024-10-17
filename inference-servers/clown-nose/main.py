@@ -55,6 +55,7 @@ def generate_image():
 
     return jsonify(response)
 
+
 def add_clown_nose(image):
     # Convert the image to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -91,13 +92,24 @@ def add_clown_nose(image):
         if top_left_y < 0:
             top_left_y = 0
 
-        # Overlay the clown nose on the original image (handling transparency)
+        # Extract and handle transparency for blending
+        alpha_s = clown_nose_resized[:, :, 3] / 255.0    # Alpha channel of the clown nose image
+        alpha_l = 1.0 - alpha_s                         # Inverse of the alpha mask
+        # Loop through each pixel in the resized clown nose image
         for i in range(nose_height):
             for j in range(nose_width):
                 if top_left_y + i >= image.shape[0] or top_left_x + j >= image.shape[1]:
                     continue
-                if clown_nose_resized[i, j, 3] > 0:  # Only overlay non-transparent pixels
-                    image[top_left_y + i, top_left_x + j] = clown_nose_resized[i, j, :3]
+
+                # Use the alpha values from the clown nose's transparent layer for smooth blending
+                color_clown_nose = clown_nose_resized[i][j][:3]
+
+                # Blend with background (original image) using the calculated alphas
+                blended_color = (
+                        alpha_s[i, j]*color_clown_nose +
+                        alpha_l[i, j]*image[top_left_y+i, top_left_x+j])
+
+                image[top_left_y + i, top_left_x + j] = blended_color
     return image
 if __name__ == '__main__':
-    app.run(host='localhost',  port=args.port)
+    app.run(host='localhost', port=args.port)
