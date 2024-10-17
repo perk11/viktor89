@@ -18,7 +18,8 @@
       "ext-sqlite3": "*",
         "amphp/amp": "^3.0",
         "amphp/parallel": "^2.2",
-      "ext-curl": "*"
+      "ext-curl": "*",
+      "ext-gd": "*"
     },
     "config": {
         "allow-plugins": {

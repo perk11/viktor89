@@ -10,6 +10,7 @@ use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
+use Perk11\Viktor89\ImageGeneration\DownscaleProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
@@ -249,6 +250,11 @@ class ProcessMessageTask implements Task
                 ['/upscale'],
                 false,
                 new UpscaleProcessor($telegramFileDownloader, $upscaleClient, $photoResponder)
+            ),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/downscale'],
+                false,
+                new DownscaleProcessor($telegramFileDownloader, $photoResponder)
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],
