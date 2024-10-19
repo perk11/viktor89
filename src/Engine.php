@@ -66,6 +66,12 @@ class Engine
                                    'reply_to_message_id' => $message->getMessageId(),
                                    'video'               => $this->tutors[array_rand($this->tutors)],
                                ]);
+            $greetingText = 'Уважаемый ' . $message->getFrom()->getFirstName() . ', добро пожаловать в наш чат! Чтобы стать полноценным членом нашего сообщества, пожалуйста, представьтесь в течение одной недели. В противном случае, вас удалят из чата.';
+            Request::sendMessage([
+                                     'chat_id'             => $message->getChat()->getId(),
+                                     'text'                => $greetingText,
+                                     'reply_to_message_id' => $message->getMessageId(),
+                                 ]);
 
             return;
         }
