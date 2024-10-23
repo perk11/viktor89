@@ -18,6 +18,7 @@ use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\ImageGeneration\UpscaleProcessor;
 use Perk11\Viktor89\PreResponseProcessor\AllowedChatProcessor;
+use Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\ReactProcessor;
 use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
@@ -109,12 +110,19 @@ class ProcessMessageTask implements Task
             $this->telegramBotUsername,
             array_keys($imageModelConfig),
         );
+        $imageSizeProcessor = new ListBasedPreferenceByCommandProcessor(
+            $database, ['/imagesize'],
+            'imagesize',
+            $this->telegramBotUsername,
+            $config['imageSizes'],
+        );
         $automatic1111APiClient = new ImageGeneration\Automatic1111APiClient(
             $denoisingStrengthProcessor,
             $stepsProcessor,
             $seedProcessor,
             $imageModelProcessor,
             $imageModelConfig,
+            $imageSizeProcessor,
         );
         $systemPromptProcessor = new UserPreferenceSetByCommandProcessor(
             $database,
@@ -221,6 +229,7 @@ class ProcessMessageTask implements Task
 
         $messageChainProcessors = [
             $imageModelProcessor,
+            $imageSizeProcessor,
             $videoModelProcessor,
             $imv2VideModelProcessor,
             $assistantModelProcessor,

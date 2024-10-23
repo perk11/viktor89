@@ -16,6 +16,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         private readonly UserPreferenceSetByCommandProcessor $seedPreference,
         private readonly UserPreferenceSetByCommandProcessor $imageModelPreference,
         private readonly array $modelConfig,
+        private readonly UserPreferenceSetByCommandProcessor $imageSizeProcessor,
     )
     {
         if (!isset($_ENV['AUTOMATIC1111_API_URL'])) {
@@ -114,8 +115,22 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         if ($seed !== null) {
             $params['seed'] = $seed;
         }
+        $imageSize = $this->imageSizeProcessor->getCurrentPreferenceValue($userId);
+        if ($imageSize !== null) {
+            $sizeObject = $this->parseImageSizeString($imageSize);
+            $params['width'] = $sizeObject->width;
+            $params['height'] = $sizeObject->height;
+        }
 
         return $params;
+    }
+    private function parseImageSizeString(string $imageSize): ImageSize
+    {
+        $parts = explode('x', $imageSize);
+        if (count($parts) !== 2) {
+            throw new \InvalidArgumentException('Invalid image size string');
+        }
+        return new ImageSize((int) $parts[0], (int) $parts[1]);
     }
 
 }
