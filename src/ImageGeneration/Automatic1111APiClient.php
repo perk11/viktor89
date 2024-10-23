@@ -116,7 +116,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
             $params['seed'] = $seed;
         }
         $imageSize = $this->imageSizeProcessor->getCurrentPreferenceValue($userId);
-        if ($imageSize !== null) {
+        if ($imageSize !== null && str_contains($imageSize, 'x')) {
             $sizeObject = $this->parseImageSizeString($imageSize);
             $params['width'] = $sizeObject->width;
             $params['height'] = $sizeObject->height;
