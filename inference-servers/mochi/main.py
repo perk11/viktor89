@@ -112,27 +112,29 @@ def generate_video(
         frame_pattern = os.path.join(tmpdir, "frame_%04d.png")
 
         # Create a temporary file to store the video
-        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=True) as tmp_video_file:
+        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp_video_file:
             video_file_path = tmp_video_file.name
-            ffmpeg_cmd = [
-                'ffmpeg',
-                '-y',
-                '-r', '30',
-                '-i', frame_pattern,
-                '-vcodec', 'libx264',
-                '-pix_fmt', 'yuv420p',
-                video_file_path
-            ]
+        ffmpeg_cmd = [
+            'ffmpeg',
+            '-y',
+            '-r', '30',
+            '-i', frame_pattern,
+            '-vcodec', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            '-preset', 'veryslow',
+            '-crf', '22',
+            video_file_path
+        ]
+        try:
             process = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = process.communicate()
 
             if process.returncode != 0:
                 print(f"ffmpeg error: {stderr.decode()}")
                 raise Exception("ffmpeg failed")
-
             with open(video_file_path, 'rb') as f:
                 video_data = f.read()
-
+        finally:
             os.remove(video_file_path)
 
     return video_data
@@ -146,7 +148,7 @@ def generate_video_route():
     negative_prompt = data.get('negative_prompt', '')
     width = int(data.get('width', 640))
     height = int(data.get('height', 480))
-    num_frames = int(data.get('num_frames', 60))
+    num_frames = int(data.get('num_frames', 37))
     seed = int(data.get('seed', 0))
     cfg_scale = float(data.get('cfg_scale', 4.5))
     steps = int(data.get('steps', 100))
@@ -159,8 +161,8 @@ def generate_video_route():
 
     if width > 640 or height > 480:
         return jsonify({'error': 'Max size is 480'}), 400
-    if num_frames > 60:
-        return jsonify({'error': 'Max number of frames is 60'}), 400
+    if num_frames > 37:
+        return jsonify({'error': 'Max number of frames is 37'}), 400
 
     sem.acquire()
     try:
