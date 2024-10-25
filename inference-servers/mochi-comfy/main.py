@@ -164,7 +164,7 @@ def generate_video():
                 'num_inference_steps': steps,
             },
             'info': json.dumps({
-                'infotexts': [f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: ' + model]
+                'infotexts': [f'{prompt}\nSteps: {steps}, Seed: {seed}, Frames: {num_frames}, Model: ' + model]
             })
         }
         return jsonify(response)
