@@ -1,0 +1,115 @@
+{
+  "1": {
+    "inputs": {
+      "prompt": "nature video of a red panda eating bamboo in front of a waterfall",
+      "strength": 1,
+      "force_offload": true,
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "MochiTextEncode",
+    "_meta": {
+      "title": "Mochi TextEncode"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "t5/google_t5-v1_1-xxl_encoderonly-fp8_e4m3fn.safetensors",
+      "type": "sd3"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "4": {
+    "inputs": {
+      "model": "mochi_preview_dit_bf16.safetensors",
+      "vae": "mochi_preview_vae_bf16.safetensors",
+      "precision": "fp8_e4m3fn",
+      "attention_mode": "sage_attn"
+    },
+    "class_type": "DownloadAndLoadMochiModel",
+    "_meta": {
+      "title": "(Down)load Mochi Model"
+    }
+  },
+  "5": {
+    "inputs": {
+      "width": 640,
+      "height": 480,
+      "num_frames": 85,
+      "steps": 50,
+      "cfg": 4.5,
+      "seed": 0,
+      "model": [
+        "4",
+        0
+      ],
+      "positive": [
+        "1",
+        0
+      ],
+      "negative": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "MochiSampler",
+    "_meta": {
+      "title": "Mochi Sampler"
+    }
+  },
+  "8": {
+    "inputs": {
+      "prompt": "",
+      "strength": 1,
+      "force_offload": true,
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "MochiTextEncode",
+    "_meta": {
+      "title": "Mochi TextEncode"
+    }
+  },
+  "10": {
+    "inputs": {
+      "enable_vae_tiling": true,
+      "auto_tile_size": false,
+      "frame_batch_size": 10,
+      "tile_sample_min_height": 160,
+      "tile_sample_min_width": 312,
+      "tile_overlap_factor_height": 0.25,
+      "tile_overlap_factor_width": 0.25,
+      "vae": [
+        "4",
+        1
+      ],
+      "samples": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "MochiDecode",
+    "_meta": {
+      "title": "Mochi Decode"
+    }
+  },
+  "save_image_websocket_node": {
+    "inputs": {
+      "images": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "SaveImageWebsocket",
+    "_meta": {
+      "title": "SaveImageWebsocket"
+    }
+  }
+}
