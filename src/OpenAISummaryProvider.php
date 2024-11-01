@@ -77,7 +77,7 @@ class OpenAISummaryProvider
                                                'messages' => [
                                                    [
                                                        "role"    => "system",
-                                                       "content" => "Summarize messages sent in a group chat. Respond in Russian. Be brief, but avoid too much generalization, always use specific terms and names. Do not add intro or outro. Use plain text, do not add any formatting. Use past tense. Messages start below:",
+                                                       "content" => "Summarize messages sent in a group chat. Respond only in Russian. Be brief, but avoid too much generalization, always use specific terms and names. Do not add intro or outro. Use plain text, do not add any formatting. Use past tense. Messages start below:",
                                                    ],
                                                    [
                                                        "role"    => "user",
