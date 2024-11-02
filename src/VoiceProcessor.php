@@ -19,14 +19,21 @@ class VoiceProcessor implements PreResponseProcessor
 
     public function process(Message $message): false|string|null
     {
-        if ($message->getVoice() === null) {
+        if ($message->getVoice() !== null) {
+            $file = $this->telegramFileDownloader->downloadVoice($message);
+            $extension = 'ogg';
+        } elseif ($message->getVideoNote() !== null) {
+            $file = $this->telegramFileDownloader->downloadVideoNote($message);
+            $extension = 'mp4';
+        } else {
             return false;
         }
+
         $tmpFilePath = tempnam(sys_get_temp_dir(), 'viktor89-voice');
-        $tmpPathWithExtension = $tmpFilePath . '.ogg';
+
+        $tmpPathWithExtension = $tmpFilePath . '.' . $extension;
         rename($tmpFilePath, $tmpPathWithExtension);
         echo "Temporary audio recorded to $tmpPathWithExtension\n";
-        $file = $this->telegramFileDownloader->downloadVoice($message);
 
         file_put_contents($tmpPathWithExtension, $file);
         echo "Recognizing voice...\n";

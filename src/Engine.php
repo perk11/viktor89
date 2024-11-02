@@ -25,6 +25,7 @@ class Engine
         'new_chat_members',
         'poll',
         'voice',
+        'video_note',
     ];
 
     public function __construct(

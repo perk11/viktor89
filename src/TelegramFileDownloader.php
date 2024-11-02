@@ -24,10 +24,21 @@ class TelegramFileDownloader
     {
         $voice = $message->getVoice();
         if ($voice === null) {
-            throw new \Exception('Message does not contain photos');
+            throw new \Exception('Message does not contain voice');
         }
         $fileId = $voice->getFileId();
         echo "Downloading voice with fileId $fileId\n";
+
+        return $this->downloadFile($fileId);
+    }
+    public function downloadVideoNote(Message $message): string
+    {
+        $voice = $message->getVideoNote();
+        if ($voice === null) {
+            throw new \Exception('Message does not contain video note');
+        }
+        $fileId = $voice->getFileId();
+        echo "Downloading video note with fileId $fileId\n";
 
         return $this->downloadFile($fileId);
     }
