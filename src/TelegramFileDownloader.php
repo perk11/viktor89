@@ -48,19 +48,23 @@ class TelegramFileDownloader
      * @return string
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    private function downloadFile(string $fileId): string
+    public function downloadFile(string $fileId): string
     {
-        $photoFile = Request::getFile([
-                                          'file_id' => $fileId,
-                                      ])->getResult();
+        $fileRequest = Request::getFile([
+                                            'file_id' => $fileId,
+                                        ]);
+        $file = $fileRequest->getResult();
+        if ($file === null) {
+            throw new \Exception("Failed to get file info for fileId $fileId: " . $fileRequest->getDescription());
+        }
         $baseDownloadUri = str_replace(
             '{API_KEY}',
             $this->telegramBotApiKey,
             'https://api.telegram.org/file/bot{API_KEY}'
         );
-        $downloadResponse = $this->guzzle->get("{$baseDownloadUri}/{$photoFile->getFilePath()}");
+        $downloadResponse = $this->guzzle->get("{$baseDownloadUri}/{$file->getFilePath()}");
         if ($downloadResponse->getStatusCode() !== 200) {
-            throw new \Exception("Failed to download file " . $photoFile->getFilePath());
+            throw new \Exception("Failed to download file " . $file->getFilePath());
         }
 
         return $downloadResponse->getBody()->getContents();
@@ -76,4 +80,5 @@ class TelegramFileDownloader
 
         return $this->downloadFile($fileId);
     }
+
 }

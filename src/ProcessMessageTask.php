@@ -215,8 +215,9 @@ class ProcessMessageTask implements Task
             $videoResponder,
             current($config['videoFirstFrameImageModels']),
         );
+        $voiceRecogniser = new VoiceRecogniser($config['whisperCppUrl']);
         $preResponseProcessors = [
-            new VoiceProcessor($telegramFileDownloader, new VoiceRecogniser($config['whisperCppUrl'])),
+            new VoiceProcessor($telegramFileDownloader, $voiceRecogniser),
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
                 $database, $this->telegramBotId,
                 [
@@ -300,6 +301,11 @@ class ProcessMessageTask implements Task
                     new VoiceResponder(),
                     $config['voiceModels'],
                 ),
+            ),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/transcribe'],
+                false,
+                new TranscribeProcessor($telegramFileDownloader, $voiceRecogniser),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),

@@ -2,9 +2,13 @@
 
 namespace Perk11\Viktor89;
 
+use Longman\TelegramBot\Entities\Audio;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Entities\PhotoSize;
 use Longman\TelegramBot\Entities\ServerResponse;
+use Longman\TelegramBot\Entities\Video;
+use Longman\TelegramBot\Entities\VideoNote;
+use Longman\TelegramBot\Entities\Voice;
 use Longman\TelegramBot\Request;
 
 class InternalMessage
@@ -34,6 +38,11 @@ class InternalMessage
 
     /** @var PhotoSize[]|null */
     public ?array $replyToPhoto = null;
+
+    public ?Audio $replyToAudio = null;
+    public ?Video $replyToVideo = null;
+    public ?VideoNote $replyToVideoNote = null;
+    public ?Voice $replyToVoice = null;
 
     public static function fromSqliteAssoc(array $result): self
     {
@@ -70,6 +79,10 @@ class InternalMessage
             $message->actualMessageText)
         );
         $message->photo = $telegramMessage->getPhoto();
+        $message->replyToVideo = $telegramMessage->getReplyToMessage()?->getVideo();
+        $message->replyToAudio = $telegramMessage->getReplyToMessage()?->getAudio();
+        $message->replyToVideoNote = $telegramMessage->getReplyToMessage()?->getVideoNote();
+        $message->replyToVoice = $telegramMessage->getReplyToMessage()?->getVoice();
         $message->replyToPhoto = $telegramMessage->getReplyToMessage()?->getPhoto();
 
         return $message;
