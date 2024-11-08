@@ -216,7 +216,7 @@ class ProcessMessageTask implements Task
             current($config['videoFirstFrameImageModels']),
         );
         $preResponseProcessors = [
-            new VoiceProcessor($telegramFileDownloader, $config['whisperCppUrl']),
+            new VoiceProcessor($telegramFileDownloader, new VoiceRecogniser($config['whisperCppUrl'])),
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
                 $database, $this->telegramBotId,
                 [
