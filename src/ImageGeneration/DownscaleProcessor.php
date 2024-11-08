@@ -21,7 +21,7 @@ class DownscaleProcessor implements MessageChainProcessor
     public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
         $lastMessage = $messageChain->last();
-        if ($lastMessage->replyToPhoto === null) {
+        if ($messageChain->previous()?->photo === null) {
             $response = new InternalMessage();
             $response->chatId = $lastMessage->chatId;
             $response->replyToMessageId = $lastMessage->id;
@@ -43,7 +43,7 @@ class DownscaleProcessor implements MessageChainProcessor
             ],
         ]);
         try {
-            $photo = $this->telegramFileDownloader->downloadPhoto($lastMessage->replyToPhoto);
+            $photo = $this->telegramFileDownloader->downloadPhoto($messageChain->previous()->photo);
             $image = \imagecreatefromstring($photo);
             ob_start();
             \imagejpeg($image, null, 7);

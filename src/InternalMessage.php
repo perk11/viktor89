@@ -33,16 +33,14 @@ class InternalMessage
 
     public int $chatId;
 
+    /** Everything below is currently not stored in the database */
+
     /** @var PhotoSize[]|null */
     public ?array $photo = null;
-
-    /** @var PhotoSize[]|null */
-    public ?array $replyToPhoto = null;
-
-    public ?Audio $replyToAudio = null;
-    public ?Video $replyToVideo = null;
-    public ?VideoNote $replyToVideoNote = null;
-    public ?Voice $replyToVoice = null;
+    public ?Audio $audio = null;
+    public ?Video $video = null;
+    public ?VideoNote $videoNote = null;
+    public ?Voice $voice = null;
 
     public static function fromSqliteAssoc(array $result): self
     {
@@ -79,11 +77,10 @@ class InternalMessage
             $message->actualMessageText)
         );
         $message->photo = $telegramMessage->getPhoto();
-        $message->replyToVideo = $telegramMessage->getReplyToMessage()?->getVideo();
-        $message->replyToAudio = $telegramMessage->getReplyToMessage()?->getAudio();
-        $message->replyToVideoNote = $telegramMessage->getReplyToMessage()?->getVideoNote();
-        $message->replyToVoice = $telegramMessage->getReplyToMessage()?->getVoice();
-        $message->replyToPhoto = $telegramMessage->getReplyToMessage()?->getPhoto();
+        $message->audio = $telegramMessage->getAudio();
+        $message->video = $telegramMessage->getVideo();
+        $message->videoNote = $telegramMessage->getVideoNote();
+        $message->voice = $telegramMessage->getVoice();
 
         return $message;
     }

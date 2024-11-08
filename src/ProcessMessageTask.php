@@ -31,9 +31,13 @@ use Perk11\Viktor89\VideoGeneration\Txt2VideoClient;
 use Perk11\Viktor89\VideoGeneration\VideoImg2VidProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoResponder;
-use Perk11\Viktor89\VoiceGeneration\TtsProcessor;
 use Perk11\Viktor89\VoiceGeneration\TtsApiClient;
+use Perk11\Viktor89\VoiceGeneration\TtsProcessor;
 use Perk11\Viktor89\VoiceGeneration\VoiceResponder;
+use Perk11\Viktor89\VoiceRecognition\InternalMessageTranscriber;
+use Perk11\Viktor89\VoiceRecognition\TranscribeProcessor;
+use Perk11\Viktor89\VoiceRecognition\VoiceProcessor;
+use Perk11\Viktor89\VoiceRecognition\VoiceRecogniser;
 
 class ProcessMessageTask implements Task
 {
@@ -217,7 +221,6 @@ class ProcessMessageTask implements Task
         );
         $voiceRecogniser = new VoiceRecogniser($config['whisperCppUrl']);
         $preResponseProcessors = [
-            new VoiceProcessor($telegramFileDownloader, $voiceRecogniser),
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
                 $database, $this->telegramBotId,
                 [
@@ -227,8 +230,10 @@ class ProcessMessageTask implements Task
             ),
             new SaveQuizPollProcessor($questionRepository),
         ];
+        $internalMessageTranscriber = new InternalMessageTranscriber($telegramFileDownloader, $voiceRecogniser);
 
         $messageChainProcessors = [
+            new VoiceProcessor($internalMessageTranscriber),
             $imageModelProcessor,
             $imageSizeProcessor,
             $videoModelProcessor,
@@ -305,7 +310,7 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/transcribe'],
                 false,
-                new TranscribeProcessor($telegramFileDownloader, $voiceRecogniser),
+                new TranscribeProcessor($internalMessageTranscriber),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),

@@ -19,20 +19,32 @@ class CommandBasedResponderTrigger implements MessageChainProcessor
 
     public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
-        if (!$this->responsesAlsoTrigger && $messageChain->count() > 1) {
-            return new ProcessingResult(null, false);
-        }
-        $firstMessageText = $messageChain->first()->messageText;
+        $lastMessageText = $messageChain->last()->messageText;
         $triggerFound = false;
         foreach ($this->triggeringCommands as $triggeringCommand) {
-            if (str_starts_with($firstMessageText, $triggeringCommand)) {
+            if (str_starts_with($lastMessageText, $triggeringCommand)) {
                 $triggerFound = true;
-                $messageChain->first()->messageText = trim(str_replace($triggeringCommand, '', $firstMessageText));
+                $messageChain->last()->messageText = trim(str_replace($triggeringCommand, '', $lastMessageText));
                 break;
             }
         }
+
         if (!$triggerFound) {
-            return new ProcessingResult(null, false);
+            if (!$this->responsesAlsoTrigger) {
+                return new ProcessingResult(null, false);
+            }
+
+            $firstMessageText = $messageChain->first()->messageText;
+            foreach ($this->triggeringCommands as $triggeringCommand) {
+                if (str_starts_with($firstMessageText, $triggeringCommand)) {
+                    $triggerFound = true;
+                    $messageChain->first()->messageText = trim(str_replace($triggeringCommand, '', $firstMessageText));
+                    break;
+                }
+            }
+            if (!$triggerFound) {
+                return new ProcessingResult(null, false);
+            }
         }
 
         Request::sendChatAction([

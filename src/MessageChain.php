@@ -22,6 +22,14 @@ class MessageChain
         return $this->messages[count($this->messages) - 1];
     }
 
+    public function previous(): ?InternalMessage
+    {
+        if (count($this->messages) < 2) {
+            return null;
+        }
+        return $this->messages[count($this->messages) - 2];
+    }
+
     public function count(): int
     {
         return count($this->messages);

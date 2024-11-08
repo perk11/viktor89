@@ -25,6 +25,8 @@ class Engine
         'new_chat_members',
         'poll',
         'voice',
+        'video',
+        'audio',
         'video_note',
     ];
 
@@ -111,12 +113,17 @@ class Engine
             }
         }
 
-        $chain = new MessageChain(
-            array_merge(
-                $this->historyReader->getPreviousMessages($message, 99, 99, 0),
-                [InternalMessage::fromTelegramMessage($message)],
-            )
-        );
+
+        $lastMessage = InternalMessage::fromTelegramMessage($message);
+        if ($message->getReplyToMessage() !== null) {
+            $previousMessage = InternalMessage::fromTelegramMessage($message->getReplyToMessage());
+            $priorMessages = $this->historyReader->getPreviousMessages($message, 99, 99, 0);
+            array_pop($priorMessages); //Delete last message, since we will use $previousMessage instead so that media in that message is available
+            $chain =  new MessageChain(array_merge($priorMessages, [$previousMessage, $lastMessage]));
+        } else {
+            $chain = new MessageChain([$lastMessage]);
+        }
+
         foreach ($this->messageChainProcessors as $messageChainProcessor) {
             $processingResult = $messageChainProcessor->processMessageChain($chain);
             $this->processingResultExecutor->execute($processingResult);

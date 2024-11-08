@@ -22,7 +22,7 @@ class UpscaleProcessor implements MessageChainProcessor
     public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
         $lastMessage = $messageChain->last();
-        if ($lastMessage->replyToPhoto === null) {
+        if ($messageChain->previous()?->photo === null) {
             $response = new InternalMessage();
             $response->chatId = $lastMessage->chatId;
             $response->replyToMessageId = $lastMessage->id;
@@ -44,7 +44,7 @@ class UpscaleProcessor implements MessageChainProcessor
             ],
         ]);
         try {
-            $photo = $this->telegramFileDownloader->downloadPhoto($lastMessage->replyToPhoto);
+            $photo = $this->telegramFileDownloader->downloadPhoto($messageChain->previous()->photo);
             $transformedPhotoResponse = $this->upscaleApiClient->upscaleImage(
                 $photo,
                 $lastMessage->userId,

@@ -38,7 +38,7 @@ class ImageGenerateProcessor implements MessageChainProcessor
         if (!$triggerFound) {
             return new ProcessingResult(null, false);
         }
-        if ($messageChain->count() > 1 && $lastMessage->replyToPhoto === null) {
+        if ($messageChain->count() > 1 && $messageChain->previous()->photo === null) {
             $prompt = trim($messageChain->getMessages()[$messageChain->count() - 2]->messageText . "\n\n" . $prompt);
         }
         if ($prompt === '') {
@@ -49,8 +49,8 @@ class ImageGenerateProcessor implements MessageChainProcessor
             return new ProcessingResult($message, true);
         }
 
-        if ($lastMessage->replyToPhoto !== null) {
-            $this->photoImg2ImgProcessor->respondWithImg2ImgResultBasedOnPhotoInMessage($lastMessage->replyToPhoto, $lastMessage, $prompt);
+        if ($messageChain->previous()?->photo !== null) {
+            $this->photoImg2ImgProcessor->respondWithImg2ImgResultBasedOnPhotoInMessage($messageChain->previous()->photo, $lastMessage, $prompt);
             return new ProcessingResult(null, true);
         }
         echo "Generating image for prompt: $prompt\n";
