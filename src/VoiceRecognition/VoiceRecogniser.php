@@ -7,9 +7,11 @@ use CURLFile;
 class VoiceRecogniser
 {
 
+    private array $hallucinations;
     public function __construct(
         private readonly string $whisperCppUri
     ) {
+        $this->hallucinations = file(__DIR__ . '/hallucinations-ru.txt', FILE_IGNORE_NEW_LINES);
     }
 
     public function recogniseByFileContents(string $fileContents, string $extension): ?string
@@ -75,6 +77,10 @@ class VoiceRecogniser
             return null;
         }
 
-        return $decodedResponse['text'];
+        return trim($this->removeHallucinations($decodedResponse['text']));
+    }
+    private function removeHallucinations(string $sourceText): string
+    {
+        return str_replace($this->hallucinations, '', $sourceText);
     }
 }
