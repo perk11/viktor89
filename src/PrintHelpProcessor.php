@@ -29,7 +29,7 @@ class PrintHelpProcessor implements MessageChainProcessor
         '/clownon' => '<span class="tg-spoiler">Включить секретный режим клоуна.</span>',
         '/clownify' => 'Использовать в ответ на фото с человеческим лицом.',
         '/preferences' => 'Показать ваши настройки.',
-        '/assistant' => 'Начать общение с LLM (а-ля ChatGPT). Чтобы продолжить общение, отвечайте на сообщения бота.',
+        '/assistant' => 'Начать общение с LLM (а-ля ChatGPT). Например: <code>/assistant Привет</code>. Чтобы продолжить общение, отвечайте на сообщения бота.',
         'Настройки для /assistant:' => '
         /assistantmodel Выбор модели LLM. Отправьте без параметров, чтобы увидеть список доступных моделей.
         /systemprompt Указание для LLM о том что он должен делать. Например: <code>/systemprompt You are a heartless and mean robot</code>. Значение по умолчанию: <code>Always respond in Russian</code>. Отправьте /systemprompt без параметров, чтобы сбросить на значение по умолчанию.
