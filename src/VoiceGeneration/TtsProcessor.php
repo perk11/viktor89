@@ -5,6 +5,7 @@ namespace Perk11\Viktor89\VoiceGeneration;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\ProcessingResult;
 
 class TtsProcessor implements MessageChainProcessor
@@ -13,6 +14,7 @@ class TtsProcessor implements MessageChainProcessor
     public function __construct(
         private readonly TtsApiClient $voiceClient,
         private readonly VoiceResponder $voiceResponder,
+        private readonly UserPreferenceSetByCommandProcessor $voiceModelPreference,
         private readonly array $modelConfig,
     ) {
     }
@@ -32,8 +34,13 @@ class TtsProcessor implements MessageChainProcessor
 
             return new ProcessingResult($response, true);
         }
-        $model = current($this->modelConfig);
-        $modelName = key($this->modelConfig);
+        $modelName = $this->voiceModelPreference->getCurrentPreferenceValue($message->userId);
+        if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
+            $model = current($this->modelConfig);
+            $modelName = key($this->modelConfig);
+        } else {
+            $model = $this->modelConfig[$modelName];
+        }
         if (isset($model['voice_source'])) {
             $voiceSource = file_get_contents(self::VOICE_STORAGE_DIR . '/' . $model['voice_source']);
         } else {

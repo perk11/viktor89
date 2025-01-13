@@ -160,6 +160,10 @@
     "xtts_v2" : {
       "url": "http://localhost:8105",
       "voice_source": "voice.ogg"
+    },
+    "xtts_v2_Ana_Florence" : {
+      "url": "http://localhost:8105",
+      "speakerId": "Ana Florence"
     }
   },
   "videoModels": {

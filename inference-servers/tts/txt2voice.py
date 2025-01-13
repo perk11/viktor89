@@ -50,17 +50,19 @@ def generate_image():
 
     if source_voice is None:
         source_tmp_file = None
+        speaker_wav = None
     else:
         source_tmp_file = tempfile.NamedTemporaryFile(suffix='.' + source_voice_format)
         print("Writing received voice to " + source_tmp_file.file.name)
         source_tmp_file.write(base64.b64decode(source_voice))
         source_tmp_file.flush()
+        speaker_wav = source_tmp_file.file.name
 
     out_tmp_wav_file = tempfile.NamedTemporaryFile(suffix='.wav')
     print("Generating voice to " + out_tmp_wav_file.file.name)
 
     tts.tts_to_file(text=prompt,
-                    speaker_wav=source_tmp_file.file.name,
+                    speaker_wav=speaker_wav,
                     speaker=speaker_id,
                     language=language,
                     speed=speed,

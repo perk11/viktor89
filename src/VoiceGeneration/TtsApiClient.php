@@ -39,7 +39,7 @@ class TtsApiClient
 
     private function initClientBasedOnModel(string $model): void
     {
-        $params = current($this->modelConfig); //todo: use model
+        $params = $this->modelConfig[$model];
         $apiUrl = rtrim($params['url'], '/');
         $this->httpClient = new Client(['base_uri' => $apiUrl]);
     }

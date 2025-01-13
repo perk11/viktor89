@@ -153,6 +153,14 @@ class ProcessMessageTask implements Task
             $this->telegramBotUsername,
             $assistantFactory->getSupportedModels(),
         );
+
+        $sayModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+            $database,
+            ['/saymodel', '/voice', '/voicemodel'],
+            'saymodel',
+            $this->telegramBotUsername,
+            array_keys($config['voiceModels']),
+        );
         $assistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
             $automatic1111APiClient,
             $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
@@ -239,6 +247,7 @@ class ProcessMessageTask implements Task
             $videoModelProcessor,
             $imv2VideModelProcessor,
             $assistantModelProcessor,
+            $sayModelProcessor,
             $denoisingStrengthProcessor,
             $stepsProcessor,
             $seedProcessor,
@@ -309,6 +318,7 @@ class ProcessMessageTask implements Task
                 new TtsProcessor(
                     new TtsApiClient($config['voiceModels']),
                     new VoiceResponder(),
+                    $sayModelProcessor,
                     $config['voiceModels'],
                 ),
             ),
