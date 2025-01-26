@@ -8,6 +8,7 @@ use Longman\TelegramBot\TelegramLog;
 use Perk11\Viktor89\HistoryReader;
 
 use Perk11\Viktor89\OpenAISummaryProvider;
+use Perk11\Viktor89\ProcessingResult;
 use Revolt\EventLoop;
 
 use function Amp\delay;
@@ -132,5 +133,42 @@ $lastSummaryTimestamp = $database->readSystemVariable(
         echo $e->getMessage()."\n";
         delay(10);
     }
+});
+EventLoop::repeat(300, static function () use ($database, $processingResultExecutor) {
+    echo "Looking for pending kicks\n";
+    foreach ($database->findPendingKickQueueItems() as $item) {
+        echo "Found pending kick\n";
+        $message = new \Perk11\Viktor89\InternalMessage();
+        $message->chatId = $item->chatId;
+        $message->replyToMessageId = $item->joinMessageId;
+
+        $banRequest = Request::banChatMember([
+                                                 'chat_id' => $item->chatId,
+                                                 'user_id' => $item->userId,
+                                             ]);
+
+        if (!$banRequest->isOk()) {
+            echo "Failed to ban user " . $item->userId . " in chat " . $item->chatId. " \n";
+            print_r($banRequest);
+
+            $message->messageText = "Пользователь не ответил во время на вопрос, но мне не удалось удалить его. Баньте!";
+        } else {
+            $unbanRequest = Request::unbanChatMember([
+                                                         'chat_id' => $item->chatId,
+                                                         'user_id' => $item->userId,
+                                                     ]);
+            if (!$unbanRequest->isOk()) {
+                echo "Failed to unban user\n";
+                print_r($unbanRequest);
+                $message = new \Perk11\Viktor89\InternalMessage();
+                $message->messageText = "Пользователь не ответил во время на вопрос и был забанен!";
+            } else {
+                $message->messageText = "Пользователь не ответил во время на вопрос и был удалён из чата";
+            }
+        }
+        $processingResultExecutor->execute(new ProcessingResult($message, true));
+        $database->nullKickTime($item->pollId);
+    }
+
 });
 EventLoop::run();

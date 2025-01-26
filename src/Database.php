@@ -230,7 +230,7 @@ ON CONFLICT(name) DO UPDATE SET
     public function findPendingKickQueueItems(): array
     {
         $fetchMessagesStatement = $this->sqlite3Database->prepare(
-            "SELECT * FROM kick_queue WHERE kick_time > CURRENT_TIMESTAMP"
+            "SELECT * FROM kick_queue WHERE kick_time < unixepoch(CURRENT_TIMESTAMP)"
         );
         $result = $fetchMessagesStatement->execute();
 

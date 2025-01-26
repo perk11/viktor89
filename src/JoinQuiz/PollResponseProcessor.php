@@ -47,6 +47,7 @@ class PollResponseProcessor
 
             return new ProcessingResult(null, false);
         }
+        $this->database->nullKickTime($pollAnswer->getPollId());
         $message = new InternalMessage();
         $message->chatId = $kickQueueItem->chatId;
         $message->replyToMessageId = $kickQueueItem->joinMessageId;
@@ -83,7 +84,6 @@ class PollResponseProcessor
         }
 
         echo "Answer was correct\n";
-        $this->database->nullKickTime($pollAnswer->getPollId());
         Request::sendVideo([
                                'chat_id'             => $message->chatId,
                                'reply_to_message_id' => $kickQueueItem->joinMessageId,
