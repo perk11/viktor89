@@ -10,15 +10,6 @@ use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 
 class Engine
 {
-    private array $tutors = [
-        'https://cloud.nw-sys.ru/index.php/s/z97QnXmfcM8QKDn/download',
-        'https://cloud.nw-sys.ru/index.php/s/xqpNxq6Akk6SbDX/download',
-        'https://cloud.nw-sys.ru/index.php/s/eCkqzWGqGAFRjMQ/download',
-        'https://cloud.nw-sys.ru/index.php/s/wXeDasYwe44FaBx/download',
-        'https://cloud.nw-sys.ru/index.php/s/7cNH875Dq2HpFWH/download',
-        'https://cloud.nw-sys.ru/index.php/s/QatfCjzHn7ae5t2/download'
-    ];
-
     private array $messageTypesSupportedByCommonCode = [
         'command',
         'text',
@@ -58,23 +49,6 @@ class Engine
             if ($message->getType() === 'sticker') {
                 echo $message->getSticker()->getFileId() . "\n";
             }
-
-            return;
-        }
-
-        if ($message->getType() === 'new_chat_members') {
-            echo "New member detected, sending tutorial\n";
-            Request::sendVideo([
-                                   'chat_id'             => $message->getChat()->getId(),
-                                   'reply_to_message_id' => $message->getMessageId(),
-                                   'video'               => $this->tutors[array_rand($this->tutors)],
-                               ]);
-            $greetingText = 'Уважаемый ' . $message->getFrom()->getFirstName() . ', добро пожаловать в наш чат! Чтобы стать полноценным членом нашего сообщества, пожалуйста, представьтесь в течение одной недели. В противном случае, вас удалят из чата.';
-            Request::sendMessage([
-                                     'chat_id'             => $message->getChat()->getId(),
-                                     'text'                => $greetingText,
-                                     'reply_to_message_id' => $message->getMessageId(),
-                                 ]);
 
             return;
         }

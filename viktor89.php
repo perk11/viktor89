@@ -33,22 +33,24 @@ $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNA
 $database = new \Perk11\Viktor89\Database($telegram->getBotId(), 'siepatch-non-instruct5');
 $historyReader = new HistoryReader($database);
 $summaryProvider = new \Perk11\Viktor89\OpenAISummaryProvider($database);
+$pollResponseProcessor = new \Perk11\Viktor89\JoinQuiz\PollResponseProcessor($database);
 
 $workerPool = workerPool();
 echo "Connecting to Telegram...\n";
 $telegram->useGetUpdatesWithoutDatabase();
 $iterationId =0;
-
+$processingResultExecutor = new \Perk11\Viktor89\ProcessingResultExecutor($database);
 $lastSummaryTimestamp = $database->readSystemVariable(
     OpenAISummaryProvider::LAST_SUMMARY_TIMESTAMP_SYSTEM_VARIABLE_NAME
 ) ?? 0;
 \Revolt\EventLoop::repeat(
     1,
-    static function () use ($telegram, $workerPool, &$iterationId, &$lastSummaryTimestamp, $database) {
+    static function () use ($telegram, $workerPool, &$iterationId, &$lastSummaryTimestamp, $database, $pollResponseProcessor, $processingResultExecutor) {
     try {
         $serverResponse = $telegram->handleGetUpdates([
                                                           'allowed_updates' => [
                                                               Update::TYPE_MESSAGE,
+                                                              Update::TYPE_POLL_ANSWER,
                                                           ],
                                                       ]);
 
@@ -60,7 +62,13 @@ $lastSummaryTimestamp = $database->readSystemVariable(
             foreach ($results as $result) {
                 $message = $result->getMessage();
                 if ($message === null) {
-                    echo "Unknown update received:\n";
+                    if ($result->getPollAnswer() !== null) {
+                        $pollResponseProcessingResult = $pollResponseProcessor->process($result->getPollAnswer());
+                        $processingResultExecutor->execute($pollResponseProcessingResult);
+                        return;
+                    }
+                    echo "Unknown update received. Message is null\n";
+                    print_r($result);
                     return;
                 }
                 $handleTask = new \Perk11\Viktor89\ProcessMessageTask(

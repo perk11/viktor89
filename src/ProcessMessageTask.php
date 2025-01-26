@@ -17,6 +17,7 @@ use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\ImageGeneration\UpscaleProcessor;
+use Perk11\Viktor89\JoinQuiz\JoinQuizProcessor;
 use Perk11\Viktor89\PreResponseProcessor\AllowedChatProcessor;
 use Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
@@ -237,6 +238,7 @@ class ProcessMessageTask implements Task
                 ]
             ),
             new SaveQuizPollProcessor($questionRepository),
+            new JoinQuizProcessor($database),
         ];
         $internalMessageTranscriber = new InternalMessageTranscriber($telegramFileDownloader, $voiceRecogniser);
 

@@ -48,4 +48,13 @@ CREATE TABLE IF NOT EXISTS `system_variable`
     `name` text UNIQUE,
     `value` text,
     `updated_at` timestamp
+);
+
+CREATE TABLE IF NOT EXISTS `kick_queue`
+(
+    `chat_id`  bigint NOT NULL,
+    `user_id` bigint NOT NULL,
+    `poll_id` bigint NOT NULL UNIQUE,
+    `join_message_id` bigint NOT NULL,
+    `kick_time` timestamp
 )

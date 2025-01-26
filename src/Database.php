@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89;
 
 use Longman\TelegramBot\Entities\Message;
+use Perk11\Viktor89\JoinQuiz\KickQueueItem;
 use SQLite3;
 
 class Database
@@ -223,5 +224,67 @@ ON CONFLICT(name) DO UPDATE SET
         $fetchMessagesStatement->bindValue('variable_name', $variableName);
         $fetchMessagesStatement->bindValue('variable_value', $variableValue);
         $fetchMessagesStatement->execute();
+    }
+
+    /** @return KickQueueItem[] */
+    public function findPendingKickQueueItems(): array
+    {
+        $fetchMessagesStatement = $this->sqlite3Database->prepare(
+            "SELECT * FROM kick_queue WHERE kick_time > CURRENT_TIMESTAMP"
+        );
+        $result = $fetchMessagesStatement->execute();
+
+        $items = [];
+        while ($resultArray = $result->fetchArray(SQLITE3_ASSOC)) {
+            $items[] = KickQueueItem::fromSqliteAssoc($resultArray);
+        }
+        return $items;
+    }
+
+    public function findKickQueueItemByPollId(int $pollId): ?KickQueueItem
+    {
+        $fetchMessagesStatement = $this->sqlite3Database->prepare(
+            "SELECT * FROM kick_queue WHERE poll_id = :poll_id"
+        );
+        $fetchMessagesStatement->bindValue(':poll_id', $pollId);
+        $result = $fetchMessagesStatement->execute();
+        $resultArray = $result->fetchArray(SQLITE3_ASSOC);
+        if ($resultArray === false) {
+            return null;
+        }
+
+        return KickQueueItem::fromSqliteAssoc($resultArray);
+    }
+
+    public function insertKickQueueItem(KickQueueItem $kickQueueItem): void
+    {
+        $statement = $this->sqlite3Database->prepare(
+            'INSERT INTO kick_queue (chat_id, user_id, poll_id, join_message_id, kick_time) VALUES (:chat_id, :user_id, :poll_id, :join_message_id, :kick_time)'
+        );
+
+        $statement->bindValue(':chat_id', $kickQueueItem->chatId);
+        $statement->bindValue(':user_id', $kickQueueItem->userId);
+        $statement->bindValue(':poll_id', $kickQueueItem->pollId);
+        $statement->bindValue(':join_message_id', $kickQueueItem->joinMessageId);
+        $statement->bindValue(':kick_time', $kickQueueItem->kickTime);
+        if ($statement->execute() === false) {
+            echo "Failed to insert into kick queue\n";
+            echo $this->sqlite3Database->lastErrorMsg();
+            echo "\n";
+        }
+    }
+
+    public function nullKickTime(int $pollId): void
+    {
+        $statement = $this->sqlite3Database->prepare(
+            'UPDATE kick_queue SET kick_time = NULL WHERE poll_id = :poll_id'
+        );
+
+        $statement->bindValue(':poll_id', $pollId);
+        if ($statement->execute() === false) {
+            echo "Failed to execute null kick time update\n";
+            echo $this->sqlite3Database->lastErrorMsg();
+            echo "\n";
+        }
     }
 }
