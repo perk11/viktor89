@@ -124,7 +124,7 @@ AND message.date>unixepoch(DATETIME(CURRENT_TIMESTAMP, '-1 day'))"
     {
         $fetchMessagesStatement = $this->sqlite3Database->prepare(
             "SELECT * FROM message WHERE chat_id = :chat_id AND message.date>:start_timestamp
-                      ORDER BY id ASC"
+                      ORDER BY id"
         );
         $fetchMessagesStatement->bindValue(':chat_id', $chatId);
         $fetchMessagesStatement->bindValue(':start_timestamp', $startTimeStamp);
