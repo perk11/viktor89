@@ -18,6 +18,9 @@ class PrintUserPreferencesResponder implements MessageChainProcessor
             if ($value === null) {
                 continue;
             }
+            if (is_array($value)) {
+                $value = json_encode($value, JSON_THROW_ON_ERROR);
+            }
             $message->messageText .= "<b>" . htmlspecialchars($preference) . "</b>: " . htmlspecialchars($value) . "\n";
         }
         $message->messageText .= "\n";

@@ -137,7 +137,7 @@ AND message.date>unixepoch(DATETIME(CURRENT_TIMESTAMP, '-1 day'))"
         return $resultingMessages;
     }
 
-    public function readUserPreference(int $userId, string $key): object|string|bool|null
+    public function readUserPreference(int $userId, string $key): array|string|bool|null
     {
         $preferences = $this->readPreferencesArray($userId);
 
