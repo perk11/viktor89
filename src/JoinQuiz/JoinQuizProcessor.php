@@ -53,6 +53,7 @@ class JoinQuizProcessor implements PreResponseProcessor
                 ],
                 'type'                => 'quiz',
                 'correct_option_id'   => 2,
+                'open_period' => self::SECONDS_UNTIL_KICK + 1,
                 'is_anonymous'        => false,
             ];
             $pollResponse = Request::sendPoll($pollData);
