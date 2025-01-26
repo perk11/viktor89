@@ -92,6 +92,7 @@ $lastSummaryTimestamp = $database->readSystemVariable(
                 '-1002076350723',
                 '-1001634709774',
                 '-4285233729',
+                '-1002363376342',
 
             ];
             $lastSummaryTimestamp = time();
