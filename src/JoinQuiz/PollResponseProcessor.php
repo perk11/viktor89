@@ -49,7 +49,7 @@ class PollResponseProcessor
         }
         $message = new InternalMessage();
         $message->chatId = $kickQueueItem->chatId;
-        $message->replyToMessageId = $pollAnswer->getPollId();
+        $message->replyToMessageId = $kickQueueItem->joinMessageId;
 
         if ($selectedResponseIds[0] !== JoinQuizProcessor::CORRECT_ANSWER_INDEX) {
             $banRequest = Request::banChatMember([
