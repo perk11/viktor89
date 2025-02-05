@@ -135,7 +135,6 @@ $lastSummaryTimestamp = $database->readSystemVariable(
     }
 });
 EventLoop::repeat(300, static function () use ($database, $processingResultExecutor) {
-    echo "Looking for pending kicks\n";
     foreach ($database->findPendingKickQueueItems() as $item) {
         echo "Found pending kick\n";
         $message = new \Perk11\Viktor89\InternalMessage();
