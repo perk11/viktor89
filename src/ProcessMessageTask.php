@@ -18,7 +18,6 @@ use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\ImageGeneration\UpscaleProcessor;
 use Perk11\Viktor89\JoinQuiz\JoinQuizProcessor;
-use Perk11\Viktor89\PreResponseProcessor\AllowedChatProcessor;
 use Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\ReactProcessor;

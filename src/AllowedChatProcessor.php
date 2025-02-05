@@ -1,10 +1,5 @@
 <?php
-namespace Perk11\Viktor89\PreResponseProcessor;
-
-use Perk11\Viktor89\InternalMessage;
-use Perk11\Viktor89\MessageChain;
-use Perk11\Viktor89\MessageChainProcessor;
-use Perk11\Viktor89\ProcessingResult;
+namespace Perk11\Viktor89;
 
 class AllowedChatProcessor implements MessageChainProcessor
 {
