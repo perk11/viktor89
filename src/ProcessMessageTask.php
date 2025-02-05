@@ -243,6 +243,12 @@ class ProcessMessageTask implements Task
 
         $messageChainProcessors = [
             new VoiceProcessor($internalMessageTranscriber),
+            $clownProcessor,
+            new ReactProcessor($clownProcessor, '🤡'),
+            new BlockedChatProcessor([
+//                                         '-1002398016894',
+                                         '-1002076350723',
+                                     ]),
             $imageModelProcessor,
             $imageSizeProcessor,
             $videoModelProcessor,
@@ -254,7 +260,6 @@ class ProcessMessageTask implements Task
             $seedProcessor,
             $systemPromptProcessor,
             $responseStartProcessor,
-            new ReactProcessor($clownProcessor, '🤡'),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/quiz'],
                 false,
@@ -287,7 +292,6 @@ class ProcessMessageTask implements Task
                 false,
                 new ClownifyProcessor($telegramFileDownloader,new ClownifyApiClient($config['clownifyModels']), $photoResponder)
             ),
-            $clownProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],
                 true,
