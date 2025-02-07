@@ -11,7 +11,7 @@ class AssistantFactory
     private array $assistantInstanceByName;
     public function __construct(
         private readonly array $assistantConfig,
-        private readonly UserPreferenceReaderInterface $systemPromptProcessor,
+        private readonly UserPreferenceReaderInterface $defaultSystemPromptProcessor,
         private readonly UserPreferenceReaderInterface $responseStartProcessor,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
     )
@@ -50,17 +50,25 @@ class AssistantFactory
         if (!isset($requestedAssistantConfig['class'])) {
             throw new \Exception("$name assistant in config is missing class property");
         }
+
+        $systemPromptProcessor = $this->defaultSystemPromptProcessor;
+        if (array_key_exists('systemPrompt', $requestedAssistantConfig)) {
+            if (!is_string($requestedAssistantConfig['systemPrompt'])) {
+                throw new \Exception("$name assistant systemPrompt property must be a string");
+            }
+            $systemPromptProcessor = new PrependingSystemPromptProcessor($systemPromptProcessor, $requestedAssistantConfig['systemPrompt']);
+        }
         //todo: use interface for this
         if (is_subclass_of($requestedAssistantConfig['class'], AbstractOpenAIAPICompletingAssistant::class)) {
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
-                $this->systemPromptProcessor,
+                $systemPromptProcessor,
                 $this->responseStartProcessor,
                 $requestedAssistantConfig['url'],
                 $this->openAiCompletionStringParser,
             );
         } else {
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
-                $this->systemPromptProcessor,
+                $systemPromptProcessor,
                 $this->responseStartProcessor,
                 $requestedAssistantConfig['url'],
             );
