@@ -9,8 +9,9 @@ use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\UserPreferenceReaderInterface;
 
-class UserPreferenceSetByCommandProcessor implements MessageChainProcessor
+class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, UserPreferenceReaderInterface
 {
     public function __construct(
         private readonly Database $database,

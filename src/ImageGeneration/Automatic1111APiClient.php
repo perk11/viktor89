@@ -3,7 +3,7 @@
 namespace Perk11\Viktor89\ImageGeneration;
 
 use GuzzleHttp\Client;
-use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
+use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Psr\Http\Message\ResponseInterface;
 
 class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAndImageGenerator
@@ -11,12 +11,12 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
     private Client $httpClient;
 
     public function __construct(
-        private readonly UserPreferenceSetByCommandProcessor $denoisingStrengthPreference,
-        private readonly UserPreferenceSetByCommandProcessor $stepsPreference,
-        private readonly UserPreferenceSetByCommandProcessor $seedPreference,
-        private readonly UserPreferenceSetByCommandProcessor $imageModelPreference,
+        private readonly UserPreferenceReaderInterface $denoisingStrengthPreference,
+        private readonly UserPreferenceReaderInterface $stepsPreference,
+        private readonly UserPreferenceReaderInterface $seedPreference,
+        private readonly UserPreferenceReaderInterface $imageModelPreference,
         private readonly array $modelConfig,
-        private readonly UserPreferenceSetByCommandProcessor $imageSizeProcessor,
+        private readonly UserPreferenceReaderInterface $imageSizeProcessor,
     )
     {
         if (!isset($_ENV['AUTOMATIC1111_API_URL'])) {

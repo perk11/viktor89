@@ -5,7 +5,6 @@ namespace Perk11\Viktor89\VideoGeneration;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
-use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 

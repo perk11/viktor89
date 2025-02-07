@@ -3,12 +3,10 @@
 namespace Perk11\Viktor89\Assistant;
 
 use JsonException;
-use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
-use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
-use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
+use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAssistant implements AbortableStreamingResponseGenerator
 {
@@ -16,8 +14,8 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
     private array $abortResponseHandlers = [];
 
     public function __construct(
-        UserPreferenceSetByCommandProcessor $systemPromptProcessor,
-        UserPreferenceSetByCommandProcessor $responseStartProcessor,
+        UserPreferenceReaderInterface $systemPromptProcessor,
+        UserPreferenceReaderInterface $responseStartProcessor,
         string $url,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
     )

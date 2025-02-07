@@ -2,9 +2,8 @@
 
 namespace Perk11\Viktor89\Assistant;
 
-use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
-use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
+use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 class Llama3Assistant extends AbstractOpenAIAPICompletingAssistant
 {
@@ -20,8 +19,8 @@ class Llama3Assistant extends AbstractOpenAIAPICompletingAssistant
     private readonly array $tokenReplacements;
 
     public function __construct(
-        UserPreferenceSetByCommandProcessor $systemPromptProcessor,
-        UserPreferenceSetByCommandProcessor $responseStartProcessor,
+        UserPreferenceReaderInterface $systemPromptProcessor,
+        UserPreferenceReaderInterface $responseStartProcessor,
         string $url,
         OpenAiCompletionStringParser $openAiCompletionStringParser,
     ) {

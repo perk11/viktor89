@@ -3,8 +3,7 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use GuzzleHttp\Client;
-use Perk11\Viktor89\ImageGeneration\Automatic1111ImageApiResponse;
-use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
+use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Psr\Http\Message\ResponseInterface;
 
 class Txt2VideoClient
@@ -12,9 +11,9 @@ class Txt2VideoClient
     private Client $httpClient;
 
     public function __construct(
-        private readonly UserPreferenceSetByCommandProcessor $stepsPreference,
-        private readonly UserPreferenceSetByCommandProcessor $seedPreference,
-        private readonly UserPreferenceSetByCommandProcessor $videoModelPreference,
+        private readonly UserPreferenceReaderInterface $stepsPreference,
+        private readonly UserPreferenceReaderInterface $seedPreference,
+        private readonly UserPreferenceReaderInterface $videoModelPreference,
         private readonly array $modelConfig,
     ){}
     public function generateByPromptTxt2Vid(string $prompt, int $userId): VideoApiResponse

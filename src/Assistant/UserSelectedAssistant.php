@@ -4,14 +4,14 @@ namespace Perk11\Viktor89\Assistant;
 
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
-use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 class UserSelectedAssistant implements MessageChainProcessor
 {
     public function __construct(
         private readonly AssistantFactory $assistantFactory,
-        private readonly UserPreferenceSetByCommandProcessor $assistantPreference,
+        private readonly UserPreferenceReaderInterface $assistantPreference,
     )
     {
     }

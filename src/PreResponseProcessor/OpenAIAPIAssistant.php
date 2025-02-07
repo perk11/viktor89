@@ -9,6 +9,7 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 class OpenAIAPIAssistant implements MessageChainProcessor
 {
@@ -16,8 +17,8 @@ class OpenAIAPIAssistant implements MessageChainProcessor
     private OpenAi $openAi;
 
     public function __construct(
-        private readonly UserPreferenceSetByCommandProcessor $systemPromptProcessor,
-        private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor,
+        private readonly UserPreferenceReaderInterface $systemPromptProcessor,
+        private readonly UserPreferenceReaderInterface $responseStartProcessor,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
     ) {
         $this->openAi = new OpenAi('');

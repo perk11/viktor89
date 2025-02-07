@@ -3,7 +3,7 @@
 namespace Perk11\Viktor89\ImageGeneration;
 
 use GuzzleHttp\Client;
-use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
+use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Psr\Http\Message\ResponseInterface;
 
 class UpscaleApiClient
@@ -11,8 +11,8 @@ class UpscaleApiClient
     private Client $httpClient;
 
     public function __construct(
-        private readonly UserPreferenceSetByCommandProcessor $stepsPreference,
-        private readonly UserPreferenceSetByCommandProcessor $seedPreference,
+        private readonly UserPreferenceReaderInterface $stepsPreference,
+        private readonly UserPreferenceReaderInterface $seedPreference,
         private readonly array $modelConfig,
     ){}
     public function upscaleImage(string $imageContent, int $userId): Automatic1111ImageApiResponse

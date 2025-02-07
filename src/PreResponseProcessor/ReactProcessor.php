@@ -5,11 +5,12 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 class ReactProcessor implements MessageChainProcessor
 {
     public function __construct(
-        private readonly UserPreferenceSetByCommandProcessor $enabledProcessor,
+        private readonly UserPreferenceReaderInterface $enabledProcessor,
         private readonly string $reactEmoji,
     )
     {

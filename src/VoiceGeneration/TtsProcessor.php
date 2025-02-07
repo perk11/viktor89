@@ -5,8 +5,8 @@ namespace Perk11\Viktor89\VoiceGeneration;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
-use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 class TtsProcessor implements MessageChainProcessor
 {
@@ -14,7 +14,7 @@ class TtsProcessor implements MessageChainProcessor
     public function __construct(
         private readonly TtsApiClient $voiceClient,
         private readonly VoiceResponder $voiceResponder,
-        private readonly UserPreferenceSetByCommandProcessor $voiceModelPreference,
+        private readonly UserPreferenceReaderInterface $voiceModelPreference,
         private readonly array $modelConfig,
     ) {
     }

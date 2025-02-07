@@ -4,15 +4,15 @@ namespace Perk11\Viktor89\Assistant;
 
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
-use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
+use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 class AssistantFactory
 {
     private array $assistantInstanceByName;
     public function __construct(
         private readonly array $assistantConfig,
-        private readonly UserPreferenceSetByCommandProcessor $systemPromptProcessor,
-        private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor,
+        private readonly UserPreferenceReaderInterface $systemPromptProcessor,
+        private readonly UserPreferenceReaderInterface $responseStartProcessor,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
     )
     {

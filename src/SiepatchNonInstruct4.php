@@ -44,7 +44,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         private readonly HistoryReader $historyReader,
         private readonly Database $database,
         private readonly ProcessingResultExecutor $processingResultExecutor,
-        private readonly UserPreferenceSetByCommandProcessor $responseStartProcessor,
+        private readonly UserPreferenceReaderInterface $responseStartProcessor,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
         private readonly string $telegramBotUsername,
     )

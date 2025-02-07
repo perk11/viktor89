@@ -7,9 +7,8 @@ use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\ContextCompletingAssistantInterface;
 use Perk11\Viktor89\ImageGeneration\Automatic1111APiClient;
 use Perk11\Viktor89\ImageGeneration\Automatic1111ImageApiResponse;
-use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptAndImageGenerator;
-use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
+use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 
 class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAndImageGenerator
 {
@@ -17,7 +16,7 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
     public function __construct(
         private readonly Automatic1111APiClient $automatic1111APiClient,
         private readonly ContextCompletingAssistantInterface $assistant,
-        private readonly UserPreferenceSetByCommandProcessor $imageModelPreference,
+        private readonly UserPreferenceReaderInterface $imageModelPreference,
         private readonly array $modelConfig,
     ) {
     }

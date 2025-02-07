@@ -234,6 +234,7 @@ class ProcessMessageTask implements Task
                 [
 //            '-4233480248' => 3,
                     '-1001804789551' => 4,
+                    '6184626947' => 2,
                 ]
             ),
             new SaveQuizPollProcessor($questionRepository),
@@ -248,6 +249,7 @@ class ProcessMessageTask implements Task
             new BlockedChatProcessor([
 //                                         '-1002398016894',
                                          '-1002076350723',
+                                         '6184626947',
                                      ]),
             $imageModelProcessor,
             $imageSizeProcessor,
