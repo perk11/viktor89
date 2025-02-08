@@ -1,4 +1,5 @@
 #Based on https://github.com/comfyanonymous/ComfyUI/blob/master/script_examples/websockets_api_example_ws_images.py
+import argparse
 import base64
 import io
 import json
@@ -14,33 +15,37 @@ import websocket  # NOTE: websocket-client (https://github.com/websocket-client/
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
+parser = argparse.ArgumentParser(description="Inference server for flux using ComfyUI")
+parser.add_argument('--port', type=int, help='port to listen on')
+parser.add_argument('--comfy_ui_server_address', type=str, help='address where Comfy UI is listening', required=True)
+parser.add_argument('--model_dir', required=True, help='Path to the model directory.')
+args = parser.parse_args()
 
-comfyui_server_address = "127.0.0.1:8188"
 sem = threading.Semaphore()
 
 def queue_prompt(prompt, client_id):
     p = {"prompt": prompt, "client_id": client_id}
     data = json.dumps(p).encode('utf-8')
-    req = urllib.request.Request("http://{}/prompt".format(comfyui_server_address), data=data)
+    req = urllib.request.Request("http://{}/prompt".format(args.comfy_ui_server_address), data=data)
     return json.loads(urllib.request.urlopen(req).read())
 
 
 def get_image(filename, subfolder, folder_type):
     data = {"filename": filename, "subfolder": subfolder, "type": folder_type}
     url_values = urllib.parse.urlencode(data)
-    with urllib.request.urlopen("http://{}/view?{}".format(comfyui_server_address, url_values)) as response:
+    with urllib.request.urlopen("http://{}/view?{}".format(args.comfy_ui_server_address, url_values)) as response:
         return response.read()
 
 
 def get_history(prompt_id):
-    with urllib.request.urlopen("http://{}/history/{}".format(comfyui_server_address, prompt_id)) as response:
+    with urllib.request.urlopen("http://{}/history/{}".format(args.comfy_ui_server_address, prompt_id)) as response:
         return json.loads(response.read())
 
 
 def get_images(prompt):
     client_id = str(uuid.uuid4())
     ws = websocket.WebSocket()
-    ws.connect("ws://{}/ws?clientId={}".format(comfyui_server_address, client_id))
+    ws.connect("ws://{}/ws?clientId={}".format(args.comfy_ui_server_address, client_id))
     prompt_id = queue_prompt(prompt, client_id)['prompt_id']
     output_images = {}
     current_node = ""
@@ -65,10 +70,11 @@ def get_images(prompt):
     return output_images
 
 
+
 @app.route('/sdapi/v1/txt2img', methods=['POST'])
 def generate_image():
     data = request.json
-    print(data)
+    print(data, flush=True)
 
     prompt = data.get('prompt')
     seed = int(data.get('seed', random.randint(1, 99999999999999)))
@@ -114,6 +120,33 @@ def generate_image():
         'error': 'No images received from ComfyUI'
     })
 
+@app.route('/sdapi/v1/sd-models', methods=['GET'])
+def get_models():
+    files_metadata = []
+
+    for root, _, files in os.walk(args.model_dir):
+        for file in files:
+            file_path = os.path.join(root, file)
+            sha256 = "ffffff"
+
+            file_info = {
+                "title": file,
+                "model_name": file,
+                "hash": sha256,
+                "sha256": sha256,
+                "filename": file_path,
+                "config": None
+            }
+
+            files_metadata.append(file_info)
+
+    return files_metadata
+
+@app.route('/sdapi/v1/options')
+def get_options():
+    return {
+        "sd_model_checkpoint": "flux1-dev.sft"
+    }
 
 if __name__ == '__main__':
-    app.run(host='localhost', port=18094)
+    app.run(host='localhost', port=args.port)
