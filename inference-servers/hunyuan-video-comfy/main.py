@@ -133,7 +133,7 @@ def generate_video():
         comfy_workflow = workflow_file.read()
 
     comfy_workflow_object = json.loads(comfy_workflow)
-    comfy_workflow_object["44"]["inputs"]["prompt"] = prompt
+    comfy_workflow_object["44"]["inputs"]["text"] = prompt
     comfy_workflow_object["99"]["inputs"]["unet_name"] = model + '.gguf'
     comfy_workflow_object["45"]["inputs"]["width"] = width
     comfy_workflow_object["45"]["inputs"]["height"] = height
