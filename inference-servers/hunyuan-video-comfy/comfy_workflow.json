@@ -1,0 +1,260 @@
+{
+  "10": {
+    "inputs": {
+      "vae_name": "hunyuan_video_vae_bf16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "13": {
+    "inputs": {
+      "noise": [
+        "25",
+        0
+      ],
+      "guider": [
+        "22",
+        0
+      ],
+      "sampler": [
+        "16",
+        0
+      ],
+      "sigmas": [
+        "17",
+        0
+      ],
+      "latent_image": [
+        "45",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "16": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "17": {
+    "inputs": {
+      "scheduler": "beta",
+      "steps": 15,
+      "denoise": 1,
+      "model": [
+        "99",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "BasicScheduler"
+    }
+  },
+  "22": {
+    "inputs": {
+      "model": [
+        "67",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "BasicGuider"
+    }
+  },
+  "25": {
+    "inputs": {
+      "noise_seed": 112934736057559
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "26": {
+    "inputs": {
+      "guidance": 7,
+      "conditioning": [
+        "44",
+        0
+      ]
+    },
+    "class_type": "FluxGuidance",
+    "_meta": {
+      "title": "FluxGuidance"
+    }
+  },
+  "44": {
+    "inputs": {
+      "text": "Prompt goes here",
+      "clip": [
+        "93",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "45": {
+    "inputs": {
+      "width": 1264,
+      "height": 720,
+      "length": 97,
+      "batch_size": 1
+    },
+    "class_type": "EmptyHunyuanLatentVideo",
+    "_meta": {
+      "title": "EmptyHunyuanLatentVideo"
+    }
+  },
+  "67": {
+    "inputs": {
+      "shift": 17,
+      "model": [
+        "90",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "73": {
+    "inputs": {
+      "tile_size": 128,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 8,
+      "samples": [
+        "13",
+        0
+      ],
+      "vae": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeTiled",
+    "_meta": {
+      "title": "VAE Decode (Tiled)"
+    }
+  },
+  "78": {
+    "inputs": {
+      "unet_name": "fast-hunyuan-video-t2v-720p-Q4_K_M.gguf"
+    },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": {
+      "title": "Unet Loader (GGUF)"
+    }
+  },
+  "83": {
+    "inputs": {
+      "samples": [
+        "13",
+        0
+      ],
+      "vae": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "90": {
+    "inputs": {
+      "model_type": "hunyuan_video",
+      "rel_l1_thresh": 0.3,
+      "model": [
+        "93",
+        0
+      ]
+    },
+    "class_type": "TeaCacheForVidGen",
+    "_meta": {
+      "title": "TeaCache For Vid Gen"
+    }
+  },
+  "93": {
+    "inputs": {
+      "mode": "in order",
+      "album_name": "",
+      "lora1": "None",
+      "lora1_weight": "0.6,0.4,0.5,0.3,0.2,0.3,0.1,0.1,0.5,0.2",
+      "lora2": "None",
+      "lora2_weight": "0.4,0.6,0.5,0.6,0.4,0.3,0.6,0.4,0.5,0.2",
+      "lora3": "None",
+      "lora3_weight": "0.2,0.0,0.1,0.3,0.2,0.3,0.2,0.1,0.1,0.1",
+      "seed": 830767307458955,
+      "model": [
+        "99",
+        0
+      ],
+      "clip": [
+        "97",
+        0
+      ]
+    },
+    "class_type": "ComfyUIFlexiLoRALoader",
+    "_meta": {
+      "title": "ComfyUI Flexi LoRA Loader"
+    }
+  },
+  "97": {
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "llava-llama-3-8B-v1_1-Q4_K_M.gguf",
+      "type": "hunyuan_video",
+      "device": "cpu"
+    },
+    "class_type": "DualCLIPLoaderGGUFMultiGPU",
+    "_meta": {
+      "title": "DualCLIPLoaderGGUFMultiGPU"
+    }
+  },
+  "99": {
+    "inputs": {
+      "unet_name": "fast-hunyuan-video-t2v-720p-Q4_K_M.gguf",
+      "device": "cuda:0",
+      "virtual_vram_gb": 0,
+      "use_other_vram": false,
+      "expert_mode_allocations": ""
+    },
+    "class_type": "UnetLoaderGGUFDisTorchMultiGPU",
+    "_meta": {
+      "title": "UnetLoaderGGUFDisTorchMultiGPU"
+    }
+  },
+  "save_image_websocket_node": {
+    "inputs": {
+      "images": [
+        "73",
+        0
+      ]
+    },
+    "class_type": "SaveImageWebsocket",
+    "_meta": {
+      "title": "SaveImageWebsocket"
+    }
+  }
+}
