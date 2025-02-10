@@ -19,6 +19,9 @@ class Txt2VideoClient
     public function generateByPromptTxt2Vid(string $prompt, int $userId): VideoApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
+        if(isset($params['promptPrefix']) && !str_starts_with($prompt, $params['promptPrefix'])) {
+            $prompt = $params['promptPrefix'] . $prompt;
+        }
         $params['prompt'] = $prompt;
         $response = $this->request('txt2vid', $params);
 
