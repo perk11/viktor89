@@ -236,7 +236,7 @@
     "inputs": {
       "unet_name": "fast-hunyuan-video-t2v-720p-Q4_K_M.gguf",
       "device": "cuda:0",
-      "virtual_vram_gb": 0,
+      "virtual_vram_gb": 4.5,
       "use_other_vram": false,
       "expert_mode_allocations": ""
     },

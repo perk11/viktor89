@@ -122,10 +122,15 @@ def generate_video():
     prompt = data.get('prompt')
     seed = int(data.get('seed', random.randint(1, 99999999999999)))
     model = data.get('model', 'fast-hunyuan-video-t2v-720p-Q4_K_M')
-    steps = int(data.get('steps', 15))
-    width = int(data.get('width', 960))
-    height = int(data.get('height', 544))
+    steps = int(data.get('steps', 35))
+    width = int(data.get('width', 720))
+    height = int(data.get('height', 480))
     num_frames = int(data.get('num_frames', 97))
+    guidance = int(data.get('guidance', 7))
+    loras = data.get('loras', [])
+
+    if len(loras) > 3:
+        return jsonify({'error': 'Up to 3 Loras supported'}), 500
 
 
     workflow_file_path = Path(__file__).with_name("comfy_workflow.json")
@@ -140,7 +145,22 @@ def generate_video():
     comfy_workflow_object["17"]["inputs"]["steps"] = steps
     comfy_workflow_object["25"]["inputs"]["noise_seed"] = seed
     comfy_workflow_object["45"]["inputs"]["length"] = num_frames
-
+    comfy_workflow_object["26"]["inputs"]["guidance"] = guidance
+    loras_list=""
+    for index, lora in enumerate(loras):
+        if not "weight" in lora:
+            print(lora)
+            return jsonify({'error': 'Missing Lora weight attribute', lora: lora}), 500
+        if not "name" in lora:
+            print(lora)
+            return jsonify({'error': 'Missing Lora name attribute', lora: lora}), 500
+        comfy_workflow_object["93"]["inputs"]["lora"+str(index+1)] = lora["name"]
+        comfy_workflow_object["93"]["inputs"]["lora"+str(index+1)+"_weight"] = lora["weight"]
+        if index > 1:
+            loras_list += ","
+        else:
+            loras_list = " LORAs: "
+        loras_list += lora["name"] + ":"+ str(lora["weight"])
     sem.acquire()
     try:
         images = get_images(comfy_workflow_object)
@@ -163,7 +183,7 @@ def generate_video():
                 'num_inference_steps': steps,
             },
             'info': json.dumps({
-                'infotexts': [f'{prompt}\nSteps: {steps}, Seed: {seed}, Frames: {num_frames}, Model: ' + model]
+                'infotexts': [f'{prompt}\nSteps: {steps}, Seed: {seed}, Frames: {num_frames}, Model: ' + model+loras_list]
             })
         }
         return jsonify(response)
