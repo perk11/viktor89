@@ -66,12 +66,15 @@ class AssistantFactory
                 $requestedAssistantConfig['url'],
                 $this->openAiCompletionStringParser,
             );
-        } else {
+        } elseif (is_a($requestedAssistantConfig['class'], OpenAiChatAssistant::class, true)) {
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
+                $requestedAssistantConfig['model'] ?? null,
                 $systemPromptProcessor,
                 $this->responseStartProcessor,
                 $requestedAssistantConfig['url'],
             );
+        } else {
+            throw new \Exception("Unexpected assistant class " . $requestedAssistantConfig['class']);
         }
         if (array_key_exists('abortResponseHandlers', $requestedAssistantConfig)) {
             if (!$this->assistantInstanceByName[$name] instanceof  AbortableStreamingResponseGenerator) {

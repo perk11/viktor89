@@ -2,8 +2,19 @@
 
 namespace Perk11\Viktor89\Assistant;
 
+use Perk11\Viktor89\UserPreferenceReaderInterface;
+
 class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
 {
+    public function __construct(
+        private readonly ?string $model,
+        UserPreferenceReaderInterface $systemPromptProcessor,
+        UserPreferenceReaderInterface $responseStartProcessor,
+        string $url,
+    )
+    {
+        parent::__construct($systemPromptProcessor, $responseStartProcessor, $url);
+    }
     public function getCompletionBasedOnContext(AssistantContext $assistantContext): string
     {
         echo "Calling OpenAI chat API...\n";
@@ -23,8 +34,12 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
 
     protected function getResponseParameters(AssistantContext $assistantContext): array
     {
-        return [
+        $parameters = [
             'messages' => $assistantContext->toOpenAiArray(),
         ];
+        if ($this->model !== null) {
+            $parameters['model'] = $this->model;
+        }
+        return $parameters;
     }
 }
