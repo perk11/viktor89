@@ -28,7 +28,7 @@ abstract class AbstractOpenAIAPiAssistant  implements MessageChainProcessor,
         $userId = $messageChain->last()->userId;
         $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($userId);
         $systemPrompt = $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
-            "Always respond in Russian.\n";
+            "Always respond to the user in the language they use or request.\n";
 
         $assistantContext = $this->convertMessageChainToAssistantContext($messageChain, $systemPrompt, $responseStart);
 

@@ -32,7 +32,7 @@ class PrintHelpProcessor implements MessageChainProcessor
         '/assistant' => 'Начать общение с LLM (а-ля ChatGPT). Например: <code>/assistant Привет</code>. Чтобы продолжить общение, отвечайте на сообщения бота.',
         'Настройки для /assistant:' => '
         /assistantmodel Выбор модели LLM. Отправьте без параметров, чтобы увидеть список доступных моделей.
-        /systemprompt Указание для LLM о том что он должен делать. Например: <code>/systemprompt You are a heartless and mean robot</code>. Значение по умолчанию: <code>Always respond in Russian</code>. Отправьте /systemprompt без параметров, чтобы сбросить на значение по умолчанию.
+        /systemprompt Указание для LLM о том что он должен делать. Например: <code>/systemprompt You are a heartless and mean robot</code>. Значение по умолчанию: <code>Always respond to the user in the language they use or request.</code>. Отправьте /systemprompt без параметров, чтобы сбросить на значение по умолчанию.
         /responsestart Начинать ответ LLM с указаного текста. Например: <code>/responsestart Да </code>. Позволяет направить ответ LLM в заданное русло. Отправьте /responsestart без параметров, чтобы сбросить на значение по умолчанию.
         /seed Первичное значение для псевдослучайного генератора. Например: <code>/seed 123</code>. Отправьте /seed без параметров, чтобы сбросить на случайное значение.',
     ];
