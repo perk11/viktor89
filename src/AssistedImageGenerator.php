@@ -27,15 +27,15 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
         return $this->automatic1111APiClient->generateImageByPrompt($improvedPrompt, $userId);
     }
 
-    public function generateImageByPromptAndImage(
-        string $imageContent,
+    public function generateImageByPromptAndImages(
+        array $imageContents,
         string $prompt,
         int $userId
     ): Automatic1111ImageApiResponse {
         $improvedPrompt = $this->processPrompt($prompt, $userId);
 
-        return $this->automatic1111APiClient->generateImageByPromptAndImage(
-            $imageContent,
+        return $this->automatic1111APiClient->generateImageByPromptAndImages(
+            $imageContents,
             $improvedPrompt,
             $userId
         );

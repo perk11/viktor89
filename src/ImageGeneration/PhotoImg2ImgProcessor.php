@@ -56,8 +56,8 @@ class PhotoImg2ImgProcessor
         ]);
         try {
             $photo = $this->telegramFileDownloader->downloadPhoto($photoArray);
-            $transformedPhotoResponse = $this->automatic1111APiClient->generateImageByPromptAndImage(
-                $photo,
+            $transformedPhotoResponse = $this->automatic1111APiClient->generateImageByPromptAndImages(
+                [$photo],
                 $prompt,
                 $messageToReplyTo->userId,
             );

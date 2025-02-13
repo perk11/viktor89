@@ -276,12 +276,14 @@ class ProcessMessageTask implements Task
                 $automatic1111APiClient,
                 $photoResponder,
                 $photoImg2ImgProcessor,
+                $imageRepository,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
                 ['/imagine'],
                 $assistedImageGenerator,
                 $photoResponder,
                 $assistedPhotoImg2ImgProcessor,
+                $imageRepository,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/upscale'],

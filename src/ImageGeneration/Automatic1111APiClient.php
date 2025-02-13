@@ -47,7 +47,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         return Automatic1111ImageApiResponse::fromString($response->getBody()->getContents());
     }
 
-    public function generateImageByPromptAndImage(string $imageContent, string $prompt, int $userId): Automatic1111ImageApiResponse
+    public function generateImageByPromptAndImages(array $imageContents, string $prompt, int $userId): Automatic1111ImageApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
         $params = $this->processParamsAndInitHttpClient($params);
@@ -55,7 +55,10 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
             $prompt = $params['promptPrefix'] . $prompt;
             unset($params['promptPrefix']);
         }
-        $params['init_images'] = [base64_encode($imageContent)];
+        $params['init_images'] = [];
+        foreach ($imageContents as $imageContent) {
+            $params['init_images'][] = base64_encode($imageContent);
+        }
         $params['prompt'] = $prompt;
         $params['denoising_strength'] = (float) ($this->denoisingStrengthPreference->getCurrentPreferenceValue($userId) ?? '0.75');
         unset($params['refiner_checkpoint'], $params['refiner_switch_at']);

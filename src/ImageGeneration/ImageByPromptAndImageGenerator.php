@@ -4,8 +4,8 @@ namespace Perk11\Viktor89\ImageGeneration;
 
 interface ImageByPromptAndImageGenerator
 {
-    public function generateImageByPromptAndImage(
-        string $imageContent,
+    public function generateImageByPromptAndImages(
+        array $imageContents,
         string $prompt,
         int $userId
     ): Automatic1111ImageApiResponse;
