@@ -57,4 +57,12 @@ CREATE TABLE IF NOT EXISTS `kick_queue`
     `poll_id` bigint NOT NULL UNIQUE,
     `join_message_id` bigint NOT NULL,
     `kick_time` timestamp
-)
+);
+CREATE TABLE IF NOT EXISTS `saved_image`
+(
+    `id` integer PRIMARY KEY AUTOINCREMENT,
+    `name` text NOT NULL UNIQUE,
+    `filename` NOT NULL,
+    `user_id` bigint NOT NULL,
+    `created_at` timestamp NOT NULL
+);

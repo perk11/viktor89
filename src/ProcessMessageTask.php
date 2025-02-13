@@ -13,11 +13,14 @@ use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\ClownifyApiClient;
 use Perk11\Viktor89\ImageGeneration\ClownifyProcessor;
 use Perk11\Viktor89\ImageGeneration\DownscaleProcessor;
+use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
+use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\ImageGeneration\UpscaleProcessor;
 use Perk11\Viktor89\JoinQuiz\JoinQuizProcessor;
+use Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger;
 use Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\ReactProcessor;
@@ -242,6 +245,7 @@ class ProcessMessageTask implements Task
         ];
         $internalMessageTranscriber = new InternalMessageTranscriber($telegramFileDownloader, $voiceRecogniser);
 
+        $imageRepository = new ImageRepository($database->sqlite3Database);
         $messageChainProcessors = [
             new VoiceProcessor($internalMessageTranscriber),
             $clownProcessor,
@@ -334,6 +338,11 @@ class ProcessMessageTask implements Task
                 false,
                 new TranscribeProcessor($internalMessageTranscriber),
             ),
+            new CommandBasedResponderTrigger(
+                ['/saveas'],
+                false,
+                new SaveAsProcessor($telegramFileDownloader, $imageRepository)
+             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
         ];
