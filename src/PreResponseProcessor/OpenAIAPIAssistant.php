@@ -47,6 +47,10 @@ class OpenAIAPIAssistant implements MessageChainProcessor
                 }
                 try {
                     $parsedData = $this->openAiCompletionStringParser->parse($dataToParse);
+                    if ($parsedData === null) {
+                        //[DONE] string
+                        return strlen($data);
+                    }
                     $jsonPart = null;
                 } catch (JSONException $e) {
                     echo "\nIncomplete JSON received, postponing parsing until more is received\n";

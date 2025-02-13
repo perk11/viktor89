@@ -98,8 +98,21 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         try {
             $this->openAi->completion($opts, function ($curl_info, $data) use ($prompt, &$fullContent, &$aborted) {
                 $parsedData = $this->openAiCompletionStringParser->parse($data);
-                echo $parsedData['content'];
-                $fullContent .= $parsedData['content'];
+                if ($parsedData === null) {
+                    //[DONE] string
+                    return strlen($data);
+                }
+                if (array_key_exists('content', $parsedData)) {
+                    //this worked with llama.cpp prior to ~February 2025
+                    $content = $parsedData['content'];
+                } else {
+                    if (!isset( $parsedData['choices'][0]['text'])) {
+                        throw new \RuntimeException("Unexpected JSON received: " . $data);
+                    }
+                    $content = $parsedData['choices'][0]['text'];
+                }
+                echo $content;
+                $fullContent .= $content;
                 foreach ($this->abortResponseHandlers as $abortResponseHandler) {
                     $newResponse = $abortResponseHandler->getNewResponse($prompt, $fullContent);
                     if ($newResponse !== false) {
@@ -117,6 +130,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
                 return trim($fullContent);
             }
             echo "Got error when accessing Sipeatch OpenAI API: ";
+            echo $e->getTraceAsString()."\n";
             echo $e->getMessage() . "\n";
             return '] Ошибка подключения к llama.cpp по-сипатчевски';
         }

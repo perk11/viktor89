@@ -192,7 +192,7 @@ class ProcessMessageTask implements Task
         $responder->addPreResponseProcessor(new AllowedChatProcessor([
                                                                          '-1001804789551',
                                                                          '-1002114209100',
-                                                                         '-4233480248',
+                                                                         '-1002398016894',
                                                                      ]));
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
         $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
