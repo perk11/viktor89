@@ -1,6 +1,7 @@
 # Based on https://github.com/comfyanonymous/ComfyUI/blob/master/script_examples/websockets_api_example_ws_images.py
 import argparse
 import base64
+import io
 import json
 import os
 import random
@@ -114,6 +115,7 @@ def get_images(prompt):
     return output_images['save_image_websocket_node']
 
 
+
 @app.route('/txt2vid', methods=['POST'])
 def generate_video():
     data = request.json
@@ -132,20 +134,7 @@ def generate_video():
     if len(loras) > 3:
         return jsonify({'error': 'Up to 3 Loras supported'}), 500
 
-
-    workflow_file_path = Path(__file__).with_name("comfy_workflow.json")
-    with workflow_file_path.open('r') as workflow_file:
-        comfy_workflow = workflow_file.read()
-
-    comfy_workflow_object = json.loads(comfy_workflow)
-    comfy_workflow_object["44"]["inputs"]["text"] = prompt
-    comfy_workflow_object["99"]["inputs"]["unet_name"] = model + '.gguf'
-    comfy_workflow_object["45"]["inputs"]["width"] = width
-    comfy_workflow_object["45"]["inputs"]["height"] = height
-    comfy_workflow_object["17"]["inputs"]["steps"] = steps
-    comfy_workflow_object["25"]["inputs"]["noise_seed"] = seed
-    comfy_workflow_object["45"]["inputs"]["length"] = num_frames
-    comfy_workflow_object["26"]["inputs"]["guidance"] = guidance
+    comfy_workflow_object = get_workflow(guidance, height, model, num_frames, prompt, seed, steps, width)
     loras_list=""
     for index, lora in enumerate(loras):
         if not "weight" in lora:
@@ -192,6 +181,79 @@ def generate_video():
         print(e)
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+
+
+def get_workflow(guidance, height, model, num_frames, prompt, seed, steps, width):
+    workflow_file_path = Path(__file__).with_name("comfy_workflow.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["44"]["inputs"]["text"] = prompt
+    comfy_workflow_object["99"]["inputs"]["unet_name"] = model + '.gguf'
+    comfy_workflow_object["45"]["inputs"]["width"] = width
+    comfy_workflow_object["45"]["inputs"]["height"] = height
+    comfy_workflow_object["17"]["inputs"]["steps"] = steps
+    comfy_workflow_object["25"]["inputs"]["noise_seed"] = seed
+    comfy_workflow_object["45"]["inputs"]["length"] = num_frames
+    comfy_workflow_object["26"]["inputs"]["guidance"] = guidance
+    return comfy_workflow_object
+
+
+@app.route('/sdapi/v1/txt2img', methods=['POST'])
+def generate_single_frame():
+    data = request.json
+    print(data)
+
+    prompt = data.get('prompt')
+    seed = int(data.get('seed', random.randint(1, 99999999999999)))
+    model = data.get('model', 'fast-hunyuan-video-t2v-720p-Q4_K_M')
+    steps = int(data.get('steps', 35))
+    width = int(data.get('width', 544))
+    height = int(data.get('height', 960))
+    num_frames = 1
+    guidance = int(data.get('guidance', 7))
+    loras = data.get('loras', [])
+
+    if len(loras) > 3:
+        return jsonify({'error': 'Up to 3 Loras supported'}), 500
+    comfy_workflow_object = get_workflow(guidance, height, model, num_frames, prompt, seed, steps, width)
+    loras_list=""
+    for index, lora in enumerate(loras):
+        if not "weight" in lora:
+            print(lora)
+            return jsonify({'error': 'Missing Lora weight attribute', lora: lora}), 500
+        if not "name" in lora:
+            print(lora)
+            return jsonify({'error': 'Missing Lora name attribute', lora: lora}), 500
+        comfy_workflow_object["93"]["inputs"]["lora"+str(index+1)] = lora["name"]
+        comfy_workflow_object["93"]["inputs"]["lora"+str(index+1)+"_weight"] = lora["weight"]
+        if index > 1:
+            loras_list += ","
+        else:
+            loras_list = " LORAs: "
+        loras_list += lora["name"] + ":"+ str(lora["weight"])
+    sem.acquire()
+    try:
+        images = get_images(comfy_workflow_object)
+    finally:
+        sem.release()
+    if len(images) != 1:
+        return jsonify({
+            'error': 'Unexpected number of images received from ComfyUI: ' + str(len(images))
+        })
+    image_base64 = base64.b64encode(io.BytesIO(images[0]).getbuffer()).decode('utf-8')
+    response = {
+        'images': [image_base64],
+        'parameters': {},
+        'info': json.dumps({
+            'infotexts': [f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: '
+                          + model+loras_list
+                          ]
+        })
+    }
+
+    return jsonify(response)
+
 
 
 if __name__ == '__main__':
