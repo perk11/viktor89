@@ -52,6 +52,7 @@ class UpscaleProcessor implements MessageChainProcessor
             $this->photoResponder->sendPhoto(
                 $lastMessage,
                 $transformedPhotoResponse->getFirstImageAsPng(),
+                $transformedPhotoResponse->sendAsFile,
                 $transformedPhotoResponse->getCaption(),
             );
         } catch (\Exception $e) {

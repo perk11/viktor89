@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\ImageGeneration;
 
 class Automatic1111ImageApiResponse
 {
+    public bool $sendAsFile = false;
     public function __construct(public array $images, public array $parameters, public array $info)
     {
     }

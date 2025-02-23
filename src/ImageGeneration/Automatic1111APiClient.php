@@ -41,10 +41,18 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
             unset($params['promptPrefix']);
         }
         $params['prompt'] = $prompt;
+        $sendAsFile = false;
+        if (isset($params['sendAsFile'])) {
+            $sendAsFile = $params['sendAsFile'];
+            unset($params['sendAsFile']);
+        }
         $this->processParamsAndInitHttpClient($params);
         $response = $this->request('txt2img', $params);
 
-        return Automatic1111ImageApiResponse::fromString($response->getBody()->getContents());
+        $a111response = Automatic1111ImageApiResponse::fromString($response->getBody()->getContents());
+        $a111response->sendAsFile = $sendAsFile;
+
+        return $a111response;
     }
 
     public function generateImageByPromptAndImages(array $imageContents, string $prompt, int $userId): Automatic1111ImageApiResponse
@@ -55,6 +63,11 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
             $prompt = $params['promptPrefix'] . $prompt;
             unset($params['promptPrefix']);
         }
+        $sendAsFile = false;
+        if (isset($params['sendAsFile'])) {
+            $sendAsFile = $params['sendAsFile'];
+            unset($params['sendAsFile']);
+        }
         $params['init_images'] = [];
         foreach ($imageContents as $imageContent) {
             $params['init_images'][] = base64_encode($imageContent);
@@ -63,7 +76,10 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         $params['denoising_strength'] = (float) ($this->denoisingStrengthPreference->getCurrentPreferenceValue($userId) ?? '0.75');
         unset($params['refiner_checkpoint'], $params['refiner_switch_at']);
         $response = $this->request('img2img', $params);
-        return Automatic1111ImageApiResponse::fromString($response->getBody()->getContents());
+        $a111response = Automatic1111ImageApiResponse::fromString($response->getBody()->getContents());
+        $a111response->sendAsFile = $sendAsFile;
+
+        return $a111response;
     }
 
     private function request(string $method, array $data): ResponseInterface

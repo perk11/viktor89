@@ -64,6 +64,7 @@ class PhotoImg2ImgProcessor
             $this->photoResponder->sendPhoto(
                 $messageToReplyTo,
                 $transformedPhotoResponse->getFirstImageAsPng(),
+                $transformedPhotoResponse->sendAsFile,
                 $transformedPhotoResponse->getCaption(),
             );
         } catch (\Exception $e) {

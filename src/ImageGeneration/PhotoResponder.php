@@ -8,12 +8,13 @@ use Perk11\Viktor89\InternalMessage;
 
 class PhotoResponder
 {
-    public function sendPhoto(Message|InternalMessage $message, string $photoContents, ?string $caption = null): void
+    public function sendPhoto(Message|InternalMessage $message, string $photoContents, bool $sendAsFile, ?string $caption = null): void
     {
         if ($message instanceof Message) {
             $message = InternalMessage::fromTelegramMessage($message);
         }
-        $imagePath = tempnam(sys_get_temp_dir(), 'viktor89-image-generator');
+        $imagePath = tempnam(sys_get_temp_dir(), 'viktor89-image-generator-');
+        rename($imagePath, $imagePath .= '.png');
         echo "Temporary image recorded to $imagePath\n";
         file_put_contents($imagePath, $photoContents);
         $options = [
@@ -21,12 +22,24 @@ class PhotoResponder
             'reply_parameters' => [
                 'message_id' => $message->id,
             ],
-            'photo'            => Request::encodeFile($imagePath),
         ];
         if ($caption !== null) {
             $options['caption'] = mb_substr($caption, 0, 1024);
         }
-        Request::sendPhoto($options);
+        if ($sendAsFile) {
+            echo "Optimizing image\n";
+            passthru('oxipng --strip all "' . $imagePath.'"');
+        }
+        $encodedFile = Request::encodeFile($imagePath);
+        if ($sendAsFile) {
+            echo "Sending document response\n";
+            $options['document'] = $encodedFile;
+            Request::sendDocument($options);
+        } else {
+            echo "Sending photo response\n";
+            $options['photo'] = $encodedFile;
+            Request::sendPhoto($options);
+        }
         echo "Deleting $imagePath\n";
         unlink($imagePath);
         Request::execute('setMessageReaction', [

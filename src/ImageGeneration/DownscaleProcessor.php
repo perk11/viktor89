@@ -51,7 +51,8 @@ class DownscaleProcessor implements MessageChainProcessor
             \imagedestroy($image);
             $this->photoResponder->sendPhoto(
                 $lastMessage,
-                $jpegData
+                $jpegData,
+                false,
             );
         } catch (\Exception $e) {
             echo "Failed to generate image:\n" . $e->getMessage(),

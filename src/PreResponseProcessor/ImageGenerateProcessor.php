@@ -77,6 +77,7 @@ class ImageGenerateProcessor implements MessageChainProcessor
             $this->photoResponder->sendPhoto(
                 $lastMessage,
                 $response->getFirstImageAsPng(),
+                $response->sendAsFile,
                 $response->getCaption()
             );
         } catch (\Exception $e) {
@@ -150,6 +151,7 @@ class ImageGenerateProcessor implements MessageChainProcessor
             $this->photoResponder->sendPhoto(
                 $lastMessage,
                 $response->getFirstImageAsPng(),
+                $response->sendAsFile,
                 $response->getCaption(),
             );
         } catch (\Exception $e) {
