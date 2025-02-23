@@ -13,7 +13,9 @@ class PhotoResponder
         if ($message instanceof Message) {
             $message = InternalMessage::fromTelegramMessage($message);
         }
-        $imagePath = tempnam(sys_get_temp_dir(), 'viktor89-image-generator-');
+        $filePrefix = mb_substr(preg_replace('/[^a-zA-Z]/', '_', $caption), 0, 50);
+        $filePrefix = str_replace('__', '_', $filePrefix) . '_';
+        $imagePath = tempnam(sys_get_temp_dir(), 'v89-ig-' . $filePrefix);
         rename($imagePath, $imagePath .= '.png');
         echo "Temporary image recorded to $imagePath\n";
         file_put_contents($imagePath, $photoContents);
