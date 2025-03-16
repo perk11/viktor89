@@ -34,7 +34,7 @@ class JoinQuizProcessor implements PreResponseProcessor
         foreach ($message->getNewChatMembers() as $member) {
             $pollData = [
                 'question'            => "Вопрос для " . $member->getFirstName(
-                    ) . ". Какой телефон Siemens изображена на фото? Which Siemens phone model is in this photo?",
+                    ) . ". Какой телефон Siemens изображен на фото? Which Siemens phone model is in this photo?",
                 'chat_id'             => $message->getChat()->getId(),
                 'reply_to_message_id' => $message->getMessageId(),
                 'options'             => [
