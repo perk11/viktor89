@@ -35,6 +35,7 @@ class OpenAISummaryProvider
         if ($summary === null) {
             return false;
         }
+        $summary = preg_replace('/<think>.*?<\/think>/s', '', $summary);
         // Split the summary into chunks of 4000 characters
         $maxSize = 4000;
         $chunks = mb_str_split($summary, $maxSize);
