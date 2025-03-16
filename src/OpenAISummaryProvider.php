@@ -22,7 +22,7 @@ class OpenAISummaryProvider
 
     }
 
-    private const MESSAGES_ANALYZED_PER_BATCH = 150;
+    private const MESSAGES_ANALYZED_PER_BATCH = 300;
 
     public function sendChatSummaryWithMessagesSinceLastOne(int $chatId): bool
     {
