@@ -16,4 +16,4 @@ if (!isset($_ENV['TELEGRAM_BOT_USERNAME'])) {
 $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
 $database = new \Perk11\Viktor89\Database($telegram->getBotId(), 'siepatch-non-instruct5');
 $summaryProvider = new OpenAISummaryProvider($database);
-$summaryProvider->provideSummary(-1001804789551, 1741150883);
+$summaryProvider->provideSummary(-1001804789551, time()-3600*24);

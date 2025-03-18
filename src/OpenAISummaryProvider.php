@@ -22,7 +22,7 @@ class OpenAISummaryProvider
 
     }
 
-    private const MESSAGES_ANALYZED_PER_BATCH = 300;
+    private const MESSAGES_ANALYZED_PER_BATCH = 200;
 
     public function sendChatSummaryWithMessagesSinceLastOne(int $chatId): bool
     {
@@ -67,18 +67,30 @@ class OpenAISummaryProvider
         echo "Generating summary of " . count($allMessages) . " messages found in chat $chatId in last 24 hours\n";
 
         $offset = 0;
+        $numberOfBatches = ceil(count($allMessages) / self::MESSAGES_ANALYZED_PER_BATCH);
+        $batchSize = ceil(count($allMessages) / $numberOfBatches);
         while ($offset < count($allMessages)) {
-            $messages = array_slice($allMessages, $offset, self::MESSAGES_ANALYZED_PER_BATCH);
+            $messages = array_slice($allMessages, $offset, $batchSize);
             $prompt = '';
+            $startingOffset = $offset;
             foreach ($messages as $message) {
-                $prompt .= $message->userName . ': ' . $message->messageText . "\n";
+                $offset++;
+                $prompt .= $message->userName . ': ' . mb_substr($message->messageText, 0, 512) . "\n";
+                if (mb_strlen($prompt) > 14000 && (count($allMessages) - $offset) > 30) {
+                    break;
+                }
             }
-            echo "Sending prompt of size " . mb_strlen($prompt) . " to OpenAI API...\n";
+            echo $offset - $startingOffset . " messages in this batch ($startingOffset-" . $offset-1 . "). Sending prompt of size " . mb_strlen($prompt) . " to OpenAI API...\n";
+            $systemPrompt = "Summarize messages sent in a group chat. Respond only in Russian. Be brief, but avoid too much generalization, always use specific terms and names. Do not add intro or outro. Use plain text, do not add any formatting. Use past tense. ";
+            if ($offset >= count($allMessages) - 1) {
+                $systemPrompt .= "Finish with a joke about one of the authors. ";
+            }
+            $systemPrompt .= "Message start below:";
             $result = $this->openAiClient->chat([
                                                'messages' => [
                                                    [
                                                        "role"    => "system",
-                                                       "content" => "Summarize messages sent in a group chat. Respond only in Russian. Be brief, but avoid too much generalization, always use specific terms and names. Do not add intro or outro. Use plain text, do not add any formatting. Use past tense. Messages start below:",
+                                                       "content" => $systemPrompt,
                                                    ],
                                                    [
                                                        "role"    => "user",
@@ -93,8 +105,7 @@ class OpenAISummaryProvider
             if (!array_key_exists('choices', $parsedResult)) {
                 echo "Unexpected response from OpenAI: $result \n";
             }
-            $summary .= "\n" . $parsedResult['choices'][0]['message']['content'];
-            $offset += self::MESSAGES_ANALYZED_PER_BATCH;
+            $summary .= "\n" . str_replace("\n", " ", $parsedResult['choices'][0]['message']['content']);
 //            sleep(30); //avoid gpt-4 rate limit
         }
         echo $summary;
