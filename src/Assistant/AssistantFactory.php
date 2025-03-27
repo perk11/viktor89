@@ -31,12 +31,12 @@ class AssistantFactory
         return $models;
     }
 
-    public function getDefaultAssistantInstance(): AbstractOpenAIAPiAssistant
+    public function getDefaultAssistantInstance(): AssistantInterface
     {
         return $this->getAssistantInstanceByName($this->getSupportedModels()[0]);
     }
 
-    public function getAssistantInstanceByName(string $name): AbstractOpenAIAPiAssistant
+    public function getAssistantInstanceByName(string $name): AssistantInterface
     {
         if (isset($this->assistantInstanceByName[$name])) {
             return $this->assistantInstanceByName[$name];
@@ -71,6 +71,10 @@ class AssistantFactory
                 $requestedAssistantConfig['model'] ?? null,
                 $systemPromptProcessor,
                 $this->responseStartProcessor,
+                $requestedAssistantConfig['url'],
+            );
+        } elseif(is_a($requestedAssistantConfig['class'], PerplexicaAssistant::class, true)) {
+            $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
                 $requestedAssistantConfig['url'],
             );
         } else {

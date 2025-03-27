@@ -8,9 +8,7 @@ use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
-abstract class AbstractOpenAIAPiAssistant  implements MessageChainProcessor,
-                                                      ContextCompletingAssistantInterface
-
+abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 {
     protected readonly OpenAI $openAi;
     public function __construct(
