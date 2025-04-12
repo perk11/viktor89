@@ -146,6 +146,49 @@
       "height": 512,
       "sampler_name": "Euler a",
       "steps": 50
+    },
+    "stable-diffusion-3-5-large": {
+      "width": 1024,
+      "height": 1024,
+      "customUrl": "http://localhost:8095",
+      "useOptions": false
+    },
+    "OmniGen-v1": {
+      "width": 1024,
+      "height": 1024,
+      "steps": 50,
+      "customUrl": "http://localhost:8097",
+      "useOptions": false
+    },
+    "fast-hunyuan-video-t2v-720p-Q4_K_M": {
+      "width": 544,
+      "height": 960,
+      "customUrl": "http://localhost:8116",
+      "useOptions": false
+    },
+    "HiDream-fast-nf4": {
+      "model": "fast-nf4",
+      "width": 1024,
+      "height": 1024,
+      "customUrl": "http://localhost:8130",
+      "negative_prompt": "deformed, ugly, watermark, text, scribbles, noise, static, low quality, bad quality, jpeg artifacts, low resolution",
+      "useOptions": false
+    },
+    "HiDream-dev-nf4": {
+      "model": "dev-nf4",
+      "width": 1024,
+      "height": 1024,
+      "customUrl": "http://localhost:8130",
+      "negative_prompt": "deformed, ugly, watermark, text, scribbles, noise, static, low quality, bad quality, jpeg artifacts, low resolution",
+      "useOptions": false
+    },
+    "HiDream-full-nf4": {
+      "model": "full-nf4",
+      "width": 1024,
+      "height": 1024,
+      "customUrl": "http://localhost:8130",
+      "negative_prompt": "deformed, ugly, watermark, text, scribbles, noise, static, low quality, bad quality, jpeg artifacts, low resolution",
+      "useOptions": false
     }
   },
   "imageSizes": [
