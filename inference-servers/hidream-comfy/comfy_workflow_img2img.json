@@ -1,0 +1,49 @@
+{
+  "23": {
+    "inputs": {
+      "model_type": "dev-nf4",
+      "denoising_strength": 0.8000000000000002,
+      "prompt": "A collectable rare postage stamp with the text \"US Postal Service\" and the year \"1918\" and the price of 15 cents, featuring Micky Mouse peeking over the top of a trench, stamp collection",
+      "negative_prompt": "",
+      "seed": 311613013181500,
+      "scheduler": "Default for model",
+      "override_steps": -1,
+      "override_cfg": -1,
+      "use_uncensored_llm": false,
+      "llm_system_prompt": "You are a creative AI assistant that helps create detailed, vivid images based on user descriptions.",
+      "clip_l_weight": 1,
+      "openclip_weight": 1,
+      "t5_weight": 1,
+      "llama_weight": 1,
+      "image": [
+        "27",
+        0
+      ]
+    },
+    "class_type": "HiDreamImg2Img",
+    "_meta": {
+      "title": "HiDream Image to Image"
+    }
+  },
+  "save_image_websocket_node": {
+    "inputs": {
+      "images": [
+        "23",
+        0
+      ]
+    },
+    "class_type": "SaveImageWebsocket",
+    "_meta": {
+      "title": "SaveImageWebsocket"
+    }
+  },
+  "27": {
+    "inputs": {
+      "image": "viktor89.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  }
+}
