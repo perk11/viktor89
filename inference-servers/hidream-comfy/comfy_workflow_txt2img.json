@@ -1,16 +1,4 @@
 {
-  "2": {
-    "inputs": {
-      "images": [
-        "19",
-        0
-      ]
-    },
-    "class_type": "PreviewImage",
-    "_meta": {
-      "title": "Preview Image"
-    }
-  },
   "19": {
     "inputs": {
       "model_type": "dev-nf4",
