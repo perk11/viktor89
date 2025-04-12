@@ -1,0 +1,52 @@
+{
+  "2": {
+    "inputs": {
+      "images": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "19": {
+    "inputs": {
+      "model_type": "dev-nf4",
+      "primary_prompt": "prompt goes here",
+      "negative_prompt": "",
+      "width": 1024,
+      "height": 1024,
+      "seed": 1001,
+      "scheduler": "UniPC",
+      "override_steps": -1,
+      "override_cfg": -1,
+      "use_uncensored_llm": false,
+      "clip_l_prompt": "",
+      "openclip_prompt": "",
+      "t5_prompt": "",
+      "llama_prompt": "",
+      "max_length_clip_l": 77,
+      "max_length_openclip": 150,
+      "max_length_t5": 256,
+      "max_length_llama": 256
+    },
+    "class_type": "HiDreamSamplerAdvanced",
+    "_meta": {
+      "title": "HiDream Sampler (Advanced)"
+    }
+  },
+  "save_image_websocket_node": {
+    "inputs": {
+      "images": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "SaveImageWebsocket",
+    "_meta": {
+      "title": "SaveImageWebsocket"
+    }
+  }
+}
