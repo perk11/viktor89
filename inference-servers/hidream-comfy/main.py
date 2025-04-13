@@ -123,7 +123,7 @@ def generate_image():
                 'images': [image_base64],
                 'parameters': {},
                 'info': json.dumps({
-                    'infotexts': [f'{prompt}\n, Seed: {seed}, Size: {width}x{height}, Model: HiDream-'
+                    'infotexts': [f'{prompt}\nSeed: {seed}, Size: {width}x{height}, Model: HiDream-'
                                   + model
                                   ]
                 })
@@ -171,7 +171,7 @@ def generate_img2img():
                 'images': [image_base64],
                 'parameters': {},
                 'info': json.dumps({
-                    'infotexts': [f'{prompt}\n Seed: {seed}, Model: HiDream-{model}, Denoising strength: {denoising_strength}']
+                    'infotexts': [f'{prompt}\nSeed: {seed}, Model: HiDream-{model}, Denoising strength: {denoising_strength}']
                 })
             }
 
