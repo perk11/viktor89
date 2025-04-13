@@ -87,7 +87,7 @@ def get_img2img_workflow(input_image_filename, prompt,  negative_prompt, model, 
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
-    comfy_workflow_object["23"]["inputs"]['primary_prompt'] = prompt
+    comfy_workflow_object["23"]["inputs"]['prompt'] = prompt
     comfy_workflow_object["23"]["inputs"]['negative_prompt'] = negative_prompt
     comfy_workflow_object["23"]["inputs"]['seed'] = seed
     comfy_workflow_object["23"]["inputs"]['model_type'] = model
