@@ -36,10 +36,15 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
 
     public function generateImageByPromptAndModelParams(string $prompt, array $params): Automatic1111ImageApiResponse
     {
-        if (isset($params['promptPrefix'])) {
+        if (isset($params['promptPrefix']) && !str_starts_with($prompt, $params['promptPrefix'])) {
             $prompt = $params['promptPrefix'] . $prompt;
             unset($params['promptPrefix']);
         }
+        if (isset($params['promptSuffix']) && !str_ends_with($prompt, $params['promptSuffix'])) {
+            $prompt .= $params['promptSuffix'];
+            unset($params['promptSuffix']);
+        }
+
         $params['prompt'] = $prompt;
         $sendAsFile = false;
         if (isset($params['sendAsFile'])) {
@@ -62,6 +67,10 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         if (isset($params['promptPrefix'])) {
             $prompt = $params['promptPrefix'] . $prompt;
             unset($params['promptPrefix']);
+        }
+        if (isset($params['promptSuffix'])) {
+            $prompt .= $params['promptSuffix'];
+            unset($params['promptSuffix']);
         }
         $sendAsFile = false;
         if (isset($params['sendAsFile'])) {
