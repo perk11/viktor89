@@ -118,7 +118,7 @@ def generate_img2img():
                 'images': [image_base64],
                 'parameters': {},
                 'info': json.dumps({
-                    'infotexts': [f'{prompt}\nSeed: {seed}, Model: icedit-flux1-fill-dev']
+                    'infotexts': [f'{prompt}\nSeed: {seed}, Steps: {steps}, Model: icedit-flux1-fill-dev']
                 })
             }
 
