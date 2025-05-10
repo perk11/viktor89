@@ -13,6 +13,7 @@ class UpscaleApiClient
     public function __construct(
         private readonly UserPreferenceReaderInterface $stepsPreference,
         private readonly UserPreferenceReaderInterface $seedPreference,
+        private readonly UserPreferenceReaderInterface $upscaleModelPreference,
         private readonly array $modelConfig,
     ){}
     public function upscaleImage(string $imageContent, int $userId): Automatic1111ImageApiResponse
@@ -29,7 +30,12 @@ class UpscaleApiClient
      */
     private function getParamsBasedOnUserPreferences(int $userId): mixed
     {
-        $params = current($this->modelConfig);
+        $modelName = $this->upscaleModelPreference->getCurrentPreferenceValue($userId);
+        if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
+            $params = current($this->modelConfig);
+        } else {
+            $params = $this->modelConfig[$modelName];
+        }
         $apiUrl = rtrim($params['url'], '/');
         unset ($params['url']);
         $this->httpClient = new Client(['base_uri' => $apiUrl]);

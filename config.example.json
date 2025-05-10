@@ -234,6 +234,22 @@
     }
   },
   "upscaleModels": {
+    "4x-ESRGAN": {
+      "url": "http://localhost:8132",
+      "model": "4x-ESRGAN.pth"
+    },
+    "4xNomos2_hq_drct-l": {
+      "url": "http://localhost:8132",
+      "model": "4xNomos2_hq_drct-l.safetensors"
+    },
+    "4xNomosWebPhoto_esrgan": {
+      "url": "http://localhost:8132",
+      "model": "4xNomosWebPhoto_esrgan.safetensors"
+    },
+    "4x_foolhardy_Remacri": {
+      "url": "http://localhost:8132",
+      "model": "4x_foolhardy_Remacri.pth"
+    },
     "Flux.1-dev-Controlnet-Upscaler": {
       "steps": 28,
       "url": "http://localhost:8104"
