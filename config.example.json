@@ -250,6 +250,12 @@
       "url": "http://localhost:8132",
       "model": "4x_foolhardy_Remacri.pth"
     },
+    "1xDeJPG_realplksr_otf": {
+      "url": "http://localhost:8132",
+      "model": "1xDeJPG_realplksr_otf.safetensors",
+      "source_max_height": 2048,
+      "source_max_width": 2048
+    },
     "Flux.1-dev-Controlnet-Upscaler": {
       "steps": 28,
       "url": "http://localhost:8104"

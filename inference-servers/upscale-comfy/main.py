@@ -69,13 +69,15 @@ def get_images(prompt):
     return output_images
 
 
-def get_img2img_workflow(input_image_filename, model):
+def get_img2img_workflow(input_image_filename, model, source_max_width, source_max_height):
     workflow_file_path = Path(__file__).with_name("comfy_workflow_img2img.json")
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
     comfy_workflow_object["1"]["inputs"]['model_name'] = model
     comfy_workflow_object["2"]["inputs"]['image'] = input_image_filename
+    comfy_workflow_object["6"]["inputs"]['width'] = source_max_width
+    comfy_workflow_object["6"]["inputs"]['height'] = source_max_height
     return comfy_workflow_object
 
 
@@ -84,6 +86,8 @@ def generate_img2img():
     data = request.json
 
     model = data.get('model', '4x-ESRGAN.pth')
+    source_max_width = data.get('source_max_width', 512)
+    source_max_height = data.get('source_max_height', 512)
     model_name = os.path.splitext(model)[0]
     init_images = data.get('init_images', [])
 
@@ -100,7 +104,7 @@ def generate_img2img():
     with open(args.comfy_ui_input_dir + '/' + input_image_file_name, 'wb') as file:
         file.write(image_data)
 
-    comfy_workflow_object = get_img2img_workflow(input_image_file_name, model)
+    comfy_workflow_object = get_img2img_workflow(input_image_file_name, model, source_max_width, source_max_height)
     print(comfy_workflow_object)
     try:
         images = get_images(comfy_workflow_object)
