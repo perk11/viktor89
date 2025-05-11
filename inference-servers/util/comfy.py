@@ -3,6 +3,7 @@ import io
 import json
 import urllib.parse
 import urllib.request
+import urllib.error
 import uuid
 import websocket  # NOTE: websocket-client (https://github.com/websocket-client/websocket-client)
 from flask import jsonify
@@ -12,7 +13,14 @@ def _queue_prompt(prompt, client_id, comfy_ui_server_address):
     p = {"prompt": prompt, "client_id": client_id}
     data = json.dumps(p).encode('utf-8')
     req = urllib.request.Request("http://{}/prompt".format(comfy_ui_server_address), data=data)
-    return json.loads(urllib.request.urlopen(req).read())
+    try:
+        comfy_response = urllib.request.urlopen(req).read()
+        print("Comfy response: {}".format(comfy_response), flush=True)
+    except urllib.error.HTTPError  as e:
+        error_body = e.read().decode("utf-8", errors="replace")
+        print(f"Sending prompt to comfy resulted in HTTPError: {e.code} {e.reason}:\n{error_body}", flush=True)
+        raise e
+    return json.loads(comfy_response)
 
 def get_images(prompt, comfy_ui_server_address):
     client_id = str(uuid.uuid4())
