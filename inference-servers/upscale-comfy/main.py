@@ -15,6 +15,7 @@ parent, root = file.parent, file.parents[1]
 sys.path.append(str(root))
 
 from util.comfy import comfy_workflow_to_json_image_response
+from util.image_resize import resize_if_needed
 
 app = Flask(__name__)
 parser = argparse.ArgumentParser(description="Inference server for icedit using ComfyUI")
@@ -37,6 +38,16 @@ def get_img2img_workflow(input_image_filename, model, source_max_width, source_m
     return comfy_workflow_object
 
 
+def get_img2img_workflow_ldsr(input_image_filename: str, steps: str) -> dict:
+    workflow_file_path = Path(__file__).with_name("comfy_workflow_img2img_ldsr.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["2"]["inputs"]['image'] = input_image_filename
+    comfy_workflow_object["7"]["inputs"]['steps'] = steps
+    return comfy_workflow_object
+
+
 @app.route('/sdapi/v1/img2img', methods=['POST'])
 def generate_img2img():
     data = request.json
@@ -44,7 +55,6 @@ def generate_img2img():
     model = data.get('model', '4x-ESRGAN.pth')
     source_max_width = data.get('source_max_width', 512)
     source_max_height = data.get('source_max_height', 512)
-    model_name = os.path.splitext(model)[0]
     init_images = data.get('init_images', [])
 
     data["init_images"]= "[omitted " + str(len(init_images)) + "]"
@@ -56,13 +66,27 @@ def generate_img2img():
 
     input_image_file_name = 'viktor89-upscale.jpg'
     sem.acquire()
+
+    if model == 'Flowty-LDSR':
+        steps = int(data.get('steps', 100))
+        possible_steps = [25, 50, 100, 250, 500, 1000]
+        nearest_step_value = min(possible_steps, key=lambda t: (abs(steps - t), t))
+
+        image_data, resized = resize_if_needed(image_data, source_max_width, source_max_height)
+        if resized:
+            print("Image was downscaled before upscaling", flush=True)
+            input_image_file_name = 'viktor89-upscale.png'
+        comfy_workflow_object = get_img2img_workflow_ldsr(input_image_file_name, str(nearest_step_value))
+        infotext = f'Steps: {nearest_step_value}, Model: {model}'
+    else:
+        comfy_workflow_object = get_img2img_workflow(input_image_file_name, model, source_max_width, source_max_height)
+        model_name = os.path.splitext(model)[0]
+        infotext = f'Model: {model_name}'
+    print(comfy_workflow_object)
     with open(args.comfy_ui_input_dir + '/' + input_image_file_name, 'wb') as file:
         file.write(image_data)
-
-    comfy_workflow_object = get_img2img_workflow(input_image_file_name, model, source_max_width, source_max_height)
-    print(comfy_workflow_object)
     try:
-        return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, f'Model: {model_name}')
+        return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
     finally:
         sem.release()
 

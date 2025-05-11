@@ -1,0 +1,52 @@
+{
+  "2": {
+    "inputs": {
+      "image": "viktor89-upscale.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "save_image_websocket_node": {
+    "inputs": {
+      "images": [
+        "7",
+        0
+      ]
+    },
+    "class_type": "SaveImageWebsocket",
+    "_meta": {
+      "title": "SaveImageWebsocket"
+    }
+  },
+  "6": {
+    "inputs": {
+      "model": "ldsr.ckpt"
+    },
+    "class_type": "LDSRModelLoader",
+    "_meta": {
+      "title": "Load LDSR Model"
+    }
+  },
+  "7": {
+    "inputs": {
+      "steps": "100",
+      "pre_downscale": "None",
+      "post_downscale": "None",
+      "downsample_method": "Lanczos",
+      "upscale_model": [
+        "6",
+        0
+      ],
+      "images": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "LDSRUpscale",
+    "_meta": {
+      "title": "LDSR Upscale"
+    }
+  }
+}
