@@ -78,7 +78,10 @@ class TelegramFileDownloader
         $fileId = end($photos)->getFileId();
         echo "Downloading photo with fileId $fileId\n";
 
-        return $this->downloadFile($fileId);
+        $photo =  $this->downloadFile($fileId);
+        echo "Finished downloading photo with fileId $fileId\n";
+
+        return $photo;
     }
 
 }
