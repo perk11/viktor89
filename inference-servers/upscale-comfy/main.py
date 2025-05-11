@@ -1,17 +1,20 @@
 #Based on https://github.com/comfyanonymous/ComfyUI/blob/master/script_examples/websockets_api_example_ws_images.py
 import argparse
 import base64
-import io
 import json
 import os
+import sys
 import threading
-import urllib.parse
-import urllib.request
-import uuid
 from pathlib import Path
 
-import websocket  # NOTE: websocket-client (https://github.com/websocket-client/websocket-client)
 from flask import Flask, request, jsonify
+
+#Allow relative imports
+file = Path(__file__).resolve()
+parent, root = file.parent, file.parents[1]
+sys.path.append(str(root))
+
+from util.comfy import comfy_workflow_to_json_image_response
 
 app = Flask(__name__)
 parser = argparse.ArgumentParser(description="Inference server for icedit using ComfyUI")
@@ -21,53 +24,6 @@ parser.add_argument('--comfy_ui_input_dir', type=str, help='Path to ComfyUI "inp
 args = parser.parse_args()
 
 sem = threading.Semaphore()
-
-def queue_prompt(prompt, client_id):
-    p = {"prompt": prompt, "client_id": client_id}
-    data = json.dumps(p).encode('utf-8')
-    req = urllib.request.Request("http://{}/prompt".format(args.comfy_ui_server_address), data=data)
-    return json.loads(urllib.request.urlopen(req).read())
-
-
-def get_image(filename, subfolder, folder_type):
-    data = {"filename": filename, "subfolder": subfolder, "type": folder_type}
-    url_values = urllib.parse.urlencode(data)
-    with urllib.request.urlopen("http://{}/view?{}".format(args.comfy_ui_server_address, url_values)) as response:
-        return response.read()
-
-
-def get_history(prompt_id):
-    with urllib.request.urlopen("http://{}/history/{}".format(args.comfy_ui_server_address, prompt_id)) as response:
-        return json.loads(response.read())
-
-
-def get_images(prompt):
-    client_id = str(uuid.uuid4())
-    ws = websocket.WebSocket()
-    ws.connect("ws://{}/ws?clientId={}".format(args.comfy_ui_server_address, client_id))
-    prompt_id = queue_prompt(prompt, client_id)['prompt_id']
-    output_images = {}
-    current_node = ""
-    while True:
-        out = ws.recv()
-        if isinstance(out, str):
-            message = json.loads(out)
-            if message['type'] == 'executing':
-                data = message['data']
-                if 'prompt_id' in data and data['prompt_id'] == prompt_id:
-                    if data['node'] is None:
-                        break  #Execution is done
-                    else:
-                        current_node = data['node']
-        else:
-            if current_node == 'save_image_websocket_node':
-                images_output = output_images.get(current_node, [])
-                images_output.append(out[8:])
-                output_images[current_node] = images_output
-
-    ws.close()
-    return output_images
-
 
 def get_img2img_workflow(input_image_filename, model, source_max_width, source_max_height):
     workflow_file_path = Path(__file__).with_name("comfy_workflow_img2img.json")
@@ -93,7 +49,6 @@ def generate_img2img():
 
     data["init_images"]= "[omitted " + str(len(init_images)) + "]"
     print(data)
-    images = []
     if len(init_images) != 1:
         return jsonify({'error': "A single init image is required"}), 400
 
@@ -107,26 +62,9 @@ def generate_img2img():
     comfy_workflow_object = get_img2img_workflow(input_image_file_name, model, source_max_width, source_max_height)
     print(comfy_workflow_object)
     try:
-        images = get_images(comfy_workflow_object)
-        print(f"{len(images)} images received from Comfy", flush=True)
+        return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, f'Model: {model_name}')
     finally:
         sem.release()
-    for node_id in images:
-        for image_data in images[node_id]:
-            image_base64 = base64.b64encode(io.BytesIO(image_data).getbuffer()).decode('utf-8')
-            response = {
-                'images': [image_base64],
-                'parameters': {},
-                'info': json.dumps({
-                    'infotexts': [f'Model: {model_name}']
-                })
-            }
-
-            return jsonify(response)
-
-    return jsonify({
-        'error': 'No images received from ComfyUI'
-    })
 
 if __name__ == '__main__':
     app.run(host='localhost', port=args.port)
