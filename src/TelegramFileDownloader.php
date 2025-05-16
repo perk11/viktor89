@@ -56,8 +56,10 @@ class TelegramFileDownloader
             if ($contents === false) {
                 throw new \RuntimeException("Failed to read downloaded cache file: $cacheFileName. " . error_get_last()['message']);
             }
+            echo "Reading file from cache: $cacheFileName\n";
             return $contents;
         }
+        echo "Downloading file: $cacheFileName\n";
         $fileRequest = Request::getFile([
                                             'file_id' => $fileId,
                                         ]);
@@ -76,6 +78,7 @@ class TelegramFileDownloader
         }
 
         $contents = $downloadResponse->getBody()->getContents();
+        echo "Finished downloading file: $cacheFileName";
         $putResult = file_put_contents($cacheFileName, $contents);
 
         if ($putResult === false) {
@@ -90,11 +93,7 @@ class TelegramFileDownloader
             throw new \Exception('Message does not contain photos');
         }
         $fileId = $internalMessage->photoFileId;
-        echo "Downloading photo with fileId $fileId\n";
 
-        $photo =  $this->downloadFile($fileId);
-        echo "Finished downloading photo with fileId $fileId\n";
-
-        return $photo;
+        return $this->downloadFile($fileId);
     }
 }
