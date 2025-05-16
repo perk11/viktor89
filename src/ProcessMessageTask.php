@@ -13,9 +13,11 @@ use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\ClownifyApiClient;
 use Perk11\Viktor89\ImageGeneration\ClownifyProcessor;
 use Perk11\Viktor89\ImageGeneration\DownscaleProcessor;
+use Perk11\Viktor89\ImageGeneration\ImageRemixer;
 use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
+use Perk11\Viktor89\ImageGeneration\RemixProcessor;
 use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\ImageGeneration\UpscaleProcessor;
@@ -309,6 +311,18 @@ class ProcessMessageTask implements Task
                 ['/clownify'],
                 false,
                 new ClownifyProcessor($telegramFileDownloader,new ClownifyApiClient($config['clownifyModels']), $photoResponder)
+            ),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/remix'],
+                false,
+                new RemixProcessor(
+                    $telegramFileDownloader,
+                    $photoResponder,
+                    new ImageRemixer(
+                        $assistantFactory->getAssistantInstanceByName('vision-for-remix'),
+                        $automatic1111APiClient,
+                    )
+                )
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],
