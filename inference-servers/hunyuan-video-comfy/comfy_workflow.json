@@ -184,13 +184,14 @@
   "90": {
     "inputs": {
       "model_type": "hunyuan_video",
+      "max_skip_steps": 3,
       "rel_l1_thresh": 0.3,
       "model": [
         "93",
         0
       ]
     },
-    "class_type": "TeaCacheForVidGen",
+    "class_type": "TeaCache",
     "_meta": {
       "title": "TeaCache For Vid Gen"
     }
