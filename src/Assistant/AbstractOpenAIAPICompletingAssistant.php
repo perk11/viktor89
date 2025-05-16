@@ -6,6 +6,7 @@ use JsonException;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
+use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAssistant implements AbortableStreamingResponseGenerator
@@ -16,11 +17,13 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
     public function __construct(
         UserPreferenceReaderInterface $systemPromptProcessor,
         UserPreferenceReaderInterface $responseStartProcessor,
+        TelegramFileDownloader $telegramFileDownloader,
+        int $telegramBotId,
         string $url,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
     )
     {
-        parent::__construct($systemPromptProcessor, $responseStartProcessor, $url);
+        parent::__construct($systemPromptProcessor, $responseStartProcessor, $telegramFileDownloader, $telegramBotId, $url);
     }
 
     public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void

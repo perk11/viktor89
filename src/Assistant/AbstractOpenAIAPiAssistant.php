@@ -4,8 +4,8 @@ namespace Perk11\Viktor89\Assistant;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
-use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
@@ -14,6 +14,8 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
     public function __construct(
         private readonly UserPreferenceReaderInterface $systemPromptProcessor,
         private readonly UserPreferenceReaderInterface $responseStartProcessor,
+        private readonly TelegramFileDownloader$telegramFileDownloader,
+        private readonly int $telegramBotUserId,
         string $url,
     )
     {
@@ -53,16 +55,17 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         ?string $systemPrompt,
         ?string $responseStart
     ): AssistantContext {
-        $isUser = $messageChain->count() % 2 === 1;
         $assistantContext = new AssistantContext();
         $assistantContext->systemPrompt = $systemPrompt;
         $assistantContext->responseStart = $responseStart;
         foreach ($messageChain->getMessages() as $message) {
             $assistantContextMessage = new AssistantContextMessage();
-            $assistantContextMessage->isUser = $isUser;
             $assistantContextMessage->text = $message->messageText;
+            $assistantContextMessage->isUser = $message->userId !== $this->telegramBotUserId;
+            if ($message->photoFileId !== null) {
+                $assistantContextMessage->photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);
+            }
             $assistantContext->messages[] = $assistantContextMessage;
-            $isUser = !$isUser;
         }
 
         return $assistantContext;

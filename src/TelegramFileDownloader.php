@@ -13,12 +13,6 @@ class TelegramFileDownloader
     {
         $this->guzzle = new Client();
     }
-    public function downloadPhotoFromMessage(Message $message): string
-    {
-        $photos = $message->getPhoto();
-
-        return $this->downloadPhoto($photos);
-    }
 
     public function downloadVoice(Message $message): string
     {
@@ -70,12 +64,12 @@ class TelegramFileDownloader
         return $downloadResponse->getBody()->getContents();
     }
 
-    public function downloadPhoto(?array $photos): string
+    public function downloadPhotoFromInternalMessage(InternalMessage $internalMessage): string
     {
-        if (count($photos) === 0) {
+        if ($internalMessage->photoFileId === null) {
             throw new \Exception('Message does not contain photos');
         }
-        $fileId = end($photos)->getFileId();
+        $fileId = $internalMessage->photoFileId;
         echo "Downloading photo with fileId $fileId\n";
 
         $photo =  $this->downloadFile($fileId);
@@ -83,5 +77,4 @@ class TelegramFileDownloader
 
         return $photo;
     }
-
 }

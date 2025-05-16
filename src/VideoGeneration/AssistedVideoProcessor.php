@@ -53,9 +53,9 @@ class AssistedVideoProcessor implements MessageChainProcessor
         $assistantContext = $this->createContext($prompt);
         $newPrompt = $this->promptAssistant->getCompletionBasedOnContext($assistantContext);
 
-        if ($messageChain->previous()?->photo !== null) {
+        if ($messageChain->previous()?->photoFileId !== null) {
             $this->videoImg2VidProcessor->respondWithImg2VidResultBasedOnPhotoInMessage(
-                $messageChain->previous()->photo,
+                $messageChain->previous(),
                 $message,
                 $newPrompt
             );

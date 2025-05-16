@@ -34,11 +34,12 @@ class PhotoImg2ImgProcessor
         if ($prompt === '') {
             return;
         }
-        $this->respondWithImg2ImgResultBasedOnPhotoInMessage($message->getPhoto(), InternalMessage::fromTelegramMessage($message), $prompt);
+        $internalMessage = InternalMessage::fromTelegramMessage($message);
+        $this->respondWithImg2ImgResultBasedOnPhotoInMessage($internalMessage,$internalMessage, $prompt);
     }
 
     public function respondWithImg2ImgResultBasedOnPhotoInMessage(
-        array $photoArray,
+        InternalMessage $messageWithPhoto,
         InternalMessage $messageToReplyTo,
         string $prompt,
     ): void
@@ -55,7 +56,7 @@ class PhotoImg2ImgProcessor
             ],
         ]);
         try {
-            $photo = $this->telegramFileDownloader->downloadPhoto($photoArray);
+            $photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageWithPhoto);
             $transformedPhotoResponse = $this->automatic1111APiClient->generateImageByPromptAndImages(
                 [$photo],
                 $prompt,

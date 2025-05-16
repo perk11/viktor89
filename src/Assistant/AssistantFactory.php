@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\Assistant;
 
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
+use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 class AssistantFactory
@@ -14,6 +15,8 @@ class AssistantFactory
         private readonly UserPreferenceReaderInterface $defaultSystemPromptProcessor,
         private readonly UserPreferenceReaderInterface $responseStartProcessor,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
+        private readonly TelegramFileDownloader $telegramFileDownloader,
+        private readonly int $telegramBotId
     )
     {
     }
@@ -63,6 +66,8 @@ class AssistantFactory
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
                 $systemPromptProcessor,
                 $this->responseStartProcessor,
+                $this->telegramFileDownloader,
+                $this->telegramBotId,
                 $requestedAssistantConfig['url'],
                 $this->openAiCompletionStringParser,
             );
@@ -71,6 +76,8 @@ class AssistantFactory
                 $requestedAssistantConfig['model'] ?? null,
                 $systemPromptProcessor,
                 $this->responseStartProcessor,
+                $this->telegramFileDownloader,
+                $this->telegramBotId,
                 $requestedAssistantConfig['url'],
             );
         } elseif(is_a($requestedAssistantConfig['class'], PerplexicaAssistant::class, true)) {

@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\Assistant;
 
 use Perk11\Viktor89\OpenAiCompletionStringParser;
+use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 class Llama3Assistant extends AbstractOpenAIAPICompletingAssistant
@@ -21,11 +22,13 @@ class Llama3Assistant extends AbstractOpenAIAPICompletingAssistant
     public function __construct(
         UserPreferenceReaderInterface $systemPromptProcessor,
         UserPreferenceReaderInterface $responseStartProcessor,
+        TelegramFileDownloader $telegramFileDownloader,
+        int $telegramBotId,
         string $url,
         OpenAiCompletionStringParser $openAiCompletionStringParser,
     ) {
 
-        parent::__construct($systemPromptProcessor, $responseStartProcessor, $url, $openAiCompletionStringParser);
+        parent::__construct($systemPromptProcessor, $responseStartProcessor, $telegramFileDownloader, $url, $telegramBotId, $openAiCompletionStringParser);
         $this->tokenReplacements = array_fill(0, count($this->tokens) - 1, '');
     }
     protected function convertContextToPrompt(AssistantContext $assistantContext): string

@@ -4,10 +4,14 @@ namespace Perk11\Viktor89\ImageGeneration;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
 
 class PhotoResponder
 {
+    public function __construct(private readonly Database $database)
+    {
+    }
     public function sendPhoto(Message|InternalMessage $message, string $photoContents, bool $sendAsWebp, ?string $caption = null): void
     {
         if ($message instanceof Message) {
@@ -43,11 +47,16 @@ class PhotoResponder
         if ($sendAsWebp) {
             echo "Sending document response\n";
             $options['document'] = $encodedFile;
-            Request::sendDocument($options);
+            $sentMessageResult = Request::sendDocument($options);
         } else {
             echo "Sending photo response\n";
             $options['photo'] = $encodedFile;
-            Request::sendPhoto($options);
+            $sentMessageResult = Request::sendPhoto($options);
+        }
+        if ($sentMessageResult->isOk() && $sentMessageResult->getResult() instanceof Message) {
+            $this->database->logMessage($sentMessageResult->getResult());
+        } else {
+            echo "Failed to send message: " . $sentMessageResult->getResult() . "\n";
         }
         echo "Deleting $imagePath\n";
         unlink($imagePath);

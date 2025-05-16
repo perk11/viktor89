@@ -35,11 +35,15 @@ class CommandBasedResponderTrigger implements MessageChainProcessor
             }
 
             $firstMessageText = $messageChain->first()->messageText;
-            foreach ($this->triggeringCommands as $triggeringCommand) {
-                if (str_starts_with($firstMessageText, $triggeringCommand)) {
-                    $triggerFound = true;
-                    $messageChain->first()->messageText = trim(str_replace($triggeringCommand, '', $firstMessageText));
-                    break;
+            foreach ($messageChain->getMessages() as $message) {
+                foreach ($this->triggeringCommands as $triggeringCommand) {
+                    if (str_starts_with($message->messageText, $triggeringCommand)) {
+                        $triggerFound = true;
+                        $message->messageText = trim(
+                            str_replace($triggeringCommand, '', $firstMessageText)
+                        );
+                        break; //Do not break from the outer loop to remove the command from all the messages
+                    }
                 }
             }
             if (!$triggerFound) {

@@ -31,8 +31,8 @@ class VideoProcessor implements MessageChainProcessor
             $response->messageText = 'Непонятно, что генерировать...';
             return new ProcessingResult($response, true);
         }
-        if ($messageChain->previous()?->photo !== null) {
-            $this->videoImg2ImgProcessor->respondWithImg2VidResultBasedOnPhotoInMessage($messageChain->previous()->photo , $message, $prompt);
+        if ($messageChain->previous()?->photoFileId !== null) {
+            $this->videoImg2ImgProcessor->respondWithImg2VidResultBasedOnPhotoInMessage($messageChain->previous() , $message, $prompt);
             return new ProcessingResult(null, true);
         }
         echo "Generating video for prompt: $prompt\n";

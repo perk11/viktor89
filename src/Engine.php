@@ -15,6 +15,7 @@ class Engine
         'text',
         'new_chat_members',
         'poll',
+        'photo',
         'voice',
         'video',
         'audio',
@@ -38,6 +39,8 @@ class Engine
 
     public function handleMessage(Message $message): void
     {
+        $this->database->logMessage($message);
+
         if ($this->photoImg2ImgProcessor !== null && $message->getType() === 'photo') {
             $this->photoImg2ImgProcessor->processMessage($message);
 
@@ -58,7 +61,6 @@ class Engine
 
             return;
         }
-        $this->database->logMessage($message);
         foreach ($this->preResponseProcessors as $preResponseProcessor) {
             $replacedMessage = $preResponseProcessor->process($message);
             if ($replacedMessage !== false) {
@@ -137,6 +139,7 @@ class Engine
             $responseMessage->chatId = $message->getChat()->getId();
             $responseMessage->userId = $telegramServerResponse->getResult()->getFrom()->getId();
             $responseMessage->date = time();
+            $responseMessage->type='text';
             $this->database->logInternalMessage($responseMessage);
         } else {
             echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";

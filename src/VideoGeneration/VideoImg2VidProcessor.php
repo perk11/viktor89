@@ -16,7 +16,7 @@ class VideoImg2VidProcessor
     }
 
     public function respondWithImg2VidResultBasedOnPhotoInMessage(
-        array $photo,
+        InternalMessage $messageWithPhoto,
         InternalMessage $messageWithCommand,
         string $prompt,
     ): void
@@ -33,7 +33,7 @@ class VideoImg2VidProcessor
             ],
         ]);
         try {
-            $photoContents = $this->telegramFileDownloader->downloadPhoto($photo);
+            $photoContents = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageWithPhoto);
             $videoResponse = $this->img2VideoClient->generateByPromptImg2Vid(
                 $photoContents,
                 $prompt,

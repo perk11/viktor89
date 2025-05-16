@@ -148,6 +148,8 @@ class ProcessMessageTask implements Task
             $systemPromptProcessor,
             $responseStartProcessor,
             $openAiCompletionStringParser,
+            $telegramFileDownloader,
+            $telegram->getBotId(),
         );
         $assistantModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
             $database,
@@ -170,7 +172,7 @@ class ProcessMessageTask implements Task
             $imageModelProcessor,
             $imageModelConfig,
         );
-        $photoResponder = new PhotoResponder();
+        $photoResponder = new PhotoResponder($database);
         $photoImg2ImgProcessor = new PhotoImg2ImgProcessor(
             $telegramFileDownloader,
             $automatic1111APiClient,

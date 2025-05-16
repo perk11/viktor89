@@ -15,6 +15,8 @@ class InternalMessage
 {
     public int $id;
 
+    public string $type;
+
     public ?int $messageThreadId = null;
 
     public int $userId;
@@ -33,10 +35,9 @@ class InternalMessage
 
     public int $chatId;
 
-    /** Everything below is currently not stored in the database */
+    public ?string $photoFileId = null;
 
-    /** @var PhotoSize[]|null */
-    public ?array $photo = null;
+    /** Everything below is currently not stored in the database */
     public ?Audio $audio = null;
     public ?Video $video = null;
     public ?VideoNote $videoNote = null;
@@ -46,6 +47,7 @@ class InternalMessage
     {
         $message = new self();
         $message->id = $result['id'];
+        $message->type = $result['type'];
         $message->messageThreadId = $result['message_thread_id'];
         $message->userId = $result['user_id'];
         $message->chatId = $result['chat_id'];
@@ -53,6 +55,7 @@ class InternalMessage
         $message->replyToMessageId = $result['reply_to_message'];
         $message->userName = $result['username'];
         $message->messageText = $result['message_text'];
+        $message->photoFileId = $result['photo_file_id'];
 
         return $message;
     }
@@ -61,6 +64,7 @@ class InternalMessage
     {
         $message = new self();
         $message->id = $telegramMessage->getMessageId();
+        $message->type = $telegramMessage->getType();
         $message->messageThreadId = $telegramMessage->getMessageThreadId();
         $message->userId = $telegramMessage->getFrom()->getId();
         $message->date = $telegramMessage->getDate();
@@ -71,12 +75,25 @@ class InternalMessage
         }
         $message->chatId = $telegramMessage->getChat()->getId();
         $message->actualMessageText = $telegramMessage->getText();
+        if ($message->actualMessageText === null || $message->actualMessageText === '') {
+            if ($telegramMessage->getCaption() !== null) {
+                $message->actualMessageText = $telegramMessage->getCaption();
+            }
+        }
         $message->messageText = ltrim(str_replace(
             '@' . $_ENV['TELEGRAM_BOT_USERNAME'],
             '',
             $message->actualMessageText)
         );
-        $message->photo = $telegramMessage->getPhoto();
+        if ($telegramMessage->getPhoto() !== null) {
+            $maxSize = 0;
+            foreach ($telegramMessage->getPhoto() as $photo) {
+                if ($photo->getFileSize() >= $maxSize) {
+                    $maxSize = $photo->getFileSize();
+                    $message->photoFileId = $photo->getFileId();
+                }
+            }
+        }
         $message->audio = $telegramMessage->getAudio();
         $message->video = $telegramMessage->getVideo();
         $message->videoNote = $telegramMessage->getVideoNote();

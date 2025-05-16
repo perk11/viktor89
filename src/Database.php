@@ -28,7 +28,9 @@ class Database
         $this->sqlite3Database->busyTimeout(30000);
         $this->sqlite3Database->query(file_get_contents(__DIR__ . '/db-structure.sql'));
         $this->insertMessageStatement = $this->sqlite3Database->prepare(
-            'INSERT INTO message (chat_id, id, message_thread_id, user_id, `date`, reply_to_message, username, message_text) VALUES (:chat_id, :id, :message_thread_id, :user_id, :date, :reply_to_message, :username, :message_text)'
+            'INSERT INTO message (chat_id, id, type, message_thread_id, user_id, `date`, reply_to_message, username, message_text, photo_file_id)
+VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_message, :username, :message_text, :photo_file_id)
+'
         );
         $this->selectMessageStatement = $this->sqlite3Database->prepare(
             'SELECT * FROM message WHERE id = :id AND chat_id = :chat_id'
@@ -56,7 +58,8 @@ class Database
         $this->insertMessageStatement->bindValue(':username', $message->userName);
         $this->insertMessageStatement->bindValue(':chat_id', $message->chatId);
         $this->insertMessageStatement->bindValue(':message_text', $message->messageText);
-
+        $this->insertMessageStatement->bindValue(':photo_file_id', $message->photoFileId);
+        $this->insertMessageStatement->bindValue(':type', $message->type);
 
         $this->insertMessageStatement->execute();
     }
@@ -124,6 +127,7 @@ AND message.date>unixepoch(DATETIME(CURRENT_TIMESTAMP, '-1 day'))"
     {
         $fetchMessagesStatement = $this->sqlite3Database->prepare(
             "SELECT * FROM message WHERE chat_id = :chat_id AND message.date>:start_timestamp
+                      AND message.type='text'
                       ORDER BY id"
         );
         $fetchMessagesStatement->bindValue(':chat_id', $chatId);

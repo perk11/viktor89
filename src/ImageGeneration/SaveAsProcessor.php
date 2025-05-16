@@ -21,7 +21,7 @@ class SaveAsProcessor implements MessageChainProcessor
     public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
         $lastMessage = $messageChain->last();
-        if ($messageChain->previous()?->photo === null) {
+        if ($messageChain->previous()?->photoFileId === null) {
             $response = InternalMessage::asResponseTo($lastMessage);
             $response->messageText = "Используйте эту команду в ответ на фото";
 
@@ -33,7 +33,7 @@ class SaveAsProcessor implements MessageChainProcessor
             $response->messageText = "Напишите имя для сохранения после команды, например /saveas viktor89";
             return new ProcessingResult($response, true);
         }
-        $photo = $this->telegramFileDownloader->downloadPhoto($messageChain->previous()?->photo);
+        $photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageChain->previous());
         if ($this->imageRepository->save($name, $lastMessage->userId, $photo)) {
             return new ProcessingResult(null, true,'👌', $lastMessage);
         }
