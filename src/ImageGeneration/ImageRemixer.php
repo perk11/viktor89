@@ -23,7 +23,7 @@ class ImageRemixer
         $message = new AssistantContextMessage();
         $message->isUser = true;
         $message->photo = $image;
-        $message->text = 'Describe this image. Your responses will be fed directly to an image generator. Be as detailed as possible so that everything can be re-captured in the new image, but do not add anything that is not related to the image. Open with image description, do not break description into sections';
+        $message->text = 'Describe this image. Your responses will be fed directly to an image generator. Be as detailed as possible so that everything can be re-captured in the new image, but do not add anything that is not related to the image. Open with image description, your first word should already describe the image. Do not break description into sections';
         $assistantContext->messages[] = $message;
 
         $prompt = $this->assistantWithVision->getCompletionBasedOnContext($assistantContext);
