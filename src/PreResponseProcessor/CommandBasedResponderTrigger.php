@@ -12,8 +12,8 @@ class CommandBasedResponderTrigger implements MessageChainProcessor
 {
     public function __construct(
         private readonly array $triggeringCommands,
-        private readonly bool $responsesAlsoTrigger,
         private readonly MessageChainProcessor $responder,
+        private readonly ?int $alsoTriggerOnResponsesToThisUserIdIfCommandIsInChain = null,
     ) {
     }
 
@@ -30,7 +30,10 @@ class CommandBasedResponderTrigger implements MessageChainProcessor
         }
 
         if (!$triggerFound) {
-            if (!$this->responsesAlsoTrigger) {
+            if (!$this->alsoTriggerOnResponsesToThisUserIdIfCommandIsInChain) {
+                return new ProcessingResult(null, false);
+            }
+            if ($messageChain->previous()?->userId !== $this->alsoTriggerOnResponsesToThisUserIdIfCommandIsInChain) {
                 return new ProcessingResult(null, false);
             }
 

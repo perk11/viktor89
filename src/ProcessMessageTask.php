@@ -280,7 +280,6 @@ class ProcessMessageTask implements Task
             $responseStartProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/quiz'],
-                false,
                 new RandomQuizResponder($questionRepository)
             ),
             new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
@@ -299,22 +298,18 @@ class ProcessMessageTask implements Task
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/upscale'],
-                false,
                 new UpscaleProcessor($telegramFileDownloader, $upscaleClient, $photoResponder)
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/downscale'],
-                false,
                 new DownscaleProcessor($telegramFileDownloader, $photoResponder)
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/clownify'],
-                false,
                 new ClownifyProcessor($telegramFileDownloader,new ClownifyApiClient($config['clownifyModels']), $photoResponder)
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/remix'],
-                false,
                 new RemixProcessor(
                     $telegramFileDownloader,
                     $photoResponder,
@@ -326,32 +321,27 @@ class ProcessMessageTask implements Task
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],
-                true,
                 $userSelectedAssistant,
+                $telegram->getBotId(),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/video'],
-                false,
                 $videoProcessor,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/vid'],
-                false,
                 $assistedVideoProcessor,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/start', '/help'],
-                false,
                 new PrintHelpProcessor($database),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/preferences'],
-                false,
                 new PrintUserPreferencesResponder($database),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/say'],
-                false,
                 new TtsProcessor(
                     new TtsApiClient($config['voiceModels']),
                     new VoiceResponder(),
@@ -361,12 +351,10 @@ class ProcessMessageTask implements Task
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/transcribe'],
-                false,
                 new TranscribeProcessor($internalMessageTranscriber),
             ),
             new CommandBasedResponderTrigger(
                 ['/saveas'],
-                false,
                 new SaveAsProcessor($telegramFileDownloader, $imageRepository)
              ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
