@@ -30,6 +30,8 @@ use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\Quiz\QuestionRepository;
 use Perk11\Viktor89\Quiz\RandomQuizResponder;
+use Perk11\Viktor89\RateLimiting\RateLimit;
+use Perk11\Viktor89\RateLimiting\RateLimitsCommandProcessor;
 use Perk11\Viktor89\VideoGeneration\AssistedVideoProcessor;
 use Perk11\Viktor89\VideoGeneration\Img2VideoClient;
 use Perk11\Viktor89\VideoGeneration\Txt2VideoClient;
@@ -242,14 +244,20 @@ class ProcessMessageTask implements Task
             current($config['videoFirstFrameImageModels']),
         );
         $voiceRecogniser = new VoiceRecogniser($config['whisperCppUrl']);
+        $rateLimits = [
+            '-1001804789551' => 4,
+            '6184626947' => 2,
+//            '-1002398016894' => 3,
+
+        ];
+        $rateLimitObjects = [];
+        foreach ($rateLimits as $chat => $limit) {
+            $rateLimitObjects[] = new RateLimit($chat, $limit);
+        }
         $preResponseProcessors = [
             new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
                 $database, $this->telegramBotId,
-                [
-//            '-4233480248' => 3,
-                    '-1001804789551' => 4,
-                    '6184626947' => 2,
-                ]
+                $rateLimits,
             ),
             new SaveQuizPollProcessor($questionRepository),
             new JoinQuizProcessor($database),
@@ -357,6 +365,10 @@ class ProcessMessageTask implements Task
                 ['/saveas'],
                 new SaveAsProcessor($telegramFileDownloader, $imageRepository)
              ),
+            new CommandBasedResponderTrigger(
+                ['/ratelimits'],
+                new RateLimitsCommandProcessor($database, $rateLimitObjects)
+            ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
         ];

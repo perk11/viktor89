@@ -25,6 +25,9 @@ class RateLimitProcessor implements PreResponseProcessor
         if (!array_key_exists($chatId, $this->rateLimitByChatId)) {
             return false;
         }
+        if ($message->getText() === '/ratelimits') { //allow to check the limits
+            return false;
+        }
         if (
             $message->getType() !== 'command' && //TODO: ignore unknown commands
             !str_contains($message->getText(), '@' . $_ENV['TELEGRAM_BOT_USERNAME'])
