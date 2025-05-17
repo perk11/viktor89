@@ -30,6 +30,10 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         $systemPrompt = $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
             "Always respond to the user in the language they use or request.\n";
 
+        $userName = trim($messageChain->last()->userName);
+        if ($userName !== "") {
+            $systemPrompt = "User's name is \"$userName\".\n" . $systemPrompt;
+        }
         $assistantContext = $this->convertMessageChainToAssistantContext($messageChain, $systemPrompt, $responseStart);
 
         $lastMessage = $messageChain->last();
