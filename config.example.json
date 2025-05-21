@@ -43,6 +43,13 @@
       "useOptions": false,
       "assistantPrompt": "Given a message, translate it to Chinese, add details, reword and expand on it in a way that describes an image illustrating user's message and output it in Chinese. This text will be used to generate an image using automatic text to image generator that does not understand emotions, metaphors or negatives. Your output should contain only a literal description of the image in Chinese. Only describe what an observer will see. Your output will be directly passed to an API, so don't output anything extra. Do not use any syntax or code formatting, just output raw text describing the image in Chinese  and nothing else. Your message to describe follows bellow:"
     },
+    "icedit": {
+      "steps": 28,
+      "customUrl": "http://localhost:8131",
+      "useOptions": false,
+      "txt2img": false,
+      "img2img": true
+    },
     "stable-diffusion-xl": {
       "model": "sd_xl_base_1.0_0.9vae.safetensors",
       "width": 1024,
@@ -50,7 +57,8 @@
       "sampler_name": "DPM++ 2M",
       "steps": 30,
       "refiner_checkpoint": "sd_xl_refiner_1.0_0.9vae.safetensors",
-      "refiner_switch_at": 0.8
+      "refiner_switch_at": 0.8,
+      "img2img": true
     },
     "AuraFlow": {
       "width": 1024,
@@ -179,7 +187,8 @@
       "height": 1024,
       "customUrl": "http://localhost:8130",
       "negative_prompt": "deformed, ugly, watermark, text, scribbles, noise, static, low quality, bad quality, jpeg artifacts, low resolution",
-      "useOptions": false
+      "useOptions": false,
+      "img2img": true
     },
     "HiDream-dev-nf4": {
       "model": "dev-nf4",
@@ -187,7 +196,8 @@
       "height": 1024,
       "customUrl": "http://localhost:8130",
       "negative_prompt": "deformed, ugly, watermark, text, scribbles, noise, static, low quality, bad quality, jpeg artifacts, low resolution",
-      "useOptions": false
+      "useOptions": false,
+      "img2img": true
     },
     "HiDream-full-nf4": {
       "model": "full-nf4",
@@ -195,7 +205,8 @@
       "height": 1024,
       "customUrl": "http://localhost:8130",
       "negative_prompt": "deformed, ugly, watermark, text, scribbles, noise, static, low quality, bad quality, jpeg artifacts, low resolution",
-      "useOptions": false
+      "useOptions": false,
+      "img2img": true
     }
   },
   "imageSizes": [

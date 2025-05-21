@@ -29,7 +29,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
 
     public function generateImageByPrompt(string $prompt, int $userId): Automatic1111ImageApiResponse
     {
-        $params = $this->getParamsBasedOnUserPreferences($userId);
+        $params = $this->getParamsBasedOnUserPreferences($userId, ImageGenerationType::txt2img);
 
         return $this->generateImageByPromptAndModelParams($prompt, $params);
     }
@@ -62,7 +62,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
 
     public function generateImageByPromptAndImages(array $imageContents, string $prompt, int $userId): Automatic1111ImageApiResponse
     {
-        $params = $this->getParamsBasedOnUserPreferences($userId);
+        $params = $this->getParamsBasedOnUserPreferences($userId, ImageGenerationType::img2img);
         $params = $this->processParamsAndInitHttpClient($params);
         if (isset($params['promptPrefix'])) {
             $prompt = $params['promptPrefix'] . $prompt;
@@ -127,13 +127,16 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         return $params;
     }
 
-    private function getParamsBasedOnUserPreferences(int $userId): array
+    private function getParamsBasedOnUserPreferences(int $userId, ImageGenerationType $generationType): array
     {
         $modelName = $this->imageModelPreference->getCurrentPreferenceValue($userId);
         if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
             $params = current($this->modelConfig);
         } else {
             $params = $this->modelConfig[$modelName];
+        }
+        if (!$this->modelSupportsGeneration($params, $generationType)) {
+            $params = $this->getFallBackModelParams($generationType);
         }
         $steps = $this->stepsPreference->getCurrentPreferenceValue($userId);
         if ($steps !== null) {
@@ -152,6 +155,38 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
 
         return $params;
     }
+    private function modelSupportsGeneration(array $modelConfig, ImageGenerationType $generationType): bool
+    {
+        if ($generationType === ImageGenerationType::txt2img) {
+            if (!isset($modelConfig['txt2img'])) {
+                return true;
+            }
+            if ($modelConfig['txt2img'] === true) {
+                return true;
+            }
+        } elseif ($generationType === ImageGenerationType::img2img) {
+            if (!isset($modelConfig['img2img'])) {
+                return false;
+            }
+            if ($modelConfig['img2img'] === true) {
+                return true;
+            }
+        } else {
+            throw new \LogicException("Unexpected generation type");
+        }
+        return false;
+    }
+    private function getFallBackModelParams(ImageGenerationType $generationType): array
+    {
+        foreach ($this->modelConfig as $modelConfig) {
+            if ($this->modelSupportsGeneration($modelConfig, $generationType)) {
+                return $modelConfig;
+            }
+        }
+        throw new \RuntimeException("Failed to find " . $generationType->name . " fallback model");
+    }
+
+
     private function parseImageSizeString(string $imageSize): ImageSize
     {
         $parts = explode('x', $imageSize);
