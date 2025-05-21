@@ -14,9 +14,10 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         TelegramFileDownloader $telegramFileDownloader,
         int $telegramBotId,
         string $url,
+        string $apiKey = '',
     )
     {
-        parent::__construct($systemPromptProcessor, $responseStartProcessor, $telegramFileDownloader,$telegramBotId, $url);
+        parent::__construct($systemPromptProcessor, $responseStartProcessor, $telegramFileDownloader,$telegramBotId, $url, $apiKey);
     }
     public function getCompletionBasedOnContext(AssistantContext $assistantContext): string
     {

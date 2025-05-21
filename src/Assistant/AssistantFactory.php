@@ -79,6 +79,7 @@ class AssistantFactory
                 $this->telegramFileDownloader,
                 $this->telegramBotId,
                 $requestedAssistantConfig['url'],
+                $requestedAssistantConfig['api_key'] ?? '',
             );
         } elseif(is_a($requestedAssistantConfig['class'], PerplexicaAssistant::class, true)) {
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](

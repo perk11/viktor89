@@ -17,9 +17,10 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         private readonly TelegramFileDownloader$telegramFileDownloader,
         private readonly int $telegramBotUserId,
         string $url,
+        string $apiKey = '',
     )
     {
-        $this->openAi = new OpenAi('');
+        $this->openAi = new OpenAi($apiKey);
         $this->openAi->setBaseURL(rtrim($url, '/'));
     }
 
