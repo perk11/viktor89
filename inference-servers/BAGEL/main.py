@@ -232,7 +232,7 @@ def generate_img2img():
             cfg_img_scale=2.0,
             cfg_interval=[0.0, 1.0],
             timestep_shift=4.0,
-            num_timesteps=50,
+            num_timesteps=steps,
             cfg_renorm_min=1.0,
             cfg_renorm_type="text_channel",
         )
@@ -246,7 +246,7 @@ def generate_img2img():
             cfg_img_scale=2.0,
             cfg_interval=[0.4, 1.0],
             timestep_shift=3.0,
-            num_timesteps=50,
+            num_timesteps=steps,
             cfg_renorm_min=0.0,
             cfg_renorm_type="text_channel",
         )
