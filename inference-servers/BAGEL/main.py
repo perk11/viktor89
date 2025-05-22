@@ -86,7 +86,7 @@ tokenizer, new_token_ids, _ = add_special_tokens(tokenizer)
 vae_transform = ImageTransform(1024, 512, 16)
 vit_transform = ImageTransform(980, 224, 14)
 
-max_mem_per_gpu = "47GiB"  # Modify it according to your GPU setting
+max_mem_per_gpu = "46GiB"  # Modify it according to your GPU setting
 
 device_map = infer_auto_device_map(
     model,
@@ -137,8 +137,9 @@ sem = threading.Semaphore()
 @app.route('/sdapi/v1/txt2img', methods=['POST'])
 def generate_image():
     data = request.json
-    print(data)
+    print(data, flush=True)
 
+    model_name = data.get('model', 'BAGEL')
     prompt = data.get('prompt')
     seed = int(data.get('seed', random.randint(1, 2**32-1)))
     steps = int(data.get('steps', 50))
@@ -147,22 +148,42 @@ def generate_image():
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    inference_hyper = dict(
-        cfg_text_scale=4.0,
-        cfg_img_scale=1.0,
-        cfg_interval=[0.4, 1.0],
-        timestep_shift=3.0,
-        num_timesteps=steps,
-        cfg_renorm_min=1.0,
-        cfg_renorm_type="global",
-    )
+    if model_name == 'BAGEL':
+        inference_hyper = dict(
+            cfg_text_scale=4.0,
+            cfg_img_scale=1.0,
+            cfg_interval=[0.4, 1.0],
+            timestep_shift=3.0,
+            num_timesteps=steps,
+            cfg_renorm_min=1.0,
+            cfg_renorm_type="global",
+        )
+        think = False
+    elif model_name == 'BAGEL-think':
+        inference_hyper=dict(
+            max_think_token_n=1000,
+            do_sample=False,
+            # text_temperature=0.3,
+            cfg_text_scale=4.0,
+            cfg_img_scale=1.0,
+            cfg_interval=[0.4, 1.0],
+            timestep_shift=3.0,
+            num_timesteps=50,
+            cfg_renorm_min=1.0,
+            cfg_renorm_type="global",
+        )
+        think = True
+    else:
+        return jsonify({'error': "Unknown model: " + model_name}), 400
+
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
     sem.acquire()
     try:
-        image = inferencer(text=prompt, **inference_hyper)['image']
+        image = inferencer(text=prompt,think=think, **inference_hyper)['image']
     except Exception as e:
+        print(e, flush=True)
         return jsonify({'error': str(e)}), 500
     finally:
         sem.release()
@@ -176,7 +197,7 @@ def generate_image():
         'images': [image_base64],
         'parameters': {},
         'info': json.dumps({
-            'infotexts': [f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: BAGEL-7B-MoT']
+            'infotexts': [f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: {model_name}-7B-MoT']
         })
     }
 
