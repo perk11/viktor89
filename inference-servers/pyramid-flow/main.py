@@ -13,8 +13,9 @@ import sys
 sys.path.append('/home/perk11/LLM/pyramid-flow')
 from pyramid_dit import PyramidDiTForVideoGeneration
 
-parser = argparse.ArgumentParser(description="Inference server for pyramid-flowr.")
+parser = argparse.ArgumentParser(description="Inference server for pyramid-flow.")
 parser.add_argument('--port', type=int, help='port to listen on')
+parser.add_argument('--model_dir', type=int, help='model_dir', required=True)
 args = parser.parse_args()
 
 app = Flask(__name__)
@@ -22,7 +23,7 @@ torch.cuda.set_device(0)
 model_dtype, torch_dtype = 'bf16', torch.bfloat16  # Use bf16, fp16 or fp32
 
 model = PyramidDiTForVideoGeneration(
-    '/var/models/pyramid-flow',  # The downloaded checkpoint dir
+    args.model_dir,  # The downloaded checkpoint dir
     model_dtype,
     model_variant='diffusion_transformer_768p',  # 'diffusion_transformer_384p'
 )
