@@ -52,6 +52,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
             unset($params['sendAsFile']);
         }
         $this->processParamsAndInitHttpClient($params);
+        unset($params['assistantPrompt'], $params['txt2img'], $params['img2img'], $params['useOptions']);
         $response = $this->request('txt2img', $params);
 
         $a111response = Automatic1111ImageApiResponse::fromString($response->getBody()->getContents());
@@ -77,6 +78,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
             $sendAsFile = $params['sendAsFile'];
             unset($params['sendAsFile']);
         }
+        unset($params['assistantPrompt'], $params['txt2img'], $params['img2img'], $params['useOptions']);
         $params['init_images'] = [];
         foreach ($imageContents as $imageContent) {
             $params['init_images'][] = base64_encode($imageContent);
