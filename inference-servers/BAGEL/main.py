@@ -92,7 +92,7 @@ tokenizer, new_token_ids, _ = add_special_tokens(tokenizer)
 vae_transform = ImageTransform(1024, 512, 16)
 vit_transform = ImageTransform(980, 224, 14)
 
-max_mem_per_gpu = "45GiB"  # Modify it according to your GPU setting
+max_mem_per_gpu = "42GiB"  # Modify it according to your GPU setting
 
 device_map = infer_auto_device_map(
     model,
@@ -111,8 +111,19 @@ same_device_modules = [
     'vit_pos_embed'
 ]
 
-for k in same_device_modules:
-    device_map[k] = device_map[same_device_modules[0]]
+
+if torch.cuda.device_count() == 1:
+    first_device = device_map.get(same_device_modules[0], "cuda:0")
+    for k in same_device_modules:
+        if k in device_map:
+            device_map[k] = first_device
+        else:
+            device_map[k] = "cuda:0"
+else:
+    first_device = device_map.get(same_device_modules[0])
+    for k in same_device_modules:
+        if k in device_map:
+            device_map[k] = first_device
 
 model = load_checkpoint_and_dispatch(
     model,
