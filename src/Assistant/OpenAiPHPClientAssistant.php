@@ -39,7 +39,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
     public function getCompletionBasedOnContext(AssistantContext $assistantContext): string
     {
         $requestOptions = [
-            'messages' => $this->assistantContextToOpenAiArray($assistantContext),
+            'messages' => $assistantContext->toOpenAiMessagesArray(),
         ];
         if ($this->model !== null) {
             $requestOptions['model'] = $this->model;
@@ -50,46 +50,5 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         echo $result->choices[0]->message->content;
 
         return $result->choices[0]->message->content;
-    }
-
-    private function assistantContextToOpenAiArray(AssistantContext $assistantContext): array
-    {
-        if ($assistantContext->responseStart !== null) {
-            throw new \Exception('responseStart specified, but it can not be converted to OpenAi array');
-        }
-        $openAiMessages = [];
-        if ($assistantContext->systemPrompt !== null) {
-            $openAiMessages[] = [
-                'role'    => 'system',
-                'content' => $assistantContext->systemPrompt,
-            ];
-        }
-
-        foreach ($assistantContext->messages as $message) {
-            if ($message->photo === null) {
-                $content = $message->text;
-            } else {
-                $content = [
-                    [
-                        'type' => 'text',
-                        'text' => $message->text,
-                    ],
-                    [
-                        'type'      => 'image_url',
-                        'image_url' => [
-                            'url' => 'data:image/jpeg;base64,' . base64_encode($message->photo),
-                        ],
-                    ],
-
-                ];
-            }
-
-            $openAiMessages[] = [
-                'role'    => $message->isUser ? 'user' : 'assistant',
-                'content' => $content,
-            ];
-        }
-
-        return $openAiMessages;
     }
 }
