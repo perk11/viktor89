@@ -44,7 +44,11 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         if ($this->model !== null) {
             $requestOptions['model'] = $this->model;
         }
-        echo "Sending OpenAI request to " . $this->url ."...";
+        echo "Sending OpenAI request to " . $this->url ."...\n";
+        echo json_encode($requestOptions, JSON_UNESCAPED_UNICODE) . PHP_EOL ;
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            echo 'Failed to convert context to JSON: ' . json_last_error_msg();
+        }
         $result = $this->openAiClient->chat()->create($requestOptions);
 
         echo $result->choices[0]->message->content;
