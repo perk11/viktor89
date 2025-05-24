@@ -71,7 +71,9 @@ class AssistantFactory
                 $requestedAssistantConfig['url'],
                 $this->openAiCompletionStringParser,
             );
-        } elseif (is_a($requestedAssistantConfig['class'], OpenAiChatAssistant::class, true)) {
+        } elseif (is_a($requestedAssistantConfig['class'], OpenAiChatAssistant::class, true)
+               || is_a($requestedAssistantConfig['class'], OpenAiPHPClientAssistant::class, true)
+        ) {
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
                 $requestedAssistantConfig['model'] ?? null,
                 $systemPromptProcessor,
