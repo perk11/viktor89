@@ -328,11 +328,6 @@ class ProcessMessageTask implements Task
                 )
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
-                ['/assistant'],
-                $userSelectedAssistant,
-                $telegram->getBotId(),
-            ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/video'],
                 $videoProcessor,
             ),
@@ -368,6 +363,11 @@ class ProcessMessageTask implements Task
             new CommandBasedResponderTrigger(
                 ['/ratelimits'],
                 new RateLimitsCommandProcessor($database, $rateLimitObjects)
+            ),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/assistant'],
+                $userSelectedAssistant,
+                $telegram->getBotId(),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
