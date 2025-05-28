@@ -21,6 +21,17 @@ class MessageChain
     {
         return $this->messages[count($this->messages) - 1];
     }
+    public function withReplacedLastMessage(InternalMessage $message): MessageChain
+    {
+        return $this->withReplacedMessage($message, count($this->messages) - 1);
+    }
+
+    public function withReplacedMessage(InternalMessage $message, int $messageIndex): MessageChain
+    {
+        $messagesCopy = $this->messages;
+        $messagesCopy[$messageIndex] = $message;
+        return new MessageChain($messagesCopy);
+    }
 
     public function previous(): ?InternalMessage
     {

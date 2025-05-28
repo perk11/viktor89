@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\GetTriggeringCommandsInterface;
 use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
@@ -13,7 +14,7 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 
-class ImageGenerateProcessor implements MessageChainProcessor
+class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringCommandsInterface
 {
     private const IMG_REGEX = '/<img>(.*?)<\/img>/s';
     public function __construct(
@@ -170,5 +171,10 @@ class ImageGenerateProcessor implements MessageChainProcessor
         }
 
         return new ProcessingResult(null, true);
+    }
+
+    public function getTriggeringCommands(): array
+    {
+        return $this->triggeringCommands;
     }
 }

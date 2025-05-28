@@ -5,13 +5,14 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Database;
+use Perk11\Viktor89\GetTriggeringCommandsInterface;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
-class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, UserPreferenceReaderInterface
+class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, UserPreferenceReaderInterface, GetTriggeringCommandsInterface
 {
     public function __construct(
         private readonly Database $database,
@@ -102,5 +103,10 @@ class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, User
     public function getCurrentPreferenceValue(int $userId): ?string
     {
         return $this->database->readUserPreference($userId, $this->preferenceName);
+    }
+
+    public function getTriggeringCommands(): array
+    {
+        return $this->triggeringCommands;
     }
 }

@@ -4,7 +4,6 @@ namespace Perk11\Viktor89;
 
 
 use Longman\TelegramBot\Entities\Message;
-use Longman\TelegramBot\Request;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 
@@ -28,12 +27,10 @@ class Engine
         private readonly HistoryReader $historyReader,
         /** @var PreResponseProcessor[] $preResponseProcessors */
         private readonly array $preResponseProcessors,
-        /** @var MessageChainProcessor[] $messageChainProcessors */
-        private readonly array $messageChainProcessors,
+        private readonly MessageChainProcessorRunner $messageChainProcessorRunner,
         private readonly string $telegramBotUserName,
         private readonly int $telegramBotId,
         private readonly TelegramInternalMessageResponderInterface|MessageChainProcessor $fallBackResponder,
-        private readonly ProcessingResultExecutor $processingResultExecutor,
     ) {
     }
 
@@ -99,14 +96,8 @@ class Engine
         } else {
             $chain = new MessageChain([$lastMessage]);
         }
-
-        foreach ($this->messageChainProcessors as $messageChainProcessor) {
-            $processingResult = $messageChainProcessor->processMessageChain($chain);
-            $this->processingResultExecutor->execute($processingResult);
-            if ($processingResult->abortProcessing) {
-                echo get_class($messageChainProcessor) . " has aborted further processing\n";
-                return;
-            }
+        if ($this->messageChainProcessorRunner->run($chain)) {
+            return;
         }
 
         $incomingMessageText = $message->getText();

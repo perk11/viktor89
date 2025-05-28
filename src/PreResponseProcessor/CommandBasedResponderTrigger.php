@@ -4,11 +4,12 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\GetTriggeringCommandsInterface;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 
-class CommandBasedResponderTrigger implements MessageChainProcessor
+class CommandBasedResponderTrigger implements MessageChainProcessor, GetTriggeringCommandsInterface
 {
     public function __construct(
         private readonly array $triggeringCommands,
@@ -67,5 +68,10 @@ class CommandBasedResponderTrigger implements MessageChainProcessor
             echo $e->getTraceAsString();
             return new ProcessingResult(null, true, '🤔', $messageChain->last());
         }
+    }
+
+    public function getTriggeringCommands(): array
+    {
+        return $this->triggeringCommands;
     }
 }

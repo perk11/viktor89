@@ -80,10 +80,10 @@ class InternalMessage
                 $message->actualMessageText = $telegramMessage->getCaption();
             }
         }
-        $message->messageText = ltrim(str_replace(
-            '@' . $_ENV['TELEGRAM_BOT_USERNAME'],
-            '',
-            $message->actualMessageText)
+        $message->messageText = preg_replace(
+                                          '/@' . preg_quote($_ENV['TELEGRAM_BOT_USERNAME'], '/'). '?(\s+)/',
+                                          '',
+                                          $message->actualMessageText,
         );
         if ($telegramMessage->getPhoto() !== null) {
             $maxSize = 0;
@@ -156,5 +156,12 @@ class InternalMessage
     public function isCommand(): bool
     {
         return str_starts_with($this->messageText, '/');
+    }
+
+    public function withReplacedText(string $newText): self
+    {
+        $clone = clone $this;
+        $clone->messageText = $newText;
+        return $clone;
     }
 }

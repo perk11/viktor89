@@ -372,15 +372,15 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
         ];
+        $messageChainProcessorRunner = new MessageChainProcessorRunner($processingResultExecutor, $messageChainProcessors);
         $engine = new \Perk11\Viktor89\Engine($photoImg2ImgProcessor,
                                               $database,
                                               $historyReader,
                                               $preResponseProcessors,
-                                              $messageChainProcessors,
+                                              $messageChainProcessorRunner,
                                               $this->telegramBotUsername,
                                               $this->telegramBotId,
                                               $responder,
-                                              $processingResultExecutor,
         );
         $engine->handleMessage($this->message);
     }
