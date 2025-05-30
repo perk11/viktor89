@@ -130,6 +130,7 @@ def generate_video():
         return jsonify({'error': "No image provided"}), 400
 
     prompt = data.get('prompt')
+    negative_prompt = data.get('negative_prompt', "bright colors, overexposed, static, blurred details, subtitles, style, artwork, painting, picture, still, overall gray, worst quality, low quality, JPEG compression residue, ugly, incomplete, extra fingers, poorly drawn hands, poorly drawn faces, deformed, disfigured, malformed limbs, fused fingers, still picture, cluttered background, three legs, many people in the background, walking backwards")
     seed = int(data.get('seed', random.randint(1, 99999999999999)))
     model = data.get('model', 'wan2.1_i2v_480p_14B_fp16')
     steps = int(data.get('steps', 20))
@@ -142,7 +143,7 @@ def generate_video():
     input_image_file_name = 'viktor89.jpg'
     with open(comfyui_input_dir + '/' + input_image_file_name, 'wb') as file:
         file.write(image_data)
-    comfy_workflow_object = get_workflow(input_image_file_name, height, model, num_frames, prompt, seed, steps, width)
+    comfy_workflow_object = get_workflow(input_image_file_name, height, model, num_frames, prompt,negative_prompt, seed, steps, width)
     try:
         images = get_images(comfy_workflow_object)
     except Exception as e:
@@ -175,12 +176,13 @@ def generate_video():
         return jsonify({'error': str(e)}), 500
 
 
-def get_workflow(image_file_name, height, model, num_frames, prompt, seed, steps, width):
+def get_workflow(image_file_name, height, model, num_frames, prompt, negative_prompt, seed, steps, width):
     workflow_file_path = Path(__file__).with_name("comfy_workflow.json")
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
     comfy_workflow_object["6"]["inputs"]["text"] = prompt
+    comfy_workflow_object["7"]["inputs"]["text"] = negative_prompt
     comfy_workflow_object["37"]["inputs"]["unet_name"] = model + '.safetensors'
     comfy_workflow_object["52"]["inputs"]["image"] = image_file_name
     comfy_workflow_object["58"]["inputs"]["width"] = width
