@@ -6,7 +6,7 @@ use GuzzleHttp\Client;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Psr\Http\Message\ResponseInterface;
 
-class UpscaleApiClient
+class UpscaleApiClient implements ImageByImageGenerator
 {
     private Client $httpClient;
 
@@ -16,7 +16,7 @@ class UpscaleApiClient
         private readonly UserPreferenceReaderInterface $upscaleModelPreference,
         private readonly array $modelConfig,
     ){}
-    public function upscaleImage(string $imageContent, int $userId): Automatic1111ImageApiResponse
+    public function processImage(string $imageContent, int $userId): Automatic1111ImageApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
         $params['init_images'] = [base64_encode($imageContent)];
@@ -24,6 +24,7 @@ class UpscaleApiClient
 
         return Automatic1111ImageApiResponse::fromString($response->getBody()->getContents());
     }
+
     /**
      * @param int $userId
      * @return mixed

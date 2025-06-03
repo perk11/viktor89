@@ -45,7 +45,7 @@ class UpscaleProcessor implements MessageChainProcessor
         ]);
         try {
             $photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageChain->previous());
-            $transformedPhotoResponse = $this->upscaleApiClient->upscaleImage(
+            $transformedPhotoResponse = $this->upscaleApiClient->processImage(
                 $photo,
                 $lastMessage->userId,
             );
