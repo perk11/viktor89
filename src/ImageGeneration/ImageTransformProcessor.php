@@ -9,12 +9,12 @@ use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
 
-class UpscaleProcessor implements MessageChainProcessor
+class ImageTransformProcessor implements MessageChainProcessor
 {
 
     public function __construct(
         private readonly TelegramFileDownloader $telegramFileDownloader,
-        private readonly UpscaleApiClient $upscaleApiClient,
+        private readonly ImageByImageGenerator $generator,
         private readonly PhotoResponder $photoResponder,
     ) {
     }
@@ -45,7 +45,7 @@ class UpscaleProcessor implements MessageChainProcessor
         ]);
         try {
             $photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageChain->previous());
-            $transformedPhotoResponse = $this->upscaleApiClient->processImage(
+            $transformedPhotoResponse = $this->generator->processImage(
                 $photo,
                 $lastMessage->userId,
             );

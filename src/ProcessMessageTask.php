@@ -20,7 +20,7 @@ use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\RemixProcessor;
 use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
-use Perk11\Viktor89\ImageGeneration\UpscaleProcessor;
+use Perk11\Viktor89\ImageGeneration\ImageTransformProcessor;
 use Perk11\Viktor89\JoinQuiz\JoinQuizProcessor;
 use Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger;
 use Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor;
@@ -306,7 +306,7 @@ class ProcessMessageTask implements Task
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/upscale'],
-                new UpscaleProcessor($telegramFileDownloader, $upscaleClient, $photoResponder)
+                new ImageTransformProcessor($telegramFileDownloader, $upscaleClient, $photoResponder)
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/downscale'],
