@@ -32,7 +32,7 @@ class ImageTransformProcessor implements MessageChainProcessor
         }
 
 
-        echo "Upscaling image...\n";
+        echo "Transforming image...\n";
         Request::execute('setMessageReaction', [
             'chat_id'    => $lastMessage->chatId,
             'message_id' => $lastMessage->id,

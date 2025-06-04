@@ -279,6 +279,11 @@
       "url": "http://localhost:8104"
     }
   },
+  "zoomModels": {
+    "Chain-of-Zoom": {
+      "url": "http://localhost:8138"
+    }
+  },
   "videoFirstFrameImageModels":  {
     "flux-dev-720x480": {
       "width": 720,

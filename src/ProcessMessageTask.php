@@ -21,6 +21,8 @@ use Perk11\Viktor89\ImageGeneration\RemixProcessor;
 use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\ImageGeneration\ImageTransformProcessor;
+use Perk11\Viktor89\ImageGeneration\ZoomApiClient;
+use Perk11\Viktor89\ImageGeneration\ZoomCommandProcessor;
 use Perk11\Viktor89\JoinQuiz\JoinQuizProcessor;
 use Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger;
 use Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor;
@@ -265,6 +267,10 @@ class ProcessMessageTask implements Task
         $internalMessageTranscriber = new InternalMessageTranscriber($telegramFileDownloader, $voiceRecogniser);
 
         $imageRepository = new ImageRepository($database->sqlite3Database);
+        $zoomLevelPreference = new FixedValuePreferenceProvider(2);
+        $zoomGenerator = new ZoomApiClient($seedProcessor, $zoomLevelPreference, $config['zoomModels']);
+        $zoomImageTransformProcessor = new ImageTransformProcessor($telegramFileDownloader, $zoomGenerator, $photoResponder);
+        $zoomCommandProcessor = new ZoomCommandProcessor($zoomImageTransformProcessor, $zoomLevelPreference);
         $messageChainProcessors = [
             new VoiceProcessor($internalMessageTranscriber),
             $clownProcessor,
@@ -313,8 +319,12 @@ class ProcessMessageTask implements Task
                 new DownscaleProcessor($telegramFileDownloader, $photoResponder)
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
-                ['/clownify'],
-                new ClownifyProcessor($telegramFileDownloader,new ClownifyApiClient($config['clownifyModels']), $photoResponder)
+                ['/zoom'],
+                $zoomCommandProcessor,
+            ),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/upscale'],
+                new ImageTransformProcessor($telegramFileDownloader, $upscaleClient, $photoResponder)
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/remix'],

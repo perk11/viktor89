@@ -268,6 +268,7 @@ def generate_img2img():
     data = request.json
 
     seed = int(data.get('seed', random.randint(1, 2 ** 32 - 1)))
+    zoom_level = int(data.get('zoom_level', 2))
 
     init_images = data.get('init_images', [])
 
@@ -289,7 +290,9 @@ def generate_img2img():
 
     args_copy = coz_args_default
     args_copy.seed = seed
+    args_copy.upscale = zoom_level
     sem.acquire()
+    print(f'Zooming image with zoom level {zoom_level}...')
     try:
         image = generate_image(args_copy, tmp_file.file.name, tmp_dir)
     except Exception as e:
