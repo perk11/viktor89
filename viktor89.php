@@ -150,7 +150,7 @@ EventLoop::repeat(300, static function () use ($database, $processingResultExecu
             echo "Failed to ban user " . $item->userId . " in chat " . $item->chatId. " \n";
             print_r($banRequest);
 
-            $message->messageText = "Пользователь не ответил во время на вопрос, но мне не удалось удалить его. Баньте!";
+            $message->messageText = "Пользователь не ответил вовремя на вопрос, но мне не удалось удалить его. Баньте!";
         } else {
             $unbanRequest = Request::unbanChatMember([
                                                          'chat_id' => $item->chatId,
@@ -160,9 +160,9 @@ EventLoop::repeat(300, static function () use ($database, $processingResultExecu
                 echo "Failed to unban user\n";
                 print_r($unbanRequest);
                 $message = new \Perk11\Viktor89\InternalMessage();
-                $message->messageText = "Пользователь не ответил во время на вопрос и был забанен!";
+                $message->messageText = "Пользователь не ответил вовремя на вопрос и был забанен!";
             } else {
-                $message->messageText = "Пользователь не ответил во время на вопрос и был удалён из чата";
+                $message->messageText = "Пользователь не ответил вовремя на вопрос и был удалён из чата";
             }
         }
         $processingResultExecutor->execute(new ProcessingResult($message, true));
