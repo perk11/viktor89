@@ -159,7 +159,6 @@ EventLoop::repeat(300, static function () use ($database, $processingResultExecu
             if (!$unbanRequest->isOk()) {
                 echo "Failed to unban user\n";
                 print_r($unbanRequest);
-                $message = new \Perk11\Viktor89\InternalMessage();
                 $message->messageText = "Пользователь не ответил вовремя на вопрос и был забанен!";
             } else {
                 $message->messageText = "Пользователь не ответил вовремя на вопрос и был удалён из чата";
