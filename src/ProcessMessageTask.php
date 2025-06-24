@@ -302,6 +302,7 @@ class ProcessMessageTask implements Task
                 $photoResponder,
                 $photoImg2ImgProcessor,
                 $imageRepository,
+                $imageModelProcessor,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
                 ['/imagine'],
@@ -309,6 +310,7 @@ class ProcessMessageTask implements Task
                 $photoResponder,
                 $assistedPhotoImg2ImgProcessor,
                 $imageRepository,
+                $imageModelProcessor,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/upscale'],

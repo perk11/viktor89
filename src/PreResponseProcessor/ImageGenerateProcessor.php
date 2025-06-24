@@ -13,6 +13,7 @@ use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringCommandsInterface
 {
@@ -23,6 +24,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         private readonly PhotoResponder $photoResponder,
         private readonly PhotoImg2ImgProcessor $photoImg2ImgProcessor,
         private readonly ImageRepository $imageRepository,
+        private readonly UserPreferenceReaderInterface $imageModelPreference,
     ) {
     }
 
@@ -58,8 +60,12 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
             return new ProcessingResult(null, true);
         }
         echo "Generating image for prompt: $prompt\n";
-
-        $processingResult = $this->processPromptImgReplacementsAndUseImg2ImgIfTheyArePresent($prompt, $lastMessage);
+        $modelName = $this->imageModelPreference->getCurrentPreferenceValue($lastMessage->userId);
+        $processingResult = $this->processPromptImgReplacementsAndUseImg2ImgIfTheyArePresent(
+            $prompt,
+            $lastMessage,
+            $modelName === 'OmniGen-v1',
+        );
         if ($processingResult->abortProcessing) {
             return $processingResult;
         }
@@ -100,7 +106,8 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
 
     private function processPromptImgReplacementsAndUseImg2ImgIfTheyArePresent(
         string $prompt,
-        InternalMessage $lastMessage
+        InternalMessage $lastMessage,
+        bool $omnigenV1
     ): ProcessingResult {
         if (preg_match(self::IMG_REGEX, $prompt) === 0) {
             return new ProcessingResult(null, false);
@@ -119,14 +126,17 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         try {
             $processedPrompt = preg_replace_callback(
                 self::IMG_REGEX,
-                function ($matches) use (&$images) {
+                function ($matches) use (&$images, $omnigenV1) {
                     $savedImage = $this->imageRepository->retrieve($matches[1]);
                     if ($savedImage === null) {
                         throw new SavedImageNotFoundException($matches[1]);
                     }
                     $images[] = $savedImage;
+                    if ($omnigenV1) {
+                        return '<img><|image_' . (count($images)) . '|></img>';
+                    }
 
-                    return '<img><|image_' . (count($images)) . '|></img>';
+                    return "image " . count($images);
                 },
                 $prompt,
             );
