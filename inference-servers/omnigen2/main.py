@@ -4,7 +4,6 @@ import io
 import json
 import random
 import sys
-import tempfile
 import threading
 import traceback
 from io import BytesIO
@@ -12,7 +11,7 @@ from io import BytesIO
 import torch
 from PIL import Image
 from accelerate import Accelerator
-#from diffusers.hooks import apply_group_offloading
+# from diffusers.hooks import apply_group_offloading
 from flask import Flask, request, jsonify
 
 parser = argparse.ArgumentParser(description="Inference server for Omnigen2.")
@@ -54,7 +53,7 @@ sem = threading.Semaphore()
 
 
 @app.route('/sdapi/v1/img2img', methods=['POST'])
-def generate_image():
+def img2img():
     data = request.json
 
     prompt = data.get('prompt')
@@ -103,10 +102,56 @@ def generate_image():
         return jsonify({'error': str(e)}), 500
     finally:
         sem.release()
+    return json_from_pil_image(height, image, prompt, seed, steps, width)
+
+
+@app.route('/sdapi/v1/txt2img', methods=['POST'])
+def txt2img():
+    data = request.json
+
+    prompt = data.get('prompt')
+    negative_prompt = data.get('negative_prompt')
+    seed = int(data.get('seed', 0))
+    width = int(data.get('width', 1024))
+    height = int(data.get('height', 1024))
+    steps = int(data.get('steps', 50))
+
+    print(data)
+
+    if seed == 0:
+        seed = random.randint(1, 99999999999999)
+
+    generator = torch.Generator(device=accelerator.device).manual_seed(seed)
+    try:
+        sem.acquire()
+        image = pipeline(
+            prompt=prompt,
+            input_images=None,
+            width=width,
+            height=height,
+            num_inference_steps=steps,
+            max_sequence_length=1024,
+            text_guidance_scale=5.0,
+            image_guidance_scale=2.0,
+            cfg_range=(0.0, 0.6),
+            negative_prompt=negative_prompt,
+            num_images_per_prompt=1,
+            generator=generator,
+            output_type="pil",
+        ).images[0]
+    except Exception as e:
+        print(e, flush=True)
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        sem.release()
+    return json_from_pil_image(height, image, prompt, seed, steps, width)
+
+
+def json_from_pil_image(height, image, prompt, seed, steps, width):
     buffered = BytesIO()
     image.save(buffered, format="PNG")
     image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-
     response = {
         'images': [image_base64],
         'parameters': {},
@@ -114,7 +159,6 @@ def generate_image():
             'infotexts': [f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: OmniGen-v2']
         })
     }
-
     return jsonify(response)
 
 
