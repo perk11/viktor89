@@ -90,7 +90,7 @@ def img2img():
             max_sequence_length=1024,
             text_guidance_scale=5.0,
             image_guidance_scale=2.0,
-            cfg_range=(0.0, 1.0),
+            cfg_range=(0.0, 0.6),
             negative_prompt=negative_prompt,
             num_images_per_prompt=1,
             generator=generator,
