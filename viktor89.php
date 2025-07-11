@@ -150,7 +150,7 @@ EventLoop::repeat(300, static function () use ($database, $processingResultExecu
             echo "Failed to ban user " . $item->userId . " in chat " . $item->chatId. " \n";
             print_r($banRequest);
 
-            $message->messageText = "Пользователь не ответил вовремя на вопрос, но мне не удалось удалить его. Баньте!";
+            $message->messageText = "Пользователь id" . $item->userId. " не ответил вовремя на вопрос, но мне не удалось удалить его. Баньте!";
         } else {
             $unbanRequest = Request::unbanChatMember([
                                                          'chat_id' => $item->chatId,
@@ -159,12 +159,18 @@ EventLoop::repeat(300, static function () use ($database, $processingResultExecu
             if (!$unbanRequest->isOk()) {
                 echo "Failed to unban user\n";
                 print_r($unbanRequest);
-                $message->messageText = "Пользователь не ответил вовремя на вопрос и был забанен!";
+                $message->messageText = "Пользователь id" . $item->userId. " не ответил вовремя на вопрос и был забанен!";
             } else {
-                $message->messageText = "Пользователь не ответил вовремя на вопрос и был удалён из чата";
+                $message->messageText = "Пользователь id" . $item->userId . " не ответил вовремя на вопрос и был удалён из чата";
             }
         }
         $processingResultExecutor->execute(new ProcessingResult($message, true));
+        echo "Deleting messages " . json_encode($item->messagesToDelete, JSON_THROW_ON_ERROR) . "\n";
+        $deleteMessagesResult = Request::execute('deleteMessages', [
+            'chat_id' => $item->chatId,
+            'message_ids' => json_encode($item->messagesToDelete, JSON_THROW_ON_ERROR),
+        ]);
+        print_r($deleteMessagesResult);
         $database->nullKickTime($item->pollId);
     }
 
