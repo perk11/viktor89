@@ -23,11 +23,12 @@ parser.add_argument('--comfy_ui_input_dir', type=str, help='Path to ComfyUI "inp
 args = parser.parse_args()
 
 
-def get_txt2img_workflow_and_infotext_chroma(prompt, negative_prompt, seed, steps, width, height):
+def get_txt2img_workflow_and_infotext_chroma(model, prompt, negative_prompt, seed, steps, width, height):
     workflow_file_path = Path(__file__).with_name("chroma-txt2img.json")
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["25"]["inputs"]['unet_name'] = model + ".safetensors"
     comfy_workflow_object["4"]["inputs"]['text'] = prompt
     comfy_workflow_object["5"]["inputs"]['text'] = negative_prompt
     if steps > 0:
@@ -35,7 +36,7 @@ def get_txt2img_workflow_and_infotext_chroma(prompt, negative_prompt, seed, step
     comfy_workflow_object["9"]["inputs"]['seed'] = seed
     comfy_workflow_object["14"]["inputs"]['width'] = width
     comfy_workflow_object["14"]["inputs"]['height'] = height
-    return comfy_workflow_object, f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: chroma-unlocked-v31'
+    return comfy_workflow_object, f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
 
 
 @app.route('/sdapi/v1/txt2img', methods=['POST'])
@@ -51,8 +52,8 @@ def generate_image():
     height = int(data.get('height', 1024))
     steps = int(data.get('steps', 0))
     match model:
-        case 'chroma-unlocked-v31':
-            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_chroma(prompt, negative_prompt, seed, steps, width, height)
+        case 'chroma-unlocked-v31' | 'chroma_v41LowStepRl':
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_chroma(model, prompt, negative_prompt, seed, steps, width, height)
         case _:
             return jsonify({"error": "Unknown model: " + model}), 400
 
