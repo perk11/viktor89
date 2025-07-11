@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS `kick_queue`
     `user_id` bigint NOT NULL,
     `poll_id` bigint NOT NULL UNIQUE,
     `join_message_id` bigint NOT NULL,
+    `messages_to_delete` string,
     `kick_time` timestamp
 );
 CREATE TABLE IF NOT EXISTS `saved_image`

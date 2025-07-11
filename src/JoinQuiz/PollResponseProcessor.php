@@ -11,6 +11,7 @@ use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\TelegramUserHelper;
 
 class PollResponseProcessor
 {
@@ -48,6 +49,13 @@ class PollResponseProcessor
             return new ProcessingResult(null, false);
         }
         $this->database->nullKickTime($pollAnswer->getPollId());
+        echo "Deleting messages " . json_encode($kickQueueItem->messagesToDelete, JSON_THROW_ON_ERROR) . "\n";
+        $deleteMessagesResult = Request::execute('deleteMessages', [
+            'chat_id' => $kickQueueItem->chatId,
+            'message_ids' => json_encode($kickQueueItem->messagesToDelete, JSON_THROW_ON_ERROR),
+        ]);
+        print_r($deleteMessagesResult);
+        echo "\n";
         $message = new InternalMessage();
         $message->chatId = $kickQueueItem->chatId;
         $message->replyToMessageId = $kickQueueItem->joinMessageId;
@@ -61,7 +69,7 @@ class PollResponseProcessor
             if (!$banRequest->isOk()) {
                 echo "Failed to ban user\n";
                 print_r($banRequest);
-                $message->messageText = $pollAnswer->getUser()->getFirstName() . " ответил неправильно!";
+                $message->messageText =  TelegramUserHelper::fullNameWithIdAndUserName($pollAnswer->getUser()) . " ответил(-а) неправильно!";
 
                 return new ProcessingResult($message, false);
             }
@@ -72,13 +80,13 @@ class PollResponseProcessor
             if (!$unbanRequest->isOk()) {
                 echo "Failed to unban user\n";
                 print_r($unbanRequest);
-                $message->messageText = $pollAnswer->getUser()->getFirstName() . " ответил неправильно и был забанен!";
+                $message->messageText = TelegramUserHelper::fullNameWithIdAndUserName($pollAnswer->getUser()) . " ответил(-а) неправильно и был забанен!";
 
                 return new ProcessingResult($message, false);
             }
 
-            $message->messageText = $pollAnswer->getUser()->getFirstName(
-                ) . " ответил неправильно и был удалён из чата";
+            $message->messageText = TelegramUserHelper::fullNameWithIdAndUserName($pollAnswer->getUser()) .
+                " ответил(-а) неправильно и был удалён из чата";
 
             return new ProcessingResult($message, false);
         }
@@ -88,8 +96,8 @@ class PollResponseProcessor
                                'chat_id'             => $message->chatId,
                                'reply_to_message_id' => $kickQueueItem->joinMessageId,
                                'video'               => $this->tutors[array_rand($this->tutors)],
-                               'caption'             => $pollAnswer->getUser()->getFirstName(
-                                   ) . " прошёл проверку. Добро пожаловать!",
+                               'caption'             => TelegramUserHelper::fullNameWithIdAndUserName($pollAnswer->getUser()).
+                                   ' прошёл(-ла) проверку. Добро пожаловать!',
                            ]);
         return new ProcessingResult(null, true);
     }

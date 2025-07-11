@@ -333,7 +333,22 @@ ON CONFLICT(name) DO UPDATE SET
     public function insertKickQueueItem(KickQueueItem $kickQueueItem): void
     {
         $statement = $this->sqlite3Database->prepare(
-            'INSERT INTO kick_queue (chat_id, user_id, poll_id, join_message_id, kick_time) VALUES (:chat_id, :user_id, :poll_id, :join_message_id, :kick_time)'
+            'INSERT INTO kick_queue (
+                        chat_id,
+                        user_id,
+                        poll_id, 
+                        join_message_id,
+                        kick_time,
+                        messages_to_delete
+                    )
+                    VALUES (
+                        :chat_id,
+                        :user_id,
+                        :poll_id,
+                        :join_message_id,
+                        :kick_time,
+                        :messages_to_delete
+                    )'
         );
 
         $statement->bindValue(':chat_id', $kickQueueItem->chatId);
@@ -341,6 +356,7 @@ ON CONFLICT(name) DO UPDATE SET
         $statement->bindValue(':poll_id', $kickQueueItem->pollId);
         $statement->bindValue(':join_message_id', $kickQueueItem->joinMessageId);
         $statement->bindValue(':kick_time', $kickQueueItem->kickTime);
+        $statement->bindValue(':messages_to_delete', implode(',', $kickQueueItem->messagesToDelete));
         if ($statement->execute() === false) {
             echo "Failed to insert into kick queue\n";
             echo $this->sqlite3Database->lastErrorMsg();

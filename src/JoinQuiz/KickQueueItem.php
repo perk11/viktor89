@@ -10,6 +10,7 @@ class KickQueueItem
         public readonly int $userId,
         public readonly int $pollId,
         public readonly int $joinMessageId,
+        public readonly array $messagesToDelete,
         public readonly ?int $kickTime,
     ) {
     }
@@ -21,6 +22,7 @@ class KickQueueItem
             userId:        $result['user_id'],
             pollId:        $result['poll_id'],
             joinMessageId: $result['join_message_id'],
+            messagesToDelete: explode(',', $result['messages_to_delete']),
             kickTime:      $result['kick_time'],
         );
     }
