@@ -33,11 +33,29 @@ def get_txt2img_workflow_and_infotext_chroma(model, prompt, negative_prompt, see
     comfy_workflow_object["5"]["inputs"]['text'] = negative_prompt
     if steps > 0:
         comfy_workflow_object["9"]["inputs"]['steps'] = steps
+    else:
+        steps = comfy_workflow_object["9"]["inputs"]['steps']
     comfy_workflow_object["9"]["inputs"]['seed'] = seed
     comfy_workflow_object["14"]["inputs"]['width'] = width
     comfy_workflow_object["14"]["inputs"]['height'] = height
     return comfy_workflow_object, f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
 
+def get_txt2img_workflow_and_infotext_qwen(model, prompt, negative_prompt, seed, steps, width, height):
+    workflow_file_path = Path(__file__).with_name("qwen-image_txt2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["37"]["inputs"]['unet_name'] = model + ".safetensors"
+    comfy_workflow_object["6"]["inputs"]['text'] = prompt
+    comfy_workflow_object["7"]["inputs"]['text'] = negative_prompt
+    if steps > 0:
+        comfy_workflow_object["3"]["inputs"]['steps'] = steps
+    else:
+        steps = comfy_workflow_object["3"]["inputs"]['steps']
+    comfy_workflow_object["3"]["inputs"]['seed'] = seed
+    comfy_workflow_object["58"]["inputs"]['width'] = width
+    comfy_workflow_object["58"]["inputs"]['height'] = height
+    return comfy_workflow_object, f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
 
 @app.route('/sdapi/v1/txt2img', methods=['POST'])
 def generate_image():
@@ -54,6 +72,8 @@ def generate_image():
     match model:
         case 'chroma-unlocked-v31' | 'chroma_v41LowStepRl':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_chroma(model, prompt, negative_prompt, seed, steps, width, height)
+        case 'qwen_image_fp8_e4m3fn':
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_qwen(model, prompt, negative_prompt, seed, steps, width, height)
         case _:
             return jsonify({"error": "Unknown model: " + model}), 400
 
