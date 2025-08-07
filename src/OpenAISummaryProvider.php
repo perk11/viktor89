@@ -76,14 +76,14 @@ class OpenAISummaryProvider
             foreach ($messages as $message) {
                 $offset++;
                 $prompt .= $message->userName . ': ' . mb_substr($message->messageText, 0, 512) . "\n";
-                if (mb_strlen($prompt) > 14000 && (count($allMessages) - $offset) > 30) {
+                if (mb_strlen($prompt) > 16000 && (count($allMessages) - $offset) > 30) {
                     break;
                 }
             }
             echo $offset - $startingOffset . " messages in this batch ($startingOffset-" . $offset-1 . "). Sending prompt of size " . mb_strlen($prompt) . " to OpenAI API...\n";
-            $systemPrompt = "Summarize messages sent in a group chat. Respond only in Russian. Be brief, but avoid too much generalization, always use specific terms and names. Do not add intro or outro. Use plain text, do not add any formatting. Use past tense. ";
+            $systemPrompt = "Summarize messages sent in a group chat. Respond only in Russian. Always use specific terms and names. Be brief, but avoid too much generalization and do not miss any topics discussed. Do not add intro or outro. Use plain text, do not add any formatting. Use past tense. ";
             if ($offset >= count($allMessages) - 1) {
-                $systemPrompt .= "Finish with a joke about one of the authors. ";
+                $systemPrompt .= "Finish with a joke about one of the authors, but pretend it's a part of the summary.";
             }
             $systemPrompt .= "Message start below:";
             $result = $this->openAiClient->chat([
@@ -105,7 +105,19 @@ class OpenAISummaryProvider
             if (!array_key_exists('choices', $parsedResult)) {
                 echo "Unexpected response from OpenAI: $result \n";
             }
-            $summary .= "\n" . str_replace("\n", " ", $parsedResult['choices'][0]['message']['content']);
+
+            $response = $parsedResult['choices'][0]['message']['content'];
+            if (
+                preg_match(
+                    '/<\|channel\|>final<\|message\|>(.*?)(?=<\|channel\|>|$)/s',
+                    $response,
+                    $matches
+                )
+            ) {
+                $response = $matches[1];
+            }
+
+            $summary .= "\n" . str_replace("\n", " ", $response);
 //            sleep(30); //avoid gpt-4 rate limit
         }
         echo $summary;
