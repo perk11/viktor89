@@ -4,14 +4,17 @@ namespace Perk11\Viktor89\ImageGeneration;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\CacheFileManager;
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
 
 class PhotoResponder
 {
-    public function __construct(private readonly Database $database)
+
+    public function __construct(private readonly Database $database, private readonly CacheFileManager $cacheFileManager)
     {
     }
+
     public function sendPhoto(Message|InternalMessage $message, string $photoContents, bool $sendAsWebp, ?string $caption = null): void
     {
         if ($message instanceof Message) {
@@ -55,6 +58,13 @@ class PhotoResponder
         }
         if ($sentMessageResult->isOk() && $sentMessageResult->getResult() instanceof Message) {
             $this->database->logMessage($sentMessageResult->getResult());
+            $photos = $sentMessageResult->getResult()->getPhoto();
+            if (is_array($photos) && array_key_exists(2, $photos)) {
+                $fileId = $sentMessageResult->getResult()->getPhoto()[2]->getFileId();
+                $this->cacheFileManager->writeFileToCache($fileId, $photoContents);
+            } else {
+                echo "Unexpected, Telegram server response doesn't contain a photo, not caching the result\n";
+            }
         } else {
             echo "Failed to send message: " . $sentMessageResult->getResult() . "\n";
         }

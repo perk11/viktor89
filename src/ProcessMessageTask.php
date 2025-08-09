@@ -79,7 +79,8 @@ class ProcessMessageTask implements Task
         $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
         $database = new Database($this->telegramBotId, 'siepatch-non-instruct5');
         $historyReader = new HistoryReader($database);
-        $telegramFileDownloader = new TelegramFileDownloader($this->telegramApiKey);
+        $cacheFileManager = new CacheFileManager();
+        $telegramFileDownloader = new TelegramFileDownloader($cacheFileManager, $this->telegramApiKey);
         $denoisingStrengthProcessor = new NumericPreferenceInRangeByCommandProcessor(
             $database,
             ['/denoising_strength', '/denoisingstrength'],
@@ -178,7 +179,7 @@ class ProcessMessageTask implements Task
             $imageModelProcessor,
             $imageModelConfig,
         );
-        $photoResponder = new PhotoResponder($database);
+        $photoResponder = new PhotoResponder($database, $cacheFileManager);
         $photoImg2ImgProcessor = new PhotoImg2ImgProcessor(
             $telegramFileDownloader,
             $automatic1111APiClient,

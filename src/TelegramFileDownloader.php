@@ -8,9 +8,11 @@ use Longman\TelegramBot\Request;
 
 class TelegramFileDownloader
 {
-    private const DOWNLOADED_FILES_CACHE_DIR = __DIR__ . '/../data/cache/downloaded-files';
     private readonly Client $guzzle;
-    public function __construct(private string $telegramBotApiKey)
+    public function __construct(
+        private readonly CacheFileManager $cacheFileManager,
+        private string $telegramBotApiKey
+    )
     {
         $this->guzzle = new Client();
     }
@@ -45,21 +47,11 @@ class TelegramFileDownloader
      */
     public function downloadFile(string $fileId): string
     {
-        if (!is_dir(self::DOWNLOADED_FILES_CACHE_DIR)) {
-            if (mkdir(self::DOWNLOADED_FILES_CACHE_DIR, recursive: true) || !is_dir(self::DOWNLOADED_FILES_CACHE_DIR)) {
-                throw new \RuntimeException('Could not create downloaded files directory ' . self::DOWNLOADED_FILES_CACHE_DIR);
-            }
+        $cachedFileContents = $this->cacheFileManager->readFileFromCache($fileId);
+        if ($cachedFileContents !== null) {
+            return $cachedFileContents;
         }
-        $cacheFileName =self::DOWNLOADED_FILES_CACHE_DIR . '/' . mb_substr(str_replace(['.', '/'], ['_', '_'], $fileId), 0, 1024);
-        if (file_exists($cacheFileName)) {
-            $contents = file_get_contents($cacheFileName);
-            if ($contents === false) {
-                throw new \RuntimeException("Failed to read downloaded cache file: $cacheFileName. " . error_get_last()['message']);
-            }
-            echo "Reading file from cache: $cacheFileName\n";
-            return $contents;
-        }
-        echo "Downloading file: $cacheFileName\n";
+        echo "Downloading file: $fileId\n";
         $fileRequest = Request::getFile([
                                             'file_id' => $fileId,
                                         ]);
@@ -78,12 +70,8 @@ class TelegramFileDownloader
         }
 
         $contents = $downloadResponse->getBody()->getContents();
-        echo "Finished downloading file: $cacheFileName";
-        $putResult = file_put_contents($cacheFileName, $contents);
+        $this->cacheFileManager->writeFileToCache($fileId, $contents);
 
-        if ($putResult === false) {
-            throw new \Exception("Failed to write downloaded file: " . $file->getFilePath() . '. '. error_get_last()['message']);
-        }
         return $contents;
     }
 
@@ -96,4 +84,5 @@ class TelegramFileDownloader
 
         return $this->downloadFile($fileId);
     }
+
 }
