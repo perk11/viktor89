@@ -139,6 +139,8 @@ def generate_video():
     num_frames = int(data.get('num_frames', 73))
 
 
+    if steps>20:
+        steps = 20
     sem.acquire()
     input_image_file_name = 'viktor89.jpg'
     with open(comfyui_input_dir + '/' + input_image_file_name, 'wb') as file:
