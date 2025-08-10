@@ -20,9 +20,9 @@ class VideoProcessor implements MessageChainProcessor
     public function processMessageChain(MessageChain $messageChain): ProcessingResult
     {
         $message = $messageChain->last();
-        $prompt = $message->messageText;
-        if ($messageChain->count() > 1) {
-            $prompt = trim($messageChain->getMessages()[$messageChain->count() - 2]->messageText . "\n\n" . $prompt);
+        $prompt = trim($message->messageText);
+        if ($prompt === '' && $messageChain->count() > 1) {
+            $prompt = trim($messageChain->previous()->messageText);
         }
         if ($prompt === '') {
             $response = new InternalMessage();

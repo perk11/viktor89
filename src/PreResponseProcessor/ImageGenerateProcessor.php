@@ -33,6 +33,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         $triggerFound = false;
         $lastMessage = $messageChain->last();
         $messageText = $lastMessage->messageText;
+        $prompt = '';
         foreach ($this->triggeringCommands as $triggeringCommand) {
             if (str_starts_with($messageText, $triggeringCommand)) {
                 $triggerFound = true;
@@ -45,7 +46,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
             return new ProcessingResult(null, false);
         }
         if ($messageChain->count() > 1 && $messageChain->previous()->photoFileId === null) {
-            $prompt = trim($messageChain->getMessages()[$messageChain->count() - 2]->messageText . "\n\n" . $prompt);
+            $prompt = trim($messageChain->previous()->messageText . "\n\n" . $prompt);
         }
         if ($prompt === '') {
             $message = InternalMessage::asResponseTo(

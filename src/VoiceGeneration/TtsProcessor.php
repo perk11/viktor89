@@ -23,8 +23,8 @@ class TtsProcessor implements MessageChainProcessor
     {
         $message = $messageChain->last();
         $prompt = $message->messageText;
-        if ($messageChain->count() > 1) {
-            $prompt = trim($messageChain->getMessages()[$messageChain->count() - 2]->messageText . "\n\n" . $prompt);
+        if ($prompt === '' && $messageChain->count() > 1) {
+            $prompt = trim($messageChain->previous()->messageText . "\n\n" . $prompt);
         }
         if ($prompt === '') {
             $response = new InternalMessage();

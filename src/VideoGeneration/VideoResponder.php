@@ -25,7 +25,7 @@ class VideoResponder
         }
         Request::sendVideo($options);
         echo "Deleting $videoPath\n";
-        unlink($videoPath);
+//        unlink($videoPath);
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,
             'message_id' => $message->id,
