@@ -98,6 +98,36 @@ def get_img2img_workflow_infotext_and_filename_fluxkontext(prompt, seed, steps, 
     comfy_workflow_object["41"]["inputs"]['image'] = input_image_filename
     return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: FLUX.1-Kontext-dev', input_image_filename
 
+def get_img2img_workflow_infotext_and_filename_qwen_image_edit(prompt, seed, steps):
+    if steps == 0:
+        steps = 20
+    input_image_filename = 'viktor89-qwen-image-edit.jpg'
+    workflow_file_path = Path(__file__).with_name("qwen-image-img2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["121"]["inputs"]['prompt'] = prompt
+    comfy_workflow_object["25"]["inputs"]['noise_seed'] = seed
+    comfy_workflow_object["17"]["inputs"]['steps'] = steps
+
+    comfy_workflow_object["127"]["inputs"]['image'] = input_image_filename
+    return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: Qwen_Image_Edit-Q8_0', input_image_filename
+
+def get_img2img_workflow_infotext_and_filename_qwen_image_edit_lora(prompt, seed, steps, lora):
+    if steps == 0:
+        steps = 8
+    input_image_filename = 'viktor89-qwen-image-edit-lora.jpg'
+    workflow_file_path = Path(__file__).with_name("qwen-image-img2img_lora.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["121"]["inputs"]['prompt'] = prompt
+    comfy_workflow_object["25"]["inputs"]['noise_seed'] = seed
+    comfy_workflow_object["17"]["inputs"]['steps'] = steps
+    comfy_workflow_object["133"]["inputs"]['lora_name'] = lora + ".safetensors"
+
+    comfy_workflow_object["127"]["inputs"]['image'] = input_image_filename
+    return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: Qwen_Image_Edit-Q8_0, Lora: ' + lora, input_image_filename
 
 sem = threading.Semaphore() #Todo use a dict with semaphores based on input image file name
 @app.route('/sdapi/v1/img2img', methods=['POST'])
@@ -123,6 +153,13 @@ def generate_img2img():
     match model:
         case 'FLUX.1-Kontext-dev':
             comfy_workflow_object, infotext, input_image_file_name = get_img2img_workflow_infotext_and_filename_fluxkontext(prompt, seed, steps, width, height)
+        case 'Qwen_Image_Edit-Q8_0':
+            comfy_workflow_object, infotext, input_image_file_name = get_img2img_workflow_infotext_and_filename_qwen_image_edit(prompt, seed, steps)
+        case 'Qwen_Image_Edit-Q8_0-lora':
+            lora = data.get('lora', '')
+            if lora == '':
+                return jsonify({'error': "Lora is required"}), 400
+            comfy_workflow_object, infotext, input_image_file_name = get_img2img_workflow_infotext_and_filename_qwen_image_edit_lora(prompt, seed, steps, lora)
         case _:
             return jsonify({"error": "Unknown model: " + model}), 400
     sem.acquire()
