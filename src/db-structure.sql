@@ -69,3 +69,7 @@ CREATE TABLE IF NOT EXISTS `saved_image`
     `user_id` bigint NOT NULL,
     `created_at` timestamp NOT NULL
 );
+CREATE TABLE IF NOT EXISTS `patches`
+(
+    `link` text UNIQUE
+)

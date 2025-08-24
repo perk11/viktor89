@@ -20,7 +20,8 @@
         "amphp/parallel": "^2.2",
       "ext-curl": "*",
       "ext-gd": "*",
-      "openai-php/client": "^0.13.0"
+      "openai-php/client": "^0.13.0",
+      "ext-dom": "*"
     },
     "config": {
         "allow-plugins": {
