@@ -1,0 +1,46 @@
+{
+  "2": {
+    "inputs": {
+      "text": "prompt-goes-here",
+      "model": "VibeVoice-7B-Preview",
+      "cfg_scale": 1.3,
+      "seed": 1792724184,
+      "use_sampling": false,
+      "temperature": 0.95,
+      "top_p": 0.95,
+      "voice_to_clone": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "VibeVoiceSingleSpeakerNode",
+    "_meta": {
+      "title": "VibeVoice Single Speaker"
+    }
+  },
+  "save_audio_node": {
+    "inputs": {
+      "filename_prefix": "audio/ComfyUI",
+      "quality": "128k",
+      "audioUI": "",
+      "audio": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "SaveAudioOpus",
+    "_meta": {
+      "title": "Save Audio (Opus)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "audio": "viktor892.ogg",
+      "audioUI": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "LoadAudio"
+    }
+  }
+}

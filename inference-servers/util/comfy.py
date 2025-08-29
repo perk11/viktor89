@@ -49,6 +49,41 @@ def get_images(prompt, comfy_ui_server_address):
     ws.close()
     return output_images
 
+def get_audio(workflow, comfy_ui_server_address):
+    client_id = str(uuid.uuid4())
+    ws = websocket.WebSocket()
+    ws.connect("ws://{}/ws?clientId={}".format(comfy_ui_server_address, client_id))
+    prompt_id = _queue_prompt(workflow, client_id, comfy_ui_server_address)['prompt_id']
+    output_audios = []
+    while True:
+        out = ws.recv()
+        if isinstance(out, str):
+            print(out)
+            message = json.loads(out)
+            if message['type'] == 'executing':
+                data = message['data']
+                if 'prompt_id' in data and data['prompt_id'] == prompt_id:
+                    if data['node'] is None:
+                        break  #Execution is done
+                    else:
+                        current_node = data['node']
+            elif message['type'] == 'executed':
+                print("Received audio from Comfy")
+                data = message['data']
+                for audio in data['output']['audio']:
+                    filename = audio['filename']
+                    subfolder = audio['subfolder']
+                    url = "http://{}/api/view?filename={}&type=output&subfolder={}".format(
+                        comfy_ui_server_address,
+                        urllib.parse.quote_plus(filename),
+                        urllib.parse.quote_plus(subfolder),
+                    )
+                    file = urllib.request.urlopen(url).read()
+                    output_audios.append(file)
+
+    ws.close()
+    return output_audios
+
 def json_image_response_from_images_list(images, infotext):
     for node_id in images:
         for image_data in images[node_id]:
