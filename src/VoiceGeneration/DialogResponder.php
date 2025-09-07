@@ -110,7 +110,7 @@ Dialog Prompt: $prompt";
         $responseText = "{$prefix}Используйте следующий синтаксис: Собеседник 1, Собеседник 2, Тема диалога. Например:
 Жириновский, Якубович, Почему закрыли поле чудес.";
 
-        $responseText .= "\nПоддерживаемые собеседники: " . implode("\n", array_keys($this->voicesConfig));
+        $responseText .= "\nПоддерживаемые собеседники:\n" . implode("\n", array_keys($this->voicesConfig));
         return new ProcessingResult(
             InternalMessage::asResponseTo(
                 $message,
