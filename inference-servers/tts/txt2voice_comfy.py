@@ -84,8 +84,8 @@ def get_workflow_vibe_voice(prompt, seed, input_filename):
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
-    comfy_workflow_object["2"]["inputs"]['text'] = prompt
-    comfy_workflow_object["2"]["inputs"]['seed'] = seed
+    comfy_workflow_object["11"]["inputs"]['text'] = prompt
+    comfy_workflow_object["11"]["inputs"]['seed'] = seed
     comfy_workflow_object["8"]["inputs"]['audio'] = input_filename
 
     return comfy_workflow_object
@@ -95,8 +95,8 @@ def get_workflow_vibe_voice_2_speakers(prompt, seed, input_filename, input_filen
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
-    comfy_workflow_object["9"]["inputs"]['text'] = prompt
-    comfy_workflow_object["9"]["inputs"]['seed'] = seed
+    comfy_workflow_object["11"]["inputs"]['text'] = prompt
+    comfy_workflow_object["11"]["inputs"]['seed'] = seed
     comfy_workflow_object["8"]["inputs"]['audio'] = input_filename
     comfy_workflow_object["10"]["inputs"]['audio'] = input_filename
 

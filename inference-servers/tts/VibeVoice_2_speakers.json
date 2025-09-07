@@ -1,7 +1,7 @@
 {
   "8": {
     "inputs": {
-      "audio": "viktor89.ogg",
+      "audio": "viktor89_txt2voice_comfy.ogg",
       "audioUI": ""
     },
     "class_type": "LoadAudio",
@@ -9,12 +9,25 @@
       "title": "LoadAudio"
     }
   },
-  "9": {
+  "10": {
+    "inputs": {
+      "audio": "viktor89_txt2voice_comfy_2.ogg",
+      "audioUI": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "LoadAudio"
+    }
+  },
+  "11": {
     "inputs": {
       "text": "[1]: Hello, this is the first speaker.\n[2]: Hi there, I'm the second speaker.\n[1]: Nice to meet you!\n[2]: Nice to meet you too!",
-      "model": "VibeVoice-7B-Preview",
+      "model": "VibeVoice-Large",
+      "attention_type": "auto",
+      "free_memory_after_generate": true,
+      "diffusion_steps": 20,
+      "seed": 2806381369,
       "cfg_scale": 1.3,
-      "seed": 42,
       "use_sampling": false,
       "temperature": 0.95,
       "top_p": 0.95,
@@ -32,23 +45,13 @@
       "title": "VibeVoice Multiple Speakers"
     }
   },
-  "10": {
-    "inputs": {
-      "audio": "viktor89_2.ogg",
-      "audioUI": ""
-    },
-    "class_type": "LoadAudio",
-    "_meta": {
-      "title": "LoadAudio"
-    }
-  },
   "save_audio_node": {
     "inputs": {
       "filename_prefix": "audio/ComfyUI",
       "quality": "128k",
       "audioUI": "",
       "audio": [
-        "9",
+        "11",
         0
       ]
     },
