@@ -58,7 +58,7 @@ def get_audio(workflow, comfy_ui_server_address):
     while True:
         out = ws.recv()
         if isinstance(out, str):
-            print(out)
+            print(out, flush=True)
             message = json.loads(out)
             if message['type'] == 'executing':
                 data = message['data']
@@ -68,8 +68,10 @@ def get_audio(workflow, comfy_ui_server_address):
                     else:
                         current_node = data['node']
             elif message['type'] == 'executed':
-                print("Received audio from Comfy")
                 data = message['data']
+                if data['output'] is None:
+                    continue
+                print("Received audio from Comfy", flush=True)
                 for audio in data['output']['audio']:
                     filename = audio['filename']
                     subfolder = audio['subfolder']

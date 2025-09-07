@@ -10,7 +10,7 @@ use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 class TtsProcessor implements MessageChainProcessor
 {
-    private const VOICE_STORAGE_DIR = __DIR__ . '/../../data/voice';
+    public const VOICE_STORAGE_DIR = __DIR__ . '/../../data/voice';
     public function __construct(
         private readonly TtsApiClient $voiceClient,
         private readonly VoiceResponder $voiceResponder,
@@ -50,7 +50,7 @@ class TtsProcessor implements MessageChainProcessor
         try {
             $response = $this->voiceClient->text2Voice(
                 $prompt,
-                $voiceSource,
+                [$voiceSource],
                 $model['speakerId'] ?? null,
                 'ru',
                 'ogg',

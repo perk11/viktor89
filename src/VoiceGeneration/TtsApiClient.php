@@ -14,7 +14,7 @@ class TtsApiClient
     ) {
     }
 
-    public function text2Voice(string $prompt, ?string $voice, ?string $speakerId, string $language, string $outputFormat, ?string $speed, string $model): TtsApiResponse
+    public function text2Voice(string $prompt, ?array $voices, ?string $speakerId, string $language, string $outputFormat, ?string $speed, string $model): TtsApiResponse
     {
         $this->initClientBasedOnModel($model);
         $params = [
@@ -28,9 +28,14 @@ class TtsApiClient
         if ($speed !== null) {
             $params['speed'] = $speed;
         }
-        if ($voice !== null) {
-            $params['source_voice'] = base64_encode($voice);
-            $params['source_voice_format'] = 'ogg';
+        foreach ($voices as $index => $voice) {
+            if ($index === 0) {
+                $paramName = 'source_voice';
+                $params['source_voice_format'] = 'ogg';
+            } else {
+                $paramName = 'source_voice_' . ($index +1) ;
+            }
+            $params[$paramName] = base64_encode($voice);
         }
         $result = $this->request('txt2voice', $params);
 

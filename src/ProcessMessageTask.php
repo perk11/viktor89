@@ -40,6 +40,7 @@ use Perk11\Viktor89\VideoGeneration\Txt2VideoClient;
 use Perk11\Viktor89\VideoGeneration\VideoImg2VidProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoResponder;
+use Perk11\Viktor89\VoiceGeneration\DialogResponder;
 use Perk11\Viktor89\VoiceGeneration\TtsApiClient;
 use Perk11\Viktor89\VoiceGeneration\TtsProcessor;
 use Perk11\Viktor89\VoiceGeneration\VoiceResponder;
@@ -272,6 +273,8 @@ class ProcessMessageTask implements Task
         $zoomGenerator = new ZoomApiClient($seedProcessor, $zoomLevelPreference, $config['zoomModels']);
         $zoomImageTransformProcessor = new ImageTransformProcessor($telegramFileDownloader, $zoomGenerator, $photoResponder);
         $zoomCommandProcessor = new ZoomCommandProcessor($zoomImageTransformProcessor, $zoomLevelPreference);
+        $ttsApiClient = new TtsApiClient($config['voiceModels']);
+        $voiceResponder = new VoiceResponder();
         $messageChainProcessors = [
             new VoiceProcessor($internalMessageTranscriber),
             $clownProcessor,
@@ -359,8 +362,8 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/say'],
                 new TtsProcessor(
-                    new TtsApiClient($config['voiceModels']),
-                    new VoiceResponder(),
+                    $ttsApiClient,
+                    $voiceResponder,
                     $sayModelProcessor,
                     $config['voiceModels'],
                 ),
@@ -376,6 +379,15 @@ class ProcessMessageTask implements Task
             new CommandBasedResponderTrigger(
                 ['/ratelimits'],
                 new RateLimitsCommandProcessor($database, $rateLimitObjects)
+            ),
+            new CommandBasedResponderTrigger(
+                ['/podcast'],
+                new DialogResponder(
+                    $assistantFactory->getAssistantInstanceByName('podcast'),
+                    $ttsApiClient,
+                    $voiceResponder,
+                    $config['podcastVoices'],
+                ),
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/assistant'],

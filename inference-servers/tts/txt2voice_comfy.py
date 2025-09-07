@@ -36,6 +36,7 @@ def generate_voice():
     model: str = data.get('model')
     seed: int = data.get('seed', random.randint(1, 2 ** 32 - 1))
     source_voice: str = data.get('source_voice')
+    source_voice_2: str = data.get('source_voice_2')
     source_voice_format: str = data.get('source_voice_format')
     if prompt is None:
         return jsonify({'error': 'prompt is required'}), 400
@@ -54,10 +55,17 @@ def generate_voice():
             print("Writing received voice to " + filename)
             f.write(base64.b64decode(source_voice))
             f.flush()
+        if source_voice_2 is None:
+            workflow = get_workflow_vibe_voice(prompt, seed, filename)
+        else:
+            filename2 = args.comfy_ui_input_dir + '/viktor89_txt2voice_comfy_2.' + source_voice_format
+            with open(filename2, 'wb') as f:
+                print("Writing received voice to " + filename2)
+                f.write(base64.b64decode(source_voice_2))
+                f.flush()
+            workflow = get_workflow_vibe_voice_2_speakers(prompt, seed, filename, filename2)
 
-        workflow = get_workflow_vibe_voice(prompt, seed, filename)
         voice_data = get_audio(workflow, args.comfy_ui_server_address)[0]
-
         response = {
             'voice_data': base64.b64encode(voice_data).decode('utf-8'),
             'info': {
@@ -82,5 +90,16 @@ def get_workflow_vibe_voice(prompt, seed, input_filename):
 
     return comfy_workflow_object
 
+def get_workflow_vibe_voice_2_speakers(prompt, seed, input_filename, input_filename_2):
+    workflow_file_path = Path(__file__).with_name("VibeVoice_2_speakers.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["9"]["inputs"]['text'] = prompt
+    comfy_workflow_object["9"]["inputs"]['seed'] = seed
+    comfy_workflow_object["8"]["inputs"]['audio'] = input_filename
+    comfy_workflow_object["10"]["inputs"]['audio'] = input_filename
+
+    return comfy_workflow_object
 if __name__ == '__main__':
     app.run(host='localhost', port=args.port)
