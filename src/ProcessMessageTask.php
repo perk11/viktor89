@@ -329,10 +329,6 @@ class ProcessMessageTask implements Task
                 $zoomCommandProcessor,
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
-                ['/upscale'],
-                new ImageTransformProcessor($telegramFileDownloader, $upscaleClient, $photoResponder)
-            ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/remix'],
                 new RemixProcessor(
                     $telegramFileDownloader,
