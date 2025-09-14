@@ -288,7 +288,12 @@ class ProcessMessageTask implements Task
             $config['restyleModels'],
             $imageSizeProcessor,
         );
-        $restyleGenerator = new RestyleGenerator($restyleAutomatic1111ApiClient, $styleProcessor, $imageRepository);
+        $restyleGenerator = new RestyleGenerator(
+            $restyleAutomatic1111ApiClient,
+            $styleProcessor,
+            $imageRepository,
+            $assistantFactory->getAssistantInstanceByName('vision-for-remix'),
+        );
         $ttsApiClient = new TtsApiClient($config['voiceModels']);
         $voiceResponder = new VoiceResponder();
         $messageChainProcessors = [

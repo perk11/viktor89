@@ -32,6 +32,13 @@
       "selectableByUser": false,
       "model": "gemma3-12B-Q8_0-vision",
       "class": "Perk11\\Viktor89\\Assistant\\OpenAiChatAssistant"
+    },
+    "vision-for-restyle": {
+      "url": "http://localhost:7070/",
+      "supportsResponseStart": false,
+      "selectableByUser": false,
+      "model": "gemma3-12B-Q8_0-vision",
+      "class": "Perk11\\Viktor89\\Assistant\\OpenAiChatAssistant"
     }
   },
   "imageModels": {
