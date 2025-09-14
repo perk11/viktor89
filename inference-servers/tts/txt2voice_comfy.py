@@ -34,7 +34,7 @@ def generate_voice():
 
     prompt: str = data.get('prompt')
     model: str = data.get('model')
-    seed: int = data.get('seed', random.randint(1, 2 ** 32 - 1))
+    seed: int = data.get('seed', 42)
     source_voice: str = data.get('source_voice')
     source_voice_2: str = data.get('source_voice_2')
     source_voice_format: str = data.get('source_voice_format')
@@ -46,7 +46,7 @@ def generate_voice():
     if source_voice_format not in ['wav', 'ogg', 'mp3']:
         return jsonify({'error': 'source_voice_format must be one of wav, ogg, mp3, got: ' + str(source_voice_format)},
                        400)
-
+    print("Acquiring lock", flush=True)
     sem.acquire()
     try:
         filename = args.comfy_ui_input_dir + '/viktor89_txt2voice_comfy.' + source_voice_format
