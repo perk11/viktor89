@@ -284,6 +284,15 @@
       "url": "http://localhost:8138"
     }
   },
+  "restyleModels": {
+    "flux-dev-ufo": {
+      "model": "flux-dev-ufo",
+      "customUrl": "http://localhost:8146",
+      "img2img": true,
+      "tx2img": false,
+      "useOptions": false
+    }
+  },
   "videoFirstFrameImageModels":  {
     "flux-dev-720x480": {
       "width": 720,

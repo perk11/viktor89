@@ -48,6 +48,7 @@ class ImageTransformProcessor implements MessageChainProcessor
             $transformedPhotoResponse = $this->generator->processImage(
                 $photo,
                 $lastMessage->userId,
+                trim($lastMessage->messageText),
             );
             $this->photoResponder->sendPhoto(
                 $lastMessage,
@@ -55,7 +56,10 @@ class ImageTransformProcessor implements MessageChainProcessor
                 $transformedPhotoResponse->sendAsFile,
                 $transformedPhotoResponse->getCaption(),
             );
-        } catch (\Exception $e) {
+        } catch (ImageGeneratorBadRequestException $e) {
+            $responseMessage = InternalMessage::asResponseTo($lastMessage, $e->getMessage());
+            return new ProcessingResult($responseMessage, true);
+        } catch  (\Exception $e) {
             echo "Failed to generate image:\n" . $e->getMessage(),
             Request::execute('setMessageReaction', [
                 'chat_id'    => $lastMessage->chatId,

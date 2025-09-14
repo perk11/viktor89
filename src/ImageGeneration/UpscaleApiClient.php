@@ -16,7 +16,7 @@ class UpscaleApiClient implements ImageByImageGenerator
         private readonly UserPreferenceReaderInterface $upscaleModelPreference,
         private readonly array $modelConfig,
     ){}
-    public function processImage(string $imageContent, int $userId): Automatic1111ImageApiResponse
+    public function processImage(string $imageContent, int $userId, ?string $prompt = ''): Automatic1111ImageApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
         $params['init_images'] = [base64_encode($imageContent)];

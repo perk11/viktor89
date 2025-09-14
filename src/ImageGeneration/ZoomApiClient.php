@@ -15,7 +15,7 @@ class ZoomApiClient implements ImageByImageGenerator
         private readonly UserPreferenceReaderInterface $zoomLevelPreference,
         private readonly array $modelConfig,
     ){}
-    public function processImage(string $imageContent, int $userId): Automatic1111ImageApiResponse
+    public function processImage(string $imageContent, int $userId,  ?string $prompt = ''): Automatic1111ImageApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
         echo "Sending zoom request with params: ". json_encode($params, JSON_THROW_ON_ERROR) ."\n";

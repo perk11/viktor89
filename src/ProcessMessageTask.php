@@ -18,6 +18,7 @@ use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\RemixProcessor;
+use Perk11\Viktor89\ImageGeneration\RestyleGenerator;
 use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\ImageGeneration\ImageTransformProcessor;
@@ -233,6 +234,12 @@ class ProcessMessageTask implements Task
             $this->telegramBotUsername,
             array_keys($config['upscaleModels']),
         );
+        $styleProcessor = new UserPreferenceSetByCommandProcessor(
+            $database,
+            ['/style',],
+            'style',
+            $this->telegramBotUsername,
+        );
         $txt2VideoClient = new Txt2VideoClient($stepsProcessor, $seedProcessor, $videoModelProcessor, $config['videoModels']);
         $img2VideoClient = new Img2VideoClient($stepsProcessor, $seedProcessor, $imv2VideModelProcessor, $config['img2videoModels']);
         $upscaleClient = new UpscaleApiClient($stepsProcessor, $seedProcessor, $upscaleModelProcessor, $config['upscaleModels']);
@@ -273,6 +280,15 @@ class ProcessMessageTask implements Task
         $zoomGenerator = new ZoomApiClient($seedProcessor, $zoomLevelPreference, $config['zoomModels']);
         $zoomImageTransformProcessor = new ImageTransformProcessor($telegramFileDownloader, $zoomGenerator, $photoResponder);
         $zoomCommandProcessor = new ZoomCommandProcessor($zoomImageTransformProcessor, $zoomLevelPreference);
+        $restyleAutomatic1111ApiClient = new ImageGeneration\Automatic1111APiClient(
+            $denoisingStrengthProcessor,
+            $stepsProcessor,
+            $seedProcessor,
+            $imageModelProcessor,
+            $config['restyleModels'],
+            $imageSizeProcessor,
+        );
+        $restyleGenerator = new RestyleGenerator($restyleAutomatic1111ApiClient, $styleProcessor, $imageRepository);
         $ttsApiClient = new TtsApiClient($config['voiceModels']);
         $voiceResponder = new VoiceResponder();
         $messageChainProcessors = [
@@ -289,6 +305,7 @@ class ProcessMessageTask implements Task
             $videoModelProcessor,
             $imv2VideModelProcessor,
             $upscaleModelProcessor,
+            $styleProcessor,
             $assistantModelProcessor,
             $sayModelProcessor,
             $denoisingStrengthProcessor,
@@ -338,6 +355,10 @@ class ProcessMessageTask implements Task
                         $automatic1111APiClient,
                     )
                 )
+            ),
+            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+                ['/restyle'],
+                new ImageTransformProcessor($telegramFileDownloader, $restyleGenerator, $photoResponder)
             ),
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/video'],
