@@ -23,7 +23,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
     {
         $parameters = $this->getResponseParameters($assistantContext);
         echo "Calling OpenAI chat API...\n";
-        echo json_encode($parameters, JSON_UNESCAPED_UNICODE) . PHP_EOL ;
+        echo mb_substr(json_encode($parameters, JSON_UNESCAPED_UNICODE) , 0, 4096). PHP_EOL ;
         if (json_last_error() !== JSON_ERROR_NONE) {
             echo 'Failed to convert context to JSON: ' . json_last_error_msg();
         }
