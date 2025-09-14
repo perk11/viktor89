@@ -28,7 +28,7 @@ class RestyleGenerator implements ImageByImageGenerator
         if ($prompt === '') {
             echo "User sent a blank prompt, guessing the prompt from the image...";
             $assistantContext = new AssistantContext();
-            $assistantContext->systemPrompt = 'Describe the image sent by the user so that it can be drawn in a different style. If there is a subject, only describe the subject, do not describe the background or composition. Your responses will be fed directly to an image generator, so do not output any formatting, just the description.';
+            $assistantContext->systemPrompt = 'Describe the image sent by the user so that it can be drawn in a different style. If there is a subject, only describe the subject. Your responses will be fed directly to an image generator, so do not output any formatting, just the description.';
             if ($style !== 'default_style') {
                 $assistantContext->systemPrompt .= 'Style name might or might not be related. Use the style name for reference only if you can identify what it means.';
             }
