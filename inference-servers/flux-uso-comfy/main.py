@@ -30,7 +30,7 @@ def get_img2img_workflow_infotext(prompt, seed, steps):
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
     comfy_workflow_object["6"]["inputs"]['text'] = prompt
-    comfy_workflow_object["31"]["inputs"]['noise_seed'] = seed
+    comfy_workflow_object["31"]["inputs"]['seed'] = seed
     comfy_workflow_object["31"]["inputs"]['steps'] = steps
 
     return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: FLUX.1-USO'
