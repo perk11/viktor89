@@ -57,6 +57,29 @@ def get_txt2img_workflow_and_infotext_qwen(model, prompt, negative_prompt, seed,
     comfy_workflow_object["58"]["inputs"]['height'] = height
     return comfy_workflow_object, f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
 
+def get_txt2img_workflow_and_infotext_wan22(model, prompt, negative_prompt, seed, steps, width, height):
+    workflow_file_path = Path(__file__).with_name("wan22_tx2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["6"]["inputs"]['text'] = prompt
+    comfy_workflow_object["7"]["inputs"]['text'] = negative_prompt
+    if steps > 1:
+        if steps < 11:
+            low_steps = steps/2
+            high_steps = steps/2
+        else:
+            low_steps = 10
+            high_steps = steps - low_steps
+        comfy_workflow_object["81"]["inputs"]['value'] = low_steps
+        comfy_workflow_object["80"]["inputs"]['value'] = high_steps
+    else:
+        low_steps = comfy_workflow_object["81"]["inputs"]['value']
+        high_steps = comfy_workflow_object["80"]["inputs"]['value']
+    comfy_workflow_object["57"]["inputs"]['noise_seed'] = seed
+    comfy_workflow_object["77"]["inputs"]['width'] = width
+    comfy_workflow_object["77"]["inputs"]['height'] = height
+    return comfy_workflow_object, f'{prompt}\nLow noise steps: {low_steps}, High noise steps: {high_steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
 @app.route('/sdapi/v1/txt2img', methods=['POST'])
 def generate_image():
     data = request.json
@@ -74,6 +97,8 @@ def generate_image():
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_chroma(model, prompt, negative_prompt, seed, steps, width, height)
         case 'qwen_image_fp8_e4m3fn':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_qwen(model, prompt, negative_prompt, seed, steps, width, height)
+        case 'wan2.2_t2v_fp8':
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_wan22(model, prompt, negative_prompt, seed, steps, width, height)
         case _:
             return jsonify({"error": "Unknown model: " + model}), 400
 
