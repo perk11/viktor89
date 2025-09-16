@@ -98,7 +98,7 @@ def get_workflow_vibe_voice_2_speakers(prompt, seed, input_filename, input_filen
     comfy_workflow_object["11"]["inputs"]['text'] = prompt
     comfy_workflow_object["11"]["inputs"]['seed'] = seed
     comfy_workflow_object["8"]["inputs"]['audio'] = input_filename
-    comfy_workflow_object["10"]["inputs"]['audio'] = input_filename
+    comfy_workflow_object["10"]["inputs"]['audio'] = input_filename_2
 
     return comfy_workflow_object
 if __name__ == '__main__':
