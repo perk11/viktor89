@@ -232,7 +232,7 @@
   },
   "80": {
     "inputs": {
-      "value": 35
+      "value": 8
     },
     "class_type": "PrimitiveInt",
     "_meta": {
@@ -241,7 +241,7 @@
   },
   "81": {
     "inputs": {
-      "value": 10
+      "value": 4
     },
     "class_type": "PrimitiveInt",
     "_meta": {
