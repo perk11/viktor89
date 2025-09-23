@@ -65,7 +65,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         $processingResult = $this->processPromptImgReplacementsAndUseImg2ImgIfTheyArePresent(
             $prompt,
             $lastMessage,
-            $modelName === 'OmniGen-v1',
+            $modelName,
         );
         if ($processingResult->abortProcessing) {
             return $processingResult;
@@ -108,7 +108,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
     private function processPromptImgReplacementsAndUseImg2ImgIfTheyArePresent(
         string $prompt,
         InternalMessage $lastMessage,
-        bool $omnigenV1
+        string $modelName
     ): ProcessingResult {
         if (preg_match(self::IMG_REGEX, $prompt) === 0) {
             return new ProcessingResult(null, false);
@@ -127,17 +127,20 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         try {
             $processedPrompt = preg_replace_callback(
                 self::IMG_REGEX,
-                function ($matches) use (&$images, $omnigenV1) {
+                function ($matches) use (&$images, $modelName) {
                     $savedImage = $this->imageRepository->retrieve($matches[1]);
                     if ($savedImage === null) {
                         throw new SavedImageNotFoundException($matches[1]);
                     }
                     $images[] = $savedImage;
-                    if ($omnigenV1) {
+                    if ($modelName === 'OmniGen-v1') {
                         return '<img><|image_' . (count($images)) . '|></img>';
+                    } elseif ($modelName === 'OmniGen-v2') {
+                        return "image " . count($images);
+                    } else {
+                        return '';
                     }
 
-                    return "image " . count($images);
                 },
                 $prompt,
             );
