@@ -88,7 +88,7 @@ def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenam
         del comfy_workflow_object["141"]["inputs"]['image2']
         del comfy_workflow_object["134"]["inputs"]['image2']
     if len(image_filenames) > 2:
-        comfy_workflow_object["138"]["inputs"]['image'] = image_filenames[2]
+        comfy_workflow_object["142"]["inputs"]['image'] = image_filenames[2]
     else:
         del comfy_workflow_object["142"]
         del comfy_workflow_object["143"]
