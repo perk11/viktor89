@@ -127,8 +127,8 @@
     "inputs": {
       "unet_name": "Qwen_Image_Edit-Q8_0.gguf",
       "device": "cuda:0",
-      "virtual_vram_gb": 3,
-      "use_other_vram": false,
+      "virtual_vram_gb": 0,
+      "use_other_vram": true,
       "expert_mode_allocations": ""
     },
     "class_type": "UnetLoaderGGUFDisTorchMultiGPU",
