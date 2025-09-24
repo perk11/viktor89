@@ -1,0 +1,283 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 980826152766018,
+      "steps": 20,
+      "cfg": 4,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "75",
+        0
+      ],
+      "positive": [
+        "104",
+        0
+      ],
+      "negative": [
+        "106",
+        0
+      ],
+      "latent_image": [
+        "88",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "38": {
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "39": {
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "60": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "66": {
+    "inputs": {
+      "shift": 3,
+      "model": [
+        "102",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingAuraFlow",
+    "_meta": {
+      "title": "ModelSamplingAuraFlow"
+    }
+  },
+  "75": {
+    "inputs": {
+      "strength": 1,
+      "model": [
+        "66",
+        0
+      ]
+    },
+    "class_type": "CFGNorm",
+    "_meta": {
+      "title": "CFGNorm"
+    }
+  },
+  "88": {
+    "inputs": {
+      "pixels": [
+        "115",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
+    }
+  },
+  "102": {
+    "inputs": {
+      "unet_name": "Qwen-Image-Edit-2509-Q8_0.gguf"
+    },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": {
+      "title": "Unet Loader (GGUF)"
+    }
+  },
+  "103": {
+    "inputs": {
+      "image": "viktor89-Qwen-Image-Edit-2509_Q8_0-image-0.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "104": {
+    "inputs": {
+      "prompt": "Prompt goes here",
+      "clip": [
+        "38",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ],
+      "image1": [
+        "115",
+        0
+      ],
+      "image2": [
+        "116",
+        0
+      ],
+      "image3": [
+        "117",
+        0
+      ]
+    },
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "_meta": {
+      "title": "TextEncodeQwenImageEditPlus"
+    }
+  },
+  "106": {
+    "inputs": {
+      "prompt": "",
+      "clip": [
+        "38",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ],
+      "image1": [
+        "103",
+        0
+      ],
+      "image2": [
+        "116",
+        0
+      ],
+      "image3": [
+        "117",
+        0
+      ]
+    },
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "_meta": {
+      "title": "TextEncodeQwenImageEditPlus"
+    }
+  },
+  "109": {
+    "inputs": {
+      "image": "viktor89-Qwen-Image-Edit-2509_Q8_0-image-1.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "110": {
+    "inputs": {
+      "image": "viktor89-Qwen-Image-Edit-2509_Q8_0-image-2.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "115": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "interpolation": "lanczos",
+      "method": "keep proportion",
+      "condition": "downscale if bigger",
+      "multiple_of": 0,
+      "image": [
+        "103",
+        0
+      ]
+    },
+    "class_type": "ImageResize+",
+    "_meta": {
+      "title": "🔧 Image Resize"
+    }
+  },
+  "116": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "interpolation": "lanczos",
+      "method": "keep proportion",
+      "condition": "downscale if bigger",
+      "multiple_of": 0,
+      "image": [
+        "109",
+        0
+      ]
+    },
+    "class_type": "ImageResize+",
+    "_meta": {
+      "title": "🔧 Image Resize"
+    }
+  },
+  "117": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "interpolation": "lanczos",
+      "method": "keep proportion",
+      "condition": "downscale if bigger",
+      "multiple_of": 0,
+      "image": [
+        "110",
+        0
+      ]
+    },
+    "class_type": "ImageResize+",
+    "_meta": {
+      "title": "🔧 Image Resize"
+    }
+  },
+  "save_image_websocket_node": {
+    "inputs": {
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImageWebsocket",
+    "_meta": {
+      "title": "SaveImageWebsocket"
+    }
+  }
+}

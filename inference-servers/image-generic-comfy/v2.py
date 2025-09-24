@@ -59,6 +59,8 @@ def generate_img2img():
         match model:
             case 'Qwen-Image-Edit-2509_fp8_e4m3fn':
                 comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenames, prompt, seed, steps)
+            case 'Qwen-Image-Edit-2509-Q8_0':
+                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_qwen_image_edit2509_v2(image_filenames, prompt, seed, steps)
             case _:
                 return jsonify({"error": "Unknown model: " + model}), 400
         return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
@@ -97,6 +99,37 @@ def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenam
         del comfy_workflow_object["134"]["inputs"]['image3']
 
     return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: Qwen-Image-Edit-2509_fp8_e4m3fn'
+
+def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509_v2(image_filenames, prompt, seed, steps):
+    if len(image_filenames) > 3:
+        raise Exception("qwen_image_edit2509 supports up to 3 images")
+    if steps == 0:
+        steps = 20
+    workflow_file_path = Path(__file__).with_name("qwen-image2509-img2img_v2.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["104"]["inputs"]['prompt'] = prompt
+    comfy_workflow_object["3"]["inputs"]['seed'] = seed
+    comfy_workflow_object["3"]["inputs"]['steps'] = steps
+
+    comfy_workflow_object["103"]["inputs"]['image'] = image_filenames[0]
+    if len(image_filenames) > 1:
+        comfy_workflow_object["109"]["inputs"]['image'] = image_filenames[1]
+    else:
+        del comfy_workflow_object["109"]
+        del comfy_workflow_object["116"]
+        del comfy_workflow_object["104"]["inputs"]['image2']
+        del comfy_workflow_object["106"]["inputs"]['image2']
+    if len(image_filenames) > 2:
+        comfy_workflow_object["110"]["inputs"]['image'] = image_filenames[2]
+    else:
+        del comfy_workflow_object["110"]
+        del comfy_workflow_object["117"]
+        del comfy_workflow_object["104"]["inputs"]['image3']
+        del comfy_workflow_object["106"]["inputs"]['image3']
+
+    return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: Qwen-Image-Edit-2509-Q8_0'
 
 if __name__ == '__main__':
     app.run(host='localhost', port=args.port)
