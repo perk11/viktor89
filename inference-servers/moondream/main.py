@@ -37,8 +37,6 @@ class ContentPart(BaseModel):
 
     @model_validator(mode="after")
     def validate_by_type(self):
-        if self.type == "text" and not (self.text and self.text.strip()):
-            raise ValueError("text part requires non-empty 'text'")
         if self.type == "image_url" and self.image_url is None:
             raise ValueError("image_url part requires 'image_url'")
         return self
