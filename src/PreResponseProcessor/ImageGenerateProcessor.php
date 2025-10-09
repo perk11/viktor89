@@ -25,6 +25,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         private readonly PhotoImg2ImgProcessor $photoImg2ImgProcessor,
         private readonly ImageRepository $imageRepository,
         private readonly UserPreferenceReaderInterface $imageModelPreference,
+        private readonly string $defaultModelName,
     ) {
     }
 
@@ -61,7 +62,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
             return new ProcessingResult(null, true);
         }
         echo "Generating image for prompt: $prompt\n";
-        $modelName = $this->imageModelPreference->getCurrentPreferenceValue($lastMessage->userId);
+        $modelName = $this->imageModelPreference->getCurrentPreferenceValue($lastMessage->userId) ?? $this->defaultModelName;
         $processingResult = $this->processPromptImgReplacementsAndUseImg2ImgIfTheyArePresent(
             $prompt,
             $lastMessage,
