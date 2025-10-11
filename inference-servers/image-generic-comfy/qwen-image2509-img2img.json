@@ -67,7 +67,7 @@
       "steps": 20,
       "denoise": 1,
       "model": [
-        "136",
+        "145",
         0
       ]
     },
@@ -120,7 +120,7 @@
     "inputs": {
       "cfg": 2.5,
       "model": [
-        "136",
+        "145",
         0
       ],
       "positive": [
@@ -264,16 +264,6 @@
       "title": "TextEncodeQwenImageEditPlus"
     }
   },
-  "136": {
-    "inputs": {
-      "unet_name": "Qwen-Image-Edit-2509_fp8_e4m3fn.safetensors",
-      "weight_dtype": "fp8_e4m3fn"
-    },
-    "class_type": "UNETLoader",
-    "_meta": {
-      "title": "Load Diffusion Model"
-    }
-  },
   "138": {
     "inputs": {
       "image": "2.jpg"
@@ -379,6 +369,15 @@
     "class_type": "ImageResize+",
     "_meta": {
       "title": "🔧 Image Resize"
+    }
+  },
+  "145": {
+    "inputs": {
+      "unet_name": "Qwen-Image-Edit-2509-Q8_0.gguf"
+    },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": {
+      "title": "Unet Loader (GGUF)"
     }
   },
   "save_image_websocket_node": {
