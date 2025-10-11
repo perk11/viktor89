@@ -52,9 +52,17 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
         $improvedPrompt = clone $imageGenerationPrompt;
         $context = new AssistantContext();
         $context->systemPrompt = "Given a message and an image, return a prompt for an AI image editor that will implement the changes requested in the message. Be concrete about the changes that need to be made, as the editor does not understand emotions, metaphors, negatives, abstract concepts. Your output will be directly passed to an API, so don't output anything extra. Do not use any syntax or code formatting, just output raw text describing the changes that need to be maade and nothing else. Translate the output to English.";
+        $imageIndex = 1;
+        foreach ($imageGenerationPrompt->sourceImagesContents as $sourceImagesContent) {
+            $userMessage = new AssistantContextMessage();
+            $userMessage->isUser = true;
+            $userMessage->photo = $sourceImagesContent;
+            $userMessage->text = "image $imageIndex";
+            $context->messages[] = $userMessage;
+            $imageIndex++;
+        }
         $userMessage = new AssistantContextMessage();
         $userMessage->isUser = true;
-        $userMessage->photo = current($imageGenerationPrompt->sourceImagesContents);
         $userMessage->text = $imageGenerationPrompt->text;
         $context->messages[] = $userMessage;
         $improvedPrompt->text = $this->assistant->getCompletionBasedOnContext($context);

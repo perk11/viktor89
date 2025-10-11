@@ -119,12 +119,20 @@ class ProcessMessageTask implements Task
         }
         $config = json_decode($configString, true, 512, JSON_THROW_ON_ERROR);
         $imageModelConfig = $config['imageModels'];
+        $editModelConfig = $config['imageEditModels'];
         $imageModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
             $database,
             ['/imagemodel'],
             'imagemodel',
             $this->telegramBotUsername,
             array_keys($imageModelConfig),
+        );
+        $editModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+            $database,
+            ['/editmodel'],
+            'editmodel',
+            $this->telegramBotUsername,
+            array_keys($editModelConfig),
         );
         $imageSizeProcessor = new ListBasedPreferenceByCommandProcessor(
             $database, ['/imagesize'],
@@ -138,6 +146,14 @@ class ProcessMessageTask implements Task
             $seedProcessor,
             $imageModelProcessor,
             $imageModelConfig,
+            $imageSizeProcessor,
+        );
+        $editAutomatic1111APiClient = new ImageGeneration\Automatic1111APiClient(
+            $denoisingStrengthProcessor,
+            $stepsProcessor,
+            $seedProcessor,
+            $imageModelProcessor,
+            $editModelConfig,
             $imageSizeProcessor,
         );
         $systemPromptProcessor = new UserPreferenceSetByCommandProcessor(
@@ -179,6 +195,10 @@ class ProcessMessageTask implements Task
             $imageModelProcessor,
             $config['imageModels'],
         );
+        $editModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
+            $imageModelProcessor,
+            $editModelConfig,
+        );
         $imageRepository = new ImageRepository($database->sqlite3Database);
         $imgTagExtractor = new ImgTagExtractor($imageRepository);
         $assistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
@@ -186,6 +206,12 @@ class ProcessMessageTask implements Task
             $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
             $imageModelPreferenceReader,
             $imageModelConfig,
+        );
+        $editAssistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
+            $editAutomatic1111APiClient,
+            $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
+            $editModelPreferenceReader,
+            $editModelConfig,
         );
         $photoResponder = new PhotoResponder($database, $cacheFileManager);
         $processingResultExecutor= new ProcessingResultExecutor($database);
@@ -307,6 +333,22 @@ class ProcessMessageTask implements Task
             $imgTagExtractor,
             $imageModelPreferenceReader,
         );
+        $eProcessor = new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
+            ['/e'],
+            $editAutomatic1111APiClient,
+            $photoResponder,
+            $telegramFileDownloader,
+            $imgTagExtractor,
+            $editModelPreferenceReader,
+        );
+        $editProcessor = new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
+            ['/edit'],
+            $editAssistedImageGenerator,
+            $photoResponder,
+            $telegramFileDownloader,
+            $imgTagExtractor,
+            $editModelPreferenceReader,
+        );
         $messageChainProcessors = [
             new VoiceProcessor($internalMessageTranscriber),
             $clownProcessor,
@@ -318,6 +360,7 @@ class ProcessMessageTask implements Task
                                      ]),
             $imageModelProcessor,
             $imageSizeProcessor,
+            $editModelProcessor,
             $videoModelProcessor,
             $imv2VideModelProcessor,
             $upscaleModelProcessor,
@@ -335,6 +378,8 @@ class ProcessMessageTask implements Task
             ),
             $imageGenerateProcessor,
             $imagineGenerateProcessor,
+            $editProcessor,
+            $eProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/upscale'],
                 new ImageTransformProcessor($telegramFileDownloader, $upscaleClient, $photoResponder)
