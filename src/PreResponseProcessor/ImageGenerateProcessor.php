@@ -2,30 +2,29 @@
 
 namespace Perk11\Viktor89\PreResponseProcessor;
 
-use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\GetTriggeringCommandsInterface;
-use Perk11\Viktor89\ImageGeneration\ImageRepository;
-use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
-use Perk11\Viktor89\ImageGeneration\PhotoResponder;
+use Perk11\Viktor89\ImageGeneration\ImageByPromptAndImageGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
+use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
+use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
+use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringCommandsInterface
 {
-    private const IMG_REGEX = '/<img>(.*?)<\/img>/s';
     public function __construct(
         private readonly array $triggeringCommands,
-        private readonly ImageByPromptGenerator $automatic1111APiClient,
+        private readonly ImageByPromptGenerator&ImageByPromptAndImageGenerator $automatic1111APiClient,
         private readonly PhotoResponder $photoResponder,
-        private readonly PhotoImg2ImgProcessor $photoImg2ImgProcessor,
-        private readonly ImageRepository $imageRepository,
+        private readonly TelegramFileDownloader $telegramFileDownloader,
+        private readonly ImgTagExtractor $imgTagExtractor,
         private readonly UserPreferenceReaderInterface $imageModelPreference,
-        private readonly string $defaultModelName,
     ) {
     }
 
@@ -34,11 +33,11 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         $triggerFound = false;
         $lastMessage = $messageChain->last();
         $messageText = $lastMessage->messageText;
-        $prompt = '';
+        $promptText = '';
         foreach ($this->triggeringCommands as $triggeringCommand) {
             if (str_starts_with($messageText, $triggeringCommand)) {
                 $triggerFound = true;
-                $prompt = trim(str_replace($triggeringCommand, '', $messageText));
+                $promptText = trim(str_replace($triggeringCommand, '', $messageText));
                 break;
             }
         }
@@ -47,104 +46,29 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
             return new ProcessingResult(null, false);
         }
         if ($messageChain->count() > 1 && $messageChain->previous()->photoFileId === null) {
-            $prompt = trim($messageChain->previous()->messageText . "\n\n" . $prompt);
+            $promptText = trim($messageChain->previous()->messageText . "\n\n" . $promptText);
         }
-        if ($prompt === '') {
+        if ($promptText === '') {
             $message = InternalMessage::asResponseTo(
                 $lastMessage,
                 'Непонятно, что генерировать...',
             );
             return new ProcessingResult($message, true);
         }
-
+        $prompt = new ImageGenerationPrompt($promptText);
         if ($messageChain->previous()?->photoFileId !== null) {
-            $this->photoImg2ImgProcessor->respondWithImg2ImgResultBasedOnPhotoInMessage($messageChain->previous(), $lastMessage, $prompt);
-            return new ProcessingResult(null, true);
+            try {
+                $prompt->sourceImagesContents[] = $this->telegramFileDownloader->downloadPhotoFromInternalMessage(
+                    $messageChain->previous()
+                );
+            } catch (\Exception $e) {
+                echo "Failed to download source image from Telegram: " . $e->getMessage() . "\n";
+                return new ProcessingResult(null, true, '🤔', $messageChain->previous());
+            }
         }
-        echo "Generating image for prompt: $prompt\n";
-        $modelName = $this->imageModelPreference->getCurrentPreferenceValue($lastMessage->userId) ?? $this->defaultModelName;
-        $processingResult = $this->processPromptImgReplacementsAndUseImg2ImgIfTheyArePresent(
-            $prompt,
-            $lastMessage,
-            $modelName,
-        );
-        if ($processingResult->abortProcessing) {
-            return $processingResult;
-        }
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $lastMessage->chatId,
-            'message_id' => $lastMessage->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '👀',
-                ],
-            ],
-        ]);
+        $modelName = $this->imageModelPreference->getCurrentPreferenceValue($lastMessage->userId);
         try {
-            $response = $this->automatic1111APiClient->generateImageByPrompt($prompt, $lastMessage->userId);
-            $this->photoResponder->sendPhoto(
-                $lastMessage,
-                $response->getFirstImageAsPng(),
-                $response->sendAsFile,
-                $response->getCaption()
-            );
-        } catch (\Exception $e) {
-            echo "Failed to generate image:\n" . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $lastMessage->chatId,
-                'message_id' => $lastMessage->id,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '🤔',
-                    ],
-                ],
-            ]);
-        }
-
-        return new ProcessingResult(null, true);
-    }
-
-    private function processPromptImgReplacementsAndUseImg2ImgIfTheyArePresent(
-        string $prompt,
-        InternalMessage $lastMessage,
-        string $modelName
-    ): ProcessingResult {
-        if (preg_match(self::IMG_REGEX, $prompt) === 0) {
-            return new ProcessingResult(null, false);
-        }
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $lastMessage->chatId,
-            'message_id' => $lastMessage->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '👀',
-                ],
-            ],
-        ]);
-        $images = [];
-        try {
-            $processedPrompt = preg_replace_callback(
-                self::IMG_REGEX,
-                function ($matches) use (&$images, $modelName) {
-                    $savedImage = $this->imageRepository->retrieve($matches[1]);
-                    if ($savedImage === null) {
-                        throw new SavedImageNotFoundException($matches[1]);
-                    }
-                    $images[] = $savedImage;
-                    if ($modelName === 'OmniGen-v1') {
-                        return '<img><|image_' . (count($images)) . '|></img>';
-                    } elseif ($modelName === 'OmniGen-v2') {
-                        return "image " . count($images);
-                    } else {
-                        return '';
-                    }
-
-                },
-                $prompt,
-            );
+            $prompt = $this->imgTagExtractor->extractImageTags($prompt, $modelName);
         } catch (SavedImageNotFoundException $e) {
             return new ProcessingResult(
                 InternalMessage::asResponseTo(
@@ -156,23 +80,38 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
                 ), true
             );
         }
-
-        echo "Prompt changed to $processedPrompt\n";
+        echo "Generating image for prompt: $promptText";
+        if (count($prompt->sourceImagesContents) > 0) {
+            echo " and " . count($prompt->sourceImagesContents) . " source images";
+        }
+        echo "\n";
+        Request::execute('setMessageReaction', [
+            'chat_id'    => $lastMessage->chatId,
+            'message_id' => $lastMessage->id,
+            'reaction'   => [
+                [
+                    'type'  => 'emoji',
+                    'emoji' => '👀',
+                ],
+            ],
+        ]);
         try {
-            $response = $this->automatic1111APiClient->generateImageByPromptAndImages(
-                $images,
-                $processedPrompt,
-                $lastMessage->userId,
-            );
+            if (count($prompt->sourceImagesContents) === 0) {
+                $response = $this->automatic1111APiClient->generateImageByPrompt($prompt->text, $lastMessage->userId);
+            } else {
+                $response = $this->automatic1111APiClient->generateImageByPromptAndImages(
+                    $prompt,
+                    $lastMessage->userId
+                );
+            }
             $this->photoResponder->sendPhoto(
                 $lastMessage,
                 $response->getFirstImageAsPng(),
                 $response->sendAsFile,
-                $response->getCaption(),
+                $response->getCaption()
             );
         } catch (\Exception $e) {
-            echo "Failed to generate image with prompt replacement:\n" . $e->getMessage() . "\n" . $e->getTraceAsString(
-                ) . "\n";
+            echo "Failed to generate image:\n" . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
             Request::execute('setMessageReaction', [
                 'chat_id'    => $lastMessage->chatId,
                 'message_id' => $lastMessage->id,

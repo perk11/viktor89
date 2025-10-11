@@ -61,16 +61,18 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         return $a111response;
     }
 
-    public function generateImageByPromptAndImages(array $imageContents, string $prompt, int $userId): Automatic1111ImageApiResponse
+
+    public function generateImageByPromptAndImages(ImageGenerationPrompt $imageGenerationPrompt, int $userId): Automatic1111ImageApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId, ImageGenerationType::img2img);
         $params = $this->processParamsAndInitHttpClient($params);
+        $promptText = $imageGenerationPrompt->text;
         if (isset($params['promptPrefix'])) {
-            $prompt = $params['promptPrefix'] . $prompt;
+            $promptText = $params['promptPrefix'] . $promptText;
             unset($params['promptPrefix']);
         }
         if (isset($params['promptSuffix'])) {
-            $prompt .= $params['promptSuffix'];
+            $promptText .= $params['promptSuffix'];
             unset($params['promptSuffix']);
         }
         $sendAsFile = false;
@@ -80,10 +82,10 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         }
         unset($params['assistantPrompt'], $params['txt2img'], $params['img2img'], $params['useOptions']);
         $params['init_images'] = [];
-        foreach ($imageContents as $imageContent) {
+        foreach ($imageGenerationPrompt->sourceImagesContents as $imageContent) {
             $params['init_images'][] = base64_encode($imageContent);
         }
-        $params['prompt'] = $prompt;
+        $params['prompt'] = $promptText;
         $params['denoising_strength'] = (float) ($this->denoisingStrengthPreference->getCurrentPreferenceValue($userId) ?? '0.75');
         unset($params['refiner_checkpoint'], $params['refiner_switch_at']);
         $response = $this->request('img2img', $params);

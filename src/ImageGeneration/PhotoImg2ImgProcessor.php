@@ -5,14 +5,18 @@ namespace Perk11\Viktor89\ImageGeneration;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\MessageChain;
+use Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor;
+use Perk11\Viktor89\PreResponseProcessor\SavedImageNotFoundException;
+use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 
 class PhotoImg2ImgProcessor
 {
     public function __construct(
-        private readonly TelegramFileDownloader $telegramFileDownloader,
-        private readonly ImageByPromptAndImageGenerator $automatic1111APiClient,
-        private readonly PhotoResponder $photoResponder,
+        private readonly ImageGenerateProcessor $imageGenerateProcessor,
+        private readonly ProcessingResultExecutor $processingResultExecutor,
     ) {
     }
 
@@ -35,51 +39,7 @@ class PhotoImg2ImgProcessor
             return;
         }
         $internalMessage = InternalMessage::fromTelegramMessage($message);
-        $this->respondWithImg2ImgResultBasedOnPhotoInMessage($internalMessage,$internalMessage, $prompt);
-    }
-
-    public function respondWithImg2ImgResultBasedOnPhotoInMessage(
-        InternalMessage $messageWithPhoto,
-        InternalMessage $messageToReplyTo,
-        string $prompt,
-    ): void
-    {
-        echo "Generating img2img for prompt: $prompt\n";
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $messageToReplyTo->chatId,
-            'message_id' => $messageToReplyTo->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '👀',
-                ],
-            ],
-        ]);
-        try {
-            $photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageWithPhoto);
-            $transformedPhotoResponse = $this->automatic1111APiClient->generateImageByPromptAndImages(
-                [$photo],
-                $prompt,
-                $messageToReplyTo->userId,
-            );
-            $this->photoResponder->sendPhoto(
-                $messageToReplyTo,
-                $transformedPhotoResponse->getFirstImageAsPng(),
-                $transformedPhotoResponse->sendAsFile,
-                $transformedPhotoResponse->getCaption(),
-            );
-        } catch (\Exception $e) {
-            echo "Failed to generate image:\n" . $e->getMessage(),
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $messageToReplyTo->chatId,
-                'message_id' => $messageToReplyTo->id,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '🤔',
-                    ],
-                ],
-            ]);
-        }
+        $result = $this->imageGenerateProcessor->processMessageChain(new MessageChain([$internalMessage]));
+        $this->processingResultExecutor->execute($result);
     }
 }

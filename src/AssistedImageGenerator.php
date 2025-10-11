@@ -9,6 +9,7 @@ use Perk11\Viktor89\ImageGeneration\Automatic1111APiClient;
 use Perk11\Viktor89\ImageGeneration\Automatic1111ImageApiResponse;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptAndImageGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
+use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 
 class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAndImageGenerator
 {
@@ -28,16 +29,15 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
     }
 
     public function generateImageByPromptAndImages(
-        array $imageContents,
-        string $prompt,
+        ImageGenerationPrompt $imageGenerationPrompt,
         int $userId
     ): Automatic1111ImageApiResponse {
-        $improvedPrompt = $this->processPrompt($prompt, $userId);
+        $improvedPrompt = clone $imageGenerationPrompt;
+        $improvedPrompt->text = $this->processPrompt($imageGenerationPrompt->text, $userId);
 
         return $this->automatic1111APiClient->generateImageByPromptAndImages(
-            $imageContents,
             $improvedPrompt,
-            $userId
+            $userId,
         );
     }
 

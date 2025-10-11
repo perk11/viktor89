@@ -49,7 +49,7 @@ class RestyleGenerator implements ImageByImageGenerator
             throw new ImageGeneratorBadRequestException("Не найдено образца стиля с именем \"$style\", сохраните его используя команду /saveas");
         }
 
-        $response = $this->client->generateImageByPromptAndImages([$imageContent, $styleImageData], $prompt, $userId);
+        $response = $this->client->generateImageByPromptAndImages(new ImageGenerationPrompt($prompt, [$imageContent, $styleImageData]), $userId);
         $response->info['infotexts'][0] .=", Style: $style";
 
         return $response;

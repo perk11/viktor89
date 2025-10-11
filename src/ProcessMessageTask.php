@@ -10,18 +10,18 @@ use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
-use Perk11\Viktor89\ImageGeneration\ClownifyApiClient;
-use Perk11\Viktor89\ImageGeneration\ClownifyProcessor;
+use Perk11\Viktor89\ImageGeneration\DefaultingToFirstInConfigModelPreferenceReader;
 use Perk11\Viktor89\ImageGeneration\DownscaleProcessor;
 use Perk11\Viktor89\ImageGeneration\ImageRemixer;
 use Perk11\Viktor89\ImageGeneration\ImageRepository;
+use Perk11\Viktor89\ImageGeneration\ImageTransformProcessor;
+use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\RemixProcessor;
 use Perk11\Viktor89\ImageGeneration\RestyleGenerator;
 use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
-use Perk11\Viktor89\ImageGeneration\ImageTransformProcessor;
 use Perk11\Viktor89\ImageGeneration\ZoomApiClient;
 use Perk11\Viktor89\ImageGeneration\ZoomCommandProcessor;
 use Perk11\Viktor89\JoinQuiz\JoinQuizProcessor;
@@ -175,6 +175,8 @@ class ProcessMessageTask implements Task
             $this->telegramBotUsername,
             array_keys($config['voiceModels']),
         );
+        $imageRepository = new ImageRepository($database->sqlite3Database);
+        $imgTagExtractor = new ImgTagExtractor($imageRepository);
         $assistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
             $automatic1111APiClient,
             $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
@@ -182,15 +184,9 @@ class ProcessMessageTask implements Task
             $imageModelConfig,
         );
         $photoResponder = new PhotoResponder($database, $cacheFileManager);
-        $photoImg2ImgProcessor = new PhotoImg2ImgProcessor(
-            $telegramFileDownloader,
-            $automatic1111APiClient,
-            $photoResponder,
-        );
-        $assistedPhotoImg2ImgProcessor = new PhotoImg2ImgProcessor(
-            $telegramFileDownloader,
-            $assistedImageGenerator,
-            $photoResponder,
+        $imageModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
+            $imageModelProcessor,
+            $config['imageModels'],
         );
         $processingResultExecutor= new ProcessingResultExecutor($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
@@ -275,7 +271,6 @@ class ProcessMessageTask implements Task
         ];
         $internalMessageTranscriber = new InternalMessageTranscriber($telegramFileDownloader, $voiceRecogniser);
 
-        $imageRepository = new ImageRepository($database->sqlite3Database);
         $zoomLevelPreference = new FixedValuePreferenceProvider(2);
         $zoomGenerator = new ZoomApiClient($seedProcessor, $zoomLevelPreference, $config['zoomModels']);
         $zoomImageTransformProcessor = new ImageTransformProcessor($telegramFileDownloader, $zoomGenerator, $photoResponder);
@@ -296,6 +291,22 @@ class ProcessMessageTask implements Task
         );
         $ttsApiClient = new TtsApiClient($config['voiceModels']);
         $voiceResponder = new VoiceResponder();
+        $imageGenerateProcessor = new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
+            ['/image'],
+            $automatic1111APiClient,
+            $photoResponder,
+            $telegramFileDownloader,
+            $imgTagExtractor,
+            $imageModelPreferenceReader,
+        );
+        $imagineGenerateProcessor = new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
+            ['/imagine'],
+            $assistedImageGenerator,
+            $photoResponder,
+            $telegramFileDownloader,
+            $imgTagExtractor,
+            $imageModelPreferenceReader,
+        );
         $messageChainProcessors = [
             new VoiceProcessor($internalMessageTranscriber),
             $clownProcessor,
@@ -322,24 +333,8 @@ class ProcessMessageTask implements Task
                 ['/quiz'],
                 new RandomQuizResponder($questionRepository)
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
-                ['/image'],
-                $automatic1111APiClient,
-                $photoResponder,
-                $photoImg2ImgProcessor,
-                $imageRepository,
-                $imageModelProcessor,
-                key($imageModelConfig),
-            ),
-            new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
-                ['/imagine'],
-                $assistedImageGenerator,
-                $photoResponder,
-                $assistedPhotoImg2ImgProcessor,
-                $imageRepository,
-                $imageModelProcessor,
-                key($imageModelConfig),
-            ),
+            $imageGenerateProcessor,
+            $imagineGenerateProcessor,
             new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
                 ['/upscale'],
                 new ImageTransformProcessor($telegramFileDownloader, $upscaleClient, $photoResponder)
@@ -421,6 +416,7 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
             new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
         ];
+        $photoImg2ImgProcessor = new PhotoImg2ImgProcessor($imageGenerateProcessor, $processingResultExecutor);
         $messageChainProcessorRunner = new MessageChainProcessorRunner($processingResultExecutor, $messageChainProcessors);
         $engine = new \Perk11\Viktor89\Engine($photoImg2ImgProcessor,
                                               $database,
