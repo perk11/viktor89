@@ -175,19 +175,19 @@ class ProcessMessageTask implements Task
             $this->telegramBotUsername,
             array_keys($config['voiceModels']),
         );
+        $imageModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
+            $imageModelProcessor,
+            $config['imageModels'],
+        );
         $imageRepository = new ImageRepository($database->sqlite3Database);
         $imgTagExtractor = new ImgTagExtractor($imageRepository);
         $assistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
             $automatic1111APiClient,
             $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
-            $imageModelProcessor,
+            $imageModelPreferenceReader,
             $imageModelConfig,
         );
         $photoResponder = new PhotoResponder($database, $cacheFileManager);
-        $imageModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
-            $imageModelProcessor,
-            $config['imageModels'],
-        );
         $processingResultExecutor= new ProcessingResultExecutor($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchInstruct6($database);
