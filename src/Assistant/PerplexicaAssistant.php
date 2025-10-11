@@ -21,7 +21,7 @@ class PerplexicaAssistant implements AssistantInterface
                                    ]);
     }
 
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext): string
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null): string
     {
         $lastMessage = $assistantContext->messages[count($assistantContext->messages) - 1];
         $history = [];
@@ -61,7 +61,9 @@ class PerplexicaAssistant implements AssistantInterface
                 );
             }
         }
-
+        if ($streamFunction !== null) {
+            $streamFunction($message);
+        }
 
         return $message;
     }

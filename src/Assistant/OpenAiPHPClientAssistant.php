@@ -36,7 +36,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         );
     }
 
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext): string
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null): string
     {
         $requestOptions = [
             'messages' => $assistantContext->toOpenAiMessagesArray(),
@@ -51,8 +51,12 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         }
         $result = $this->openAiClient->chat()->create($requestOptions);
 
-        echo $result->choices[0]->message->content;
+        $completion = $result->choices[0]->message->content;
 
-        return $result->choices[0]->message->content;
+        if ($streamFunction !== null) {
+            //TODO: implement proper streaming
+            $streamFunction($completion);
+        }
+        return $completion;
     }
 }

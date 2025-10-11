@@ -19,7 +19,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
     {
         parent::__construct($systemPromptProcessor, $responseStartProcessor, $telegramFileDownloader,$telegramBotId, $url, $apiKey);
     }
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext): string
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null): string
     {
         $parameters = $this->getResponseParameters($assistantContext);
         echo "Calling OpenAI chat API...\n";

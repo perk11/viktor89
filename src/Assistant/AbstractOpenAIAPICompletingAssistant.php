@@ -31,12 +31,12 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
         $this->abortResponseHandlers[] = $abortResponseHandler;
     }
 
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext): string
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null): string
     {
         $prompt = $this->convertContextToPrompt($assistantContext);
         echo $prompt;
 
-        return $this->getCompletion($prompt);
+        return $this->getCompletion($prompt, $streamFunction);
     }
 
     abstract protected function convertContextToPrompt(AssistantContext $assistantContext): string;
@@ -50,7 +50,7 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
 
     }
 
-    protected function getCompletion(string $prompt): string
+    protected function getCompletion(string $prompt, ?callable $streamFunction): string
     {
         $opts = $this->getCompletionOptions($prompt);
         $aborted = false;
@@ -59,7 +59,7 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
         try {
             $this->openAi->completion(
                 $opts,
-                function ($curl_info, $data) use (&$fullContent, &$jsonPart, &$aborted, $prompt) {
+                function ($curl_info, $data) use (&$fullContent, &$jsonPart, &$aborted, $streamFunction, $prompt) {
                 if ($jsonPart === null) {
                     $dataToParse = $data;
                 } else {
@@ -86,6 +86,9 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
                         throw new \RuntimeException("Unexpected JSON received: " . $dataToParse);
                     }
                     $content = $parsedData['choices'][0]['text'];
+                }
+                if ($streamFunction !== null) {
+                    $streamFunction($content);
                 }
                 echo $content;
                 $fullContent .= $content;
