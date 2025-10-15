@@ -1,0 +1,1754 @@
+{
+  "735": {
+    "inputs": {
+      "ckpt_name": "Juggernaut_X_RunDiffusion.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "1086": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "735",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "1105": {
+    "inputs": {
+      "images": [
+        "1574",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "1123": {
+    "inputs": {
+      "image": "viktor89-upscale.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "1199": {
+    "inputs": {
+      "a": [
+        "1537",
+        0
+      ],
+      "b": [
+        "1538",
+        0
+      ],
+      "operation": "multiply"
+    },
+    "class_type": "easy mathInt",
+    "_meta": {
+      "title": "Math Int"
+    }
+  },
+  "1521": {
+    "inputs": {
+      "blocks_to_swap": 4,
+      "use_non_blocking": true,
+      "offload_io_components": false,
+      "cache_model": true,
+      "enable_debug": false
+    },
+    "class_type": "SeedVR2BlockSwap",
+    "_meta": {
+      "title": "SeedVR2 BlockSwap Config"
+    }
+  },
+  "1522": {
+    "inputs": {
+      "images": [
+        "1529:1355",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Pass 3"
+    }
+  },
+  "1526": {
+    "inputs": {
+      "value": 888
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Max Resolution ^2"
+    }
+  },
+  "1527": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": 1,
+      "image": [
+        "1123",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "Upscale Image By"
+    }
+  },
+  "1530": {
+    "inputs": {
+      "images": [
+        "1588:815",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Pass 2"
+    }
+  },
+  "1531": {
+    "inputs": {
+      "images": [
+        "1525:815",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Pass 1"
+    }
+  },
+  "1533": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": 2.5,
+      "image": [
+        "1529:1355",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "Upscale Image By"
+    }
+  },
+  "1535": {
+    "inputs": {
+      "value": [
+        "1526",
+        0
+      ]
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Res before Overlap"
+    }
+  },
+  "1536": {
+    "inputs": {
+      "value": "a/b",
+      "a": [
+        "1553",
+        0
+      ],
+      "b": [
+        "1553",
+        1
+      ]
+    },
+    "class_type": "SimpleMath+",
+    "_meta": {
+      "title": "🔧 Simple Math"
+    }
+  },
+  "1537": {
+    "inputs": {
+      "boolean": [
+        "1547",
+        0
+      ],
+      "on_true": [
+        "1571",
+        0
+      ],
+      "on_false": [
+        "1573",
+        0
+      ]
+    },
+    "class_type": "easy ifElse",
+    "_meta": {
+      "title": "Rows"
+    }
+  },
+  "1538": {
+    "inputs": {
+      "boolean": [
+        "1547",
+        0
+      ],
+      "on_true": [
+        "1573",
+        0
+      ],
+      "on_false": [
+        "1571",
+        0
+      ]
+    },
+    "class_type": "easy ifElse",
+    "_meta": {
+      "title": "Cols"
+    }
+  },
+  "1547": {
+    "inputs": {
+      "value1": [
+        "1536",
+        1
+      ],
+      "value2": 1
+    },
+    "class_type": "Basic data handling: LessThanOrEqual",
+    "_meta": {
+      "title": "<="
+    }
+  },
+  "1553": {
+    "inputs": {
+      "image": [
+        "1533",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "1557": {
+    "inputs": {
+      "value": [
+        "1529:1529",
+        0
+      ]
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Seed Input"
+    }
+  },
+  "1561": {
+    "inputs": {
+      "rows": [
+        "1537",
+        0
+      ],
+      "cols": [
+        "1538",
+        0
+      ],
+      "overlap": 0.1,
+      "overlap_x": 0,
+      "overlap_y": 0,
+      "image": [
+        "1533",
+        0
+      ]
+    },
+    "class_type": "ImageTile+",
+    "_meta": {
+      "title": "🔧 Image Tile"
+    }
+  },
+  "1568": {
+    "inputs": {
+      "value": "a/b",
+      "a": [
+        "1553",
+        0
+      ],
+      "b": [
+        "1535",
+        0
+      ]
+    },
+    "class_type": "SimpleMath+",
+    "_meta": {
+      "title": "🔧 Simple Math"
+    }
+  },
+  "1571": {
+    "inputs": {
+      "value": [
+        "1568",
+        1
+      ]
+    },
+    "class_type": "Basic data handling: MathCeil",
+    "_meta": {
+      "title": "ceil"
+    }
+  },
+  "1573": {
+    "inputs": {
+      "value": [
+        "1575",
+        1
+      ]
+    },
+    "class_type": "Basic data handling: MathCeil",
+    "_meta": {
+      "title": "ceil"
+    }
+  },
+  "1574": {
+    "inputs": {
+      "overlap_x": [
+        "1561",
+        3
+      ],
+      "overlap_y": [
+        "1561",
+        4
+      ],
+      "rows": [
+        "1537",
+        0
+      ],
+      "cols": [
+        "1538",
+        0
+      ],
+      "tiles": [
+        "1087:675",
+        0
+      ]
+    },
+    "class_type": "ImageUntile+",
+    "_meta": {
+      "title": "🔧 Image Untile"
+    }
+  },
+  "1575": {
+    "inputs": {
+      "value": "a/b",
+      "a": [
+        "1568",
+        1
+      ],
+      "b": [
+        "1536",
+        1
+      ]
+    },
+    "class_type": "SimpleMath+",
+    "_meta": {
+      "title": "🔧 Simple Math"
+    }
+  },
+  "1576": {
+    "inputs": {
+      "purge_cache": false,
+      "purge_models": true,
+      "anything": [
+        "1574",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: PurgeVRAM",
+    "_meta": {
+      "title": "LayerUtility: Purge VRAM"
+    }
+  },
+  "1577": {
+    "inputs": {
+      "rgthree_comparer": {
+        "images": [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_zrnon_00019_.png&type=temp&subfolder=&rand=0.02564472488792935"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_zrnon_00020_.png&type=temp&subfolder=&rand=0.5110733410129413"
+          }
+        ]
+      },
+      "image_a": [
+        "1123",
+        0
+      ],
+      "image_b": [
+        "1574",
+        0
+      ]
+    },
+    "class_type": "Image Comparer (rgthree)",
+    "_meta": {
+      "title": "Image Comparer (rgthree)"
+    }
+  },
+  "save_image_websocket_node": {
+    "inputs": {
+      "images": [
+        "1574",
+        0
+      ]
+    },
+    "class_type": "SaveImageWebsocket",
+    "_meta": {
+      "title": "SaveImageWebsocket"
+    }
+  },
+  "1525:1299": {
+    "inputs": {
+      "value": [
+        "1526",
+        0
+      ]
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Max Resolution ^2 Input"
+    }
+  },
+  "1525:1300": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": 1,
+      "image": [
+        "1527",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "Image Input"
+    }
+  },
+  "1525:814": {
+    "inputs": {
+      "value1": [
+        "1525:1424",
+        0
+      ],
+      "value2": [
+        "1525:1299",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: LessThanOrEqual",
+    "_meta": {
+      "title": "<= Max Resolution"
+    }
+  },
+  "1525:1520": {
+    "inputs": {
+      "value": 67
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Int"
+    }
+  },
+  "1525:815": {
+    "inputs": {
+      "boolean": [
+        "1525:814",
+        0
+      ],
+      "on_true": [
+        "1525:801",
+        0
+      ],
+      "on_false": [
+        "1525:1300",
+        0
+      ]
+    },
+    "class_type": "easy ifElse",
+    "_meta": {
+      "title": "1st Pass"
+    }
+  },
+  "1525:895": {
+    "inputs": {
+      "image": [
+        "1525:1300",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "1525:819": {
+    "inputs": {
+      "a": [
+        "1525:1520",
+        0
+      ],
+      "b": 1,
+      "operation": "add"
+    },
+    "class_type": "easy mathInt",
+    "_meta": {
+      "title": "Increment Seed"
+    }
+  },
+  "1525:1303": {
+    "inputs": {
+      "a": [
+        "1525:895",
+        0
+      ],
+      "b": 2,
+      "operation": "multiply"
+    },
+    "class_type": "easy mathInt",
+    "_meta": {
+      "title": "Double Resolution"
+    }
+  },
+  "1525:1522": {
+    "inputs": {
+      "a": [
+        "1525:895",
+        1
+      ],
+      "b": 2,
+      "operation": "multiply"
+    },
+    "class_type": "easy mathInt",
+    "_meta": {
+      "title": "Double Resolution"
+    }
+  },
+  "1525:801": {
+    "inputs": {
+      "model": "seedvr2_ema_7b_fp16.safetensors",
+      "seed": [
+        "1525:1520",
+        0
+      ],
+      "new_resolution": [
+        "1525:1530",
+        0
+      ],
+      "batch_size": 1,
+      "preserve_vram": false,
+      "images": [
+        "1525:1300",
+        0
+      ],
+      "block_swap_config": [
+        "1521",
+        0
+      ]
+    },
+    "class_type": "SeedVR2",
+    "_meta": {
+      "title": "SeedVR2 Video Upscaler"
+    }
+  },
+  "1525:1528": {
+    "inputs": {
+      "value1": [
+        "1525:1522",
+        0
+      ],
+      "value2": [
+        "1525:1303",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: MathMin",
+    "_meta": {
+      "title": "min"
+    }
+  },
+  "1525:1530": {
+    "inputs": {
+      "input": [
+        "1525:1528",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: CastToInt",
+    "_meta": {
+      "title": "to INT"
+    }
+  },
+  "1525:1424": {
+    "inputs": {
+      "formula": "2*sqrt(a*b)",
+      "a": [
+        "1525:895",
+        0
+      ],
+      "b": [
+        "1525:895",
+        1
+      ]
+    },
+    "class_type": "Basic data handling: MathFormula",
+    "_meta": {
+      "title": "formula"
+    }
+  },
+  "1588:1299": {
+    "inputs": {
+      "value": [
+        "1526",
+        0
+      ]
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Max Resolution ^2 Input"
+    }
+  },
+  "1588:1300": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": 1,
+      "image": [
+        "1525:815",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "Image Input"
+    }
+  },
+  "1588:814": {
+    "inputs": {
+      "value1": [
+        "1588:1424",
+        0
+      ],
+      "value2": [
+        "1588:1299",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: LessThanOrEqual",
+    "_meta": {
+      "title": "<= Max Resolution"
+    }
+  },
+  "1588:1520": {
+    "inputs": {
+      "value": [
+        "1525:819",
+        0
+      ]
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Int"
+    }
+  },
+  "1588:815": {
+    "inputs": {
+      "boolean": [
+        "1588:814",
+        0
+      ],
+      "on_true": [
+        "1588:801",
+        0
+      ],
+      "on_false": [
+        "1588:1300",
+        0
+      ]
+    },
+    "class_type": "easy ifElse",
+    "_meta": {
+      "title": "1st Pass"
+    }
+  },
+  "1588:895": {
+    "inputs": {
+      "image": [
+        "1588:1300",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "1588:819": {
+    "inputs": {
+      "a": [
+        "1588:1520",
+        0
+      ],
+      "b": 1,
+      "operation": "add"
+    },
+    "class_type": "easy mathInt",
+    "_meta": {
+      "title": "Increment Seed"
+    }
+  },
+  "1588:1303": {
+    "inputs": {
+      "a": [
+        "1588:895",
+        0
+      ],
+      "b": 2,
+      "operation": "multiply"
+    },
+    "class_type": "easy mathInt",
+    "_meta": {
+      "title": "Double Resolution"
+    }
+  },
+  "1588:1522": {
+    "inputs": {
+      "a": [
+        "1588:895",
+        1
+      ],
+      "b": 2,
+      "operation": "multiply"
+    },
+    "class_type": "easy mathInt",
+    "_meta": {
+      "title": "Double Resolution"
+    }
+  },
+  "1588:1528": {
+    "inputs": {
+      "value1": [
+        "1588:1522",
+        0
+      ],
+      "value2": [
+        "1588:1303",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: MathMin",
+    "_meta": {
+      "title": "min"
+    }
+  },
+  "1588:1424": {
+    "inputs": {
+      "formula": "2*sqrt(a*b)",
+      "a": [
+        "1588:895",
+        0
+      ],
+      "b": [
+        "1588:895",
+        1
+      ]
+    },
+    "class_type": "Basic data handling: MathFormula",
+    "_meta": {
+      "title": "formula"
+    }
+  },
+  "1588:801": {
+    "inputs": {
+      "model": "seedvr2_ema_7b_fp16.safetensors",
+      "seed": [
+        "1588:1520",
+        0
+      ],
+      "new_resolution": [
+        "1588:1529",
+        0
+      ],
+      "batch_size": 1,
+      "preserve_vram": false,
+      "images": [
+        "1588:1300",
+        0
+      ],
+      "block_swap_config": [
+        "1521",
+        0
+      ]
+    },
+    "class_type": "SeedVR2",
+    "_meta": {
+      "title": "SeedVR2 Video Upscaler"
+    }
+  },
+  "1588:1529": {
+    "inputs": {
+      "input": [
+        "1588:1528",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: CastToInt",
+    "_meta": {
+      "title": "to INT"
+    }
+  },
+  "1529:1432": {
+    "inputs": {
+      "value": [
+        "1588:819",
+        0
+      ]
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Seed Input"
+    }
+  },
+  "1529:1568": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": [
+        "1529:1617",
+        0
+      ],
+      "image": [
+        "1529:1279",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "End Resolution"
+    }
+  },
+  "1529:1582": {
+    "inputs": {
+      "input": [
+        "1529:1565",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: CastToInt",
+    "_meta": {
+      "title": "to INT"
+    }
+  },
+  "1529:1581": {
+    "inputs": {
+      "input": [
+        "1529:1564",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: CastToInt",
+    "_meta": {
+      "title": "to INT"
+    }
+  },
+  "1529:1279": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": 1,
+      "image": [
+        "1588:815",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "Upscale Image By"
+    }
+  },
+  "1529:1529": {
+    "inputs": {
+      "a": [
+        "1529:1432",
+        0
+      ],
+      "b": 1,
+      "operation": "add"
+    },
+    "class_type": "easy mathInt",
+    "_meta": {
+      "title": "Math Int"
+    }
+  },
+  "1529:1535": {
+    "inputs": {
+      "value": [
+        "1529:1582",
+        0
+      ]
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Rows"
+    }
+  },
+  "1529:1536": {
+    "inputs": {
+      "value": [
+        "1529:1581",
+        0
+      ]
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Cols"
+    }
+  },
+  "1529:1348": {
+    "inputs": {
+      "value": [
+        "1526",
+        0
+      ]
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Max Resolution Input"
+    }
+  },
+  "1529:1346": {
+    "inputs": {
+      "image": [
+        "1529:1568",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "1529:1564": {
+    "inputs": {
+      "formula": "max(1, floor((a/b) + 0.5))",
+      "a": [
+        "1529:1346",
+        0
+      ],
+      "b": [
+        "1529:1348",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: MathFormula",
+    "_meta": {
+      "title": "cols"
+    }
+  },
+  "1529:1565": {
+    "inputs": {
+      "formula": "max(1, floor((a/b) + 0.5))",
+      "a": [
+        "1529:1346",
+        1
+      ],
+      "b": [
+        "1529:1348",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: MathFormula",
+    "_meta": {
+      "title": "rows"
+    }
+  },
+  "1529:1617": {
+    "inputs": {
+      "value": 1.5
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Scale By"
+    }
+  },
+  "1529:1407": {
+    "inputs": {
+      "input": [
+        "1529:1375",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: CastToInt",
+    "_meta": {
+      "title": "to INT"
+    }
+  },
+  "1529:1402": {
+    "inputs": {
+      "input": [
+        "1529:1370",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: CastToInt",
+    "_meta": {
+      "title": "to INT"
+    }
+  },
+  "1529:1611": {
+    "inputs": {
+      "formula": "round(min(a,b)*c/16)*16",
+      "a": [
+        "1529:1345",
+        1
+      ],
+      "b": [
+        "1529:1345",
+        2
+      ],
+      "c": [
+        "1529:1617",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: MathFormula",
+    "_meta": {
+      "title": "formula"
+    }
+  },
+  "1529:1621": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "width": [
+        "1529:1623",
+        0
+      ],
+      "height": [
+        "1529:1622",
+        0
+      ],
+      "crop": "disabled",
+      "image": [
+        "1529:1166",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "Upscale Image"
+    }
+  },
+  "1529:1375": {
+    "inputs": {
+      "formula": "round((b/a)*c)",
+      "a": [
+        "1529:1345",
+        2
+      ],
+      "b": [
+        "1529:1345",
+        4
+      ],
+      "c": [
+        "1529:1622",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: MathFormula",
+    "_meta": {
+      "title": "overlap y"
+    }
+  },
+  "1529:1370": {
+    "inputs": {
+      "formula": "round((b/a)*c)",
+      "a": [
+        "1529:1345",
+        1
+      ],
+      "b": [
+        "1529:1345",
+        3
+      ],
+      "c": [
+        "1529:1623",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: MathFormula",
+    "_meta": {
+      "title": "overlap x"
+    }
+  },
+  "1529:1622": {
+    "inputs": {
+      "input": [
+        "1529:1636",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: CastToInt",
+    "_meta": {
+      "title": "height"
+    }
+  },
+  "1529:1623": {
+    "inputs": {
+      "input": [
+        "1529:1638",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: CastToInt",
+    "_meta": {
+      "title": "width"
+    }
+  },
+  "1529:1616": {
+    "inputs": {
+      "input": [
+        "1529:1611",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: CastToInt",
+    "_meta": {
+      "title": "to INT"
+    }
+  },
+  "1529:1636": {
+    "inputs": {
+      "boolean": [
+        "1529:1637",
+        0
+      ],
+      "on_true": [
+        "1529:1649",
+        0
+      ],
+      "on_false": [
+        "1529:1371",
+        1
+      ]
+    },
+    "class_type": "easy ifElse",
+    "_meta": {
+      "title": "If else"
+    }
+  },
+  "1529:1166": {
+    "inputs": {
+      "model": "seedvr2_ema_7b_fp16.safetensors",
+      "seed": [
+        "1529:1432",
+        0
+      ],
+      "new_resolution": [
+        "1529:1616",
+        0
+      ],
+      "batch_size": 1,
+      "preserve_vram": false,
+      "images": [
+        "1529:1345",
+        0
+      ],
+      "block_swap_config": [
+        "1521",
+        0
+      ]
+    },
+    "class_type": "SeedVR2",
+    "_meta": {
+      "title": "SeedVR2 Video Upscaler"
+    }
+  },
+  "1529:1355": {
+    "inputs": {
+      "overlap_x": [
+        "1529:1402",
+        0
+      ],
+      "overlap_y": [
+        "1529:1407",
+        0
+      ],
+      "rows": [
+        "1529:1535",
+        0
+      ],
+      "cols": [
+        "1529:1536",
+        0
+      ],
+      "tiles": [
+        "1529:1621",
+        0
+      ]
+    },
+    "class_type": "ImageUntile+",
+    "_meta": {
+      "title": "🔧 Image Untile"
+    }
+  },
+  "1529:1637": {
+    "inputs": {
+      "value1": [
+        "1529:1371",
+        0
+      ],
+      "value2": [
+        "1529:1616",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: Equal",
+    "_meta": {
+      "title": "=="
+    }
+  },
+  "1529:1647": {
+    "inputs": {
+      "value1": [
+        "1529:1616",
+        0
+      ],
+      "value2": [
+        "1529:1371",
+        1
+      ]
+    },
+    "class_type": "Basic data handling: Equal",
+    "_meta": {
+      "title": "=="
+    }
+  },
+  "1529:1638": {
+    "inputs": {
+      "boolean": [
+        "1529:1647",
+        0
+      ],
+      "on_true": [
+        "1529:1371",
+        0
+      ],
+      "on_false": [
+        "1529:1629",
+        0
+      ]
+    },
+    "class_type": "easy ifElse",
+    "_meta": {
+      "title": "If else"
+    }
+  },
+  "1529:1371": {
+    "inputs": {
+      "image": [
+        "1529:1166",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "1529:1649": {
+    "inputs": {
+      "formula": "c*max(a/b,b/a)",
+      "a": [
+        "1529:1345",
+        1
+      ],
+      "b": [
+        "1529:1345",
+        2
+      ],
+      "c": [
+        "1529:1371",
+        1
+      ]
+    },
+    "class_type": "Basic data handling: MathFormula",
+    "_meta": {
+      "title": "formula"
+    }
+  },
+  "1529:1629": {
+    "inputs": {
+      "formula": "c*max(a/b,b/a)",
+      "a": [
+        "1529:1345",
+        1
+      ],
+      "b": [
+        "1529:1345",
+        2
+      ],
+      "c": [
+        "1529:1371",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: MathFormula",
+    "_meta": {
+      "title": "formula"
+    }
+  },
+  "1529:1345": {
+    "inputs": {
+      "rows": [
+        "1529:1535",
+        0
+      ],
+      "cols": [
+        "1529:1536",
+        0
+      ],
+      "overlap": 0.05000000000000002,
+      "overlap_x": 0,
+      "overlap_y": 0,
+      "image": [
+        "1529:1279",
+        0
+      ]
+    },
+    "class_type": "ImageTile+",
+    "_meta": {
+      "title": "🔧 Image Tile"
+    }
+  },
+  "1529:1650": {
+    "inputs": {
+      "images": [
+        "1529:1345",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "1087:644": {
+    "inputs": {
+      "noise_seed": [
+        "1557",
+        0
+      ]
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "1087:645": {
+    "inputs": {
+      "model": [
+        "1087:677",
+        0
+      ],
+      "conditioning": [
+        "1087:633",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "BasicGuider"
+    }
+  },
+  "1087:657": {
+    "inputs": {
+      "control_net_name": "tiled-controlnet-sdxl.safetensors"
+    },
+    "class_type": "ControlNetLoader",
+    "_meta": {
+      "title": "Load ControlNet Model"
+    }
+  },
+  "1087:633": {
+    "inputs": {
+      "strength": 0.49999999999999956,
+      "start_percent": 0,
+      "end_percent": 1,
+      "positive": [
+        "1086",
+        0
+      ],
+      "negative": [
+        "1086",
+        0
+      ],
+      "control_net": [
+        "1087:657",
+        0
+      ],
+      "image": [
+        "1087:676",
+        0
+      ]
+    },
+    "class_type": "ControlNetApplyAdvanced",
+    "_meta": {
+      "title": "Apply ControlNet"
+    }
+  },
+  "1087:624": {
+    "inputs": {
+      "pixels": [
+        "1087:676",
+        0
+      ],
+      "vae": [
+        "735",
+        2
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
+    }
+  },
+  "1087:646": {
+    "inputs": {
+      "sampler_name": "euler_ancestral"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "1087:654": {
+    "inputs": {
+      "shift": [
+        "1087:689",
+        0
+      ],
+      "model": [
+        "735",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "1087:675": {
+    "inputs": {
+      "batch_size": [
+        "1199",
+        0
+      ],
+      "images": [
+        "1087:626",
+        0
+      ]
+    },
+    "class_type": "RebatchImages",
+    "_meta": {
+      "title": "Rebatch Images"
+    }
+  },
+  "1087:692": {
+    "inputs": {
+      "value": 8
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Fast Steps"
+    }
+  },
+  "1087:693": {
+    "inputs": {
+      "value": 20
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Normal Steps"
+    }
+  },
+  "1087:694": {
+    "inputs": {
+      "a": [
+        "1087:691",
+        0
+      ],
+      "b": 2,
+      "operation": "divide"
+    },
+    "class_type": "easy mathInt",
+    "_meta": {
+      "title": "Math Int"
+    }
+  },
+  "1087:659": {
+    "inputs": {
+      "value": true
+    },
+    "class_type": "PrimitiveBoolean",
+    "_meta": {
+      "title": "Fast Mode"
+    }
+  },
+  "1087:655": {
+    "inputs": {
+      "lora_name": "sdxl_lightning_8step_lora.safetensors",
+      "strength_model": 0.95,
+      "model": [
+        "735",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoraLoaderModelOnly"
+    }
+  },
+  "1087:626": {
+    "inputs": {
+      "samples": [
+        "1087:643",
+        0
+      ],
+      "vae": [
+        "735",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "1087:676": {
+    "inputs": {
+      "batch_size": 1,
+      "images": [
+        "1561",
+        0
+      ]
+    },
+    "class_type": "RebatchImages",
+    "_meta": {
+      "title": "Rebatch Images"
+    }
+  },
+  "1087:683": {
+    "inputs": {
+      "pad_start_value": 0,
+      "start_value": [
+        "1087:697",
+        0
+      ],
+      "end_value": 0,
+      "pad_end_value": 0,
+      "scheduler": "simple",
+      "scheduler_start_step": 0,
+      "scheduler_end_step": [
+        "1087:691",
+        0
+      ],
+      "total_steps": [
+        "1087:691",
+        0
+      ],
+      "flip_schedule": false,
+      "model": [
+        "1087:654",
+        0
+      ]
+    },
+    "class_type": "ClownScheduler",
+    "_meta": {
+      "title": "ClownScheduler"
+    }
+  },
+  "1087:677": {
+    "inputs": {
+      "boolean": [
+        "1087:659",
+        0
+      ],
+      "on_true": [
+        "1087:655",
+        0
+      ],
+      "on_false": [
+        "735",
+        0
+      ]
+    },
+    "class_type": "easy ifElse",
+    "_meta": {
+      "title": "Model Switch"
+    }
+  },
+  "1087:690": {
+    "inputs": {
+      "step": [
+        "1087:694",
+        0
+      ],
+      "sigmas": [
+        "1087:683",
+        0
+      ]
+    },
+    "class_type": "SplitSigmas",
+    "_meta": {
+      "title": "SplitSigmas"
+    }
+  },
+  "1087:691": {
+    "inputs": {
+      "boolean": [
+        "1087:659",
+        0
+      ],
+      "on_true": [
+        "1087:692",
+        0
+      ],
+      "on_false": [
+        "1087:693",
+        0
+      ]
+    },
+    "class_type": "easy ifElse",
+    "_meta": {
+      "title": "If else"
+    }
+  },
+  "1087:698": {
+    "inputs": {
+      "scheduler": "simple",
+      "steps": [
+        "1087:691",
+        0
+      ],
+      "denoise": 0.7000000000000003,
+      "model": [
+        "735",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "BasicScheduler"
+    }
+  },
+  "1087:643": {
+    "inputs": {
+      "noise": [
+        "1087:644",
+        0
+      ],
+      "guider": [
+        "1087:645",
+        0
+      ],
+      "sampler": [
+        "1087:646",
+        0
+      ],
+      "sigmas": [
+        "1087:699",
+        0
+      ],
+      "latent_image": [
+        "1087:624",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "1087:699": {
+    "inputs": {
+      "boolean": true,
+      "on_true": [
+        "1087:690",
+        1
+      ],
+      "on_false": [
+        "1087:698",
+        0
+      ]
+    },
+    "class_type": "easy ifElse",
+    "_meta": {
+      "title": "Sigmas Switch"
+    }
+  },
+  "1087:689": {
+    "inputs": {
+      "a": 0.12405,
+      "b": [
+        "1087:702",
+        0
+      ],
+      "operation": "multiply"
+    },
+    "class_type": "easy mathFloat",
+    "_meta": {
+      "title": "Sigma Shift SDXL"
+    }
+  },
+  "1087:697": {
+    "inputs": {
+      "a": 14.6146,
+      "b": [
+        "1087:701",
+        0
+      ],
+      "operation": "multiply"
+    },
+    "class_type": "easy mathFloat",
+    "_meta": {
+      "title": "Denoise"
+    }
+  },
+  "1087:702": {
+    "inputs": {
+      "a": 2,
+      "b": [
+        "1087:701",
+        0
+      ],
+      "operation": "divide"
+    },
+    "class_type": "easy mathFloat",
+    "_meta": {
+      "title": "Math Float"
+    }
+  },
+  "1087:701": {
+    "inputs": {
+      "value": 0.3
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Custom Denoise"
+    }
+  }
+}
