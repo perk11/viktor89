@@ -196,7 +196,7 @@ class ProcessMessageTask implements Task
             $config['imageModels'],
         );
         $editModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
-            $imageModelProcessor,
+            $editModelProcessor,
             $editModelConfig,
         );
         $imageRepository = new ImageRepository($database->sqlite3Database);
