@@ -15,9 +15,10 @@ from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
 
 parser = argparse.ArgumentParser(description="OpenAI-compatible chat server (Qwen3-VL-8B, with image support)")
 parser.add_argument("--port", type=int, required=True, help="Port to listen on")
+parser.add_argument("--model", type=str, required=True, help="Model to use")
 args = parser.parse_args()
 
-QWEN_MODEL_NAME = "Qwen/Qwen3-VL-8B-Thinking"
+QWEN_MODEL_NAME = args.model
 
 qwen_model = Qwen3VLForConditionalGeneration.from_pretrained(
     QWEN_MODEL_NAME,
@@ -55,7 +56,7 @@ class ChatCompletionRequest(BaseModel):
     messages: List[Message]
     stream: Optional[bool] = False
     temperature: Optional[float] = 0.2
-    max_tokens: Optional[int] = 32768
+    max_tokens: Optional[int] = 4096
 
 
 app = FastAPI()
