@@ -252,6 +252,12 @@
       "url": "http://localhost:8100"
     }
   },
+  "videoEditModels": {
+    "ditto": {
+      "url": "http://localhost:8156",
+      "model": "ditto"
+    }
+  },
   "img2videoModels": {
     "CogVideoX-5B-I2V": {
       "steps": 50,

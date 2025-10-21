@@ -178,24 +178,24 @@ EventLoop::repeat(300, static function () use ($database, $processingResultExecu
 });
 
 $patchesTaskRunning = false;
-EventLoop::repeat(300, static function() use($telegram, $workerPool, &$patchesTaskRunning) {
-    if ($patchesTaskRunning) {
-        echo "Previous last patches read has not yet completed\n";
-        return;
-    }
-    $patchesTaskRunning = true;
-    echo "Reading last patches...\n";
-
-    $task = new \Perk11\Viktor89\PatchesMonitorTask(
-        $telegram->getBotId(),
-        $telegram->getApiKey(),
-        $telegram->getBotUsername(),
-    );
-    $taskExecution = $workerPool->submit($task);
-    $taskExecution->getFuture()->catch(function (\Throwable $e) {
-        echo "Error when getting last patches: " . $e->getMessage();
-    });
-    $taskExecution->await();
-    $patchesTaskRunning = false;
-});
+//EventLoop::repeat(300, static function() use($telegram, $workerPool, &$patchesTaskRunning) {
+//    if ($patchesTaskRunning) {
+//        echo "Previous last patches read has not yet completed\n";
+//        return;
+//    }
+//    $patchesTaskRunning = true;
+//    echo "Reading last patches...\n";
+//
+//    $task = new \Perk11\Viktor89\PatchesMonitorTask(
+//        $telegram->getBotId(),
+//        $telegram->getApiKey(),
+//        $telegram->getBotUsername(),
+//    );
+//    $taskExecution = $workerPool->submit($task);
+//    $taskExecution->getFuture()->catch(function (\Throwable $e) {
+//        echo "Error when getting last patches: " . $e->getMessage();
+//    });
+//    $taskExecution->await();
+//    $patchesTaskRunning = false;
+//});
 EventLoop::run();

@@ -38,9 +38,11 @@ use Perk11\Viktor89\RateLimiting\RateLimitsCommandProcessor;
 use Perk11\Viktor89\VideoGeneration\AssistedVideoProcessor;
 use Perk11\Viktor89\VideoGeneration\Img2VideoClient;
 use Perk11\Viktor89\VideoGeneration\Txt2VideoClient;
+use Perk11\Viktor89\VideoGeneration\TxtAndVid2VideoClient;
 use Perk11\Viktor89\VideoGeneration\VideoImg2VidProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoResponder;
+use Perk11\Viktor89\VideoGeneration\VideoTxtAndVid2VidProcessor;
 use Perk11\Viktor89\VoiceGeneration\DialogResponder;
 use Perk11\Viktor89\VoiceGeneration\TtsApiClient;
 use Perk11\Viktor89\VoiceGeneration\TtsProcessor;
@@ -349,6 +351,18 @@ class ProcessMessageTask implements Task
             $imgTagExtractor,
             $editModelPreferenceReader,
         );
+        $videoEProcessor = new CommandBasedResponderTrigger(
+            ['/ve'],
+            new VideoTxtAndVid2VidProcessor(
+                $telegramFileDownloader,
+                new TxtAndVid2VideoClient(
+                    $stepsProcessor,
+                    $seedProcessor,
+                    $config['videoEditModels'],
+                ),
+                $videoResponder
+            ),
+        );
         $messageChainProcessors = [
             new VoiceProcessor($internalMessageTranscriber),
             $clownProcessor,
@@ -436,6 +450,7 @@ class ProcessMessageTask implements Task
                 ['/transcribe'],
                 new TranscribeProcessor($internalMessageTranscriber),
             ),
+            $videoEProcessor,
             new CommandBasedResponderTrigger(
                 ['/saveas'],
                 new SaveAsProcessor($telegramFileDownloader, $imageRepository)
