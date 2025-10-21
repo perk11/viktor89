@@ -253,9 +253,9 @@
     }
   },
   "videoEditModels": {
-    "ditto": {
+    "EDitto": {
       "url": "http://localhost:8156",
-      "model": "ditto"
+      "model": "EDitto"
     }
   },
   "img2videoModels": {

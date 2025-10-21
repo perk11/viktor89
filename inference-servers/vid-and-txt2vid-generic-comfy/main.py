@@ -62,8 +62,8 @@ def generate_video():
                 video_file.write(video_data)
 
             match model:
-                case 'ditto':
-                    comfy_workflow_object, infotext = get_workflow_and_infotext_ditto(video_filenames[0], prompt, negative_prompt, seed, num_frames)
+                case 'EDitto':
+                    comfy_workflow_object, infotext = get_workflow_and_infotext_editto(video_filenames[0], prompt, negative_prompt, seed, num_frames)
                 case _:
                     return jsonify({"error": "Unknown model: " + model}), 400
             return comfy_workflow_to_json_video_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
@@ -75,8 +75,8 @@ def generate_video():
         semaphores[model].release()
 
 
-def get_workflow_and_infotext_ditto(video_filename, prompt, negative_prompt, seed, num_frames):
-    workflow_file_path = Path(__file__).with_name("ditto.json")
+def get_workflow_and_infotext_editto(video_filename, prompt, negative_prompt, seed, num_frames):
+    workflow_file_path = Path(__file__).with_name("editto.json")
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
@@ -87,7 +87,7 @@ def get_workflow_and_infotext_ditto(video_filename, prompt, negative_prompt, see
     comfy_workflow_object["16"]["inputs"]["frame_load_cap"] = num_frames
     comfy_workflow_object["35"]["inputs"]["seed"] = seed
 
-    return comfy_workflow_object, f'{prompt}\nSeed: {seed}, Model: ditto'
+    return comfy_workflow_object, f'{prompt}\nSeed: {seed}, Model: EDitto'
 
 if __name__ == '__main__':
     app.run(host='localhost', port=args.port)
