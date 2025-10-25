@@ -59,6 +59,8 @@ def generate_img2img():
         match model:
             case 'Qwen-Image-Edit-2509-Q8_0':
                 comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenames, prompt, seed, steps)
+            case 'Qwen-Image-Edit-MeiTu':
+                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_qwen_image_edit_meitu(image_filenames, prompt, seed, steps)
             case _:
                 return jsonify({"error": "Unknown model: " + model}), 400
         return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
@@ -97,6 +99,19 @@ def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenam
         del comfy_workflow_object["134"]["inputs"]['image3']
 
     return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: Qwen-Image-Edit-2509-Q8_0'
+def get_img2img_workflow_infotext_and_filename_qwen_image_edit_meitu(image_filenames, prompt, seed, steps):
+    if not len(image_filenames) == 1:
+        raise Exception("qwen_image_edit-MeiTu requires 1 image")
+    workflow_file_path = Path(__file__).with_name("qwen-image-edit-meitu-img2img_lora-4-step.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["77"]["inputs"]['prompt'] = prompt
+    comfy_workflow_object["99"]["inputs"]['seed'] = seed
+
+    comfy_workflow_object["76"]["inputs"]['image'] = image_filenames[0]
+
+    return comfy_workflow_object,  f'{prompt}\nSteps: 4 Seed: {seed}, Model: Qwen-Image-Edit-MeiTu, Lora: Qwen-Image-Lightning-4steps-V1.0'
 
 if __name__ == '__main__':
     app.run(host='localhost', port=args.port)
