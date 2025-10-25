@@ -136,6 +136,14 @@ class ProcessMessageTask implements Task
             $this->telegramBotUsername,
             array_keys($editModelConfig),
         );
+        $imageModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
+            $imageModelProcessor,
+            $config['imageModels'],
+        );
+        $editModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
+            $editModelProcessor,
+            $editModelConfig,
+        );
         $imageSizeProcessor = new ListBasedPreferenceByCommandProcessor(
             $database, ['/imagesize'],
             'imagesize',
@@ -154,7 +162,7 @@ class ProcessMessageTask implements Task
             $denoisingStrengthProcessor,
             $stepsProcessor,
             $seedProcessor,
-            $imageModelProcessor,
+            $editModelPreferenceReader,
             $editModelConfig,
             $imageSizeProcessor,
         );
@@ -192,14 +200,6 @@ class ProcessMessageTask implements Task
             'saymodel',
             $this->telegramBotUsername,
             array_keys($config['voiceModels']),
-        );
-        $imageModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
-            $imageModelProcessor,
-            $config['imageModels'],
-        );
-        $editModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
-            $editModelProcessor,
-            $editModelConfig,
         );
         $imageRepository = new ImageRepository($database->sqlite3Database);
         $imgTagExtractor = new ImgTagExtractor($imageRepository);
