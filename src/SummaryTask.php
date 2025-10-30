@@ -9,6 +9,7 @@ use Dotenv\Dotenv;
 use Exception;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
+use Perk11\Viktor89\IPC\TaskUpdateMessage;
 
 class SummaryTask implements Task
 {
@@ -22,6 +23,7 @@ class SummaryTask implements Task
 
     public function run(Channel $channel, Cancellation $cancellation): mixed
     {
+        $channel->send(new TaskUpdateMessage($this->summarizedChatId,'Summary', 'Generating summary'));
         try {
             $this->handle();
         } catch (Exception $e) {

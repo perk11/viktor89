@@ -54,9 +54,10 @@ $lastSummaryTimestamp = $database->readSystemVariable(
     OpenAISummaryProvider::LAST_SUMMARY_TIMESTAMP_SYSTEM_VARIABLE_NAME
 ) ?? 0;
 $runningTaskTracker = new RunningTaskTracker();
+$workerId = 1;
 EventLoop::repeat(
     1,
-    static function () use ($telegram, $workerPool, &$iterationId, &$lastSummaryTimestamp, $database, $pollResponseProcessor, $processingResultExecutor, $runningTaskTracker) {
+    static function () use ($telegram, $workerPool, &$iterationId, &$lastSummaryTimestamp, $database, $pollResponseProcessor, $processingResultExecutor, $runningTaskTracker, &$workerId) {
     try {
         $serverResponse = $telegram->handleGetUpdates([
                                                           'allowed_updates' => [
@@ -83,6 +84,7 @@ EventLoop::repeat(
                     return;
                 }
                 $handleTask = new ProcessMessageTask(
+                    $workerId++,
                     $message,
                     $telegram->getBotId(),
                     $telegram->getApiKey(),

@@ -29,6 +29,8 @@ use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\ImageGeneration\ZoomApiClient;
 use Perk11\Viktor89\ImageGeneration\ZoomCommandProcessor;
 use Perk11\Viktor89\IPC\EngineProgressUpdateCallback;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+use Perk11\Viktor89\IPC\StatusProcessor;
 use Perk11\Viktor89\IPC\TaskCompletedMessage;
 use Perk11\Viktor89\IPC\TaskUpdateMessage;
 use Perk11\Viktor89\JoinQuiz\JoinQuizProcessor;
@@ -66,6 +68,7 @@ use Perk11\Viktor89\VoiceRecognition\VoiceRecogniser;
 class ProcessMessageTask implements Task
 {
     public function __construct(
+        private readonly int $workerId,
         private readonly Message $message,
         private readonly int $telegramBotId,
         private readonly string $telegramApiKey,
@@ -77,16 +80,21 @@ class ProcessMessageTask implements Task
     {
         ini_set('memory_limit', -1);
 
+        $progressUpdateCallback = new EngineProgressUpdateCallback($channel, $this->workerId);
         try {
-         $this->handle();
+         $this->handle($channel, $progressUpdateCallback);
         } catch (Exception $e) {
             echo "Error " . $e->getMessage() . "\n". $e->getTraceAsString();
+        } finally {
+            if ($progressUpdateCallback->wasCalled) {
+                $channel->send(new TaskCompletedMessage($this->workerId));
+            }
         }
 //        echo "Done handling\n";
         return true;
     }
 
-    public function handle()
+    public function handle(Channel $channel, ProgressUpdateCallback $progressUpdateCallback): void
     {
 
         $dotenv = Dotenv::createImmutable(__DIR__.'/..');
@@ -480,6 +488,10 @@ class ProcessMessageTask implements Task
                 ),
             ),
             new CommandBasedResponderTrigger(
+                ['/status'],
+                new StatusProcessor($channel),
+            ),
+            new CommandBasedResponderTrigger(
                 ['/assistant'],
                 $userSelectedAssistant,
                 $telegram->getBotId(),
@@ -497,7 +509,7 @@ class ProcessMessageTask implements Task
                              $this->telegramBotUsername,
                              $this->telegramBotId,
                              $responder,
-                             new EngineProgressUpdateCallback(),
+                             $progressUpdateCallback,
         );
         $engine->handleMessage($this->message);
     }

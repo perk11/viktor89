@@ -34,7 +34,7 @@ class RunningTaskTracker
                     unset($this->runningTasks[$message->workerId]);
                     break;
                 case RunningTasksQueryMessage::class:
-                    echo date('Y-m-d H:i:s') . " $message->workerId: Received tasks report request\n";
+                    echo date('Y-m-d H:i:s') . " Received tasks report request\n";
                     $channel->send(new RunningTasksReportMessage($this->runningTasks));
                     break;
                 default:
