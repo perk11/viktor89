@@ -27,7 +27,7 @@ class TranscribeProcessor implements MessageChainProcessor
             );
         }
         try {
-            $transcribedText = $this->internalMessageTranscriber->transcribe($messageChain->previous());
+            $transcribedText = $this->internalMessageTranscriber->transcribe($messageChain->previous(), $progressUpdateCallback);
         } catch (NothingToTranscribeException) {
             return new ProcessingResult(
                 InternalMessage::asResponseTo(

@@ -90,7 +90,7 @@ class PerplexicaAssistant implements AssistantInterface
         $userId = $messageChain->last()->userId;
 
         $assistantContext = $this->convertMessageChainToAssistantContext($messageChain);
-
+        $progressUpdateCallback(static::class, "Generating Perplexica response");
         $lastMessage = $messageChain->last();
         $message = new InternalMessage();
         $message->replyToMessageId = $lastMessage->id;

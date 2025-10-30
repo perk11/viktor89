@@ -45,11 +45,14 @@ class RemixProcessor implements MessageChainProcessor
             ],
         ]);
         try {
+            $progressUpdateCallback(static::class, 'Downloading source photo');
             $photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageChain->previous());
+            $progressUpdateCallback(static::class, 'Remixing image');
             $transformedPhotoResponse = $this->imageRemixer->remixImage(
                 $photo,
                 $lastMessage->userId,
             );
+            $progressUpdateCallback(static::class, 'Sending photo response');
             $this->photoResponder->sendPhoto(
                 $lastMessage,
                 $transformedPhotoResponse->getFirstImageAsPng(),

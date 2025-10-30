@@ -48,7 +48,7 @@ class TtsProcessor implements MessageChainProcessor
         } else {
             $voiceSource = null;
         }
-        echo "Generating voice for prompt: $prompt\n";
+        $progressUpdateCallback(static::class, "Generating voice for prompt: $prompt");
         try {
             $response = $this->voiceClient->text2Voice(
                 $prompt,

@@ -46,6 +46,7 @@ class ClownifyProcessor implements MessageChainProcessor
             ],
         ]);
         try {
+            $progressUpdateCallback(static::class, "Generating first frame for video prompt: $newPrompt");
             $photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageChain->previous());
             $transformedPhotoResponse = $this->clownifyApiClient->clownifyImage(
                 $photo,

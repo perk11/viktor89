@@ -42,7 +42,7 @@ class VideoTxtAndVid2VidProcessor implements MessageChainProcessor
                 ), true
             );
         }
-        echo "Generating txtAndVid2vid for prompt: $prompt\n";
+        $progressUpdateCallback(static::class,"Donwloading source video");
         Request::execute('setMessageReaction', [
             'chat_id'    => $lastMessage->chatId,
             'message_id' => $lastMessage->id,
@@ -65,12 +65,14 @@ class VideoTxtAndVid2VidProcessor implements MessageChainProcessor
                 ), true, '🤔', $lastMessage
             );
         }
+        $progressUpdateCallback(static::class,"Generating txtAndVid2vid for prompt: $prompt");
         try {
             $videoResponse = $this->txtAndVid2VideoClient->generateByPromptAndVid(
                 $videoContents,
                 $prompt,
                 $lastMessage->userId,
             );
+            $progressUpdateCallback(static::class,"Sending video response for prompt: $prompt");
             $this->videoResponder->sendVideo(
                 $lastMessage,
                 $videoResponse->getFirstVideoAsMp4(),

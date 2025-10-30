@@ -34,10 +34,10 @@ class VideoProcessor implements MessageChainProcessor
             return new ProcessingResult($response, true);
         }
         if ($messageChain->previous()?->photoFileId !== null) {
-            $this->videoImg2ImgProcessor->respondWithImg2VidResultBasedOnPhotoInMessage($messageChain->previous() , $message, $prompt);
+            $this->videoImg2ImgProcessor->respondWithImg2VidResultBasedOnPhotoInMessage($messageChain->previous() , $message, $prompt, $progressUpdateCallback);
             return new ProcessingResult(null, true);
         }
-        echo "Generating video for prompt: $prompt\n";
+        $progressUpdateCallback(static::class,"Generating video for prompt: $prompt");
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,
             'message_id' => $message->id,
@@ -50,6 +50,7 @@ class VideoProcessor implements MessageChainProcessor
         ]);
         try {
             $response = $this->txt2VideoClient->generateByPromptTxt2Vid($prompt, $message->userId);
+            $progressUpdateCallback(static::class,"Sending video response");
             $this->videoResponder->sendVideo(
                 $message,
                 $response->getFirstVideoAsMp4(),

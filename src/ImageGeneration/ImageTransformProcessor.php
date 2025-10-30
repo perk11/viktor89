@@ -45,13 +45,16 @@ class ImageTransformProcessor implements MessageChainProcessor
                 ],
             ],
         ]);
+        $progressUpdateCallback(static::class, "Downloading image");
         try {
             $photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageChain->previous());
+            $progressUpdateCallback(static::class, 'Performing image transformation ' . get_class($this->generator));
             $transformedPhotoResponse = $this->generator->processImage(
                 $photo,
                 $lastMessage->userId,
                 trim($lastMessage->messageText),
             );
+            $progressUpdateCallback(static::class, "Sending photo response");
             $this->photoResponder->sendPhoto(
                 $lastMessage,
                 $transformedPhotoResponse->getFirstImageAsPng(),

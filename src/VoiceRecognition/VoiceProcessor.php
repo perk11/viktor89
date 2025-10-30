@@ -19,7 +19,7 @@ class VoiceProcessor implements MessageChainProcessor
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         try {
-            $transcribedText = $this->internalMessageTranscriber->transcribe($messageChain->last());
+            $transcribedText = $this->internalMessageTranscriber->transcribe($messageChain->last(), $progressUpdateCallback);
         } catch (NothingToTranscribeException) {
             return new ProcessingResult(null, false);
         }

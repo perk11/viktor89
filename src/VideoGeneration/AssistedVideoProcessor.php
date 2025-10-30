@@ -51,7 +51,7 @@ class AssistedVideoProcessor implements MessageChainProcessor
                 ],
             ],
         ]);
-        echo "Generating new video prompt for: $prompt\n";
+        $progressUpdateCallback(static::class, "Generating new video generation prompt for: $prompt");
         $assistantContext = $this->createContext($prompt);
         $newPrompt = $this->promptAssistant->getCompletionBasedOnContext($assistantContext);
 
@@ -59,7 +59,8 @@ class AssistedVideoProcessor implements MessageChainProcessor
             $this->videoImg2VidProcessor->respondWithImg2VidResultBasedOnPhotoInMessage(
                 $messageChain->previous(),
                 $message,
-                $newPrompt
+                $newPrompt,
+                $progressUpdateCallback,
             );
 
             return new ProcessingResult(null,true);
@@ -74,13 +75,14 @@ class AssistedVideoProcessor implements MessageChainProcessor
                 ],
             ],
         ]);
-        echo "Generating first frame for video prompt: $newPrompt\n";
+        $progressUpdateCallback(static::class, "Generating first frame for video prompt: $newPrompt");
 
         try {
             $imageResponse = $this->automatic1111APiClient->generateImageByPromptAndModelParams(
                 $newPrompt,
                 $this->firstFrameImageModelParams
             );
+            $progressUpdateCallback(static::class, "Generating video based on the generated first frame for prompt: $newPrompt");
             Request::execute('setMessageReaction', [
                 'chat_id'    => $message->chatId,
                 'message_id' => $message->id,

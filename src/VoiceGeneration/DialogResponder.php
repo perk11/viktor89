@@ -51,7 +51,7 @@ class DialogResponder implements MessageChainProcessor
             echo "Error: No bio defined for voice $voice2\n";
             return new ProcessingResult(null, true, '🤔', $message);
         }
-        echo "Generating dialog between $voice1 and $voice2, prompt: $prompt\n";
+        $progressUpdateCallback(static::class, "Generating dialog between $voice1 and $voice2, prompt: $prompt");
         $bio1 = $this->voicesConfig[$voice1]['Bio'];
         $bio2 = $this->voicesConfig[$voice2]['Bio'];
         $context = new AssistantContext();

@@ -38,6 +38,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         }
         $assistantContext = $this->convertMessageChainToAssistantContext($messageChain, $systemPrompt, $responseStart);
 
+        $progressUpdateCallback(static::class, 'Generating assistant response');
         $lastMessage = $messageChain->last();
         $message = new InternalMessage();
         $message->replyToMessageId = $lastMessage->id;

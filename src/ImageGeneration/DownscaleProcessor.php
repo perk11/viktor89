@@ -37,7 +37,6 @@ class DownscaleProcessor implements MessageChainProcessor
         }
 
 
-        echo "Downscaling image...\n";
         Request::execute('setMessageReaction', [
             'chat_id'    => $lastMessage->chatId,
             'message_id' => $lastMessage->id,
@@ -49,12 +48,15 @@ class DownscaleProcessor implements MessageChainProcessor
             ],
         ]);
         try {
+            $progressUpdateCallback(static::class, "Downloading image");
             $photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageChain->previous());
+            $progressUpdateCallback(static::class, "Downscaling");
             $image = imagecreatefromstring($photo);
             ob_start();
             imagejpeg($image, null, 7);
             $jpegData = ob_get_clean();
             imagedestroy($image);
+            $progressUpdateCallback(static::class, "Sending photo response");
             $this->photoResponder->sendPhoto(
                 $lastMessage,
                 $jpegData,

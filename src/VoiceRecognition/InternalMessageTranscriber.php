@@ -2,6 +2,7 @@
 namespace Perk11\Viktor89\VoiceRecognition;
 
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\TelegramFileDownloader;
 
 class InternalMessageTranscriber
@@ -11,7 +12,7 @@ class InternalMessageTranscriber
         private readonly VoiceRecogniser $voiceRecogniser,
     ) {
     }
-    public function transcribe(InternalMessage $message): ?string
+    public function transcribe(InternalMessage $message, ProgressUpdateCallback $progressUpdateCallback): ?string
     {
         if ($message->audio !== null) {
             $fileId =  $message->audio->getFileId();
@@ -28,7 +29,7 @@ class InternalMessageTranscriber
         } else {
             throw new NothingToTranscribeException('Message does not contain audio, video, voice or video note');
         }
-        echo "Transcribing file $fileName with fileId $fileId\n";
+        $progressUpdateCallback(static::class,"Transcribing file $fileName with fileId $fileId");
         $extension = pathinfo($fileName, PATHINFO_EXTENSION);
 
         $file = $this->telegramFileDownloader->downloadFile($fileId);

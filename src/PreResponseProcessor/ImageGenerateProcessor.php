@@ -59,7 +59,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         }
         $prompt = new ImageGenerationPrompt($promptText);
         if ($messageChain->previous()?->photoFileId !== null) {
-            $progressUpdateCallback(static::class, "Downloading photo");
+            $progressUpdateCallback(static::class, "Downloading source photo");
             try {
                 $prompt->sourceImagesContents[] = $this->telegramFileDownloader->downloadPhotoFromInternalMessage(
                     $messageChain->previous()
@@ -87,7 +87,6 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         if (count($prompt->sourceImagesContents) > 0) {
             $progressMessage .= " and " . count($prompt->sourceImagesContents) . " source images";
         }
-        echo "$progressMessage\n";
         $progressUpdateCallback(static::class, $progressMessage);
         Request::execute('setMessageReaction', [
             'chat_id'    => $lastMessage->chatId,
@@ -108,7 +107,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
                     $lastMessage->userId
                 );
             }
-            $progressUpdateCallback(static::class, "Sending photo");
+            $progressUpdateCallback(static::class, "Sending photo response");
             $this->photoResponder->sendPhoto(
                 $lastMessage,
                 $response->getFirstImageAsPng(),
