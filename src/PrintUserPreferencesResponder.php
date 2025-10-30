@@ -2,13 +2,15 @@
 
 namespace Perk11\Viktor89;
 
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+
 class PrintUserPreferencesResponder implements MessageChainProcessor
 {
     public function __construct(private readonly Database $database)
     {
     }
 
-    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback|IPC\ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $preferences = $this->database->readPreferencesArray($messageChain->last()->userId);
         $message = InternalMessage::asResponseTo($messageChain->last());
