@@ -2,8 +2,10 @@
 
 namespace Perk11\Viktor89\VideoGeneration;
 
+use Exception;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -18,7 +20,7 @@ class VideoTxtAndVid2VidProcessor implements MessageChainProcessor
     ) {
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $lastMessage = $messageChain->last();
         if ($messageChain->previous() === null) {
@@ -53,7 +55,7 @@ class VideoTxtAndVid2VidProcessor implements MessageChainProcessor
         ]);
         try {
             $videoContents = $this->telegramFileDownloader->downloadFile($messageChain->previous()->video->getFileId());
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             echo "Failed to download video:\n" . $e->getMessage();
 
             return new ProcessingResult(
@@ -74,7 +76,7 @@ class VideoTxtAndVid2VidProcessor implements MessageChainProcessor
                 $videoResponse->getFirstVideoAsMp4(),
                 $videoResponse->getCaption(),
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             echo "Failed to generate video:\n" . $e->getMessage() . "\n";
 
             return new ProcessingResult(null, true, '🤔', $lastMessage);

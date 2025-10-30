@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89;
 
+use LogicException;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 
@@ -26,7 +27,7 @@ class ProcessingResultExecutor
 
         if ($result->reaction !== null) {
             if ($result->messageToReactTo === null) {
-                throw new \LogicException("Reaction property is set, but not messageToReactTo");
+                throw new LogicException("Reaction property is set, but not messageToReactTo");
             }
             echo "Reacting to message from {$result->messageToReactTo->userName} in chat {$result->messageToReactTo->chatId} \n";
             Request::execute('setMessageReaction', [

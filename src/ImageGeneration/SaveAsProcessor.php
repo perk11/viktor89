@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\ImageGeneration;
 
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -18,7 +19,7 @@ class SaveAsProcessor implements MessageChainProcessor
     {
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $lastMessage = $messageChain->last();
         if ($messageChain->previous()?->photoFileId === null) {

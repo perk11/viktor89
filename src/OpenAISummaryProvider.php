@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89;
 
+use Exception;
 use Orhanerday\OpenAi\OpenAi;
 
 class OpenAISummaryProvider
@@ -14,7 +15,7 @@ class OpenAISummaryProvider
         $apiKey = $_ENV['SUMMARY_OPENAI_KEY'];
         $this->openAiClient = new OpenAi($apiKey);
         if (strlen($apiKey) === 0 && strlen($_ENV['SUMMARY_SERVER']) === 0) {
-            throw new \Exception('SUMMARY_OPENAI_KEY and SUMMARY_SERVER are both  empty, at least one is required');
+            throw new Exception('SUMMARY_OPENAI_KEY and SUMMARY_SERVER are both  empty, at least one is required');
         }
         if (isset($_ENV['SUMMARY_SERVER'])) {
             $this->openAiClient->setBaseURL($_ENV['SUMMARY_SERVER']);

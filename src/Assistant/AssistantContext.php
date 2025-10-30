@@ -2,6 +2,9 @@
 
 namespace Perk11\Viktor89\Assistant;
 
+use Exception;
+use JsonException;
+
 class AssistantContext
 {
     public ?string $systemPrompt = null;
@@ -15,7 +18,7 @@ class AssistantContext
     {
         try {
             $parsedJson = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
+        } catch (JsonException $e) {
             throw new OpenAiContextParsingException($e->getMessage());
         }
         $context = new self();
@@ -54,7 +57,7 @@ class AssistantContext
     public function toOpenAiMessagesArray(): array
     {
         if ($this->responseStart !== null) {
-            throw new \Exception('responseStart specified, but it can not be converted to OpenAi array');
+            throw new Exception('responseStart specified, but it can not be converted to OpenAi array');
         }
         $openAiMessages = [];
         if ($this->systemPrompt !== null) {

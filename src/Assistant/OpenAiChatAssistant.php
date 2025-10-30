@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89\Assistant;
 
+use Exception;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
@@ -33,7 +34,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         echo $response;
         $parsedResult = json_decode($response, JSON_THROW_ON_ERROR);
         if (!is_array($parsedResult) || !array_key_exists('choices', $parsedResult)) {
-            throw new \Exception("Unexpected response from OpenAI: $response");
+            throw new Exception("Unexpected response from OpenAI: $response");
         }
 
         return $parsedResult['choices'][0]['message']['content'];

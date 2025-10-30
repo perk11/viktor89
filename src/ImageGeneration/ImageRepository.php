@@ -3,9 +3,13 @@
 namespace Perk11\Viktor89\ImageGeneration;
 
 
+use RangeException;
+use RuntimeException;
+use SQLite3;
+
 class ImageRepository
 {
-    public function __construct(private readonly \SQLite3 $sqlite3Database)
+    public function __construct(private readonly SQLite3 $sqlite3Database)
     {
     }
 
@@ -27,7 +31,7 @@ class ImageRepository
         $filePath = self::FILE_STORAGE_DIR . DIRECTORY_SEPARATOR . $row['filename'];
 
         if (!file_exists($filePath)) {
-            throw new \RuntimeException("File not found: " . $filePath);
+            throw new RuntimeException("File not found: " . $filePath);
         }
 
         return file_get_contents($filePath) ?: null;
@@ -46,7 +50,7 @@ class ImageRepository
                 0777,
                 true
             ) && !is_dir($concurrentDirectory)) {
-            throw new \RuntimeException(sprintf('Directory "%s" was not created', $concurrentDirectory));
+            throw new RuntimeException(sprintf('Directory "%s" was not created', $concurrentDirectory));
         }
 
 
@@ -61,7 +65,7 @@ class ImageRepository
 
         // If writing to the file failed, consider handling it (e.g., throw an exception or return false).
         if ($bytesWritten === false) {
-            throw new \RuntimeException(sprintf('Unable to write file "%s": %s', $filePath, error_get_last()));
+            throw new RuntimeException(sprintf('Unable to write file "%s": %s', $filePath, error_get_last()));
         }
         $stmtInsert = $this->sqlite3Database->prepare(
             'INSERT INTO saved_image (name, filename, user_id, created_at) VALUES (:name, :filename, :user_id, CURRENT_TIMESTAMP)'
@@ -72,7 +76,7 @@ class ImageRepository
 
         $insertResult = $stmtInsert->execute();
         if ($insertResult === false) {
-            throw new \RuntimeException("Failed to save image: " . $this->sqlite3Database->lastErrorMsg());
+            throw new RuntimeException("Failed to save image: " . $this->sqlite3Database->lastErrorMsg());
         }
 
         return true;
@@ -83,7 +87,7 @@ class ImageRepository
         string $keyspace = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
     ): string {
         if ($length < 1) {
-            throw new \RangeException("Length must be a positive integer");
+            throw new RangeException("Length must be a positive integer");
         }
         $pieces = [];
         $max = mb_strlen($keyspace, '8bit') - 1;

@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89;
 
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger;
 
 class MessageChainProcessorRunner
@@ -48,10 +49,10 @@ class MessageChainProcessorRunner
         return $this->_triggeringCommandsRegex;
     }
 
-    private function runChainWithSingleOrNoCommandsInLastMessage(MessageChain $messageChain): bool
+    private function runChainWithSingleOrNoCommandsInLastMessage(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): bool
     {
         foreach ($this->messageChainProcessors as $processor) {
-            $processingResult = $processor->processMessageChain($messageChain);
+            $processingResult = $processor->processMessageChain($messageChain, $progressUpdateCallback);
             $this->processingResultExecutor->execute($processingResult);
 
             if ($processingResult->abortProcessing) {
@@ -64,22 +65,22 @@ class MessageChainProcessorRunner
         return false;
     }
 
-    public function run(MessageChain $messageChain): bool
+    public function run(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): bool
     {
         $lastMessage = $messageChain->last();
 
         if (!$lastMessage->isCommand()) {
-            return $this->runChainWithSingleOrNoCommandsInLastMessage($messageChain);
+            return $this->runChainWithSingleOrNoCommandsInLastMessage($messageChain, $progressUpdateCallback);
         }
         $matchCount = preg_match_all($this->getTriggeringCommandsRegex(), $lastMessage->messageText, $parts);
         if ($matchCount < 2) {
-            return $this->runChainWithSingleOrNoCommandsInLastMessage($messageChain);
+            return $this->runChainWithSingleOrNoCommandsInLastMessage($messageChain, $progressUpdateCallback);
         }
         $processed = false;
         foreach ($parts[0] as $part) {
             $extractedMessage = $lastMessage->withReplacedText(trim($part));
             $replacedChain = $messageChain->withReplacedLastMessage($extractedMessage);
-            $processed = $this->runChainWithSingleOrNoCommandsInLastMessage($replacedChain) || $processed;
+            $processed = $this->runChainWithSingleOrNoCommandsInLastMessage($replacedChain, $progressUpdateCallback) || $processed;
             sleep(0.3); //Decrease a chance of hitting Telegram rate limits
         }
 

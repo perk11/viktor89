@@ -2,15 +2,18 @@
 
 namespace Perk11\Viktor89;
 
+use Exception;
 use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseSupportingGenerator;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
+use RuntimeException;
 
 class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface, AbortableStreamingResponseGenerator,
                                       PreResponseSupportingGenerator
@@ -107,7 +110,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
                     $content = $parsedData['content'];
                 } else {
                     if (!isset( $parsedData['choices'][0]['text'])) {
-                        throw new \RuntimeException("Unexpected JSON received: " . $data);
+                        throw new RuntimeException("Unexpected JSON received: " . $data);
                     }
                     $content = $parsedData['choices'][0]['text'];
                 }
@@ -125,7 +128,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
 
                 return strlen($data);
             });
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             if ($aborted) {
                 return trim($fullContent);
             }
@@ -137,7 +140,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         return rtrim($fullContent);
     }
 
-    public function getResponseByMessage(Message $message): ?InternalMessage
+    public function getResponseByMessage(Message $message, ProgressUpdateCallback $progressUpdateCallback): ?InternalMessage
     {
         $internalMessage = new InternalMessage();
         $internalMessage->chatId = $message->getChat()->getId();
@@ -145,7 +148,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         $previousMessages = $this->historyReader->getPreviousMessages($message, 99, 99, 0);
         $chain = new MessageChain(array_merge($previousMessages, [InternalMessage::fromTelegramMessage($message)]));
         foreach ($this->preResponseProcessors as $preResponseProcessor) {
-            $result = $preResponseProcessor->processMessageChain($chain);
+            $result = $preResponseProcessor->processMessageChain($chain, $progressUpdateCallback);
             $this->processingResultExecutor->execute($result);
             if ($result->abortProcessing) {
                 return null;

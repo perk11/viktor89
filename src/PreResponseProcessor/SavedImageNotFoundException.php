@@ -2,6 +2,8 @@
 
 namespace Perk11\Viktor89\PreResponseProcessor;
 
-class SavedImageNotFoundException extends \Exception
+use Exception;
+
+class SavedImageNotFoundException extends Exception
 {
 }

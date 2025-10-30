@@ -2,14 +2,22 @@
 ini_set('memory_limit', '-1');
 use GuzzleHttp\Exception\ConnectException;
 use Longman\TelegramBot\Entities\Update;
+use Longman\TelegramBot\Exception\TelegramException;
 use Longman\TelegramBot\Request;
 use Longman\TelegramBot\Telegram;
 use Longman\TelegramBot\TelegramLog;
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\HistoryReader;
 
+use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\RunningTaskTracker;
+use Perk11\Viktor89\JoinQuiz\PollResponseProcessor;
 use Perk11\Viktor89\OpenAISummaryProvider;
+use Perk11\Viktor89\PatchesMonitorTask;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\ProcessingResultExecutor;
+use Perk11\Viktor89\ProcessMessageTask;
+use Perk11\Viktor89\SummaryTask;
 use Revolt\EventLoop;
 
 use function Amp\delay;
@@ -32,22 +40,23 @@ $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNA
 
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
 //$fallBackResponder = new \Perk11\Viktor89\Siepatch2Responder();
-$database = new \Perk11\Viktor89\Database($telegram->getBotId(), 'siepatch-non-instruct5');
+$database = new Database($telegram->getBotId(), 'siepatch-non-instruct5');
 $historyReader = new HistoryReader($database);
-$summaryProvider = new \Perk11\Viktor89\OpenAISummaryProvider($database);
-$pollResponseProcessor = new \Perk11\Viktor89\JoinQuiz\PollResponseProcessor($database);
+$summaryProvider = new OpenAISummaryProvider($database);
+$pollResponseProcessor = new PollResponseProcessor($database);
 
 $workerPool = workerPool();
 echo "Connecting to Telegram...\n";
 $telegram->useGetUpdatesWithoutDatabase();
 $iterationId =0;
-$processingResultExecutor = new \Perk11\Viktor89\ProcessingResultExecutor($database);
+$processingResultExecutor = new ProcessingResultExecutor($database);
 $lastSummaryTimestamp = $database->readSystemVariable(
     OpenAISummaryProvider::LAST_SUMMARY_TIMESTAMP_SYSTEM_VARIABLE_NAME
 ) ?? 0;
-\Revolt\EventLoop::repeat(
+$runningTaskTracker = new RunningTaskTracker();
+EventLoop::repeat(
     1,
-    static function () use ($telegram, $workerPool, &$iterationId, &$lastSummaryTimestamp, $database, $pollResponseProcessor, $processingResultExecutor) {
+    static function () use ($telegram, $workerPool, &$iterationId, &$lastSummaryTimestamp, $database, $pollResponseProcessor, $processingResultExecutor, $runningTaskTracker) {
     try {
         $serverResponse = $telegram->handleGetUpdates([
                                                           'allowed_updates' => [
@@ -73,14 +82,17 @@ $lastSummaryTimestamp = $database->readSystemVariable(
                     print_r($result);
                     return;
                 }
-                $handleTask = new \Perk11\Viktor89\ProcessMessageTask(
+                $handleTask = new ProcessMessageTask(
                     $message,
                     $telegram->getBotId(),
                     $telegram->getApiKey(),
                     $_ENV['TELEGRAM_BOT_USERNAME'],
                 );
                 $taskExecution = $workerPool->submit($handleTask);
-                $taskExecution->getFuture()->catch(function (\Throwable $e) use ($message) {
+                Amp\async(function () use ($taskExecution, $runningTaskTracker) {
+                   $runningTaskTracker->receive($taskExecution);
+                });
+                $taskExecution->getFuture()->catch(function (Throwable $e) use ($message) {
                     echo "Error when handling message " . $message->getMessageId(). $e->getMessage();
                 });
             }
@@ -112,20 +124,20 @@ $lastSummaryTimestamp = $database->readSystemVariable(
             );
 
             foreach ($chats as $chat) {
-                $handleTask = new \Perk11\Viktor89\SummaryTask(
+                $handleTask = new SummaryTask(
                     $chat,
                     $telegram->getBotId(),
                     $telegram->getApiKey(),
                     $_ENV['TELEGRAM_BOT_USERNAME'],
                 );
                 $taskExecution = $workerPool->submit($handleTask);
-                $taskExecution->getFuture()->catch(function (\Throwable $e) use ($chat) {
+                $taskExecution->getFuture()->catch(function (Throwable $e) use ($chat) {
                     echo "Error when providing summary for chat" . $chat . $e->getMessage();
                 });
             }
         }
         $iterationId++;
-    } catch (\Longman\TelegramBot\Exception\TelegramException $e) {
+    } catch (TelegramException $e) {
         echo "Telegram error\n";
         TelegramLog::error($e);
         delay(10);
@@ -138,7 +150,7 @@ $lastSummaryTimestamp = $database->readSystemVariable(
 EventLoop::repeat(300, static function () use ($database, $processingResultExecutor) {
     foreach ($database->findPendingKickQueueItems() as $item) {
         echo "Found pending kick\n";
-        $message = new \Perk11\Viktor89\InternalMessage();
+        $message = new InternalMessage();
         $message->chatId = $item->chatId;
         $message->replyToMessageId = $item->joinMessageId;
 
@@ -186,13 +198,13 @@ EventLoop::repeat(300, static function() use($telegram, $workerPool, &$patchesTa
     $patchesTaskRunning = true;
     echo "Reading last patches...\n";
 
-    $task = new \Perk11\Viktor89\PatchesMonitorTask(
+    $task = new PatchesMonitorTask(
         $telegram->getBotId(),
         $telegram->getApiKey(),
         $telegram->getBotUsername(),
     );
     $futureWithHandler = $workerPool->submit($task)->getFuture()->catch(
-        function (\Throwable $error) {
+        function (Throwable $error) {
             echo "Error when getting last patches: " . $error->getMessage() . PHP_EOL;
             return null;
         }

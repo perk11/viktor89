@@ -2,13 +2,15 @@
 
 namespace Perk11\Viktor89;
 
+use LogicException;
+
 class MessageChain
 {
     /** @param InternalMessage[] $messages */
     public function __construct(private readonly array $messages)
     {
         if (count($this->messages) === 0) {
-            throw new \LogicException('Message chain initialized with no messages');
+            throw new LogicException('Message chain initialized with no messages');
         }
     }
 

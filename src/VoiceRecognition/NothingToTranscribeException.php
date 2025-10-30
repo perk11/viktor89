@@ -2,7 +2,9 @@
 
 namespace Perk11\Viktor89\VoiceRecognition;
 
-class NothingToTranscribeException extends \Exception
+use Exception;
+
+class NothingToTranscribeException extends Exception
 {
 
 }

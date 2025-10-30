@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\RateLimiting;
 
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -14,7 +15,7 @@ class RateLimitsCommandProcessor implements MessageChainProcessor
 
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $userId = $messageChain->last()->userId;
 

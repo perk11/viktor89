@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\Assistant;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
@@ -24,7 +25,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         $this->openAi->setBaseURL(rtrim($url, '/'));
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $userId = $messageChain->last()->userId;
         $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($userId);

@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -33,7 +34,7 @@ class HelloProcessor implements MessageChainProcessor
         7010262656,
     ];
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         if (!in_array($messageChain->last()->userId, $this->triggerUsers, true)) {
             return new ProcessingResult(null, false);

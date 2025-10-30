@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\ImageGeneration;
 
 use Perk11\Viktor89\FixedValuePreferenceProvider;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -16,7 +17,7 @@ class ZoomCommandProcessor implements MessageChainProcessor
     ) {
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $lastMessageText = trim($messageChain->last()->messageText);
         if ($lastMessageText === '') {
@@ -32,7 +33,7 @@ class ZoomCommandProcessor implements MessageChainProcessor
         }
         $this->zoomValuePreferenceProvider->value = $zoomLevel;
 
-        return $this->imageTransformProcessor->processMessageChain($messageChain);
+        return $this->imageTransformProcessor->processMessageChain($messageChain, $progressUpdateCallback);
     }
 
     private function getUnexpectedValueError(MessageChain $messageChain): ProcessingResult

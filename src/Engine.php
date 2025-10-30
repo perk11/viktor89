@@ -5,6 +5,7 @@ namespace Perk11\Viktor89;
 
 use Longman\TelegramBot\Entities\Message;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 
 class Engine
@@ -31,6 +32,7 @@ class Engine
         private readonly string $telegramBotUserName,
         private readonly int $telegramBotId,
         private readonly TelegramInternalMessageResponderInterface|MessageChainProcessor $fallBackResponder,
+        private readonly ProgressUpdateCallback $progressUpdateCallback,
     ) {
     }
 
@@ -39,7 +41,7 @@ class Engine
         $this->database->logMessage($message);
 
         if ($this->photoImg2ImgProcessor !== null && $message->getType() === 'photo') {
-            $this->photoImg2ImgProcessor->processMessage($message);
+            $this->photoImg2ImgProcessor->processMessage($message, $this->progressUpdateCallback);
 
             return;
         }
@@ -96,7 +98,7 @@ class Engine
         } else {
             $chain = new MessageChain([$lastMessage]);
         }
-        if ($this->messageChainProcessorRunner->run($chain)) {
+        if ($this->messageChainProcessorRunner->run($chain, $this->progressUpdateCallback)) {
             return;
         }
 

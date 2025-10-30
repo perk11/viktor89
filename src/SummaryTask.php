@@ -6,6 +6,7 @@ use Amp\Cancellation;
 use Amp\Parallel\Worker\Task;
 use Amp\Sync\Channel;
 use Dotenv\Dotenv;
+use Exception;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
 
@@ -23,7 +24,7 @@ class SummaryTask implements Task
     {
         try {
             $this->handle();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             echo "Error " . $e->getMessage() . "\n" . $e->getTraceAsString();
         }
 

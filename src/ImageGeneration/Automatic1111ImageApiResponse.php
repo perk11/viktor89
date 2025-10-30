@@ -2,6 +2,8 @@
 
 namespace Perk11\Viktor89\ImageGeneration;
 
+use RuntimeException;
+
 class Automatic1111ImageApiResponse
 {
     public bool $sendAsFile = false;
@@ -16,7 +18,7 @@ class Automatic1111ImageApiResponse
             || !array_key_exists('parameters', $decoded) || !is_array($decoded['parameters'])
             || !array_key_exists('info', $decoded) || !is_string($decoded['info'])
         ) {
-            throw new \RuntimeException("Unexpected response from Automatic1111 API:\n" . $data);
+            throw new RuntimeException("Unexpected response from Automatic1111 API:\n" . $data);
         }
 
         return new self(

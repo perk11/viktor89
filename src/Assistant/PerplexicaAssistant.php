@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\Assistant;
 
 use GuzzleHttp\Client;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
@@ -84,7 +85,7 @@ class PerplexicaAssistant implements AssistantInterface
         return $assistantContext;
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $userId = $messageChain->last()->userId;
 

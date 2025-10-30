@@ -2,7 +2,9 @@
 
 namespace Perk11\Viktor89;
 
+use Exception;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 
@@ -21,7 +23,7 @@ class TelegramFileDownloader
     {
         $voice = $message->getVoice();
         if ($voice === null) {
-            throw new \Exception('Message does not contain voice');
+            throw new Exception('Message does not contain voice');
         }
         $fileId = $voice->getFileId();
         echo "Downloading voice with fileId $fileId\n";
@@ -32,7 +34,7 @@ class TelegramFileDownloader
     {
         $voice = $message->getVideoNote();
         if ($voice === null) {
-            throw new \Exception('Message does not contain video note');
+            throw new Exception('Message does not contain video note');
         }
         $fileId = $voice->getFileId();
         echo "Downloading video note with fileId $fileId\n";
@@ -43,7 +45,7 @@ class TelegramFileDownloader
     /**
      * @param string $fileId
      * @return string
-     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @throws GuzzleException
      */
     public function downloadFile(string $fileId): string
     {
@@ -57,7 +59,7 @@ class TelegramFileDownloader
                                         ]);
         $file = $fileRequest->getResult();
         if ($file === null) {
-            throw new \Exception("Failed to get file info for fileId $fileId: " . $fileRequest->getDescription());
+            throw new Exception("Failed to get file info for fileId $fileId: " . $fileRequest->getDescription());
         }
         $baseDownloadUri = str_replace(
             '{API_KEY}',
@@ -66,7 +68,7 @@ class TelegramFileDownloader
         );
         $downloadResponse = $this->guzzle->get("{$baseDownloadUri}/{$file->getFilePath()}");
         if ($downloadResponse->getStatusCode() !== 200) {
-            throw new \Exception("Failed to download file " . $file->getFilePath());
+            throw new Exception("Failed to download file " . $file->getFilePath());
         }
 
         $contents = $downloadResponse->getBody()->getContents();
@@ -78,7 +80,7 @@ class TelegramFileDownloader
     public function downloadPhotoFromInternalMessage(InternalMessage $internalMessage): string
     {
         if ($internalMessage->photoFileId === null) {
-            throw new \Exception('Message does not contain photos');
+            throw new Exception('Message does not contain photos');
         }
         $fileId = $internalMessage->photoFileId;
 

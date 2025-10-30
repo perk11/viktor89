@@ -2,6 +2,8 @@
 
 namespace Perk11\Viktor89;
 
+use RuntimeException;
+
 class CacheFileManager
 {
     private const DOWNLOADED_FILES_CACHE_DIR = __DIR__ . '/../data/cache/downloaded-files';
@@ -19,7 +21,7 @@ class CacheFileManager
     {
         if (!is_dir(self::DOWNLOADED_FILES_CACHE_DIR)) {
             if (mkdir(self::DOWNLOADED_FILES_CACHE_DIR, recursive: true) || !is_dir(self::DOWNLOADED_FILES_CACHE_DIR)) {
-                throw new \RuntimeException(
+                throw new RuntimeException(
                     'Could not create downloaded files directory ' . self::DOWNLOADED_FILES_CACHE_DIR
                 );
             }
@@ -34,7 +36,7 @@ class CacheFileManager
         }
         $contents = file_get_contents($cacheFileName);
         if ($contents === false) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 "Failed to read downloaded cache file: $cacheFileName. " . error_get_last()['message']
             );
         }
@@ -51,7 +53,7 @@ class CacheFileManager
         $putResult = file_put_contents($cacheFileName, $contents);
 
         if ($putResult === false) {
-            throw new \RuntimeException("Failed to write file $fileId to cache: ". error_get_last()['message']);
+            throw new RuntimeException("Failed to write file $fileId to cache: ". error_get_last()['message']);
         }
     }
 }

@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\VoiceRecognition;
 
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -15,7 +16,7 @@ class TranscribeProcessor implements MessageChainProcessor
     ) {
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         if ($messageChain->previous() === null) {
             return new ProcessingResult(

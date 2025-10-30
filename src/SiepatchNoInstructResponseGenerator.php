@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89;
 
+use Exception;
 use Longman\TelegramBot\Entities\Message;
 use Orhanerday\OpenAi\OpenAi;
 
@@ -45,7 +46,7 @@ class SiepatchNoInstructResponseGenerator implements TelegramResponderInterface
 
                 return strlen($data);
             });
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
         }
 
         return trim($fullContent);

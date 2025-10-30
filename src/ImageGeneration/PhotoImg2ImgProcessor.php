@@ -5,6 +5,7 @@ namespace Perk11\Viktor89\ImageGeneration;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor;
 use Perk11\Viktor89\PreResponseProcessor\SavedImageNotFoundException;
@@ -20,7 +21,7 @@ class PhotoImg2ImgProcessor
     ) {
     }
 
-    public function processMessage(Message $message): void
+    public function processMessage(Message $message, ProgressUpdateCallback $progressUpdateCallback): void
     {
         $caption = $message->getCaption();
         echo "Photo received with caption $caption\n";
@@ -39,7 +40,7 @@ class PhotoImg2ImgProcessor
             return;
         }
         $internalMessage = InternalMessage::fromTelegramMessage($message);
-        $result = $this->imageGenerateProcessor->processMessageChain(new MessageChain([$internalMessage]));
+        $result = $this->imageGenerateProcessor->processMessageChain(new MessageChain([$internalMessage]), $progressUpdateCallback);
         $this->processingResultExecutor->execute($result);
     }
 }

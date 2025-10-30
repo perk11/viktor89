@@ -2,9 +2,11 @@
 
 namespace Perk11\Viktor89\PreResponseProcessor;
 
+use Exception;
 use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\GetTriggeringCommandsInterface;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -18,7 +20,7 @@ class CommandBasedResponderTrigger implements MessageChainProcessor, GetTriggeri
     ) {
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $lastMessageText = $messageChain->last()->messageText;
         $triggerFound = false;
@@ -61,8 +63,8 @@ class CommandBasedResponderTrigger implements MessageChainProcessor, GetTriggeri
                                 ]);
 
         try {
-            return $this->responder->processMessageChain($messageChain);
-        } catch (\Exception $e) {
+            return $this->responder->processMessageChain($messageChain, $progressUpdateCallback);
+        } catch (Exception $e) {
             echo "Got error when getting response to message chain from " . get_class($this->responder) .": \n";
             echo $e->getMessage();
             echo $e->getTraceAsString();

@@ -2,8 +2,10 @@
 
 namespace Perk11\Viktor89\VideoGeneration;
 
+use Exception;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -17,7 +19,7 @@ class VideoProcessor implements MessageChainProcessor
     ) {
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $message = $messageChain->last();
         $prompt = trim($message->messageText);
@@ -53,7 +55,7 @@ class VideoProcessor implements MessageChainProcessor
                 $response->getFirstVideoAsMp4(),
                 $response->getCaption()
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             echo "Failed to generate video:\n" . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
             Request::execute('setMessageReaction', [
                 'chat_id'    => $message->chatId,

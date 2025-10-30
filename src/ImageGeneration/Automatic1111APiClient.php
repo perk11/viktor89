@@ -2,9 +2,13 @@
 
 namespace Perk11\Viktor89\ImageGeneration;
 
+use Exception;
 use GuzzleHttp\Client;
+use InvalidArgumentException;
+use LogicException;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Psr\Http\Message\ResponseInterface;
+use RuntimeException;
 
 class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAndImageGenerator
 {
@@ -20,10 +24,10 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
     )
     {
         if (!isset($_ENV['AUTOMATIC1111_API_URL'])) {
-            throw new \Exception('Environment variable AUTOMATIC1111_API_URL is not defined');
+            throw new Exception('Environment variable AUTOMATIC1111_API_URL is not defined');
         }
         if (count($modelConfig) === 0) {
-            throw new \Exception('At least one image model should be defined');
+            throw new Exception('At least one image model should be defined');
         }
     }
 
@@ -176,7 +180,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
                 return true;
             }
         } else {
-            throw new \LogicException("Unexpected generation type");
+            throw new LogicException("Unexpected generation type");
         }
         return false;
     }
@@ -187,7 +191,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
                 return $modelConfig;
             }
         }
-        throw new \RuntimeException("Failed to find " . $generationType->name . " fallback model");
+        throw new RuntimeException("Failed to find " . $generationType->name . " fallback model");
     }
 
 
@@ -195,7 +199,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
     {
         $parts = explode('x', $imageSize);
         if (count($parts) !== 2) {
-            throw new \InvalidArgumentException('Invalid image size string');
+            throw new InvalidArgumentException('Invalid image size string');
         }
         return new ImageSize((int) $parts[0], (int) $parts[1]);
     }

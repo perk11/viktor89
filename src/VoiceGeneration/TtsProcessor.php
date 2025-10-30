@@ -2,7 +2,9 @@
 
 namespace Perk11\Viktor89\VoiceGeneration;
 
+use Exception;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -19,7 +21,7 @@ class TtsProcessor implements MessageChainProcessor
     ) {
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $message = $messageChain->last();
         $prompt = $message->messageText;
@@ -61,7 +63,7 @@ class TtsProcessor implements MessageChainProcessor
                 $message,
                 $response->voiceFileContents,
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             echo "Failed to generate voice:\n" . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
 
             return new ProcessingResult(null, true, '🤔', $message);

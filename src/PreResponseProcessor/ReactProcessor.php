@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89\PreResponseProcessor;
 
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -15,7 +16,7 @@ class ReactProcessor implements MessageChainProcessor
     )
     {
     }
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $lastMessage = $messageChain->last();
         if ($this->enabledProcessor->getCurrentPreferenceValue($lastMessage->userId) === null) {

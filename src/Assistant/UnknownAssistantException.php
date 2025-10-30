@@ -2,7 +2,9 @@
 
 namespace Perk11\Viktor89\Assistant;
 
-class UnknownAssistantException extends \Exception
+use Exception;
+
+class UnknownAssistantException extends Exception
 {
 
 }

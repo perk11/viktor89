@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89;
 
+use Exception;
 use Longman\TelegramBot\Entities\Message;
 use Orhanerday\OpenAi\OpenAi;
 use SQLite3;
@@ -87,7 +88,7 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
 
                 return strlen($data);
             });
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
         }
 
         return trim($fullContent);

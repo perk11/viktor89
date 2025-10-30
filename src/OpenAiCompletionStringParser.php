@@ -2,12 +2,14 @@
 
 namespace Perk11\Viktor89;
 
+use Exception;
+
 class OpenAiCompletionStringParser
 {
     public function parse(string $completionString): ?array
     {
         if (!str_starts_with($completionString, 'data: ')) {
-            throw new \Exception("Unexpected completion string: $completionString");
+            throw new Exception("Unexpected completion string: $completionString");
         }
 
         $stringWithoutDataPrefix = substr($completionString, strlen('data: '));

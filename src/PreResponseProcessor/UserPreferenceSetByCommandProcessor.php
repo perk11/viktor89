@@ -2,11 +2,13 @@
 
 namespace Perk11\Viktor89\PreResponseProcessor;
 
+use Exception;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\GetTriggeringCommandsInterface;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -42,7 +44,7 @@ class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, User
         return $value;
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $lastMessage = $messageChain->last();
         $messageText = $lastMessage->messageText;
@@ -90,7 +92,7 @@ class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, User
                 'is_big' => true,
             ]);
             echo "Reacting to message result: $response\n";
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             echo("Failed to react to message: " . $e->getMessage() . "\n");
 
             $messageText =  $preferenceValue === null ? "Настройка $this->preferenceName сброшена в состояние по умолчанию" : "Настройка $this->preferenceName установлена в $preferenceValue";

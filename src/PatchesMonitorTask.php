@@ -5,6 +5,7 @@ namespace Perk11\Viktor89;
 use Amp\Cancellation;
 use Amp\Parallel\Worker\Task;
 use Amp\Sync\Channel;
+use Dom\HTMLDocument;
 use GuzzleHttp\Client;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
@@ -32,7 +33,7 @@ class PatchesMonitorTask implements Task
             return false;
         }
 
-        $htmlDocument = @\Dom\HTMLDocument::createFromString($response->getBody());
+        $htmlDocument = @HTMLDocument::createFromString($response->getBody());
         $patchLinks = $htmlDocument->querySelectorAll('.cnt_td>a');
 
         $formattedPatches = [];

@@ -8,7 +8,7 @@ class PrintUserPreferencesResponder implements MessageChainProcessor
     {
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback|IPC\ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $preferences = $this->database->readPreferencesArray($messageChain->last()->userId);
         $message = InternalMessage::asResponseTo($messageChain->last());

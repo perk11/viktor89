@@ -6,8 +6,12 @@ use Amp\Cancellation;
 use Amp\Parallel\Worker\Task;
 use Amp\Sync\Channel;
 use Dotenv\Dotenv;
+use Exception;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
+use Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler;
+use Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler;
+use Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\DefaultingToFirstInConfigModelPreferenceReader;
@@ -24,13 +28,20 @@ use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\ImageGeneration\ZoomApiClient;
 use Perk11\Viktor89\ImageGeneration\ZoomCommandProcessor;
+use Perk11\Viktor89\IPC\EngineProgressUpdateCallback;
+use Perk11\Viktor89\IPC\TaskCompletedMessage;
+use Perk11\Viktor89\IPC\TaskUpdateMessage;
 use Perk11\Viktor89\JoinQuiz\JoinQuizProcessor;
 use Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger;
+use Perk11\Viktor89\PreResponseProcessor\HelloProcessor;
+use Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor;
 use Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
+use Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor;
 use Perk11\Viktor89\PreResponseProcessor\ReactProcessor;
 use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
 use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
+use Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor;
 use Perk11\Viktor89\Quiz\QuestionRepository;
 use Perk11\Viktor89\Quiz\RandomQuizResponder;
 use Perk11\Viktor89\RateLimiting\RateLimit;
@@ -68,7 +79,7 @@ class ProcessMessageTask implements Task
 
         try {
          $this->handle();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             echo "Error " . $e->getMessage() . "\n". $e->getTraceAsString();
         }
 //        echo "Done handling\n";
@@ -117,19 +128,19 @@ class ProcessMessageTask implements Task
         $configFilePath =__DIR__ . '/../config.json';
         $configString = file_get_contents($configFilePath);
         if ($configString === false) {
-            throw new \Exception("Failed to read $configFilePath");
+            throw new Exception("Failed to read $configFilePath");
         }
         $config = json_decode($configString, true, 512, JSON_THROW_ON_ERROR);
         $imageModelConfig = $config['imageModels'];
         $editModelConfig = $config['imageEditModels'];
-        $imageModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+        $imageModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $database,
             ['/imagemodel'],
             'imagemodel',
             $this->telegramBotUsername,
             array_keys($imageModelConfig),
         );
-        $editModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+        $editModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $database,
             ['/editmodel'],
             'editmodel',
@@ -186,7 +197,7 @@ class ProcessMessageTask implements Task
             $telegramFileDownloader,
             $telegram->getBotId(),
         );
-        $assistantModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+        $assistantModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $database,
             ['/assistantmodel'],
             'assistantmodel',
@@ -194,7 +205,7 @@ class ProcessMessageTask implements Task
             $assistantFactory->getSupportedModels(),
         );
 
-        $sayModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+        $sayModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $database,
             ['/saymodel', '/voice', '/voicemodel'],
             'saymodel',
@@ -203,13 +214,13 @@ class ProcessMessageTask implements Task
         );
         $imageRepository = new ImageRepository($database->sqlite3Database);
         $imgTagExtractor = new ImgTagExtractor($imageRepository);
-        $assistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
+        $assistedImageGenerator = new AssistedImageGenerator(
             $automatic1111APiClient,
             $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
             $imageModelPreferenceReader,
             $imageModelConfig,
         );
-        $editAssistedImageGenerator = new \Perk11\Viktor89\AssistedImageGenerator(
+        $editAssistedImageGenerator = new AssistedImageGenerator(
             $editAutomatic1111APiClient,
             $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
             $editModelPreferenceReader,
@@ -219,7 +230,7 @@ class ProcessMessageTask implements Task
         $processingResultExecutor= new ProcessingResultExecutor($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchInstruct6($database);
-        $responder = new \Perk11\Viktor89\SiepatchNonInstruct4(
+        $responder = new SiepatchNonInstruct4(
             $historyReader,
             $database,
             $processingResultExecutor,
@@ -232,26 +243,26 @@ class ProcessMessageTask implements Task
                                                                          '-1002114209100',
                                                                          '-1002398016894',
                                                                      ]));
-        $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler(2000));
-        $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler(40));
-        $responder->addAbortResponseHandler(new \Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler());
+        $responder->addAbortResponseHandler(new MaxLengthHandler(2000));
+        $responder->addAbortResponseHandler(new MaxNewLinesHandler(40));
+        $responder->addAbortResponseHandler(new RepetitionAfterAuthorHandler());
         $questionRepository = new QuestionRepository($database);
         $userSelectedAssistant = new UserSelectedAssistant($assistantFactory, $assistantModelProcessor);
-        $videoModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+        $videoModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $database,
             ['/videomodel'],
             'videomodel',
             $this->telegramBotUsername,
             array_keys($config['videoModels']),
         );
-        $imv2VideModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+        $imv2VideModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $database,
             ['/img2videomodel'],
             'img2videomodel',
             $this->telegramBotUsername,
             array_keys($config['img2videoModels']),
         );
-        $upscaleModelProcessor = new \Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor(
+        $upscaleModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $database,
             ['/upscalemodel'],
             'upscalemodel',
@@ -290,7 +301,7 @@ class ProcessMessageTask implements Task
             $rateLimitObjects[] = new RateLimit($chat, $limit);
         }
         $preResponseProcessors = [
-            new \Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor(
+            new RateLimitProcessor(
                 $database, $this->telegramBotId,
                 $rateLimits,
             ),
@@ -319,7 +330,7 @@ class ProcessMessageTask implements Task
         );
         $ttsApiClient = new TtsApiClient($config['voiceModels']);
         $voiceResponder = new VoiceResponder();
-        $imageGenerateProcessor = new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
+        $imageGenerateProcessor = new ImageGenerateProcessor(
             ['/image'],
             $automatic1111APiClient,
             $photoResponder,
@@ -327,7 +338,7 @@ class ProcessMessageTask implements Task
             $imgTagExtractor,
             $imageModelPreferenceReader,
         );
-        $imagineGenerateProcessor = new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
+        $imagineGenerateProcessor = new ImageGenerateProcessor(
             ['/imagine'],
             $assistedImageGenerator,
             $photoResponder,
@@ -335,7 +346,7 @@ class ProcessMessageTask implements Task
             $imgTagExtractor,
             $imageModelPreferenceReader,
         );
-        $eProcessor = new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
+        $eProcessor = new ImageGenerateProcessor(
             ['/e'],
             $editAutomatic1111APiClient,
             $photoResponder,
@@ -343,7 +354,7 @@ class ProcessMessageTask implements Task
             $imgTagExtractor,
             $editModelPreferenceReader,
         );
-        $editProcessor = new \Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor(
+        $editProcessor = new ImageGenerateProcessor(
             ['/edit'],
             $editAssistedImageGenerator,
             $photoResponder,
@@ -386,7 +397,7 @@ class ProcessMessageTask implements Task
             $seedProcessor,
             $systemPromptProcessor,
             $responseStartProcessor,
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/quiz'],
                 new RandomQuizResponder($questionRepository)
             ),
@@ -394,19 +405,19 @@ class ProcessMessageTask implements Task
             $imagineGenerateProcessor,
             $editProcessor,
             $eProcessor,
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/upscale'],
                 new ImageTransformProcessor($telegramFileDownloader, $upscaleClient, $photoResponder)
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/downscale'],
                 new DownscaleProcessor($telegramFileDownloader, $photoResponder)
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/zoom'],
                 $zoomCommandProcessor,
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/remix'],
                 new RemixProcessor(
                     $telegramFileDownloader,
@@ -417,27 +428,27 @@ class ProcessMessageTask implements Task
                     )
                 )
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/restyle'],
                 new ImageTransformProcessor($telegramFileDownloader, $restyleGenerator, $photoResponder)
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/video'],
                 $videoProcessor,
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/vid'],
                 $assistedVideoProcessor,
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/start', '/help'],
                 new PrintHelpProcessor($database),
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/preferences'],
                 new PrintUserPreferencesResponder($database),
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/say'],
                 new TtsProcessor(
                     $ttsApiClient,
@@ -446,7 +457,7 @@ class ProcessMessageTask implements Task
                     $config['voiceModels'],
                 ),
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/transcribe'],
                 new TranscribeProcessor($internalMessageTranscriber),
             ),
@@ -468,24 +479,25 @@ class ProcessMessageTask implements Task
                     $config['podcastVoices'],
                 ),
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger(
+            new CommandBasedResponderTrigger(
                 ['/assistant'],
                 $userSelectedAssistant,
                 $telegram->getBotId(),
             ),
-            new \Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor(),
-            new \Perk11\Viktor89\PreResponseProcessor\HelloProcessor(),
+            new WhoAreYouProcessor(),
+            new HelloProcessor(),
         ];
         $photoImg2ImgProcessor = new PhotoImg2ImgProcessor($imageGenerateProcessor, $processingResultExecutor);
         $messageChainProcessorRunner = new MessageChainProcessorRunner($processingResultExecutor, $messageChainProcessors);
-        $engine = new \Perk11\Viktor89\Engine($photoImg2ImgProcessor,
-                                              $database,
-                                              $historyReader,
-                                              $preResponseProcessors,
-                                              $messageChainProcessorRunner,
-                                              $this->telegramBotUsername,
-                                              $this->telegramBotId,
-                                              $responder,
+        $engine = new Engine($photoImg2ImgProcessor,
+                             $database,
+                             $historyReader,
+                             $preResponseProcessors,
+                             $messageChainProcessorRunner,
+                             $this->telegramBotUsername,
+                             $this->telegramBotId,
+                             $responder,
+                             new EngineProgressUpdateCallback(),
         );
         $engine->handleMessage($this->message);
     }

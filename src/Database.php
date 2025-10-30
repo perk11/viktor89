@@ -2,29 +2,32 @@
 
 namespace Perk11\Viktor89;
 
+use LogicException;
 use Longman\TelegramBot\Entities\Message;
 use Perk11\Viktor89\JoinQuiz\KickQueueItem;
 use Perk11\Viktor89\RateLimiting\BanTimeLeft;
 use Perk11\Viktor89\RateLimiting\RateLimit;
+use RuntimeException;
 use SQLite3;
+use SQLite3Stmt;
 
 class Database
 {
     public readonly SQLite3 $sqlite3Database;
 
-    private \SQLite3Stmt $insertMessageStatement;
+    private SQLite3Stmt $insertMessageStatement;
 
-    private \SQLite3Stmt|false $selectMessageStatement;
+    private SQLite3Stmt|false $selectMessageStatement;
 
-    private \SQLite3Stmt|false $readPreferencesStatement;
-    private \SQLite3Stmt|false $updatePreferencesStatement;
+    private SQLite3Stmt|false $readPreferencesStatement;
+    private SQLite3Stmt|false $updatePreferencesStatement;
 
 
     public function __construct(private int $botUserId, string $name)
     {
         $databaseDir = dirname(__DIR__) . '/data';
         if (!@mkdir($databaseDir) && !is_dir($databaseDir)) {
-            throw new \RuntimeException(sprintf('Failed to create directory "%s"', $databaseDir));
+            throw new RuntimeException(sprintf('Failed to create directory "%s"', $databaseDir));
         }
         $this->sqlite3Database = new SQLite3($databaseDir . "/" . $name);
         $this->sqlite3Database->busyTimeout(30000);
@@ -83,7 +86,7 @@ VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_mes
     {
         foreach ($excludedIds as $excludedId) {
             if (!is_int($excludedId)) {
-                throw new \LogicException("Invalid value type passed for excluded id");
+                throw new LogicException("Invalid value type passed for excluded id");
             }
         }
         $excludedIdsString = implode(',', $excludedIds);

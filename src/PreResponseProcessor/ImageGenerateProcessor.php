@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89\PreResponseProcessor;
 
+use Exception;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\GetTriggeringCommandsInterface;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptAndImageGenerator;
@@ -10,6 +11,7 @@ use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -28,7 +30,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
     ) {
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $triggerFound = false;
         $lastMessage = $messageChain->last();
@@ -61,7 +63,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
                 $prompt->sourceImagesContents[] = $this->telegramFileDownloader->downloadPhotoFromInternalMessage(
                     $messageChain->previous()
                 );
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 echo "Failed to download source image from Telegram: " . $e->getMessage() . "\n";
                 return new ProcessingResult(null, true, '🤔', $messageChain->previous());
             }
@@ -110,7 +112,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
                 $response->sendAsFile,
                 $response->getCaption()
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             echo "Failed to generate image:\n" . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
             Request::execute('setMessageReaction', [
                 'chat_id'    => $lastMessage->chatId,

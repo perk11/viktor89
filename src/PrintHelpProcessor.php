@@ -2,6 +2,8 @@
 
 namespace Perk11\Viktor89;
 
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+
 class PrintHelpProcessor implements MessageChainProcessor
 {
     private const COMMANDS = [
@@ -37,7 +39,7 @@ class PrintHelpProcessor implements MessageChainProcessor
         /seed Первичное значение для псевдослучайного генератора. Например: <code>/seed 123</code>. Отправьте /seed без параметров, чтобы сбросить на случайное значение.',
     ];
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $message = InternalMessage::asResponseTo($messageChain->last());
         $message->messageText = "Привет, я Виктор89.\n

@@ -2,12 +2,14 @@
 
 namespace Perk11\Viktor89\Assistant;
 
+use Exception;
 use JsonException;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use RuntimeException;
 
 abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAssistant implements AbortableStreamingResponseGenerator
 {
@@ -83,7 +85,7 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
                     $content = $parsedData['content'];
                 } else {
                     if (!isset( $parsedData['choices'][0]['text'])) {
-                        throw new \RuntimeException("Unexpected JSON received: " . $dataToParse);
+                        throw new RuntimeException("Unexpected JSON received: " . $dataToParse);
                     }
                     $content = $parsedData['choices'][0]['text'];
                 }
@@ -104,7 +106,7 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
 
                 return strlen($data);
             });
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             if ($aborted) {
                 return trim($fullContent);
             }

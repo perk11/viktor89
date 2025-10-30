@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89\VideoGeneration;
 
+use Exception;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\TelegramFileDownloader;
@@ -44,7 +45,7 @@ class VideoImg2VidProcessor
                 $videoResponse->getFirstVideoAsMp4(),
                 $videoResponse->getCaption(),
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             echo "Failed to generate video:\n" . $e->getMessage(),
             Request::execute('setMessageReaction', [
                 'chat_id'    => $messageWithCommand->chatId,

@@ -2,9 +2,11 @@
 
 namespace Perk11\Viktor89\Quiz;
 
+use Exception;
 use Longman\TelegramBot\Entities\PollOption;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -16,7 +18,7 @@ class RandomQuizResponder implements MessageChainProcessor
     {
     }
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $lastMessage = $messageChain->last();
         $question = $this->questionRepository->findRandom();
@@ -39,7 +41,7 @@ class RandomQuizResponder implements MessageChainProcessor
             $answerIndex++;
         }
         if (!isset($correctAnswerIndex)) {
-            throw new \Exception("Question " . $question->id . " does not have a correct answer");
+            throw new Exception("Question " . $question->id . " does not have a correct answer");
         }
         $pollData = [
             'question'            => $question->getTextWithAuthor() . "\n\nЧтобы добавить свой вопрос, присылайте quiz-опрос мне в лс!",

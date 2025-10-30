@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
@@ -15,7 +16,7 @@ class WhoAreYouProcessor implements MessageChainProcessor
         'CAACAgIAAxkBAAIGvWZhcNXDnZVd9vZ4Rydl7KyKeDcCAAJyWwACpg2ISv8GUoIYyRcrNQQ',
     ];
 
-    public function processMessageChain(MessageChain $messageChain): ProcessingResult
+    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $incomingMessageTextLower = mb_strtolower($messageChain->last()->messageText);
         $whoAreYouTriggerPhrases = [

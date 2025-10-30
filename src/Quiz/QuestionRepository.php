@@ -2,7 +2,10 @@
 
 namespace Perk11\Viktor89\Quiz;
 
+use Exception;
+use LogicException;
 use Perk11\Viktor89\Database;
+use SQLite3Stmt;
 
 class QuestionRepository
 {
@@ -20,7 +23,7 @@ class QuestionRepository
             }
         }
         if (!$correctAnswerExists) {
-            throw new \LogicException('Trying to save a question without a correct answer');
+            throw new LogicException('Trying to save a question without a correct answer');
         }
         $insertQuestionStatement = $this->database->sqlite3Database->prepare(
             'INSERT INTO quiz_question (
@@ -46,7 +49,7 @@ class QuestionRepository
         $insertQuestionStatement->bindValue(':explanation',  $question->explanation);
         $answerInserted = $insertQuestionStatement->execute();
         if (!$answerInserted) {
-            throw new \Exception('Failed to save question');
+            throw new Exception('Failed to save question');
         }
         $question->id = $this->database->sqlite3Database->lastInsertRowID();
 
@@ -85,7 +88,7 @@ class QuestionRepository
         return $this->readByStatement($statement);
     }
 
-    private function readByStatement(\SQLite3Stmt $statement): ?Question
+    private function readByStatement(SQLite3Stmt $statement): ?Question
     {
         $result = $statement->execute();
         $answers = [];
