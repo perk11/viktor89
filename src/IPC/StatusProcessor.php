@@ -36,7 +36,7 @@ class StatusProcessor implements MessageChainProcessor
         $index = 1;
         foreach ($report->runningTasks as $task) {
             $processorNameParts = explode('\\', $task->processor);
-            $message->messageText .= "$index: <b>" . htmlspecialchars(end($processorNameParts)) . "</b>: " . htmlspecialchars($task->message) . " (<i>". $this->elapsedTimeString($task->startTime) ."</i>\n";
+            $message->messageText .= "$index: <b>" . htmlspecialchars(end($processorNameParts)) . "</b>: " . htmlspecialchars($task->message) . " (<i>". $this->elapsedTimeString($task->startTime) ."</i>)\n";
             $index++;
         }
 
