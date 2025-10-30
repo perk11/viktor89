@@ -99,8 +99,9 @@ Dialog Prompt: $prompt";
             echo "Error: Failed to read file for $voice2\n";
             return new ProcessingResult(null, true, '🤔', $message);
         }
+        $progressUpdateCallback(static::class, "Generating audio for dialog between $voice1 and $voice2, prompt: $prompt");
         $voice = $this->ttsApiClient->text2Voice($dialogText, [$voice1FileContents, $voice2FileContents],  null, '', 'ogg', null, 'VibeVoice_viktor89');
-
+        $progressUpdateCallback(static::class, "Sending audio response for dialog between $voice1 and $voice2, prompt: $prompt");
         $this->voiceResponder->sendVoice($message, $voice->voiceFileContents);
 
         return new ProcessingResult(null, true, '😎', $message);
