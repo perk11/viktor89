@@ -116,9 +116,9 @@ class Engine
             }
         }
         if ($this->fallBackResponder instanceof MessageChainProcessor) {
-            $responseMessage = $this->fallBackResponder->processMessageChain($chain)->response;
+            $responseMessage = $this->fallBackResponder->processMessageChain($chain, $this->progressUpdateCallback)->response;
         } else {
-            $responseMessage = $this->fallBackResponder->getResponseByMessage($message);
+            $responseMessage = $this->fallBackResponder->getResponseByMessage($message, $this->progressUpdateCallback);
         }
 
         if ($responseMessage === null) {
