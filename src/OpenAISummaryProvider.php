@@ -84,7 +84,7 @@ class OpenAISummaryProvider
             echo $offset - $startingOffset . " messages in this batch ($startingOffset-" . $offset-1 . "). Sending prompt of size " . mb_strlen($prompt) . " to OpenAI API...\n";
             $systemPrompt = "Summarize messages sent in a group chat. Respond only in Russian. Always use specific terms and names. Be brief, but avoid too much generalization. Do not add intro or outro. Use plain text, do not add any formatting. Use past tense. ";
             if ($offset >= count($allMessages) - 1) {
-                $systemPrompt .= "Finish with a joke about one of the authors, but pretend it's a part of the summary.";
+                $systemPrompt .= "Finish by pointing the MVP of discussion and explain why they are the MVP.";
             }
             $systemPrompt .= "Message start below:";
             $result = $this->openAiClient->chat([
