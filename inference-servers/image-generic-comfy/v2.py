@@ -72,6 +72,7 @@ def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenam
         raise Exception("qwen_image_edit2509 supports up to 3 images")
     if steps == 0:
         steps = 20
+    steps = min(30, int(steps))
     workflow_file_path = Path(__file__).with_name("qwen-image2509-img2img.json")
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
