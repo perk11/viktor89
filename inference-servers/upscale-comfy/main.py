@@ -60,6 +60,13 @@ def get_img2img_workflow_seedvr2(input_image_filename: str) -> dict:
     comfy_workflow_object = json.loads(comfy_workflow)
     comfy_workflow_object["1123"]["inputs"]['image'] = input_image_filename
     return comfy_workflow_object
+def get_img2img_workflow_qwen_edit_enhance(input_image_filename: str) -> dict:
+    workflow_file_path = Path(__file__).with_name("comfy_workflow_qwen_edit_enhance.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["78"]["inputs"]['image'] = input_image_filename
+    return comfy_workflow_object
 @app.route('/sdapi/v1/img2img', methods=['POST'])
 def generate_img2img():
     data = request.json
@@ -95,6 +102,9 @@ def generate_img2img():
         infotext = f'Model: {model}'
     elif model == 'SeedVR2':
         comfy_workflow_object = get_img2img_workflow_seedvr2(input_image_file_name)
+        infotext = f'Model: {model}'
+    elif model == 'qwen-edit-enhance':
+        comfy_workflow_object = get_img2img_workflow_qwen_edit_enhance(input_image_file_name)
         infotext = f'Model: {model}'
     else:
         comfy_workflow_object = get_img2img_workflow(input_image_file_name, model, source_max_width, source_max_height)
