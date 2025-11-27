@@ -81,8 +81,9 @@ def get_txt2img_workflow_and_infotext_flux2(model, prompt, seed, steps, width, h
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
     comfy_workflow_object["6"]["inputs"]['text'] = prompt
-    if steps > 0:
-        comfy_workflow_object["48"]["inputs"]['steps'] = steps
+    if steps <= 0:
+        steps = 20
+    comfy_workflow_object["48"]["inputs"]['steps'] = steps
     comfy_workflow_object["25"]["inputs"]['noise_seed'] = seed
 
     comfy_workflow_object["47"]["inputs"]['width'] = width
