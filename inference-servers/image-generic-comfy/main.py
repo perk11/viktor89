@@ -92,6 +92,26 @@ def get_txt2img_workflow_and_infotext_flux2(model, prompt, seed, steps, width, h
     comfy_workflow_object["48"]["inputs"]['height'] = height
 
     return comfy_workflow_object, f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
+def get_txt2img_workflow_and_infotext_z_image(model, prompt, negative_prompt, seed, steps, width, height):
+    workflow_file_path = Path(__file__).with_name("z-image-turbo-txt2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["6"]["inputs"]['text'] = prompt
+    if negative_prompt is None:
+        negative_prompt = comfy_workflow_object["7"]["inputs"]['text']
+    else:
+        comfy_workflow_object["7"]["inputs"]['text'] = negative_prompt
+    if steps > 0:
+        comfy_workflow_object["3"]["inputs"]['steps'] = steps
+    else:
+        steps = comfy_workflow_object["3"]["inputs"]['steps']
+    comfy_workflow_object["3"]["inputs"]['seed'] = seed
+    comfy_workflow_object["13"]["inputs"]['width'] = width
+    comfy_workflow_object["13"]["inputs"]['height'] = height
+
+    return comfy_workflow_object, f'{prompt}\nNegative prompt: {negative_prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
+
 @app.route('/sdapi/v1/txt2img', methods=['POST'])
 def generate_image():
     data = request.json
@@ -113,6 +133,8 @@ def generate_image():
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_wan22(model, prompt, negative_prompt, seed, steps, width, height)
         case 'flux2_dev_fp8':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_flux2(model, prompt, seed, steps, width, height)
+        case 'z_image_turbo':
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_z_image(model, prompt, negative_prompt, seed, steps, width, height)
         case _:
             return jsonify({"error": "Unknown model: " + model}), 400
 
