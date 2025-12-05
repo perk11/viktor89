@@ -94,6 +94,21 @@ class InternalMessage
                 }
             }
         }
+        if ($message->photoFileId === null && $telegramMessage->getDocument() !== null) {
+            $convertToPhotoExtensions = [
+                'jpg',
+                'png',
+                'jpeg',
+                'webp',
+            ];
+            $filename = $telegramMessage->getDocument()->getFileName();
+            foreach ($convertToPhotoExtensions as $extension) {
+                if (str_ends_with($filename, $extension)) {
+                    $message->photoFileId = $telegramMessage->getDocument()->getFileId();
+                    break;
+                }
+            }
+        }
         $message->audio = $telegramMessage->getAudio();
         $message->video = $telegramMessage->getVideo();
         $message->videoNote = $telegramMessage->getVideoNote();
