@@ -53,7 +53,6 @@ class AssistantContext
 
         return $context;
     }
-
     public function toOpenAiMessagesArray(): array
     {
         if ($this->responseStart !== null) {
@@ -68,30 +67,46 @@ class AssistantContext
         }
 
         foreach ($this->messages as $message) {
-            if ($message->photo === null) {
-                $content = $message->text;
+            $role = $message->isUser ? 'user' : 'assistant';
+            $previousMessage = $openAiMessages[array_key_last($openAiMessages)];
+            if ($previousMessage['role'] === $role) {
+                array_pop($openAiMessages);
+                $messageContentParts = $previousMessage['content'];
             } else {
-                $content = [
-                    [
-                        'type' => 'text',
-                        'text' => $message->text,
-                    ],
-                    [
-                        'type'      => 'image_url',
-                        'image_url' => [
-                            'url' => 'data:image/jpeg;base64,' . base64_encode($message->photo),
-                        ],
-                    ],
+                $messageContentParts = [];
+            }
 
+            $messageText = $message->text ?? '';
+            if (is_string($messageText) && trim($messageText) !== '') {
+                $messageContentParts[] = [
+                    'type' => 'text',
+                    'text' => $messageText,
                 ];
             }
 
+            if ($message->photo !== null && $message->isUser) {
+                $messageContentParts[] = [
+                    'type'      => 'image_url',
+                    'image_url' => [
+                        'url' => 'data:image/jpeg;base64,' . base64_encode($message->photo),
+                    ],
+                ];
+            }
+
+            if (empty($messageContentParts)) {
+                // Skip messages that have neither text nor image.
+                continue;
+            }
+
+            $finalContent = $messageContentParts;
+
             $openAiMessages[] = [
-                'role'    => $message->isUser ? 'user' : 'assistant',
-                'content' => $content,
+                'role'    => $role,
+                'content' => $finalContent,
             ];
         }
 
         return $openAiMessages;
     }
+
 }
