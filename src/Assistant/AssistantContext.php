@@ -84,7 +84,7 @@ class AssistantContext
                 ];
             }
 
-            if ($message->photo !== null && $message->isUser) {
+            if ($message->photo !== null) {
                 $messageContentParts[] = [
                     'type'      => 'image_url',
                     'image_url' => [
