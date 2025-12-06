@@ -85,20 +85,47 @@ class SendAsDocumentProcessor implements MessageChainProcessor
     {
         $dataLength = strlen($fileContents);
 
-        if ($dataLength >= 3) {
-            $jpegSignature = substr($fileContents, 0, 3);
-            if ($jpegSignature === "\xFF\xD8\xFF") {
-                return 'jpg';
-            }
+        // JPEG: FF D8 FF
+        if (
+            $dataLength >= 3 &&
+            $fileContents[0] === "\xFF" &&
+            $fileContents[1] === "\xD8" &&
+            $fileContents[2] === "\xFF"
+        ) {
+            return 'jpg';
         }
 
-        if ($dataLength >= 8) {
-            $pngSignature = substr($fileContents, 0, 8);
-            if ($pngSignature === "\x89PNG\r\n\x1A\n") {
-                return 'png';
-            }
+        // PNG: 89 50 4E 47 0D 0A 1A 0A
+        if (
+            $dataLength >= 8 &&
+            $fileContents[0] === "\x89" &&
+            $fileContents[1] === 'P' &&
+            $fileContents[2] === 'N' &&
+            $fileContents[3] === 'G' &&
+            $fileContents[4] === "\r" &&
+            $fileContents[5] === "\n" &&
+            $fileContents[6] === "\x1A" &&
+            $fileContents[7] === "\n"
+        ) {
+            return 'png';
+        }
+
+        // WebP: "RIFF" .... "WEBP"
+        if (
+            $dataLength >= 12 &&
+            $fileContents[0] === 'R' &&
+            $fileContents[1] === 'I' &&
+            $fileContents[2] === 'F' &&
+            $fileContents[3] === 'F' &&
+            $fileContents[8] === 'W' &&
+            $fileContents[9] === 'E' &&
+            $fileContents[10] === 'B' &&
+            $fileContents[11] === 'P'
+        ) {
+            return 'webp';
         }
 
         return 'unknown';
     }
+
 }
