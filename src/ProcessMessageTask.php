@@ -102,7 +102,7 @@ class ProcessMessageTask implements Task
         $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
         $database = new Database($this->telegramBotId, 'siepatch-non-instruct5');
         $historyReader = new HistoryReader($database);
-        $cacheFileManager = new CacheFileManager();
+        $cacheFileManager = new CacheFileManager($database);
         $telegramFileDownloader = new TelegramFileDownloader($cacheFileManager, $this->telegramApiKey);
         $denoisingStrengthProcessor = new NumericPreferenceInRangeByCommandProcessor(
             $database,

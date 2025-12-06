@@ -59,9 +59,11 @@ class PhotoResponder
         if ($sentMessageResult->isOk() && $sentMessageResult->getResult() instanceof Message) {
             $this->database->logMessage($sentMessageResult->getResult());
             $photos = $sentMessageResult->getResult()->getPhoto();
-            if (is_array($photos) && array_key_exists(2, $photos)) {
-                $fileId = $sentMessageResult->getResult()->getPhoto()[2]->getFileId();
-                $this->cacheFileManager->writeFileToCache($fileId, $photoContents);
+            if (is_array($photos)) {
+                foreach ($photos as $photo) {
+                    $fileId = $photo->getFileId();
+                    $this->cacheFileManager->writeFileToCache($fileId, $photoContents);
+                }
             } else {
                 echo "Unexpected, Telegram server response doesn't contain a photo, not caching the result\n";
             }

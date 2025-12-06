@@ -72,4 +72,12 @@ CREATE TABLE IF NOT EXISTS `saved_image`
 CREATE TABLE IF NOT EXISTS `patches`
 (
     `link` text UNIQUE
-)
+);
+CREATE TABLE IF NOT EXISTS `file_cache`
+(
+    `id` integer PRIMARY KEY AUTOINCREMENT,
+    `file_id` text UNIQUE NOT NULL,
+    `file_name` text NOT NULL,
+    `sha1` text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sha1 ON file_cache(sha1);
