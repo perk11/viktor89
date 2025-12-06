@@ -7,7 +7,7 @@ from diffusers import StableDiffusion3Pipeline
 import torch
 import base64
 from io import BytesIO
-parser = argparse.ArgumentParser(description="Inference server for Flux.1-dev-Controlnet-Upscaler.")
+parser = argparse.ArgumentParser(description="Inference server for Stable Diffusion 3.5")
 parser.add_argument('--port', type=int, help='port to listen on')
 args = parser.parse_args()
 
