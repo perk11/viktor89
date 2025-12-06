@@ -25,6 +25,7 @@ use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\RemixProcessor;
 use Perk11\Viktor89\ImageGeneration\RestyleGenerator;
 use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
+use Perk11\Viktor89\ImageGeneration\SendAsDocumentProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\ImageGeneration\ZoomApiClient;
 use Perk11\Viktor89\ImageGeneration\ZoomCommandProcessor;
@@ -490,6 +491,10 @@ class ProcessMessageTask implements Task
             new CommandBasedResponderTrigger(
                 ['/status'],
                 new StatusProcessor($channel),
+            ),
+            new CommandBasedResponderTrigger(
+                ['/file'],
+                new SendAsDocumentProcessor($cacheFileManager, $database),
             ),
             new CommandBasedResponderTrigger(
                 ['/assistant'],
