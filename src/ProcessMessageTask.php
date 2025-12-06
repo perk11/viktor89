@@ -23,6 +23,7 @@ use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\RemixProcessor;
+use Perk11\Viktor89\ImageGeneration\RmBgApiClient;
 use Perk11\Viktor89\ImageGeneration\RestyleGenerator;
 use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
 use Perk11\Viktor89\ImageGeneration\SendAsDocumentProcessor;
@@ -383,6 +384,8 @@ class ProcessMessageTask implements Task
                 $videoResponder
             ),
         );
+        $rmBgClient = new RmBgApiClient($config['rmBgModels']);
+        $rmBgProcessor = new ImageTransformProcessor($telegramFileDownloader, $rmBgClient, $photoResponder);
         $messageChainProcessors = [
             new VoiceProcessor($internalMessageTranscriber),
             $clownProcessor,
@@ -495,6 +498,10 @@ class ProcessMessageTask implements Task
             new CommandBasedResponderTrigger(
                 ['/file'],
                 new SendAsDocumentProcessor($cacheFileManager, $database),
+            ),
+            new CommandBasedResponderTrigger(
+                ['/rmbg'],
+                $rmBgProcessor,
             ),
             new CommandBasedResponderTrigger(
                 ['/assistant'],

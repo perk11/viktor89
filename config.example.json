@@ -315,5 +315,10 @@
       "useOptions": false
     }
   },
-  "whisperCppUrl": "http://localhost:8102"
+  "whisperCppUrl": "http://localhost:8102",
+  "rmBgModels": {
+    "rmbg": {
+      "url": "http://localhost:8196"
+    }
+  }
 }
