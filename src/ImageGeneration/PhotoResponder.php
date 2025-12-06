@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89\ImageGeneration;
 
+use Longman\TelegramBot\Entities\File;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\CacheFileManager;
@@ -64,8 +65,10 @@ class PhotoResponder
                     $fileId = $photo->getFileId();
                     $this->cacheFileManager->writeFileToCache($fileId, $photoContents);
                 }
+            } elseif ($sentMessageResult->getResult()->getSticker() !== null) {
+                $this->cacheFileManager->writeFileToCache($sentMessageResult->getResult()->getSticker()->getFileId(), $photoContents);
             } else {
-                echo "Unexpected, Telegram server response doesn't contain a photo, not caching the result\n";
+                echo "Unexpected, Telegram server response doesn't contain a photo or a document, not caching the result\n";
             }
         } else {
             echo "Failed to send message: " . $sentMessageResult->getResult() . "\n";

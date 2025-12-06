@@ -94,19 +94,23 @@ class InternalMessage
                 }
             }
         }
-        if ($message->photoFileId === null && $telegramMessage->getDocument() !== null) {
-            $convertToPhotoExtensions = [
-                'jpg',
-                'png',
-                'jpeg',
-                'webp',
-            ];
-            $filename = $telegramMessage->getDocument()->getFileName();
-            foreach ($convertToPhotoExtensions as $extension) {
-                if (str_ends_with($filename, $extension)) {
-                    $message->photoFileId = $telegramMessage->getDocument()->getFileId();
-                    break;
+        if ($message->photoFileId === null)  {
+            if ($telegramMessage->getDocument() !== null) {
+                $convertToPhotoExtensions = [
+                    'jpg',
+                    'png',
+                    'jpeg',
+                    'webp',
+                ];
+                $filename = $telegramMessage->getDocument()->getFileName();
+                foreach ($convertToPhotoExtensions as $extension) {
+                    if (str_ends_with($filename, $extension)) {
+                        $message->photoFileId = $telegramMessage->getDocument()->getFileId();
+                        break;
+                    }
                 }
+            } elseif ($telegramMessage->getSticker() !== null) {
+                $message->photoFileId = $telegramMessage->getSticker()->getFileId();
             }
         }
         $message->audio = $telegramMessage->getAudio();
