@@ -40,7 +40,6 @@ class CommandBasedResponderTrigger implements MessageChainProcessor, GetTriggeri
                 return new ProcessingResult(null, false);
             }
 
-            $firstMessageText = $messageChain->first()->messageText;
             foreach ($messageChain->getMessages() as $message) {
                 foreach ($this->triggeringCommands as $triggeringCommand) {
                     if (str_starts_with($message->messageText, $triggeringCommand)) {
