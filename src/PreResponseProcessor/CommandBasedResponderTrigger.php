@@ -46,7 +46,7 @@ class CommandBasedResponderTrigger implements MessageChainProcessor, GetTriggeri
                     if (str_starts_with($message->messageText, $triggeringCommand)) {
                         $triggerFound = true;
                         $message->messageText = trim(
-                            str_replace($triggeringCommand, '', $firstMessageText)
+                            str_replace($triggeringCommand, '', $message->messageText)
                         );
                         break; //Do not break from the outer loop to remove the command from all the messages
                     }
