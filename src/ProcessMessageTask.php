@@ -20,11 +20,10 @@ use Perk11\Viktor89\ImageGeneration\ImageRemixer;
 use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\ImageTransformProcessor;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
-use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\RemixProcessor;
-use Perk11\Viktor89\ImageGeneration\RmBgApiClient;
 use Perk11\Viktor89\ImageGeneration\RestyleGenerator;
+use Perk11\Viktor89\ImageGeneration\RmBgApiClient;
 use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
 use Perk11\Viktor89\ImageGeneration\SendAsDocumentProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
@@ -34,7 +33,6 @@ use Perk11\Viktor89\IPC\EngineProgressUpdateCallback;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\IPC\StatusProcessor;
 use Perk11\Viktor89\IPC\TaskCompletedMessage;
-use Perk11\Viktor89\IPC\TaskUpdateMessage;
 use Perk11\Viktor89\JoinQuiz\JoinQuizProcessor;
 use Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger;
 use Perk11\Viktor89\PreResponseProcessor\HelloProcessor;
@@ -511,10 +509,8 @@ class ProcessMessageTask implements Task
             new WhoAreYouProcessor(),
             new HelloProcessor(),
         ];
-        $photoImg2ImgProcessor = new PhotoImg2ImgProcessor($imageGenerateProcessor, $processingResultExecutor);
         $messageChainProcessorRunner = new MessageChainProcessorRunner($processingResultExecutor, $messageChainProcessors);
-        $engine = new Engine($photoImg2ImgProcessor,
-                             $database,
+        $engine = new Engine($database,
                              $historyReader,
                              $preResponseProcessors,
                              $messageChainProcessorRunner,

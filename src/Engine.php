@@ -4,7 +4,6 @@ namespace Perk11\Viktor89;
 
 
 use Longman\TelegramBot\Entities\Message;
-use Perk11\Viktor89\ImageGeneration\PhotoImg2ImgProcessor;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 
@@ -24,7 +23,6 @@ class Engine
     ];
 
     public function __construct(
-        private readonly ?PhotoImg2ImgProcessor $photoImg2ImgProcessor,
         private readonly Database $database,
         private readonly HistoryReader $historyReader,
         /** @var PreResponseProcessor[] $preResponseProcessors */
@@ -40,12 +38,6 @@ class Engine
     public function handleMessage(Message $message): void
     {
         $this->database->logMessage($message);
-
-        if ($this->photoImg2ImgProcessor !== null && $message->getType() === 'photo') {
-            $this->photoImg2ImgProcessor->processMessage($message, $this->progressUpdateCallback);
-
-            return;
-        }
 
         if (!in_array($message->getType(), $this->messageTypesSupportedByCommonCode, true)) {
             echo "Message of type {$message->getType()} received\n";
