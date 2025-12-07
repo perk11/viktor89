@@ -41,7 +41,7 @@ class CacheFileManager
     {
         $cacheFileName = $this->database->readFileCacheNameById($fileId);
         if ($cacheFileName === null) {
-            echo "No Database record for cached file $fileId";
+            echo "No Database record for cached file $fileId\n";
 
             return null;
         }
