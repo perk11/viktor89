@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\Assistant;
 
 use Exception;
 use JsonException;
+use Perk11\Viktor89\ImageGeneration\ContentTypeGuesser;
 
 class AssistantContext
 {
@@ -85,12 +86,39 @@ class AssistantContext
             }
 
             if ($message->photo !== null) {
-                $messageContentParts[] = [
-                    'type'      => 'image_url',
-                    'image_url' => [
-                        'url' => 'data:image/jpeg;base64,' . base64_encode($message->photo),
-                    ],
-                ];
+                $extension = ContentTypeGuesser::guessFileExtension($message->photo);
+                switch ($extension) {
+                    case 'jpg':
+                        $url = 'data:image/jpeg;base64,' . base64_encode($message->photo);
+                        break;
+                    case 'png':
+                        $url = 'data:image/png;base64,' . base64_encode($message->photo);
+                        break;
+                    case 'webp':
+                        $gdImageFromWebpString = imagecreatefromstring($message->photo);
+                        if ($gdImageFromWebpString === false) {
+                            echo "Failed to create image from webp\n";
+                            $url = null;
+                        } else {
+                            ob_start();
+                            imagepng($gdImageFromWebpString);
+                            $pngImageBinaryString = ob_get_clean();
+                            imagedestroy($gdImageFromWebpString);
+                            $url = 'data:image/png;base64,' . base64_encode($pngImageBinaryString);
+                        }
+                        break;
+                    default:
+                        $url = null;
+
+                }
+                if ($url !== null) {
+                    $messageContentParts[] = [
+                        'type'      => 'image_url',
+                        'image_url' => [
+                            'url' => $url,
+                        ],
+                    ];
+                }
             }
 
             if (empty($messageContentParts)) {
