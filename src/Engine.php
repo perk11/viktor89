@@ -20,6 +20,7 @@ class Engine
         'video',
         'audio',
         'video_note',
+        'sticker',
     ];
 
     public function __construct(
@@ -48,10 +49,6 @@ class Engine
 
         if (!in_array($message->getType(), $this->messageTypesSupportedByCommonCode, true)) {
             echo "Message of type {$message->getType()} received\n";
-            if ($message->getType() === 'sticker') {
-                echo $message->getSticker()->getFileId() . "\n";
-            }
-
             return;
         }
 
