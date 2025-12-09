@@ -62,7 +62,7 @@ def generate_img2img():
             case 'Qwen-Image-Edit-MeiTu':
                 comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_qwen_image_edit_meitu(image_filenames, prompt, seed, steps)
             case 'flux2_dev_fp8':
-                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps)
+                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps, width, height)
             case _:
                 return jsonify({"error": "Unknown model: " + model}), 400
         return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
@@ -102,7 +102,7 @@ def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenam
         del comfy_workflow_object["134"]["inputs"]['image3']
 
     return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: Qwen-Image-Edit-2509-Q8_0'
-def get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps):
+def get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps, width, height):
     if len(image_filenames) == 1:
         workflow_file = 'flux2-img2img.json'
     elif len(image_filenames) == 2:
@@ -121,12 +121,14 @@ def get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, se
     comfy_workflow_object["6"]["inputs"]['text'] = prompt
     comfy_workflow_object["25"]["inputs"]['noise_seed'] = seed
     comfy_workflow_object["48"]["inputs"]['steps'] = steps
+    comfy_workflow_object["57"]["inputs"]['value'] = width
+    comfy_workflow_object["59"]["inputs"]['value'] = height
 
     comfy_workflow_object["42"]["inputs"]['image'] = image_filenames[0]
     if len(image_filenames) > 1:
-        comfy_workflow_object["46"]["inputs"]['image'] = image_filenames[1]
+        comfy_workflow_object["70"]["inputs"]['image'] = image_filenames[1]
     if len(image_filenames) > 2:
-        comfy_workflow_object["52"]["inputs"]['image'] = image_filenames[2]
+        comfy_workflow_object["86"]["inputs"]['image'] = image_filenames[2]
 
     return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: flux2_dev_fp8'
 def get_img2img_workflow_infotext_and_filename_qwen_image_edit_meitu(image_filenames, prompt, seed, steps):

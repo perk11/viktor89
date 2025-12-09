@@ -1,7 +1,7 @@
 {
   "6": {
     "inputs": {
-      "text": "prompt goes here",
+      "text": "make the man in image 2 eat the cake from image 1",
       "clip": [
         "38",
         0
@@ -91,7 +91,7 @@
         0
       ],
       "conditioning": [
-        "43",
+        "73",
         0
       ]
     },
@@ -102,7 +102,7 @@
   },
   "25": {
     "inputs": {
-      "noise_seed": 83555355267415
+      "noise_seed": 929784549194420
     },
     "class_type": "RandomNoise",
     "_meta": {
@@ -152,7 +152,7 @@
   "40": {
     "inputs": {
       "pixels": [
-        "41",
+        "62",
         0
       ],
       "vae": [
@@ -167,8 +167,11 @@
   },
   "41": {
     "inputs": {
-      "upscale_method": "area",
-      "megapixels": 1,
+      "upscale_method": "lanczos",
+      "megapixels": [
+        "69",
+        0
+      ],
       "image": [
         "42",
         0
@@ -181,33 +184,195 @@
   },
   "42": {
     "inputs": {
-      "image": "viktor89-Qwen-Image-Edit-2509-Q8_0-image-0.jpg"
+      "image": "viktor89-fluxkontext.jpg"
     },
     "class_type": "LoadImage",
     "_meta": {
       "title": "Load Image"
     }
   },
-  "43": {
+  "47": {
     "inputs": {
-      "conditioning": [
-        "39",
+      "width": [
+        "67",
         0
       ],
-      "latent": [
-        "44",
+      "height": [
+        "67",
+        1
+      ],
+      "batch_size": 1
+    },
+    "class_type": "EmptyFlux2LatentImage",
+    "_meta": {
+      "title": "Empty Flux 2 Latent"
+    }
+  },
+  "48": {
+    "inputs": {
+      "steps": 20,
+      "width": [
+        "67",
+        0
+      ],
+      "height": [
+        "67",
+        1
+      ]
+    },
+    "class_type": "Flux2Scheduler",
+    "_meta": {
+      "title": "Flux2Scheduler"
+    }
+  },
+  "55": {
+    "inputs": {
+      "image": [
+        "42",
         0
       ]
     },
-    "class_type": "ReferenceLatent",
+    "class_type": "GetImageSize",
     "_meta": {
-      "title": "ReferenceLatent"
+      "title": "Get Image Size"
     }
   },
-  "44": {
+  "56": {
+    "inputs": {
+      "int1": [
+        "55",
+        0
+      ],
+      "int2": [
+        "55",
+        1
+      ]
+    },
+    "class_type": "Basic data handling: IntMultiply",
+    "_meta": {
+      "title": "multiply"
+    }
+  },
+  "57": {
+    "inputs": {
+      "value": 1024
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Desired Width"
+    }
+  },
+  "58": {
+    "inputs": {
+      "int1": [
+        "57",
+        0
+      ],
+      "int2": [
+        "59",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: IntMultiply",
+    "_meta": {
+      "title": "multiply"
+    }
+  },
+  "59": {
+    "inputs": {
+      "value": 1024
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Desired Height"
+    }
+  },
+  "61": {
+    "inputs": {
+      "value1": [
+        "56",
+        0
+      ],
+      "value2": [
+        "58",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: GreaterThanOrEqual",
+    "_meta": {
+      "title": "Need to downscale (>=)"
+    }
+  },
+  "62": {
+    "inputs": {
+      "condition": [
+        "61",
+        0
+      ],
+      "if_true": [
+        "41",
+        0
+      ],
+      "if_false": [
+        "42",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: IfElse",
+    "_meta": {
+      "title": "if/else"
+    }
+  },
+  "64": {
+    "inputs": {
+      "value": [
+        "58",
+        0
+      ]
+    },
+    "class_type": "JWIntegerToFloat",
+    "_meta": {
+      "title": "Integer to Float"
+    }
+  },
+  "67": {
+    "inputs": {
+      "image": [
+        "62",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "69": {
+    "inputs": {
+      "a": [
+        "64",
+        0
+      ],
+      "b": 1048576
+    },
+    "class_type": "JWFloatDiv",
+    "_meta": {
+      "title": "Float Divide"
+    }
+  },
+  "70": {
+    "inputs": {
+      "image": "viktor89-Qwen-Image-Edit-2509-Q8_0-image-1.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "72": {
     "inputs": {
       "pixels": [
-        "45",
+        "83",
         0
       ],
       "vae": [
@@ -220,12 +385,100 @@
       "title": "VAE Encode"
     }
   },
-  "45": {
+  "73": {
     "inputs": {
-      "upscale_method": "area",
-      "megapixels": 1,
+      "conditioning": [
+        "39",
+        0
+      ],
+      "latent": [
+        "72",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "ReferenceLatent"
+    }
+  },
+  "76": {
+    "inputs": {
+      "int1": [
+        "79",
+        0
+      ],
+      "int2": [
+        "79",
+        1
+      ]
+    },
+    "class_type": "Basic data handling: IntMultiply",
+    "_meta": {
+      "title": "multiply"
+    }
+  },
+  "78": {
+    "inputs": {
+      "value1": [
+        "76",
+        0
+      ],
+      "value2": [
+        "58",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: GreaterThanOrEqual",
+    "_meta": {
+      "title": "Need to downscale (>=)"
+    }
+  },
+  "79": {
+    "inputs": {
       "image": [
-        "46",
+        "70",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "80": {
+    "inputs": {
+      "value": [
+        "58",
+        0
+      ]
+    },
+    "class_type": "JWIntegerToFloat",
+    "_meta": {
+      "title": "Integer to Float"
+    }
+  },
+  "81": {
+    "inputs": {
+      "a": [
+        "80",
+        0
+      ],
+      "b": 1048576
+    },
+    "class_type": "JWFloatDiv",
+    "_meta": {
+      "title": "Float Divide"
+    }
+  },
+  "82": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "megapixels": [
+        "81",
+        0
+      ],
+      "image": [
+        "70",
         0
       ]
     },
@@ -234,35 +487,24 @@
       "title": "ImageScaleToTotalPixels"
     }
   },
-  "46": {
+  "83": {
     "inputs": {
-      "image": "viktor89-Qwen-Image-Edit-2509-Q8_0-image-1.jpg"
+      "condition": [
+        "78",
+        0
+      ],
+      "if_true": [
+        "82",
+        0
+      ],
+      "if_false": [
+        "70",
+        0
+      ]
     },
-    "class_type": "LoadImage",
+    "class_type": "Basic data handling: IfElse",
     "_meta": {
-      "title": "Load Image"
-    }
-  },
-  "47": {
-    "inputs": {
-      "width": 1024,
-      "height": 1024,
-      "batch_size": 1
-    },
-    "class_type": "EmptyFlux2LatentImage",
-    "_meta": {
-      "title": "Empty Flux 2 Latent"
-    }
-  },
-  "48": {
-    "inputs": {
-      "steps": 20,
-      "width": 1024,
-      "height": 1024
-    },
-    "class_type": "Flux2Scheduler",
-    "_meta": {
-      "title": "Flux2Scheduler"
+      "title": "if/else"
     }
   },
   "save_image_websocket_node": {

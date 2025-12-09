@@ -102,7 +102,7 @@
   },
   "25": {
     "inputs": {
-      "noise_seed": 394223186260708
+      "noise_seed": 964264343261363
     },
     "class_type": "RandomNoise",
     "_meta": {
@@ -152,7 +152,7 @@
   "40": {
     "inputs": {
       "pixels": [
-        "41",
+        "62",
         0
       ],
       "vae": [
@@ -167,8 +167,11 @@
   },
   "41": {
     "inputs": {
-      "upscale_method": "area",
-      "megapixels": 1,
+      "upscale_method": "lanczos",
+      "megapixels": [
+        "69",
+        0
+      ],
       "image": [
         "42",
         0
@@ -190,8 +193,14 @@
   },
   "47": {
     "inputs": {
-      "width": 1024,
-      "height": 1024,
+      "width": [
+        "67",
+        0
+      ],
+      "height": [
+        "67",
+        1
+      ],
       "batch_size": 1
     },
     "class_type": "EmptyFlux2LatentImage",
@@ -202,12 +211,153 @@
   "48": {
     "inputs": {
       "steps": 20,
-      "width": 1024,
-      "height": 1024
+      "width": [
+        "67",
+        0
+      ],
+      "height": [
+        "67",
+        1
+      ]
     },
     "class_type": "Flux2Scheduler",
     "_meta": {
       "title": "Flux2Scheduler"
+    }
+  },
+  "55": {
+    "inputs": {
+      "image": [
+        "42",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "56": {
+    "inputs": {
+      "int1": [
+        "55",
+        0
+      ],
+      "int2": [
+        "55",
+        1
+      ]
+    },
+    "class_type": "Basic data handling: IntMultiply",
+    "_meta": {
+      "title": "multiply"
+    }
+  },
+  "57": {
+    "inputs": {
+      "value": 1024
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Desired Width"
+    }
+  },
+  "58": {
+    "inputs": {
+      "int1": [
+        "57",
+        0
+      ],
+      "int2": [
+        "59",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: IntMultiply",
+    "_meta": {
+      "title": "multiply"
+    }
+  },
+  "59": {
+    "inputs": {
+      "value": 1024
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Desired Height"
+    }
+  },
+  "61": {
+    "inputs": {
+      "value1": [
+        "56",
+        0
+      ],
+      "value2": [
+        "58",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: GreaterThanOrEqual",
+    "_meta": {
+      "title": "Need to downscale (>=)"
+    }
+  },
+  "62": {
+    "inputs": {
+      "condition": [
+        "61",
+        0
+      ],
+      "if_true": [
+        "41",
+        0
+      ],
+      "if_false": [
+        "42",
+        0
+      ]
+    },
+    "class_type": "Basic data handling: IfElse",
+    "_meta": {
+      "title": "if/else"
+    }
+  },
+  "64": {
+    "inputs": {
+      "value": [
+        "58",
+        0
+      ]
+    },
+    "class_type": "JWIntegerToFloat",
+    "_meta": {
+      "title": "Integer to Float"
+    }
+  },
+  "67": {
+    "inputs": {
+      "image": [
+        "62",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "69": {
+    "inputs": {
+      "a": [
+        "64",
+        0
+      ],
+      "b": 1048576
+    },
+    "class_type": "JWFloatDiv",
+    "_meta": {
+      "title": "Float Divide"
     }
   },
   "save_image_websocket_node": {
