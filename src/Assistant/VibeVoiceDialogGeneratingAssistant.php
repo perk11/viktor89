@@ -10,12 +10,12 @@ class VibeVoiceDialogGeneratingAssistant extends OpenAiChatAssistant
 
         $parameters['grammar'] = <<<'GBNF'
 root        ::= line (line)*
-line        ::= "[" speaker "]:" " " speech "\n"
+line        ::= "[" speaker "]:" " " speech "\n" | "[" speaker "]:" " " speech
 speaker     ::= "1" | "2"
 speech      ::= nonl+
 nonl        ::= [^\n]
 GBNF;
-        $parameters['max_tokens'] = 2048;
+        $parameters['max_tokens'] = 4096;
 
         return $parameters;
     }
