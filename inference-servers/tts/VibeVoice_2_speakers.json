@@ -24,7 +24,6 @@
       "text": "[1]: Hello, this is the first speaker.\n[2]: Hi there, I'm the second speaker.\n[1]: Nice to meet you!\n[2]: Nice to meet you too!",
       "model": "VibeVoice-Large",
       "attention_type": "auto",
-      "quantize_llm": "full precision",
       "free_memory_after_generate": true,
       "diffusion_steps": 20,
       "seed": 2806381369,
@@ -32,7 +31,6 @@
       "use_sampling": false,
       "temperature": 0.95,
       "top_p": 0.95,
-      "voice_speed_factor": 1,
       "speaker1_voice": [
         "8",
         0
