@@ -52,4 +52,4 @@ $altTextProvider->assistantWithVision = new \Perk11\Viktor89\Assistant\OpenAiCha
 );
 
 $summaryProvider = new OpenAISummaryProvider($database, $altTextProvider);
-$summaryProvider->provideSummary(-1001804789551, time()-3600*24);
+$summaryProvider->provideSummary(-1001804789551, time()-3600*24*2);

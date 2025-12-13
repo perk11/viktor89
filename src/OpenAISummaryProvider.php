@@ -84,7 +84,7 @@ class OpenAISummaryProvider
             foreach ($messages as $message) {
                 $text = $message->messageText;
                 if ($message->photoFileId !== null || $message->messageText === '') {
-                    $text .= $this->altTextProvider->provide($message, $updateCallback);
+                    $text = $this->altTextProvider->provide($message, $updateCallback) . "\n" . $text;
                 }
                 $offset++;
                 $text = trim($text);
