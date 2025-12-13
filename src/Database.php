@@ -212,7 +212,6 @@ SQL;
     {
         $fetchMessagesStatement = $this->sqlite3Database->prepare(
             "SELECT * FROM message WHERE chat_id = :chat_id AND message.date>:start_timestamp
-                      AND message.type='text'
                       ORDER BY id"
         );
         $fetchMessagesStatement->bindValue(':chat_id', $chatId);

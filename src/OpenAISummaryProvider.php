@@ -4,13 +4,18 @@ namespace Perk11\Viktor89;
 
 use Exception;
 use Orhanerday\OpenAi\OpenAi;
+use Perk11\Viktor89\Assistant\AltTextProvider;
+use Perk11\Viktor89\IPC\EchoUpdateCallback;
 
 class OpenAISummaryProvider
 {
     public const LAST_SUMMARY_TIMESTAMP_SYSTEM_VARIABLE_NAME = 'last-summary-timestamp';
     private readonly OpenAi $openAiClient;
 
-    public function __construct(private Database $database)
+    public function __construct(
+        private readonly Database $database,
+        private readonly AltTextProvider $altTextProvider,
+    )
     {
         $apiKey = $_ENV['SUMMARY_OPENAI_KEY'];
         $this->openAiClient = new OpenAi($apiKey);
@@ -70,13 +75,22 @@ class OpenAISummaryProvider
         $offset = 0;
         $numberOfBatches = ceil(count($allMessages) / self::MESSAGES_ANALYZED_PER_BATCH);
         $batchSize = ceil(count($allMessages) / $numberOfBatches);
+
+        $updateCallback = new EchoUpdateCallback();
         while ($offset < count($allMessages)) {
             $messages = array_slice($allMessages, $offset, $batchSize);
             $prompt = '';
             $startingOffset = $offset;
             foreach ($messages as $message) {
+                $text = $message->messageText;
+                if ($message->photoFileId !== null || $message->messageText === '') {
+                    $text .= $this->altTextProvider->provide($message, $updateCallback);
+                }
                 $offset++;
-                $prompt .= $message->userName . ': ' . mb_substr($message->messageText, 0, 512) . "\n";
+                $text = trim($text);
+                if ($text !== '') {
+                    $prompt .= $message->userName . ': ' . mb_substr($text, 0, 512) . "\n";
+                }
                 if (mb_strlen($prompt) > 16000 && (count($allMessages) - $offset) > 30) {
                     break;
                 }

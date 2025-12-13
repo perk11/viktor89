@@ -42,7 +42,6 @@ $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNA
 //$fallBackResponder = new \Perk11\Viktor89\Siepatch2Responder();
 $database = new Database($telegram->getBotId(), 'siepatch-non-instruct5');
 $historyReader = new HistoryReader($database);
-$summaryProvider = new OpenAISummaryProvider($database);
 $pollResponseProcessor = new PollResponseProcessor($database);
 
 $workerPool = workerPool();
