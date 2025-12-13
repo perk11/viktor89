@@ -226,7 +226,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
                     mb_strpos($internalMessage->messageText, '] ')
                 );
             }
-            $internalMessage->actualMessageText = '[отвечает ' . $internalMessage->messageText;
+            $internalMessage->rawMessageText = '[отвечает ' . $internalMessage->messageText;
             $internalMessage->messageText = mb_substr($internalMessage->messageText, $authorEndPosition + 2);
         } else {
             $internalMessage->userName = $personality;

@@ -27,11 +27,18 @@ class InternalMessage
 
     public string $userName;
 
+    // Message with bot mention removed.
+    // Will be used for sending a message if $rawMessageText is null
+    // Can contains a photo caption
     public string $messageText;
 
     public string $parseMode = 'Default';
 
-    public ?string $actualMessageText = null;
+    // Original message text.
+    // Gets sent when calling send()
+    // Contains bot mentions.
+    // Cannot contain photo caption.
+    public ?string $rawMessageText = null;
 
     public int $chatId;
 
@@ -74,16 +81,21 @@ class InternalMessage
             $message->userName .= ' ' . $telegramMessage->getFrom()->getLastName();
         }
         $message->chatId = $telegramMessage->getChat()->getId();
-        $message->actualMessageText = $telegramMessage->getText();
-        if ($message->actualMessageText === null || $message->actualMessageText === '') {
+        $message->rawMessageText = $telegramMessage->getText();
+        if ($message->rawMessageText !== null) {
+            $message->messageText = $message->rawMessageText;
+        }
+        if (!isset($message->messageText) || $message->messageText === '') {
             if ($telegramMessage->getCaption() !== null) {
-                $message->actualMessageText = $telegramMessage->getCaption();
+                $message->messageText = $telegramMessage->getCaption();
+            } else {
+                $message->messageText = '';
             }
         }
         $message->messageText = preg_replace(
                                           '/@' . preg_quote($_ENV['TELEGRAM_BOT_USERNAME'], '/'). '?(\s+)/',
                                           '',
-                                          $message->actualMessageText,
+                                          $message->messageText,
         );
         if ($telegramMessage->getPhoto() !== null) {
             $maxSize = 0;
@@ -125,8 +137,7 @@ class InternalMessage
     {
         $options = [
             'chat_id' => $this->chatId,
-
-            'text' => $this->actualMessageText ?? $this->messageText,
+            'text' => $this->rawMessageText ?? $this->messageText,
         ];
         if ($this->replyToMessageId !== null) {
             $options['reply_parameters'] = ['message_id' => $this->replyToMessageId];
