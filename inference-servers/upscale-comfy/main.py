@@ -58,7 +58,7 @@ def get_img2img_workflow_seedvr2(input_image_filename: str) -> dict:
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
-    comfy_workflow_object["1123"]["inputs"]['image'] = input_image_filename
+    comfy_workflow_object["16"]["inputs"]['image'] = input_image_filename
     return comfy_workflow_object
 def get_img2img_workflow_qwen_edit_enhance(input_image_filename: str) -> dict:
     workflow_file_path = Path(__file__).with_name("comfy_workflow_qwen_edit_enhance.json")
