@@ -13,12 +13,23 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         UserPreferenceReaderInterface $systemPromptProcessor,
         UserPreferenceReaderInterface $responseStartProcessor,
         TelegramFileDownloader $telegramFileDownloader,
+        AltTextProvider $altTextProvider,
         int $telegramBotId,
         string $url,
         string $apiKey = '',
+        bool $supportsImages,
     )
     {
-        parent::__construct($systemPromptProcessor, $responseStartProcessor, $telegramFileDownloader,$telegramBotId, $url, $apiKey);
+        parent::__construct(
+            $systemPromptProcessor,
+            $responseStartProcessor,
+            $telegramFileDownloader,
+            $altTextProvider,
+            $telegramBotId,
+            $url,
+            $apiKey,
+            $supportsImages
+        );
     }
     public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null): string
     {

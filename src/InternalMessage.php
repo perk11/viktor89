@@ -43,6 +43,7 @@ class InternalMessage
     public int $chatId;
 
     public ?string $photoFileId = null;
+    public ?string $altText = null;
 
     /** Everything below is currently not stored in the database */
     public ?Audio $audio = null;
@@ -50,6 +51,7 @@ class InternalMessage
     public ?VideoNote $videoNote = null;
     public ?Voice $voice = null;
 
+    public bool $isSaved = false;
     public static function fromSqliteAssoc(array $result): self
     {
         $message = new self();
@@ -63,6 +65,8 @@ class InternalMessage
         $message->userName = $result['username'];
         $message->messageText = $result['message_text'];
         $message->photoFileId = $result['photo_file_id'];
+        $message->altText = $result['alt_text'];
+        $message->isSaved = true;
 
         return $message;
     }

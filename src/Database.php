@@ -16,6 +16,7 @@ class Database
     public readonly SQLite3 $sqlite3Database;
 
     private SQLite3Stmt $insertMessageStatement;
+    private SQLite3Stmt $updateMessageStatement;
 
     private SQLite3Stmt|false $selectMessageStatement;
 
@@ -33,10 +34,12 @@ class Database
         $this->sqlite3Database->busyTimeout(30000);
         $this->sqlite3Database->query(file_get_contents(__DIR__ . '/db-structure.sql'));
         $this->insertMessageStatement = $this->sqlite3Database->prepare(
-            'INSERT INTO message (chat_id, id, type, message_thread_id, user_id, `date`, reply_to_message, username, message_text, photo_file_id)
-VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_message, :username, :message_text, :photo_file_id)
+            'INSERT INTO message (chat_id, id, type, message_thread_id, user_id, `date`, reply_to_message, username, message_text, photo_file_id, alt_text)
+VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_message, :username, :message_text, :photo_file_id, :alt_text)
 '
         );
+        $this->updateMessageStatement = $this->sqlite3Database->prepare('UPDATE message SET alt_text = :alt_text WHERE id = :id AND chat_id = :chat_id');
+
         $this->selectMessageStatement = $this->sqlite3Database->prepare(
             'SELECT * FROM message WHERE id = :id AND chat_id = :chat_id'
         );
@@ -55,18 +58,27 @@ VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_mes
 
     public function logInternalMessage(InternalMessage $message): void
     {
-        $this->insertMessageStatement->bindValue(':id', $message->id);
-        $this->insertMessageStatement->bindValue(':message_thread_id', $message->messageThreadId);
-        $this->insertMessageStatement->bindValue(':user_id', $message->userId);
-        $this->insertMessageStatement->bindValue(':date', $message->date);
-        $this->insertMessageStatement->bindValue(':reply_to_message', $message->replyToMessageId);
-        $this->insertMessageStatement->bindValue(':username', $message->userName);
-        $this->insertMessageStatement->bindValue(':chat_id', $message->chatId);
-        $this->insertMessageStatement->bindValue(':message_text', $message->messageText);
-        $this->insertMessageStatement->bindValue(':photo_file_id', $message->photoFileId);
-        $this->insertMessageStatement->bindValue(':type', $message->type);
+        if ($message->isSaved) {
+            $statement = $this->updateMessageStatement;
+        } else {
+            $statement = $this->insertMessageStatement;
+            //these values are not supported in updateMessageStatement
+            $statement->bindValue(':message_thread_id', $message->messageThreadId);
+            $statement->bindValue(':user_id', $message->userId);
+            $statement->bindValue(':date', $message->date);
+            $statement->bindValue(':reply_to_message', $message->replyToMessageId);
+            $statement->bindValue(':username', $message->userName);
+            $statement->bindValue(':message_text', $message->messageText);
+            $statement->bindValue(':photo_file_id', $message->photoFileId);
+            $statement->bindValue(':type', $message->type);
+        }
+        $statement->bindValue(':id', $message->id);
+        $statement->bindValue(':chat_id', $message->chatId);
+        $statement->bindValue(':alt_text', $message->altText);
 
-        $this->insertMessageStatement->execute();
+        $statement->execute();
+        $message->isSaved = true;
+
     }
 
     public function findMessageByIdInChat(int $id, int $chatId): ?InternalMessage

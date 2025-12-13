@@ -17,6 +17,7 @@ class AssistantFactory
         private readonly UserPreferenceReaderInterface $responseStartProcessor,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
         private readonly TelegramFileDownloader $telegramFileDownloader,
+        private readonly AltTextProvider $altTextProvider,
         private readonly int $telegramBotId
     )
     {
@@ -68,9 +69,11 @@ class AssistantFactory
                 $systemPromptProcessor,
                 $this->responseStartProcessor,
                 $this->telegramFileDownloader,
+                $this->altTextProvider,
                 $this->telegramBotId,
                 $requestedAssistantConfig['url'],
                 $this->openAiCompletionStringParser,
+                $requestedAssistantConfig['supportsImages'] ?? false,
             );
         } elseif (is_a($requestedAssistantConfig['class'], OpenAiChatAssistant::class, true)
                || is_a($requestedAssistantConfig['class'], OpenAiPHPClientAssistant::class, true)
@@ -80,9 +83,11 @@ class AssistantFactory
                 $systemPromptProcessor,
                 $this->responseStartProcessor,
                 $this->telegramFileDownloader,
+                $this->altTextProvider,
                 $this->telegramBotId,
                 $requestedAssistantConfig['url'],
                 $requestedAssistantConfig['api_key'] ?? '',
+                $requestedAssistantConfig['supportsImages'] ?? false,
             );
         } elseif(is_a($requestedAssistantConfig['class'], PerplexicaAssistant::class, true)) {
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](

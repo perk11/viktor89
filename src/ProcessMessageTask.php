@@ -12,6 +12,7 @@ use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler;
 use Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler;
 use Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler;
+use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\DefaultingToFirstInConfigModelPreferenceReader;
@@ -197,14 +198,24 @@ class ProcessMessageTask implements Task
             'response-start',
             $this->telegramBotUsername,
         );
+        $voiceRecogniser = new VoiceRecogniser($config['whisperCppUrl']);
+        $internalMessageTranscriber = new InternalMessageTranscriber(
+            $telegramFileDownloader,
+            $voiceRecogniser,
+            $database,
+        );
+
+        $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $database);
         $assistantFactory = new AssistantFactory(
             $config['assistantModels'],
             $systemPromptProcessor,
             $responseStartProcessor,
             $openAiCompletionStringParser,
             $telegramFileDownloader,
+            $altTextProvider,
             $telegram->getBotId(),
         );
+        $altTextProvider->assistantWithVision = $assistantFactory->getAssistantInstanceByName('vision-for-alt-text');
         $assistantModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $database,
             ['/assistantmodel'],
@@ -297,7 +308,6 @@ class ProcessMessageTask implements Task
             $videoResponder,
             current($config['videoFirstFrameImageModels']),
         );
-        $voiceRecogniser = new VoiceRecogniser($config['whisperCppUrl']);
         $rateLimits = [
             '-1001804789551' => 4,
             '6184626947' => 2,
@@ -316,7 +326,6 @@ class ProcessMessageTask implements Task
             new SaveQuizPollProcessor($questionRepository),
             new JoinQuizProcessor($database),
         ];
-        $internalMessageTranscriber = new InternalMessageTranscriber($telegramFileDownloader, $voiceRecogniser);
 
         $zoomLevelPreference = new FixedValuePreferenceProvider(2);
         $zoomGenerator = new ZoomApiClient($seedProcessor, $zoomLevelPreference, $config['zoomModels']);

@@ -16,9 +16,11 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         private readonly UserPreferenceReaderInterface $systemPromptProcessor,
         private readonly UserPreferenceReaderInterface $responseStartProcessor,
         private readonly TelegramFileDownloader$telegramFileDownloader,
+        private readonly AltTextProvider $altTextProvider,
         private readonly int $telegramBotUserId,
         string $url,
         string $apiKey = '',
+        public bool $supportsImages = false,
     )
     {
         $this->openAi = new OpenAi($apiKey);
@@ -36,7 +38,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         if ($userName !== "") {
             $systemPrompt = "User's name is \"$userName\".\n" . $systemPrompt;
         }
-        $assistantContext = $this->convertMessageChainToAssistantContext($messageChain, $systemPrompt, $responseStart);
+        $assistantContext = $this->convertMessageChainToAssistantContext($messageChain, $systemPrompt, $responseStart, $progressUpdateCallback);
 
         $progressUpdateCallback(static::class, 'Generating assistant response');
         $lastMessage = $messageChain->last();
@@ -60,7 +62,8 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
     protected function convertMessageChainToAssistantContext(
         MessageChain $messageChain,
         ?string $systemPrompt,
-        ?string $responseStart
+        ?string $responseStart,
+        ProgressUpdateCallback $progressUpdateCallback
     ): AssistantContext {
         $assistantContext = new AssistantContext();
         $assistantContext->systemPrompt = $systemPrompt;
@@ -70,7 +73,16 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $assistantContextMessage->text = $message->messageText;
             $assistantContextMessage->isUser = $message->userId !== $this->telegramBotUserId;
             if ($message->photoFileId !== null) {
-                $assistantContextMessage->photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);
+                if ($this->supportsImages) {
+                    $assistantContextMessage->photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);
+                } else {
+                    $assistantContextMessage->text .= $this->altTextProvider->provide($message, $progressUpdateCallback);
+                }
+            } elseif ($assistantContextMessage->text === '') {
+                $altText = $this->altTextProvider->provide($message, $progressUpdateCallback);
+                if ($altText !== null) {
+                    $assistantContextMessage->text = $this->altTextProvider->provide($message, $progressUpdateCallback);
+                }
             }
             $assistantContext->messages[] = $assistantContextMessage;
         }

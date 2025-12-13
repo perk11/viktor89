@@ -20,12 +20,14 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
         UserPreferenceReaderInterface $systemPromptProcessor,
         UserPreferenceReaderInterface $responseStartProcessor,
         TelegramFileDownloader $telegramFileDownloader,
+        AltTextProvider $altTextProvider,
         int $telegramBotId,
         string $url,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
+        bool $supportsImages,
     )
     {
-        parent::__construct($systemPromptProcessor, $responseStartProcessor, $telegramFileDownloader, $telegramBotId, $url);
+        parent::__construct($systemPromptProcessor, $responseStartProcessor, $telegramFileDownloader, $altTextProvider, $telegramBotId, $url, '', $supportsImages);
     }
 
     public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void

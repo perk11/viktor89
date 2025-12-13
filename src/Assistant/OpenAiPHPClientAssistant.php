@@ -17,9 +17,11 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         UserPreferenceReaderInterface $systemPromptProcessor,
         UserPreferenceReaderInterface $responseStartProcessor,
         TelegramFileDownloader $telegramFileDownloader,
+        AltTextProvider $altTextProvider,
         int $telegramBotUserId,
         private readonly string $url,
         string $apiKey = '',
+        bool $supportsImages,
     ) {
         $openAiFactory = OpenAI::factory()
             ->withBaseUri(rtrim($url, '/'));

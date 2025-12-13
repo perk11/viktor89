@@ -23,12 +23,22 @@ class Llama3Assistant extends AbstractOpenAIAPICompletingAssistant
         UserPreferenceReaderInterface $systemPromptProcessor,
         UserPreferenceReaderInterface $responseStartProcessor,
         TelegramFileDownloader $telegramFileDownloader,
+        AltTextProvider $altTextProvider,
         int $telegramBotId,
         string $url,
         OpenAiCompletionStringParser $openAiCompletionStringParser,
     ) {
 
-        parent::__construct($systemPromptProcessor, $responseStartProcessor, $telegramFileDownloader, $telegramBotId, $url, $openAiCompletionStringParser);
+        parent::__construct(
+            $systemPromptProcessor,
+            $responseStartProcessor,
+            $telegramFileDownloader,
+            $altTextProvider,
+            $telegramBotId,
+            $url,
+            $openAiCompletionStringParser,
+            false,
+        );
         $this->tokenReplacements = array_fill(0, count($this->tokens) - 1, '');
     }
     protected function convertContextToPrompt(AssistantContext $assistantContext): string
