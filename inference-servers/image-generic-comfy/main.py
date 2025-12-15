@@ -92,8 +92,13 @@ def get_txt2img_workflow_and_infotext_flux2(model, prompt, seed, steps, width, h
     comfy_workflow_object["48"]["inputs"]['height'] = height
 
     return comfy_workflow_object, f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
-def get_txt2img_workflow_and_infotext_z_image(model, prompt, negative_prompt, seed, steps, width, height):
-    workflow_file_path = Path(__file__).with_name("z-image-turbo-txt2img.json")
+def get_txt2img_workflow_and_infotext_z_image(model, loras, prompt, negative_prompt, seed, steps, width, height):
+    if len(loras) == 0:
+        workflow_file_path = Path(__file__).with_name("z-image-turbo-txt2img.json")
+    elif len(loras) == 1:
+        workflow_file_path = Path(__file__).with_name("z-image-turbo-lora-txt2img.json")
+    else:
+        raise ValueError('Only one Lora supported by z-image')
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
@@ -109,8 +114,14 @@ def get_txt2img_workflow_and_infotext_z_image(model, prompt, negative_prompt, se
     comfy_workflow_object["3"]["inputs"]['seed'] = seed
     comfy_workflow_object["13"]["inputs"]['width'] = width
     comfy_workflow_object["13"]["inputs"]['height'] = height
+    infotext =  f'{prompt}\nNegative prompt: {negative_prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
+    if len(loras) == 1:
+        comfy_workflow_object["19"]["inputs"]["lora_name"] = loras[0]['name']
+        comfy_workflow_object["19"]["inputs"]["strength_model"] = loras[0]['weight']
+        infotext += f' Lora: {comfy_workflow_object["19"]["inputs"]["lora_name"]}:{comfy_workflow_object["19"]["inputs"]["strength_model"]}'
 
-    return comfy_workflow_object, f'{prompt}\nNegative prompt: {negative_prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
+
+    return comfy_workflow_object, infotext
 
 @app.route('/sdapi/v1/txt2img', methods=['POST'])
 def generate_image():
@@ -124,6 +135,14 @@ def generate_image():
     width = int(data.get('width', 1024))
     height = int(data.get('height', 1024))
     steps = int(data.get('steps', 0))
+    loras = data.get('loras', [])
+    for index, lora in enumerate(loras):
+        if not "weight" in lora:
+            print(lora)
+            return jsonify({'error': 'Missing Lora weight attribute', lora: lora}), 500
+        if not "name" in lora:
+            print(lora)
+            return jsonify({'error': 'Missing Lora name attribute', lora: lora}), 500
     match model:
         case 'chroma-unlocked-v31' | 'chroma_v41LowStepRl':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_chroma(model, prompt, negative_prompt, seed, steps, width, height)
@@ -134,7 +153,7 @@ def generate_image():
         case 'flux2_dev_fp8':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_flux2(model, prompt, seed, steps, width, height)
         case 'z_image_turbo':
-            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_z_image(model, prompt, negative_prompt, seed, steps, width, height)
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_z_image(model, loras, prompt, negative_prompt, seed, steps, width, height)
         case _:
             return jsonify({"error": "Unknown model: " + model}), 400
 
