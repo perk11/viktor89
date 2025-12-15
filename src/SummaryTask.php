@@ -66,7 +66,7 @@ class SummaryTask implements Task
             $altTextProvider,
             $telegram->getBotId(),
             $assistantConfig['url'],
-            $assistantConfig['apiKey'] ?? null,
+            $assistantConfig['apiKey'] ?? '',
             true,
         );
 
