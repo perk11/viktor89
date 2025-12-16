@@ -7,6 +7,7 @@ use Amp\Parallel\Worker\Task;
 use Amp\Sync\Channel;
 use Dotenv\Dotenv;
 use Exception;
+use LanguageDetection\Language;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler;
@@ -474,6 +475,7 @@ class ProcessMessageTask implements Task
                     $voiceResponder,
                     $sayModelProcessor,
                     $config['voiceModels'],
+                    new Language(),
                 ),
             ),
             new CommandBasedResponderTrigger(

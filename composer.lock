@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5a368d695fe0acea011551394268fc0b",
+    "content-hash": "1f00c68ce783ee9b0be172d91cc7e421",
     "packages": [
         {
             "name": "amphp/amp",
@@ -1785,6 +1785,57 @@
             "time": "2024-01-25T06:43:19+00:00"
         },
         {
+            "name": "patrickschur/language-detection",
+            "version": "v5.3.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/patrickschur/language-detection.git",
+                "reference": "df8d32021b2ef9fde52e6fcccb83e3806822c9c6"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/patrickschur/language-detection/zipball/df8d32021b2ef9fde52e6fcccb83e3806822c9c6",
+                "reference": "df8d32021b2ef9fde52e6fcccb83e3806822c9c6",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "php": "^7.4 || ^8.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^9.5.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "LanguageDetection\\": "src/LanguageDetection"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Patrick Schur",
+                    "email": "patrick_schur@outlook.de"
+                }
+            ],
+            "description": "A language detection library for PHP. Detects the language from a given text string.",
+            "homepage": "https://github.com/patrickschur/language-detection",
+            "keywords": [
+                "detect",
+                "detection",
+                "language"
+            ],
+            "support": {
+                "issues": "https://github.com/patrickschur/language-detection/issues",
+                "source": "https://github.com/patrickschur/language-detection/tree/v5.3.1"
+            },
+            "time": "2025-03-25T22:47:08+00:00"
+        },
+        {
             "name": "php-http/discovery",
             "version": "1.20.0",
             "source": {
@@ -2720,7 +2771,8 @@
     "platform": {
         "ext-sqlite3": "*",
         "ext-curl": "*",
-        "ext-gd": "*"
+        "ext-gd": "*",
+        "ext-dom": "*"
     },
     "platform-dev": {},
     "plugin-api-version": "2.6.0"

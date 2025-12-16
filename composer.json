@@ -21,7 +21,8 @@
       "ext-curl": "*",
       "ext-gd": "*",
       "openai-php/client": "^0.13.0",
-      "ext-dom": "*"
+      "ext-dom": "*",
+        "patrickschur/language-detection": "^5.3"
     },
     "config": {
         "allow-plugins": {

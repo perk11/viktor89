@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\VoiceGeneration;
 
 use Exception;
+use LanguageDetection\Language;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
@@ -18,6 +19,7 @@ class TtsProcessor implements MessageChainProcessor
         private readonly VoiceResponder $voiceResponder,
         private readonly UserPreferenceReaderInterface $voiceModelPreference,
         private readonly array $modelConfig,
+        private readonly Language $languageDetection, //TODO construct only with the languages supported by the model
     ) {
     }
 
@@ -48,13 +50,14 @@ class TtsProcessor implements MessageChainProcessor
         } else {
             $voiceSource = null;
         }
+        $language = array_key_first($this->languageDetection->detect($prompt)->close()) ?? 'ru';
         $progressUpdateCallback(static::class, "Generating voice for prompt: $prompt");
         try {
             $response = $this->voiceClient->text2Voice(
                 $prompt,
                 [$voiceSource],
                 $model['speakerId'] ?? null,
-                'ru',
+                $language,
                 'ogg',
                 $model['speed'] ?? null,
                 $modelName,
