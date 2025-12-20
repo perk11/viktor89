@@ -59,6 +59,8 @@ use Perk11\Viktor89\VideoGeneration\VideoProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoResponder;
 use Perk11\Viktor89\VideoGeneration\VideoTxtAndVid2VidProcessor;
 use Perk11\Viktor89\VoiceGeneration\DialogResponder;
+use Perk11\Viktor89\VoiceGeneration\SoundAndPromptToTargetAndResidualApiClient;
+use Perk11\Viktor89\VoiceGeneration\SoundAndPromptToTargetAndResidualProcessor;
 use Perk11\Viktor89\VoiceGeneration\TtsApiClient;
 use Perk11\Viktor89\VoiceGeneration\TtsProcessor;
 use Perk11\Viktor89\VoiceGeneration\VoiceResponder;
@@ -394,6 +396,8 @@ class ProcessMessageTask implements Task
         );
         $rmBgClient = new RmBgApiClient($config['rmBgModels']);
         $rmBgProcessor = new ImageTransformProcessor($telegramFileDownloader, $rmBgClient, $photoResponder);
+        $soundAndPromptToTargetAndResidualApiClient = new SoundAndPromptToTargetAndResidualApiClient($config['soundAndPromptToTargetAndResidualModels']);
+        $soundAndPromptToTargetAndResidualProcessor = new SoundAndPromptToTargetAndResidualProcessor($voiceResponder, $telegramFileDownloader, $soundAndPromptToTargetAndResidualApiClient);
         $messageChainProcessors = [
             new VoiceProcessor($internalMessageTranscriber),
             $clownProcessor,
@@ -511,6 +515,10 @@ class ProcessMessageTask implements Task
             new CommandBasedResponderTrigger(
                 ['/rmbg'],
                 $rmBgProcessor,
+            ),
+            new CommandBasedResponderTrigger(
+                ['/aextract'],
+                $soundAndPromptToTargetAndResidualProcessor,
             ),
             new CommandBasedResponderTrigger(
                 ['/assistant'],

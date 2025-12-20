@@ -331,5 +331,10 @@
     "rmbg": {
       "url": "http://localhost:8196"
     }
+  },
+  "soundAndPromptToTargetAndResidualModels":  {
+    "sam-audio": {
+      "url": "http://localhost:8202"
+    }
   }
 }
