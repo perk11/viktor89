@@ -350,37 +350,45 @@ class ProcessMessageTask implements Task
         );
         $ttsApiClient = new TtsApiClient($config['voiceModels']);
         $voiceResponder = new VoiceResponder();
-        $imageGenerateProcessor = new ImageGenerateProcessor(
+        $imageGenerateProcessor = new CommandBasedResponderTrigger(
             ['/image'],
-            $automatic1111APiClient,
-            $photoResponder,
-            $telegramFileDownloader,
-            $imgTagExtractor,
-            $imageModelPreferenceReader,
+            new ImageGenerateProcessor(
+                $automatic1111APiClient,
+                $photoResponder,
+                $telegramFileDownloader,
+                $imgTagExtractor,
+                $imageModelPreferenceReader,
+            )
         );
-        $imagineGenerateProcessor = new ImageGenerateProcessor(
+        $imagineGenerateProcessor = new CommandBasedResponderTrigger(
             ['/imagine'],
-            $assistedImageGenerator,
-            $photoResponder,
-            $telegramFileDownloader,
-            $imgTagExtractor,
-            $imageModelPreferenceReader,
+            new ImageGenerateProcessor(
+                $assistedImageGenerator,
+                $photoResponder,
+                $telegramFileDownloader,
+                $imgTagExtractor,
+                $imageModelPreferenceReader,
+            )
         );
-        $eProcessor = new ImageGenerateProcessor(
+        $eProcessor = new CommandBasedResponderTrigger(
             ['/e'],
-            $editAutomatic1111APiClient,
-            $photoResponder,
-            $telegramFileDownloader,
-            $imgTagExtractor,
-            $editModelPreferenceReader,
+            new ImageGenerateProcessor(
+                $editAutomatic1111APiClient,
+                $photoResponder,
+                $telegramFileDownloader,
+                $imgTagExtractor,
+                $editModelPreferenceReader,
+            )
         );
-        $editProcessor = new ImageGenerateProcessor(
-            ['/edit'],
-            $editAssistedImageGenerator,
-            $photoResponder,
-            $telegramFileDownloader,
-            $imgTagExtractor,
-            $editModelPreferenceReader,
+        $editProcessor = new CommandBasedResponderTrigger(
+            ['/edit '],
+            new ImageGenerateProcessor(
+                $editAssistedImageGenerator,
+                $photoResponder,
+                $telegramFileDownloader,
+                $imgTagExtractor,
+                $editModelPreferenceReader,
+            )
         );
         $videoEProcessor = new CommandBasedResponderTrigger(
             ['/ve'],

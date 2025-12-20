@@ -21,7 +21,6 @@ use Perk11\Viktor89\UserPreferenceReaderInterface;
 class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringCommandsInterface
 {
     public function __construct(
-        private readonly array $triggeringCommands,
         private readonly ImageByPromptGenerator&ImageByPromptAndImageGenerator $automatic1111APiClient,
         private readonly PhotoResponder $photoResponder,
         private readonly TelegramFileDownloader $telegramFileDownloader,
@@ -32,21 +31,8 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
 
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
-        $triggerFound = false;
         $lastMessage = $messageChain->last();
-        $messageText = $lastMessage->messageText;
-        $promptText = '';
-        foreach ($this->triggeringCommands as $triggeringCommand) {
-            if (str_starts_with($messageText, $triggeringCommand)) {
-                $triggerFound = true;
-                $promptText = trim(str_replace($triggeringCommand, '', $messageText));
-                break;
-            }
-        }
-
-        if (!$triggerFound) {
-            return new ProcessingResult(null, false);
-        }
+        $promptText = trim($lastMessage->messageText);
         if ($messageChain->count() > 1 && $messageChain->previous()->photoFileId === null) {
             $promptText = trim($messageChain->previous()->messageText . "\n\n" . $promptText);
         }
