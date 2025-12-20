@@ -445,6 +445,21 @@ class ProcessMessageTask implements Task
                     $seedProcessor,
                     $imageSizeProcessor,
                     $config['imageModels'],
+                    null,
+                )
+            ),
+            new CommandBasedResponderTrigger(
+                ['/imagine_all_models', '/imagine_allmodels'],
+                new MultipleModelsImageGenerateProcessor(
+                    $processingResultExecutor,
+                    $photoResponder,
+                    $telegramFileDownloader,
+                    $imgTagExtractor,
+                    $denoisingStrengthProcessor,
+                    $seedProcessor,
+                    $imageSizeProcessor,
+                    $config['imageModels'],
+                    $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
                 )
             ),
             $imageGenerateProcessor,

@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\ImageGeneration;
 
 use Perk11\Viktor89\Assistant\ContextCompletingAssistantInterface;
+use Perk11\Viktor89\AssistedImageGenerator;
 use Perk11\Viktor89\ExternallySetValuePreferenceProvider;
 use Perk11\Viktor89\FixedValuePreferenceProvider;
 use Perk11\Viktor89\InternalMessage;
@@ -26,6 +27,7 @@ class MultipleModelsImageGenerateProcessor implements MessageChainProcessor
         private readonly UserPreferenceReaderInterface $seedPreference,
         private readonly UserPreferenceReaderInterface $imageSizeProcessor,
         private readonly array $modelConfig,
+        private readonly ?ContextCompletingAssistantInterface $visionAssistant,
     ) {
     }
 
@@ -44,14 +46,18 @@ class MultipleModelsImageGenerateProcessor implements MessageChainProcessor
         }
 
         $modelPreference = new ExternallySetValuePreferenceProvider();
-        $apiClient = new Automatic1111APiClient(
-            denoisingStrengthPreference: $this->denoisingStrengthPreference,
-            stepsPreference:             new FixedValuePreferenceProvider(null),
-            seedPreference:              $this->seedPreference,
-            imageModelPreference:        $modelPreference,
-            modelConfig:                 $this->modelConfig,
-            imageSizeProcessor:          $this->imageSizeProcessor,
-        );
+            $apiClient = new Automatic1111APiClient(
+                denoisingStrengthPreference: $this->denoisingStrengthPreference,
+                stepsPreference:             new FixedValuePreferenceProvider(null),
+                seedPreference:              $this->seedPreference,
+                imageModelPreference:        $modelPreference,
+                modelConfig:                 $this->modelConfig,
+                imageSizeProcessor:          $this->imageSizeProcessor,
+            );
+        if ($this->visionAssistant !== null) {
+            $apiClient = new AssistedImageGenerator($apiClient, $this->visionAssistant, $modelPreference, $this->modelConfig);
+        }
+
         $imageGenerateProcessor = new ImageGenerateProcessor(
             $apiClient,
             $this->photoResponder,

@@ -17,7 +17,7 @@ foreach ($messagesJSON['messages'] as $message) {
 }
 unset($messagesJSON);
 $authorReplacement = [
-  'Виктор 89' => 'Nanak0n',
+  'Nanak0n 89' => 'Nanak0n',
   'Илья Бакулин' => 'Ilya Bakulin',
   'FIL' => 'Philipp M',
 ];
