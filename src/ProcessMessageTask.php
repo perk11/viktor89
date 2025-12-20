@@ -22,6 +22,7 @@ use Perk11\Viktor89\ImageGeneration\ImageRemixer;
 use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\ImageTransformProcessor;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
+use Perk11\Viktor89\ImageGeneration\MultipleModelsImageGenerateProcessor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\RemixProcessor;
 use Perk11\Viktor89\ImageGeneration\RestyleGenerator;
@@ -432,6 +433,19 @@ class ProcessMessageTask implements Task
             new CommandBasedResponderTrigger(
                 ['/quiz'],
                 new RandomQuizResponder($questionRepository)
+            ),
+            new CommandBasedResponderTrigger(
+                ['/image_all_models', '/image_allmodels'],
+                new MultipleModelsImageGenerateProcessor(
+                    $processingResultExecutor,
+                    $photoResponder,
+                    $telegramFileDownloader,
+                    $imgTagExtractor,
+                    $denoisingStrengthProcessor,
+                    $seedProcessor,
+                    $imageSizeProcessor,
+                    $config['imageModels'],
+                )
             ),
             $imageGenerateProcessor,
             $imagineGenerateProcessor,
