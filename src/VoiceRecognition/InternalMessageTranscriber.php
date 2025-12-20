@@ -20,32 +20,17 @@ class InternalMessageTranscriber
         if ($message->altText !== null) {
             return $message->altText;
         }
-        if ($message->audio !== null) {
-            $fileId =  $message->audio->getFileId();
-            $fileName = $message->audio->getFileName();
-            $type = 'audio';
-        } elseif ($message->video !== null) {
-            $fileId =  $message->video->getFileId();
-            $fileName = $message->video->getFileName();
-            $type = 'video';
-        } elseif ($message->voice !== null) {
-            $fileId =  $message->voice->getFileId();
-            $fileName = 'voice.ogg';
-            $type = 'voice';
-        } elseif ($message->videoNote !== null) {
-            $fileId =  $message->videoNote->getFileId();
-            $fileName = 'video.mp4';
-            $type = 'videoNote';
-        } else {
+        $audio = $message->getMessageAudio();
+        if ($audio === null) {
             throw new NothingToTranscribeException('Message does not contain audio, video, voice or video note');
         }
-        $progressUpdateCallback(static::class,"Transcribing file $fileName with fileId $fileId");
-        $extension = pathinfo($fileName, PATHINFO_EXTENSION);
+        $progressUpdateCallback(static::class,"Transcribing file $audio->fileName with fileId $audio->fileId");
+        $extension = pathinfo($audio->fileName, PATHINFO_EXTENSION);
 
-        $file = $this->telegramFileDownloader->downloadFile($fileId);
+        $file = $this->telegramFileDownloader->downloadFile($audio->fileId);
         $recognizedText = $this->voiceRecogniser->recogniseByFileContents($file, $extension);
 
-        $message->altText = "[$type] $recognizedText";
+        $message->altText = "[$audio->type] $recognizedText";
         $this->database->logInternalMessage($message);
         return $recognizedText === '' ? null : $recognizedText;
     }

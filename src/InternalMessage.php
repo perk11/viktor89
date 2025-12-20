@@ -10,6 +10,7 @@ use Longman\TelegramBot\Entities\Video;
 use Longman\TelegramBot\Entities\VideoNote;
 use Longman\TelegramBot\Entities\Voice;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\VoiceGeneration\MessageAudio;
 
 class InternalMessage
 {
@@ -197,5 +198,25 @@ class InternalMessage
         $clone = clone $this;
         $clone->messageText = $newText;
         return $clone;
+    }
+
+    public function getMessageAudio(): ?MessageAudio
+    {
+        if ($this->audio !== null) {
+            return new MessageAudio($this->audio->getFileId(), $this->audio->getFileName(), 'audio');
+        }
+        if ($this->video !== null) {
+            return new MessageAudio($this->video->getFileId(), $this->video->getFileName(), 'video');
+        }
+
+        if ($this->voice !== null) {
+            return new MessageAudio($this->voice->getFileId(), 'voice.ogg', 'voice');
+        }
+
+        if ($this->videoNote !== null) {
+            return new MessageAudio($this->videoNote->getFileId(), 'videoNote.mp4', 'videoNote');
+        }
+
+        return null;
     }
 }
