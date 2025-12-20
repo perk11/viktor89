@@ -24,11 +24,20 @@ class SoundAndPromptToTargetAndResidualProcessor implements MessageChainProcesso
         ProgressUpdateCallback $progressUpdateCallback,
     ): ProcessingResult {
         $lastMessage = $messageChain->last();
-        if ($messageChain->previous() === null || $messageChain->previous()->audio === null) {
+        if ($messageChain->previous() === null) {
             return new ProcessingResult(
                 InternalMessage::asResponseTo(
                     $messageChain->last(),
                     'Для использования этой команды, ваше сообщение должно быть ответом на аудио или видео. После команды напишите что надо извлечь, например /aextract man\'s voice'
+                ), true
+            );
+        }
+        $messageAudio = $messageChain->previous()->getMessageAudio();
+        if ($messageAudio === null) {
+            return new ProcessingResult(
+                InternalMessage::asResponseTo(
+                    $messageChain->last(),
+                    'Не найдено аудио в сообщении, на которое вы отвечаете. Для использования этой команды, ваше сообщение должно быть ответом на аудио или видео. После команды напишите что надо извлечь, например /aextract man\'s voice'
                 ), true
             );
         }
@@ -53,7 +62,7 @@ class SoundAndPromptToTargetAndResidualProcessor implements MessageChainProcesso
             ],
         ]);
         try {
-            $audioFile = $this->telegramFileDownloader->downloadFile($messageChain->previous()->audio->getFileId());
+            $audioFile = $this->telegramFileDownloader->downloadFile($messageAudio->fileId);
             $progressUpdateCallback(static::class, "Extracting $prompt from audio");
             $result = $this->andPromptToTargetAndResidualApiClient->soundAndPromptToTargetAndResidual(
                 $prompt,
