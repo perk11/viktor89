@@ -69,7 +69,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
                 ), true
             );
         }
-        $progressMessage = "Generating image for prompt: $promptText";
+        $progressMessage = "[$modelName] Generating image for prompt: $promptText";
         if (count($prompt->sourceImagesContents) > 0) {
             $progressMessage .= " and " . count($prompt->sourceImagesContents) . " source images";
         }
