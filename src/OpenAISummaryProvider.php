@@ -28,7 +28,7 @@ class OpenAISummaryProvider
 
     }
 
-    private const MESSAGES_ANALYZED_PER_BATCH = 200;
+    private const MESSAGES_ANALYZED_PER_BATCH = 2000;
 
     public function sendChatSummaryWithMessagesSinceLastOne(int $chatId): bool
     {
@@ -91,14 +91,14 @@ class OpenAISummaryProvider
                 if ($text !== '') {
                     $prompt .= $message->userName . ': ' . mb_substr($text, 0, 512) . "\n";
                 }
-                if (mb_strlen($prompt) > 16000 && (count($allMessages) - $offset) > 30) {
+                if (mb_strlen($prompt) > 36000 && (count($allMessages) - $offset) > 30) {
                     break;
                 }
             }
             echo $offset - $startingOffset . " messages in this batch ($startingOffset-" . $offset-1 . "). Sending prompt of size " . mb_strlen($prompt) . " to OpenAI API...\n";
-            $systemPrompt = "Summarize messages sent in a group chat. Respond only in Russian. Always use specific terms and names. Be brief, but avoid too much generalization. Do not add intro or outro. Use plain text, do not add any formatting. Use past tense. ";
+            $systemPrompt = "Summarize messages sent in a group chat. Respond only in Russian. Mention all main discussion thread conclusions, one per line. Do not shy away from naming users by name when relevant. Do not add any formatting. Use past tense.";
             if ($offset >= count($allMessages) - 1) {
-                $systemPrompt .= "Finish by pointing the MVP of discussion and explain why they are the MVP.";
+//                $systemPrompt .= "After summarizing everything, finish by pointing the MVP of discussion and explain why they are the MVP.";
             }
             $systemPrompt .= "Message start below:";
             $result = $this->openAiClient->chat([
