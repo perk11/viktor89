@@ -38,17 +38,20 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         if ($messageChain->count() > 1 && $messageChain->previous()->photoFileId === null) {
             $promptText = trim($messageChain->previous()->messageText . "\n\n" . $promptText);
         }
-        if ($promptText === '') {
+        if ($promptText === '' && $messageChain->count() > 1) {
             $altText = $this->altTextProvider->provide($messageChain->previous(), $progressUpdateCallback);
-            if ($altText === null) {
-                $message = InternalMessage::asResponseTo(
-                    $lastMessage,
-                    'Непонятно, что генерировать. Напишите запрос после команды, например, "/imagine медведь поймал Красную шапочку", или используйте эту команду в ответ на текст, аудио или видео, содержащее слова.',
-                );
-
-                return new ProcessingResult($message, true);
+            if ($altText !== null) {
+                $promptText = trim($altText);
             }
-            $promptText = $altText;
+        }
+
+        if ($promptText === '') {
+            $message = InternalMessage::asResponseTo(
+                $lastMessage,
+                'Непонятно, что генерировать. Напишите запрос после команды, например, "/imagine медведь поймал Красную шапочку", или используйте эту команду в ответ на текст, аудио или видео, содержащее слова.',
+            );
+
+            return new ProcessingResult($message, true);
         }
         $prompt = new ImageGenerationPrompt($promptText);
         if ($messageChain->previous()?->photoFileId !== null) {

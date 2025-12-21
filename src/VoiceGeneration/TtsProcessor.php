@@ -32,8 +32,8 @@ class TtsProcessor implements MessageChainProcessor
         if ($prompt === '' && $messageChain->count() > 1) {
             $prompt = trim($messageChain->previous()->messageText . "\n\n" . $prompt);
         }
-        if ($prompt === '') {
-            $prompt = $this->altTextProvider->provide($messageChain->previous(), $progressUpdateCallback);
+        if ($prompt === '' && $messageChain->count() > 1) {
+            $prompt = trim($this->altTextProvider->provide($messageChain->previous(), $progressUpdateCallback));
         }
         if ($prompt === '') {
             $response = new InternalMessage();
