@@ -359,6 +359,7 @@ class ProcessMessageTask implements Task
                 $telegramFileDownloader,
                 $imgTagExtractor,
                 $imageModelPreferenceReader,
+                $altTextProvider,
             )
         );
         $imagineGenerateProcessor = new CommandBasedResponderTrigger(
@@ -369,6 +370,7 @@ class ProcessMessageTask implements Task
                 $telegramFileDownloader,
                 $imgTagExtractor,
                 $imageModelPreferenceReader,
+                $altTextProvider,
             )
         );
         $eProcessor = new CommandBasedResponderTrigger(
@@ -379,6 +381,7 @@ class ProcessMessageTask implements Task
                 $telegramFileDownloader,
                 $imgTagExtractor,
                 $editModelPreferenceReader,
+                $altTextProvider,
             )
         );
         $editProcessor = new CommandBasedResponderTrigger(
@@ -389,6 +392,7 @@ class ProcessMessageTask implements Task
                 $telegramFileDownloader,
                 $imgTagExtractor,
                 $editModelPreferenceReader,
+                $altTextProvider,
             )
         );
         $videoEProcessor = new CommandBasedResponderTrigger(
@@ -444,6 +448,7 @@ class ProcessMessageTask implements Task
                     $denoisingStrengthProcessor,
                     $seedProcessor,
                     $imageSizeProcessor,
+                    $altTextProvider,
                     $config['imageModels'],
                     null,
                 )
@@ -458,6 +463,7 @@ class ProcessMessageTask implements Task
                     $denoisingStrengthProcessor,
                     $seedProcessor,
                     $imageSizeProcessor,
+                    $altTextProvider,
                     $config['imageModels'],
                     $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
                 )

@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89\ImageGeneration;
 
+use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\ContextCompletingAssistantInterface;
 use Perk11\Viktor89\AssistedImageGenerator;
 use Perk11\Viktor89\ExternallySetValuePreferenceProvider;
@@ -26,6 +27,7 @@ class MultipleModelsImageGenerateProcessor implements MessageChainProcessor
         private readonly UserPreferenceReaderInterface $denoisingStrengthPreference,
         private readonly UserPreferenceReaderInterface $seedPreference,
         private readonly UserPreferenceReaderInterface $imageSizeProcessor,
+        private readonly AltTextProvider $altTextProvider,
         private readonly array $modelConfig,
         private readonly ?ContextCompletingAssistantInterface $visionAssistant,
     ) {
@@ -64,6 +66,7 @@ class MultipleModelsImageGenerateProcessor implements MessageChainProcessor
             $this->telegramFileDownloader,
             $this->imgTagExtractor,
             $modelPreference,
+            $this->altTextProvider,
         );
 
         foreach ($this->getOrderedModelKeys() as $modelKeyGroup) {

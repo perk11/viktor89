@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Exception;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\GetTriggeringCommandsInterface;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptAndImageGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
@@ -26,6 +27,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly ImgTagExtractor $imgTagExtractor,
         private readonly UserPreferenceReaderInterface $imageModelPreference,
+        private readonly AltTextProvider $altTextProvider,
     ) {
     }
 
@@ -37,11 +39,16 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
             $promptText = trim($messageChain->previous()->messageText . "\n\n" . $promptText);
         }
         if ($promptText === '') {
-            $message = InternalMessage::asResponseTo(
-                $lastMessage,
-                'Непонятно, что генерировать...',
-            );
-            return new ProcessingResult($message, true);
+            $altText = $this->altTextProvider->provide($messageChain->previous(), $progressUpdateCallback);
+            if ($altText === null) {
+                $message = InternalMessage::asResponseTo(
+                    $lastMessage,
+                    'Непонятно, что генерировать. Напишите запрос после команды, например, "/imagine медведь поймал Красную шапочку", или используйте эту команду в ответ на текст, аудио или видео, содержащее слова.',
+                );
+
+                return new ProcessingResult($message, true);
+            }
+            $promptText = $altText;
         }
         $prompt = new ImageGenerationPrompt($promptText);
         if ($messageChain->previous()?->photoFileId !== null) {
