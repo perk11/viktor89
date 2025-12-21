@@ -520,6 +520,7 @@ class ProcessMessageTask implements Task
                 new TtsProcessor(
                     $ttsApiClient,
                     $voiceResponder,
+                    $altTextProvider,
                     $sayModelProcessor,
                     $config['voiceModels'],
                     new Language(),

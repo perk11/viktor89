@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\VoiceGeneration;
 
 use Exception;
 use LanguageDetection\Language;
+use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
@@ -17,6 +18,7 @@ class TtsProcessor implements MessageChainProcessor
     public function __construct(
         private readonly TtsApiClient $voiceClient,
         private readonly VoiceResponder $voiceResponder,
+        private readonly AltTextProvider $altTextProvider,
         private readonly UserPreferenceReaderInterface $voiceModelPreference,
         private readonly array $modelConfig,
         private readonly Language $languageDetection, //TODO construct only with the languages supported by the model
@@ -31,10 +33,13 @@ class TtsProcessor implements MessageChainProcessor
             $prompt = trim($messageChain->previous()->messageText . "\n\n" . $prompt);
         }
         if ($prompt === '') {
+            $prompt = $this->altTextProvider->provide($messageChain->previous(), $progressUpdateCallback);
+        }
+        if ($prompt === '') {
             $response = new InternalMessage();
             $response->chatId = $message->chatId;
             $response->replyToMessageId = $message->id;
-            $response->messageText = 'Непонятно, что говорить...';
+            $response->messageText = 'Непонятно, что говорить... Напишите, что сказать после команды, например /say "Привет, мир!" или используйте команду в ответ на изображение или видео/аудио содержащее голос';
 
             return new ProcessingResult($response, true);
         }
