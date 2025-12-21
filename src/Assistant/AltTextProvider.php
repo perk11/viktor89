@@ -47,7 +47,8 @@ class AltTextProvider
             return $altText;
         }
         try {
-            return $this->internalMessageTranscriber->transcribe($internalMessage, $progressUpdateCallback);
+            $this->internalMessageTranscriber->transcribe($internalMessage, $progressUpdateCallback);
+            return $internalMessage->altText;
         } catch (NothingToTranscribeException) {
         }
 
