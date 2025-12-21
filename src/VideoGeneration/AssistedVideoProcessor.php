@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\ContextCompletingAssistantInterface;
@@ -22,6 +23,7 @@ class AssistedVideoProcessor implements MessageChainProcessor
         private readonly VideoImg2VidProcessor $videoImg2VidProcessor,
         private readonly Img2VideoClient $img2VideoClient,
         private readonly VideoResponder $videoResponder,
+        private readonly AltTextProvider $altTextProvider,
         private readonly array $firstFrameImageModelParams,
     ) {
     }
@@ -32,6 +34,9 @@ class AssistedVideoProcessor implements MessageChainProcessor
         $prompt = trim($message->messageText);
         if ($prompt === '' && $messageChain->count() > 1) {
             $prompt = trim($messageChain->previous()->messageText);
+        }
+        if ($prompt === '' && $messageChain->count() > 1) {
+            $prompt = trim($this->altTextProvider->provide($messageChain->previous(), $progressUpdateCallback));
         }
         if ($prompt === '') {
             $response = new InternalMessage();

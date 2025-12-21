@@ -303,13 +303,14 @@ class ProcessMessageTask implements Task
         $upscaleClient = new UpscaleApiClient($stepsProcessor, $seedProcessor, $upscaleModelProcessor, $config['upscaleModels']);
         $videoResponder = new VideoResponder();
         $videoImg2VidProcessor = new VideoImg2VidProcessor($telegramFileDownloader, $img2VideoClient, $videoResponder);
-        $videoProcessor = new VideoProcessor($txt2VideoClient, $videoResponder, $videoImg2VidProcessor);
+        $videoProcessor = new VideoProcessor($txt2VideoClient, $videoResponder, $videoImg2VidProcessor, $altTextProvider);
         $assistedVideoProcessor = new AssistedVideoProcessor(
             $automatic1111APiClient,
             $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
             $videoImg2VidProcessor,
             $img2VideoClient,
             $videoResponder,
+            $altTextProvider,
             current($config['videoFirstFrameImageModels']),
         );
         $rateLimits = [
