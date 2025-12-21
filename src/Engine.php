@@ -82,7 +82,8 @@ class Engine
         if ($message->getReplyToMessage() !== null) {
             $previousMessage = InternalMessage::fromTelegramMessage($message->getReplyToMessage());
             $priorMessages = $this->historyReader->getPreviousMessages($message, 999, 999, 0);
-            array_pop($priorMessages); //Delete last message, since we will use $previousMessage instead so that media in that message is available
+            $previousMessageFromDB = array_pop($priorMessages); //Delete last message, since we will use $previousMessage instead so that media in that message is available
+            $previousMessage->altText = $previousMessageFromDB->altText;
             $chain = new MessageChain(array_merge($priorMessages, [$previousMessage, $lastMessage]));
         } else {
             $chain = new MessageChain([$lastMessage]);
