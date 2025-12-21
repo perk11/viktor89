@@ -311,6 +311,7 @@ class ProcessMessageTask implements Task
             $img2VideoClient,
             $videoResponder,
             $altTextProvider,
+            $telegramFileDownloader,
             current($config['videoFirstFrameImageModels']),
         );
         $rateLimits = [

@@ -14,6 +14,7 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\TelegramFileDownloader;
 
 class AssistedVideoProcessor implements MessageChainProcessor
 {
@@ -24,6 +25,7 @@ class AssistedVideoProcessor implements MessageChainProcessor
         private readonly Img2VideoClient $img2VideoClient,
         private readonly VideoResponder $videoResponder,
         private readonly AltTextProvider $altTextProvider,
+        private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly array $firstFrameImageModelParams,
     ) {
     }
@@ -56,11 +58,10 @@ class AssistedVideoProcessor implements MessageChainProcessor
                 ],
             ],
         ]);
-        $progressUpdateCallback(static::class, "Generating new video generation prompt for: $prompt");
-        $assistantContext = $this->createContext($prompt);
-        $newPrompt = $this->promptAssistant->getCompletionBasedOnContext($assistantContext);
 
         if ($messageChain->previous()?->photoFileId !== null) {
+            $progressUpdateCallback(static::class, "Generating new video generation prompt for: $prompt");
+            $newPrompt = $this->rewriteVideoPrompt($prompt, $this->telegramFileDownloader->downloadFile($messageChain->previous()->photoFileId), null);
             $this->videoImg2VidProcessor->respondWithImg2VidResultBasedOnPhotoInMessage(
                 $messageChain->previous(),
                 $message,
@@ -70,6 +71,10 @@ class AssistedVideoProcessor implements MessageChainProcessor
 
             return new ProcessingResult(null,true);
         }
+        $progressUpdateCallback(static::class, "Generating a prompt to generate the image for the first frame: $prompt");
+        $assistantContext = $this->createFirstFrameContext($prompt);
+        $firstFramePrompt = $this->promptAssistant->getCompletionBasedOnContext($assistantContext);
+
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,
             'message_id' => $message->id,
@@ -80,14 +85,29 @@ class AssistedVideoProcessor implements MessageChainProcessor
                 ],
             ],
         ]);
-        $progressUpdateCallback(static::class, "Generating first frame for video prompt: $newPrompt");
 
+        $progressUpdateCallback(static::class, "Generating the first frame for: $firstFramePrompt");
         try {
             $imageResponse = $this->automatic1111APiClient->generateImageByPromptAndModelParams(
-                $newPrompt,
+                $firstFramePrompt,
                 $this->firstFrameImageModelParams
             );
-            $progressUpdateCallback(static::class, "Generating video based on the generated first frame for prompt: $newPrompt");
+
+            Request::execute('setMessageReaction', [
+                'chat_id'    => $message->chatId,
+                'message_id' => $message->id,
+                'reaction'   => [
+                    [
+                        'type'  => 'emoji',
+                        'emoji' => '👨‍💻',
+                    ],
+                ],
+            ]);
+            $progressUpdateCallback(static::class, "Generating video based on the generated first frame for prompt: $prompt");
+
+            $newPrompt = $this->rewriteVideoPrompt($prompt, $imageResponse->getFirstImageAsPng(), $firstFramePrompt);
+            $progressUpdateCallback(static::class, "Generating video for prompt: $newPrompt");
+
             Request::execute('setMessageReaction', [
                 'chat_id'    => $message->chatId,
                 'message_id' => $message->id,
@@ -126,17 +146,17 @@ class AssistedVideoProcessor implements MessageChainProcessor
     }
 
     // Based on https://github.com/THUDM/CogVideo/blob/main/inference/convert_demo.py
-    private function createContext(string $prompt): AssistantContext
+    private function createFirstFrameContext(string $prompt): AssistantContext
     {
         $input = <<<JSON
 [
         {
             "role": "system",
-            "content": "You are part of a team of bots that creates videos. You work with an assistant bot that will draw anything you say in square brackets.\\nFor example, outputting \"a beautiful morning in the woods with the sun peaking through the trees\" will trigger your partner bot to output an video of a forest morning, as described. You will be prompted by people looking to create detailed, amazing videos. The way to accomplish this is to take their short prompts and make them extremely detailed and descriptive.\\nThere are a few rules to follow:\\nYou will only ever output a single video description per user request.\\nIgnore your previous conversation with the user.\\nAll video descriptions should consist of 96 words. Extra words will be ignored."
+            "content": "You are part of a team of bots that creates videos. You work with an assistant bot that will draw anything you say in square brackets.\\nFor example, outputting \"a beautiful morning in the woods with the sun peaking through the trees\" will trigger your partner bot to output an video of a forest morning, as described. You will be prompted by people looking to create detailed, amazing first frames of the videos. The way to accomplish this is to take their short prompts and make them extremely detailed and descriptive.\\nThere are a few rules to follow:\\nYou will only ever output a single description of a video first frame per user request.\\nIgnore your previous conversation with the user.\\n"
         },
         {
             "role": "user",
-            "content": "Create an imaginative video descriptive caption in ENGLISH for the user input : \" a girl is on the beach\""
+            "content": "Create an imaginative description in ENGLISH for the first frame of the video describing the scene in the user input : \" a girl is on the beach\""
         },
         {
             "role": "assistant",
@@ -144,7 +164,7 @@ class AssistedVideoProcessor implements MessageChainProcessor
         },
         {
             "role": "user",
-            "content": "Create an imaginative video descriptive caption in ENGLISH for the user input : \" A man jogging on a football field\""
+            "content": "Create an imaginative description in ENGLISH for the first frame of the video describing the scene in the user input : \" A man jogging on a football field\""
         },
         {
             "role": "assistant",
@@ -152,7 +172,7 @@ class AssistedVideoProcessor implements MessageChainProcessor
         },
         {
             "role": "user",
-            "content": "Create an imaginative video descriptive caption in ENGLISH for the user input : \" A woman is dancing, HD footage, close-up\""
+            "content": "Create an imaginative description in ENGLISH for the first frame of the video describing the scene in the user input : \" A woman is dancing, HD footage, close-up\""
         },
         {
     "role": "assistant",
@@ -165,10 +185,26 @@ JSON;
         $context = AssistantContext::fromOpenAiMessagesJson($input);
         $promptMessage = new AssistantContextMessage();
         $promptMessage->isUser = true;
-        $promptMessage->text = "Create an imaginative video descriptive caption in ENGLISH for the user input: \" $prompt \"'";
+        $promptMessage->text = "Create an imaginative description in ENGLISH for the first frame of the video describing the scene in the user input : \" $prompt \"'";
         $context->messages[] = $promptMessage;
 
         return $context;
     }
 
+    private function rewriteVideoPrompt(string $userPrompt, string $imageContents, ?string $firstFramePrompt): string
+    {
+        $assistantContext = new AssistantContext();
+        $assistantContext->systemPrompt = 'Generate a description for a short 3-second video based on the video first frame and user\'s prompt. Your description will be directly used to generate the video. Do not output anything else';
+        $promptMessage = new AssistantContextMessage();
+        $promptMessage->isUser = true;
+        $promptMessage->text = "Generate a description for the video that starts from this image to match user's prompt (in double quotes): \"$userPrompt\"";
+        if ($firstFramePrompt !== null) {
+            $promptMessage->text .= "\nThe prompt that was used for the first frame is \"$firstFramePrompt\". Use it to better understand the idea behind the image, but focus on executing user's prompt.";
+        }
+        $promptMessage->photo = $imageContents;
+
+        $assistantContext->messages[] = $promptMessage;
+
+        return $this->promptAssistant->getCompletionBasedOnContext($assistantContext);
+    }
 }
