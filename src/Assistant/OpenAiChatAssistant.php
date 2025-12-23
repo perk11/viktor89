@@ -47,8 +47,21 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         if (!is_array($parsedResult) || !array_key_exists('choices', $parsedResult)) {
             throw new Exception("Unexpected response from OpenAI: $response");
         }
+        $content = $parsedResult['choices'][0]['message']['content'];
+        if (is_string($content)) {
+            return $content;
+        }
+        if (is_array($content)) {
+            $firstContentElement = current($content);
+            if ($firstContentElement['type'] !== 'text') {
+                throw new \Exception("Unexpected OpenAI response type: $firstContentElement[type]");
+            }
+            if (!array_key_exists('text', $firstContentElement)) {
+                throw new \Exception("Missing \"text\" property in OpenAI response: $firstContentElement[type]");
+            }
 
-        return $parsedResult['choices'][0]['message']['content'];
+            return $firstContentElement['text'];
+        }
     }
 
     protected function getResponseParameters(AssistantContext $assistantContext): array
