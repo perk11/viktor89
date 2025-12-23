@@ -131,7 +131,7 @@ def generate_image():
     prompt = data.get('prompt')
     negative_prompt = data.get('negative_prompt')
     seed = int(data.get('seed', random.randint(1, 99999999999999)))
-    model = data.get('model', '(blank)')
+    model = data.get('model', 'flux2_dev_fp8')
     width = int(data.get('width', 1024))
     height = int(data.get('height', 1024))
     steps = int(data.get('steps', 0))
@@ -249,6 +249,22 @@ def generate_img2img():
         return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
     finally:
         sem.release()
+
+
+@app.route('/sdapi/v1/options')
+def get_options():
+    return {
+        "sd_model_checkpoint": "flux2_dev_fp8"
+    }
+
+@app.route('/sdapi/v1/sd-models')
+def get_models():
+    return jsonify([
+        {
+            "title": "flux2_dev_fp8",
+            "model_name": "flux2_dev_fp8",
+        }
+    ])
 
 if __name__ == '__main__':
     app.run(host='localhost', port=args.port)
