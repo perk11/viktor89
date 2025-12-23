@@ -33,6 +33,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             $systemPromptProcessor,
             $responseStartProcessor,
             $telegramFileDownloader,
+            $altTextProvider,
             $telegramBotUserId,
             $this->url
         );
