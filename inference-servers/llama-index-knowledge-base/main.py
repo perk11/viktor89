@@ -2,7 +2,8 @@ import argparse
 import pickle
 import time
 from typing import Optional, List, Union, Literal, Any
-
+import logging
+import sys
 from fastapi import FastAPI, HTTPException
 from llama_index.core import Settings
 from llama_index.core.base.llms.types import ChatMessage, MessageRole
@@ -18,7 +19,8 @@ parser.add_argument('--index', type=str, help='llama-index pickle index path', r
 args = parser.parse_args()
 Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-m3")
 Settings.llm = OpenAI(api_key="BAD_KEY", api_base="http://localhost:" + str(args.llm_port), timeout=999999)
-
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.getLogger().addHandler(logging.StreamHandler(stream=sys.stdout))
 app = FastAPI()
 with open(args.index, "rb") as file_handle:
     index = pickle.load(file_handle)
