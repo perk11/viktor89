@@ -112,7 +112,7 @@ async def chat_completions(request: ChatCompletionRequest):
         raise HTTPException(status_code=400, detail="stream=true is not supported by this server")
 
     chat_engine = index.as_chat_engine(
-        chat_mode="condense_question",
+        chat_mode="best",
         chat_history=messages_to_chat_history(request.messages),
     )
 
