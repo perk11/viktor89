@@ -112,6 +112,7 @@
   "84": {
     "inputs": {
       "upscale_method": "lanczos",
+      "resolution_steps": 1,
       "megapixels": 1.0000000000000002,
       "image": [
         "127",
