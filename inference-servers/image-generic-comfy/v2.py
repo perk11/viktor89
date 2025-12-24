@@ -57,8 +57,8 @@ def generate_img2img():
                 image_file.write(image_data)
 
         match model:
-            case 'Qwen-Image-Edit-2509-Q8_0':
-                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenames, prompt, seed, steps)
+            case 'Qwen-Image-Edit-2509-Q8_0' | 'Qwen-Image-Edit-2511-Q8_0':
+                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenames, prompt, seed, steps, model)
             case 'Qwen-Image-Edit-MeiTu':
                 comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_qwen_image_edit_meitu(image_filenames, prompt, seed, steps)
             case 'flux2_dev_fp8':
@@ -69,7 +69,7 @@ def generate_img2img():
     finally:
         semaphores[model].release()
 
-def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenames, prompt, seed, steps):
+def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenames, prompt, seed, steps, model):
     if len(image_filenames) > 3:
         raise Exception("qwen_image_edit2509 supports up to 3 images")
     if steps == 0:
@@ -82,6 +82,7 @@ def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenam
     comfy_workflow_object["134"]["inputs"]['prompt'] = prompt
     comfy_workflow_object["25"]["inputs"]['noise_seed'] = seed
     comfy_workflow_object["17"]["inputs"]['steps'] = steps
+    comfy_workflow_object["145"]["inputs"]['unet_name'] = model + ".gguf"
 
     comfy_workflow_object["127"]["inputs"]['image'] = image_filenames[0]
     if len(image_filenames) > 1:
@@ -101,7 +102,7 @@ def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenam
         del comfy_workflow_object["141"]["inputs"]['image3']
         del comfy_workflow_object["134"]["inputs"]['image3']
 
-    return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: Qwen-Image-Edit-2509-Q8_0'
+    return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: {model}'
 def get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps, width, height):
     if len(image_filenames) == 1:
         workflow_file = 'flux2-img2img.json'
