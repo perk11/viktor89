@@ -9,8 +9,10 @@ from pathlib import Path
 
 import torch
 from PIL import Image
-from diffusers import AutoModel, DiffusionPipeline, TorchAoConfig
-from diffusers.quantizers import PipelineQuantizationConfig
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+os.environ["DIFFUSERS_OFFLINE"] = "1"
+from diffusers import QwenImageEditPlusPipeline
 from flask import Flask, request, jsonify
 
 # Allow relative imports
@@ -29,12 +31,13 @@ torch_dtype = torch.bfloat16
 
 sem = threading.Semaphore()
 
-pipeline = DiffusionPipeline.from_pretrained(
+pipeline = QwenImageEditPlusPipeline.from_pretrained(
     args.model_dir,
     torch_dtype=torch_dtype,
-    use_safetensors=False,
+    local_files_only=True,
 )
-pipeline.enable_model_cpu_offload()
+print("pipeline loaded")
+pipeline.to('cuda')
 
 if args.lora is not None:
     pipeline.load_lora_weights(args.lora)
@@ -45,32 +48,39 @@ def generate_img2img():
     data = request.json
 
     prompt = data.get('prompt')
-    steps = data.get('steps', 8)
+    steps = data.get('steps', 20)
     seed = int(data.get('seed', random.randint(1, 99999999999999)))
     init_images = data.get('init_images', [])
 
     data["init_images"] = "[omitted " + str(len(init_images)) + "]"
     print(data)
-    if len(init_images) != 1:
-        return jsonify({'error': "A single init image is required"}), 400
+    if len(init_images) > 6 or len(init_images) == 0:
+        return jsonify({'error': "Between 1 and 6 init images is required"}), 400
     generator = torch.Generator(device="cuda").manual_seed(seed)
-    image_data = base64.b64decode(init_images[0])
-    image = Image.open(io.BytesIO(image_data))
-    infotext = f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: Qwen-Image-Edit-torchao-int8wo'
+    init_images_pillow = []
+    for init_image in init_images:
+        image_data = base64.b64decode(init_image)
+        init_images_pillow.append(Image.open(io.BytesIO(image_data)))
+
+    infotext = f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: Qwen-Image-Edit-2511'
     if args.lora is not None:
         infotext += f', LORA: {os.path.basename(args.lora)}'
     sem.acquire()
     print(f'Generating {infotext}')
     try:
-        images = pipeline(
-            image=image,
+        out_images = pipeline(
+            image=init_images_pillow,
             prompt=prompt,
             num_inference_steps=steps,
             generator=generator,
-        ).images
+            true_cfg_scale=4.0,
+            negative_prompt=" ",
+            guidance_scale=1.0,
+            num_images_per_prompt=1,
+        )
 
         print("Finished generating")
-        return image_to_json_response(images[0], infotext)
+        return image_to_json_response(out_images.images[0], infotext)
     finally:
         sem.release()
 
