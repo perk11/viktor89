@@ -108,6 +108,10 @@ def json_image_response_from_images_list(images, infotext):
 
 
 def comfy_workflow_to_json_image_response(comfy_workflow_object, comfy_ui_server_address, infotext):
+    #Debug
+    with io.open('/tmp/workflow.json', 'w', encoding='utf-8') as f:
+        f.write(json.dumps(comfy_workflow_object, ensure_ascii=False))
+
     images = get_images(comfy_workflow_object, comfy_ui_server_address)
     print(f"{len(images)} images received from Comfy", flush=True)
     return json_image_response_from_images_list(images, infotext)
