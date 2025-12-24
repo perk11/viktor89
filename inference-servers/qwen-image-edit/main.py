@@ -23,8 +23,6 @@ parent, root = file.parent, file.parents[1]
 sys.path.append(str(root))
 from util.image_to_json import image_to_json_response
 
-MAX_INIT_IMAGE_SIDE = 1328
-
 app = Flask(__name__)
 parser = argparse.ArgumentParser(description="qwen-image-edit workflow")
 parser.add_argument('--port', type=int, help='port to listen on', required=True)
@@ -37,7 +35,7 @@ sem = threading.Semaphore()
 
 from PIL import Image, ImageOps
 
-MAX_INIT_IMAGE_SIDE = 1328
+MAX_INIT_IMAGE_SIDE = 1344
 
 
 def _prepare_init_image(pil_image: Image.Image, max_side: int = MAX_INIT_IMAGE_SIDE) -> Image.Image:
