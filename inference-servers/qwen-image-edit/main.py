@@ -61,12 +61,19 @@ pipeline = QwenImageEditPlusPipeline.from_pretrained(
     torch_dtype=torch_dtype,
     local_files_only=True,
 )
-print("pipeline loaded")
 pipeline.to('cuda')
+print("pipeline loaded")
 
 if args.lora is not None:
-    pipeline.load_lora_weights(args.lora)
+    lora_file_path = Path(args.lora).expanduser()
+    if not lora_file_path.is_file():
+        raise FileNotFoundError(f"LoRA file not found: {lora_file_path}")
 
+    pipeline.load_lora_weights(
+        lora_file_path.parent.as_posix(),
+        weight_name=lora_file_path.name,
+        local_files_only=True,  # safe if your diffusers version supports it
+    )
 
 @app.route('/sdapi/v1/img2img', methods=['POST'])
 def generate_img2img():
