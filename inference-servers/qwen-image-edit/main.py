@@ -1,5 +1,6 @@
 import argparse
 import base64
+import gc
 import io
 import os
 import random
@@ -8,10 +9,11 @@ import threading
 from pathlib import Path
 
 import torch
-from PIL import Image
+
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["DIFFUSERS_OFFLINE"] = "1"
+
 from diffusers import QwenImageEditPlusPipeline
 from flask import Flask, request, jsonify
 
@@ -20,6 +22,8 @@ file = Path(__file__).resolve()
 parent, root = file.parent, file.parents[1]
 sys.path.append(str(root))
 from util.image_to_json import image_to_json_response
+
+MAX_INIT_IMAGE_SIDE = 1328
 
 app = Flask(__name__)
 parser = argparse.ArgumentParser(description="qwen-image-edit workflow")
@@ -30,6 +34,29 @@ args = parser.parse_args()
 torch_dtype = torch.bfloat16
 
 sem = threading.Semaphore()
+
+from PIL import Image, ImageOps
+
+MAX_INIT_IMAGE_SIDE = 1328
+
+
+def _prepare_init_image(pil_image: Image.Image, max_side: int = MAX_INIT_IMAGE_SIDE) -> Image.Image:
+    pil_image = ImageOps.exif_transpose(pil_image)
+    if pil_image.mode != "RGB":
+        pil_image = pil_image.convert("RGB")
+
+    width, height = pil_image.size
+    if width <= max_side and height <= max_side:
+        return pil_image
+
+    if width >= height:
+        target_width = max_side
+        target_height = max(1, round(height * (max_side / width)))
+    else:
+        target_height = max_side
+        target_width = max(1, round(width * (max_side / height)))
+
+    return pil_image.resize((target_width, target_height), resample=Image.LANCZOS)
 
 pipeline = QwenImageEditPlusPipeline.from_pretrained(
     args.model_dir,
@@ -54,17 +81,20 @@ def generate_img2img():
 
     data["init_images"] = "[omitted " + str(len(init_images)) + "]"
     print(data)
-    if len(init_images) > 6 or len(init_images) == 0:
+    if len(init_images) > 3 or len(init_images) == 0:
         return jsonify({'error': "Between 1 and 6 init images is required"}), 400
+
     generator = torch.Generator(device="cuda").manual_seed(seed)
     init_images_pillow = []
     for init_image in init_images:
         image_data = base64.b64decode(init_image)
-        init_images_pillow.append(Image.open(io.BytesIO(image_data)))
+        opened_image = Image.open(io.BytesIO(image_data))
+        init_images_pillow.append(_prepare_init_image(opened_image))
 
     infotext = f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: Qwen-Image-Edit-2511'
     if args.lora is not None:
         infotext += f', LORA: {os.path.basename(args.lora)}'
+    out_images = None
     sem.acquire()
     print(f'Generating {infotext}')
     try:
@@ -82,7 +112,16 @@ def generate_img2img():
         print("Finished generating")
         return image_to_json_response(out_images.images[0], infotext)
     finally:
-        sem.release()
+       # Drop refs to large temporaries, then clear CUDA allocator cache.
+       del out_images
+       del generator
+       del init_images_pillow
+       if torch.cuda.is_available():
+           torch.cuda.synchronize()
+           torch.cuda.empty_cache()
+           torch.cuda.ipc_collect()
+       gc.collect()
+       sem.release()
 
 
 if __name__ == '__main__':
