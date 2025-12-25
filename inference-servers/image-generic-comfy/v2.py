@@ -103,7 +103,7 @@ def get_img2img_workflow_infotext_and_filename_qwen_image_edit2511_4step(image_f
         del comfy_workflow_object["154"]["inputs"]['image3']
         del comfy_workflow_object["184"]["inputs"]['any_01']
 
-    return comfy_workflow_object,  f'{prompt}\nSteps: 4, {seed}, Model: Qwen-Image-Edit-2511-Lightning-4-step'
+    return comfy_workflow_object,  f'{prompt}\nSteps: 4, Seed: {seed}, Model: Qwen-Image-Edit-2511-Lightning-4-step'
 
 def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenames, prompt, seed, steps, model):
     if len(image_filenames) > 3:
