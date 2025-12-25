@@ -59,6 +59,8 @@ def generate_img2img():
         match model:
             case 'Qwen-Image-Edit-2509-Q8_0' | 'Qwen-Image-Edit-2511-Q8_0':
                 comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenames, prompt, seed, steps, model)
+            case 'Qwen-Image-Edit-2511-Lightning-4-step':
+                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_qwen_image_edit2511_4step(image_filenames, prompt, seed)
             case 'Qwen-Image-Edit-MeiTu':
                 comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_qwen_image_edit_meitu(image_filenames, prompt, seed, steps)
             case 'flux2_dev_fp8':
@@ -68,6 +70,40 @@ def generate_img2img():
         return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
     finally:
         semaphores[model].release()
+def get_img2img_workflow_infotext_and_filename_qwen_image_edit2511_4step(image_filenames, prompt, seed):
+    if len(image_filenames) > 3:
+        raise Exception("qwen_image_edit2511 supports up to 3 images")
+
+    workflow_file_path = Path(__file__).with_name("qwen-image2511-4-step-img2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["153"]["inputs"]['prompt'] = prompt
+    comfy_workflow_object["3"]["inputs"]['seed'] = seed
+
+    comfy_workflow_object["213"]["inputs"]['image'] = image_filenames[0]
+    if len(image_filenames) > 1:
+        comfy_workflow_object["175"]["inputs"]['image'] = image_filenames[1]
+    else:
+        del comfy_workflow_object["175"]
+        del comfy_workflow_object["201"]
+        del comfy_workflow_object["172"]
+        del comfy_workflow_object["171"]
+        del comfy_workflow_object["153"]["inputs"]['image2']
+        del comfy_workflow_object["154"]["inputs"]['image2']
+        del comfy_workflow_object["184"]["inputs"]['any_02']
+    if len(image_filenames) > 2:
+        comfy_workflow_object["182"]["inputs"]['image'] = image_filenames[2]
+    else:
+        del comfy_workflow_object["182"]
+        del comfy_workflow_object["202"]
+        del comfy_workflow_object["180"]
+        del comfy_workflow_object["179"]
+        del comfy_workflow_object["153"]["inputs"]['image3']
+        del comfy_workflow_object["154"]["inputs"]['image3']
+        del comfy_workflow_object["184"]["inputs"]['any_01']
+
+    return comfy_workflow_object,  f'{prompt}\nSteps: 4, {seed}, Model: Qwen-Image-Edit-2511-Lightning-4-step'
 
 def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenames, prompt, seed, steps, model):
     if len(image_filenames) > 3:
