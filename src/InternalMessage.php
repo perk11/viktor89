@@ -203,10 +203,10 @@ class InternalMessage
     public function getMessageAudio(): ?MessageAudio
     {
         if ($this->audio !== null) {
-            return new MessageAudio($this->audio->getFileId(), $this->audio->getFileName(), 'audio');
+            return new MessageAudio($this->audio->getFileId(), $this->audio->getFileName() ?? 'audio.ogg', 'audio');
         }
         if ($this->video !== null) {
-            return new MessageAudio($this->video->getFileId(), $this->video->getFileName(), 'video');
+            return new MessageAudio($this->video->getFileId(), $this->video->getFileName() ?? 'video.mp4', 'video');
         }
 
         if ($this->voice !== null) {
