@@ -80,7 +80,7 @@ def generate_img2img():
     data = request.json
 
     prompt = data.get('prompt')
-    steps = data.get('steps', 20)
+    steps = int(data.get('steps', 20))
     seed = int(data.get('seed', random.randint(1, 99999999999999)))
     init_images = data.get('init_images', [])
 
