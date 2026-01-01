@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
+use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantContext;
@@ -59,6 +60,10 @@ class AssistedVideoProcessor implements MessageChainProcessor
             ],
         ]);
 
+        Request::sendChatAction([
+                                    'chat_id' => $messageChain->last()->chatId,
+                                    'action'  => ChatAction::RECORD_VIDEO,
+                                ]);
         if ($messageChain->previous()?->photoFileId !== null) {
             $progressUpdateCallback(static::class, "Generating new video generation prompt for: $prompt");
             $newPrompt = $this->rewriteVideoPrompt($prompt, $this->telegramFileDownloader->downloadFile($messageChain->previous()->photoFileId), null);

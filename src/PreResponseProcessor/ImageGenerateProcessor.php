@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Exception;
+use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\GetTriggeringCommandsInterface;
@@ -84,6 +85,11 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
             $progressMessage .= " and " . count($prompt->sourceImagesContents) . " source images";
         }
         $progressUpdateCallback(static::class, $progressMessage);
+
+        Request::sendChatAction([
+                                    'chat_id' => $messageChain->last()->chatId,
+                                    'action'  => ChatAction::UPLOAD_PHOTO,
+                                ]);
         Request::execute('setMessageReaction', [
             'chat_id'    => $lastMessage->chatId,
             'message_id' => $lastMessage->id,

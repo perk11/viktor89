@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
+use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
@@ -38,6 +39,10 @@ class VideoImg2VidProcessor
             $progressUpdateCallback(static::class, "Downloading source photo for prompt: $prompt\n");
             $photoContents = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageWithPhoto);
             $progressUpdateCallback(static::class, "Generating img2vid for prompt: $prompt\n");
+            Request::sendChatAction([
+                                        'chat_id' => $messageWithCommand->chatId,
+                                        'action'  => ChatAction::RECORD_VIDEO,
+                                    ]);
             $videoResponse = $this->img2VideoClient->generateByPromptImg2Vid(
                 $photoContents,
                 $prompt,

@@ -56,11 +56,6 @@ class CommandBasedResponderTrigger implements MessageChainProcessor, GetTriggeri
             }
         }
 
-        Request::sendChatAction([
-                                    'chat_id' => $messageChain->last()->chatId,
-                                    'action'  => ChatAction::TYPING,
-                                ]);
-
         try {
             return $this->responder->processMessageChain($messageChain, $progressUpdateCallback);
         } catch (Exception $e) {
