@@ -92,6 +92,20 @@ def get_txt2img_workflow_and_infotext_flux2(model, prompt, seed, steps, width, h
     comfy_workflow_object["48"]["inputs"]['height'] = height
 
     return comfy_workflow_object, f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
+def get_txt2img_workflow_and_infotext_flux2_turbo(model, prompt, seed, width, height):
+    workflow_file_path = Path(__file__).with_name("flux2-turbo-txt2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["6"]["inputs"]['text'] = prompt
+    comfy_workflow_object["25"]["inputs"]['noise_seed'] = seed
+
+    comfy_workflow_object["47"]["inputs"]['width'] = width
+    comfy_workflow_object["48"]["inputs"]['width'] = width
+    comfy_workflow_object["47"]["inputs"]['height'] = height
+    comfy_workflow_object["48"]["inputs"]['height'] = height
+
+    return comfy_workflow_object, f'{prompt}\nSteps: 8, Seed: {seed}, Size: {width}x{height}, Model: {model}, Lora: Flux_2-Turbo-LoRA_comfyui'
 def get_txt2img_workflow_and_infotext_z_image(model, loras, prompt, negative_prompt, seed, steps, width, height):
     if len(loras) == 0:
         workflow_file_path = Path(__file__).with_name("z-image-turbo-txt2img.json")
@@ -152,6 +166,8 @@ def generate_image():
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_wan22(model, prompt, negative_prompt, seed, steps, width, height)
         case 'flux2_dev_fp8':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_flux2(model, prompt, seed, steps, width, height)
+        case 'flux2_dev_fp8-turbo-8-steps':
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_flux2_turbo(model, prompt, seed, width, height)
         case 'z_image_turbo':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_z_image(model, loras, prompt, negative_prompt, seed, steps, width, height)
         case _:

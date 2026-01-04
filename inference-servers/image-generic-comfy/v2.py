@@ -64,7 +64,9 @@ def generate_img2img():
             case 'Qwen-Image-Edit-MeiTu':
                 comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_qwen_image_edit_meitu(image_filenames, prompt, seed, steps)
             case 'flux2_dev_fp8':
-                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps, width, height)
+                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps, width, height, False)
+            case 'flux2_dev_fp8-turbo-8-steps':
+                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps, width, height, True)
             case _:
                 return jsonify({"error": "Unknown model: " + model}), 400
         return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
@@ -139,18 +141,24 @@ def get_img2img_workflow_infotext_and_filename_qwen_image_edit2509(image_filenam
         del comfy_workflow_object["134"]["inputs"]['image3']
 
     return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: {model}'
-def get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps, width, height):
+def get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps, width, height, turbo):
+    workflow_file = 'flux2-'
+    if turbo:
+        workflow_file += 'turbo-'
     if len(image_filenames) == 1:
-        workflow_file = 'flux2-img2img.json'
+        workflow_file += 'img2img.json'
     elif len(image_filenames) == 2:
-        workflow_file = 'flux2-img2img-2-images.json'
+        workflow_file += 'img2img-2-images.json'
     elif len(image_filenames) == 3:
-        workflow_file = 'flux2-img2img-3-images.json'
+        workflow_file += 'img2img-3-images.json'
     else:
         raise Exception("flux2 supports up to 3 images")
-    if steps == 0:
-        steps = 20
-    steps = min(30, int(steps))
+    if turbo:
+        steps = 8
+    else:
+        if steps == 0:
+            steps = 20
+        steps = min(30, int(steps))
     workflow_file_path = Path(__file__).with_name(workflow_file)
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
@@ -167,7 +175,10 @@ def get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, se
     if len(image_filenames) > 2:
         comfy_workflow_object["86"]["inputs"]['image'] = image_filenames[2]
 
-    return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: flux2_dev_fp8'
+    infotext = f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: flux2_dev_fp8'
+    if turbo:
+        infotext += ', Lora: Flux_2-Turbo-LoRA_comfyui'
+    return comfy_workflow_object, infotext
 def get_img2img_workflow_infotext_and_filename_qwen_image_edit_meitu(image_filenames, prompt, seed, steps):
     if not len(image_filenames) == 1:
         raise Exception("qwen_image_edit-MeiTu requires 1 image")
