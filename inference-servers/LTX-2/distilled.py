@@ -13,6 +13,7 @@ from typing import Any
 
 import torch
 from flask import Flask, jsonify, request
+from PIL import Image, ImageOps
 
 from ltx_core.components.diffusion_steps import EulerDiffusionStep
 from ltx_core.components.noisers import GaussianNoiser
@@ -100,7 +101,7 @@ class DistilledPipeline:
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         del text_encoder
-        cleanup_memory()
+        # cleanup_memory()
 
         video_encoder = self.model_ledger.video_encoder()
         transformer = self.model_ledger.transformer()
@@ -157,7 +158,7 @@ class DistilledPipeline:
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
-        cleanup_memory()
+        # cleanup_memory()
 
         stage_2_sigmas = torch.Tensor(STAGE_2_DISTILLED_SIGMA_VALUES).to(self.device)
         stage_2_output_shape = VideoPixelShape(batch=1, frames=num_frames, width=width, height=height, fps=frame_rate)
@@ -188,12 +189,36 @@ class DistilledPipeline:
             torch.cuda.synchronize()
         del transformer
         del video_encoder
-        cleanup_memory()
+        # cleanup_memory()
 
         decoded_video = vae_decode_video(video_state.latent, self.model_ledger.video_decoder(), tiling_config)
         decoded_audio = vae_decode_audio(audio_state.latent, self.model_ledger.audio_decoder(), self.model_ledger.vocoder())
         return decoded_video, decoded_audio
 
+def _snap_int_to_multiple(value: int, multiple: int, mode: str = "floor") -> int:
+    if multiple <= 0:
+        raise ValueError("multiple must be > 0")
+
+    value_int = int(value)
+    if mode == "ceil":
+        return ((value_int + multiple - 1) // multiple) * multiple
+    if mode == "nearest":
+        lower = (value_int // multiple) * multiple
+        upper = ((value_int + multiple - 1) // multiple) * multiple
+        return lower if (value_int - lower) <= (upper - value_int) else upper
+    return (value_int // multiple) * multiple  # floor
+
+
+def _coerce_two_stage_resolution(height: int, width: int, multiple: int = 64, mode: str = "floor") -> tuple[int, int]:
+    coerced_height = _snap_int_to_multiple(height, multiple=multiple, mode=mode)
+    coerced_width = _snap_int_to_multiple(width, multiple=multiple, mode=mode)
+
+    if coerced_height < multiple:
+        coerced_height = multiple
+    if coerced_width < multiple:
+        coerced_width = multiple
+
+    return coerced_height, coerced_width
 
 def _strip_data_uri_prefix(base64_text: str) -> str:
     candidate = base64_text.strip()
@@ -220,6 +245,13 @@ def _coerce_bool(value: Any, default_value: bool) -> bool:
         if lowered in {"0", "false", "f", "no", "n", "off"}:
             return False
     return default_value
+
+
+def _read_source_image_size(image_path: str) -> tuple[int, int]:
+    with Image.open(image_path) as opened_image:
+        oriented_image = ImageOps.exif_transpose(opened_image)
+        width, height = oriented_image.size
+        return int(width), int(height)
 
 
 def _normalize_image_conditioning_item(item: Any, temp_dir: str) -> tuple[str, int, float]:
@@ -374,6 +406,14 @@ def main() -> None:
         frame_rate = float(data.get("frame_rate", args.frame_rate))
         enhance_prompt = _coerce_bool(data.get("enhance_prompt"), bool(args.enhance_prompt))
 
+        if num_frames > 480:
+            return jsonify({"error": "Too many frames"}), 400
+
+        coerced_height, coerced_width = _coerce_two_stage_resolution(height=height, width=width, multiple=64, mode="floor")
+        if (coerced_height, coerced_width) != (height, width):
+            logging.info("Coerced txt2vid resolution from %sx%s to %sx%s", width, height, coerced_width, coerced_height)
+        height, width = coerced_height, coerced_width
+
         request_semaphore.acquire()
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -421,11 +461,12 @@ def main() -> None:
 
         prompt = str(data.get("prompt"))
         seed = int(data.get("seed", random.randint(1, 99999999999999)))
-        height = int(data.get("height", args.height))
-        width = int(data.get("width", args.width))
         num_frames = int(data.get("num_frames", args.num_frames))
         frame_rate = float(data.get("frame_rate", args.frame_rate))
         enhance_prompt = _coerce_bool(data.get("enhance_prompt"), bool(args.enhance_prompt))
+
+        if num_frames > 480:
+            return jsonify({"error": "Too many frames"}), 400
 
         request_semaphore.acquire()
         try:
@@ -433,6 +474,16 @@ def main() -> None:
                 images = _build_images_from_request(data, temp_dir, fallback_images=[])
                 if len(images) == 0:
                     return jsonify({"error": "No image provided. Send init_images[0] (base64) or images[]"}), 400
+
+                source_width, source_height = _read_source_image_size(images[0][0])
+                width, height = source_width, source_height
+
+                coerced_height, coerced_width = _coerce_two_stage_resolution(height=height, width=width, multiple=64, mode="floor")
+                if (coerced_height, coerced_width) != (height, width):
+                    logging.info("Coerced img2vid resolution from %sx%s to %sx%s", width, height, coerced_width, coerced_height)
+                height, width = coerced_height, coerced_width
+
+                logging.info("Using img2vid resolution: width=%s height=%s", width, height)
 
                 video_base64 = _run_generation(
                     pipeline=pipeline,
