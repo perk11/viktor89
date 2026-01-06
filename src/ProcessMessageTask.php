@@ -131,6 +131,14 @@ class ProcessMessageTask implements Task
             'seed',
             $this->telegramBotUsername,
         );
+        $framesProcessor = new NumericPreferenceInRangeByCommandProcessor(
+            $database,
+            ['/frames',],
+            'frames',
+            $this->telegramBotUsername,
+            8,
+            480,
+        );
         $clownProcessor = new UserPreferenceSetByCommandProcessor(
             $database,
             ['/clown',],
@@ -298,8 +306,20 @@ class ProcessMessageTask implements Task
             'style',
             $this->telegramBotUsername,
         );
-        $txt2VideoClient = new Txt2VideoClient($stepsProcessor, $seedProcessor, $videoModelProcessor, $config['videoModels']);
-        $img2VideoClient = new Img2VideoClient($stepsProcessor, $seedProcessor, $imv2VideModelProcessor, $config['img2videoModels']);
+        $txt2VideoClient = new Txt2VideoClient(
+            $stepsProcessor,
+            $seedProcessor,
+            $framesProcessor,
+            $videoModelProcessor,
+            $config['videoModels']
+        );
+        $img2VideoClient = new Img2VideoClient(
+            $stepsProcessor,
+            $seedProcessor,
+            $framesProcessor,
+            $imv2VideModelProcessor,
+            $config['img2videoModels']
+        );
         $upscaleClient = new UpscaleApiClient($stepsProcessor, $seedProcessor, $upscaleModelProcessor, $config['upscaleModels']);
         $videoResponder = new VideoResponder();
         $videoImg2VidProcessor = new VideoImg2VidProcessor($telegramFileDownloader, $img2VideoClient, $videoResponder);
@@ -434,6 +454,7 @@ class ProcessMessageTask implements Task
             $denoisingStrengthProcessor,
             $stepsProcessor,
             $seedProcessor,
+            $framesProcessor,
             $systemPromptProcessor,
             $responseStartProcessor,
             new CommandBasedResponderTrigger(

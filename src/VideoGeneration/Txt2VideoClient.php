@@ -13,6 +13,7 @@ class Txt2VideoClient
     public function __construct(
         private readonly UserPreferenceReaderInterface $stepsPreference,
         private readonly UserPreferenceReaderInterface $seedPreference,
+        private readonly UserPreferenceReaderInterface $framesPreference,
         private readonly UserPreferenceReaderInterface $videoModelPreference,
         private readonly array $modelConfig,
     ){}
@@ -50,6 +51,10 @@ class Txt2VideoClient
         $seed = $this->seedPreference->getCurrentPreferenceValue($userId);
         if ($seed !== null) {
             $params['seed'] = $seed;
+        }
+        $frames = $this->framesPreference->getCurrentPreferenceValue($userId);
+        if ($frames !== null) {
+            $params['num_frames'] = $frames;
         }
         return $params;
     }
