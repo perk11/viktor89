@@ -18,7 +18,7 @@ class RunningTaskTracker
             try {
                 $message = $channel->receive();
             } catch (ChannelException) {
-                echo date('Y-m-d H:i:s') . " Finished receiving\n";
+//                echo date('Y-m-d H:i:s') . " Finished receiving\n";
                 return;
             }
             if (!$message instanceof ChannelMessage) {
@@ -30,7 +30,7 @@ class RunningTaskTracker
                     $this->runningTasks[$message->workerId] = new RunningTask($message->processor, $message->status, new DateTimeImmutable());
                     break;
                 case TaskCompletedMessage::class:
-                    echo  date('Y-m-d H:i:s') . " $message->workerId: Task completed\n";
+//                    echo  date('Y-m-d H:i:s') . " $message->workerId: Task completed\n";
                     unset($this->runningTasks[$message->workerId]);
                     break;
                 case RunningTasksQueryMessage::class:
