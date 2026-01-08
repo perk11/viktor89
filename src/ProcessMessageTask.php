@@ -60,6 +60,7 @@ use Perk11\Viktor89\VideoGeneration\TxtAndVid2VideoClient;
 use Perk11\Viktor89\VideoGeneration\VideoImg2VidProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoResponder;
+use Perk11\Viktor89\VideoGeneration\VideoSayProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoTxtAndVid2VidProcessor;
 use Perk11\Viktor89\VoiceGeneration\DialogResponder;
 use Perk11\Viktor89\VoiceGeneration\SoundAndPromptToTargetAndResidualApiClient;
@@ -431,15 +432,16 @@ class ProcessMessageTask implements Task
                 $videoResponder
             ),
         );
+        $audioImgTxt2VidClient = new AudioImgTxt2VidClient(
+            $stepsProcessor,
+            $seedProcessor,
+            $config['voiceOverModels'],
+        );
         $voProcessor = new CommandBasedResponderTrigger(
             ['/vo'],
             new AudioImgTxt2VidProcessor(
                 $telegramFileDownloader,
-                new AudioImgTxt2VidClient(
-                    $stepsProcessor,
-                    $seedProcessor,
-                    $config['voiceOverModels'],
-                ),
+                $audioImgTxt2VidClient,
                 $imgTagExtractor,
                 $videoResponder,
             ),
@@ -562,6 +564,20 @@ class ProcessMessageTask implements Task
                     $sayModelProcessor,
                     $config['voiceModels'],
                     new Language(),
+                ),
+            ),
+            new CommandBasedResponderTrigger(
+                ['/vsay'],
+                new VideoSayProcessor(
+                    $telegramFileDownloader,
+                    $audioImgTxt2VidClient,
+                    $imgTagExtractor,
+                    $videoResponder,
+                    $altTextProvider,
+                    $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
+                    $ttsApiClient,
+                    $sayModelProcessor,
+                    $config['voiceModels'],
                 ),
             ),
             new CommandBasedResponderTrigger(
