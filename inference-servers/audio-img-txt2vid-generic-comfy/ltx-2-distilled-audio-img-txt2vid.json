@@ -32,7 +32,8 @@
   "155": {
     "inputs": {
       "text_encoder": "gemma_3_12B_it.safetensors",
-      "ckpt_name": "ltx-2-19b-distilled.safetensors"
+      "ckpt_name": "ltx-2-19b-distilled.safetensors",
+      "device": "default"
     },
     "class_type": "LTXAVTextEncoderLoader",
     "_meta": {
