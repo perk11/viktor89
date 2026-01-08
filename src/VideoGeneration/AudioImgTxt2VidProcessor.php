@@ -94,7 +94,7 @@ class AudioImgTxt2VidProcessor implements MessageChainProcessor
         try {
             $audioContents = $this->telegramFileDownloader->downloadFile($audioFile->fileId);
         } catch (Exception $e) {
-            echo "Failed to download video:\n" . $e->getMessage();
+            echo "Failed to download audio:\n" . $e->getMessage();
 
             return new ProcessingResult(
                 InternalMessage::asResponseTo(
