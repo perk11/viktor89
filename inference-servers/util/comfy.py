@@ -89,6 +89,42 @@ def get_audio(workflow, comfy_ui_server_address):
 
     ws.close()
     return output_audios
+def get_videos(workflow, comfy_ui_server_address):
+    client_id = str(uuid.uuid4())
+    ws = websocket.WebSocket()
+    ws.connect("ws://{}/ws?clientId={}".format(comfy_ui_server_address, client_id))
+    prompt_id = _queue_prompt(workflow, client_id, comfy_ui_server_address)['prompt_id']
+    output_videos = []
+    while True:
+        out = ws.recv()
+        if isinstance(out, str):
+            print(out, flush=True)
+            message = json.loads(out)
+            if message['type'] == 'executing':
+                data = message['data']
+                if 'prompt_id' in data and data['prompt_id'] == prompt_id:
+                    if data['node'] is None:
+                        break  #Execution is done
+                    else:
+                        current_node = data['node']
+            elif message['type'] == 'executed':
+                data = message['data']
+                if data['output'] is None:
+                    continue
+                print("Received video from Comfy", flush=True)
+                for video in data['output']['gifs']:
+                    url = "http://{}/api/view?filename={}&type={}&subfolder={}&fullpath={}".format(
+                        comfy_ui_server_address,
+                        urllib.parse.quote_plus(video['filename']),
+                        urllib.parse.quote_plus(video['type']),
+                        urllib.parse.quote_plus(video['subfolder']),
+                        urllib.parse.quote_plus(video['fullpath']),
+                    )
+                    file = urllib.request.urlopen(url).read()
+                    output_videos.append(file)
+
+    ws.close()
+    return output_videos
 
 def json_image_response_from_images_list(images, infotext):
     for image_data in images:
@@ -170,3 +206,12 @@ def comfy_workflow_to_json_video_response(comfy_workflow_object, comfy_ui_server
         })
     video = images_to_video(images)
     return json_video_response_from_video(video, infotext)
+
+def comfy_workflow_vhs_video_combine_to_json_video_response(comfy_workflow_object, comfy_ui_server_address, infotext):
+    videos = get_videos(comfy_workflow_object, comfy_ui_server_address)
+    print(f"{len(videos)} videos received from Comfy", flush=True)
+    if len(videos) == 0:
+        return jsonify({
+            'error': 'No videos received from ComfyUI'
+        })
+    return json_video_response_from_video(videos[0], infotext)

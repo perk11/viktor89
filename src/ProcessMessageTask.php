@@ -52,6 +52,8 @@ use Perk11\Viktor89\Quiz\RandomQuizResponder;
 use Perk11\Viktor89\RateLimiting\RateLimit;
 use Perk11\Viktor89\RateLimiting\RateLimitsCommandProcessor;
 use Perk11\Viktor89\VideoGeneration\AssistedVideoProcessor;
+use Perk11\Viktor89\VideoGeneration\AudioImgTxt2VidClient;
+use Perk11\Viktor89\VideoGeneration\AudioImgTxt2VidProcessor;
 use Perk11\Viktor89\VideoGeneration\Img2VideoClient;
 use Perk11\Viktor89\VideoGeneration\Txt2VideoClient;
 use Perk11\Viktor89\VideoGeneration\TxtAndVid2VideoClient;
@@ -429,6 +431,19 @@ class ProcessMessageTask implements Task
                 $videoResponder
             ),
         );
+        $voProcessor = new CommandBasedResponderTrigger(
+            ['/vo'],
+            new AudioImgTxt2VidProcessor(
+                $telegramFileDownloader,
+                new AudioImgTxt2VidClient(
+                    $stepsProcessor,
+                    $seedProcessor,
+                    $config['voiceOverModels'],
+                ),
+                $imgTagExtractor,
+                $videoResponder,
+            ),
+        );
         $rmBgClient = new RmBgApiClient($config['rmBgModels']);
         $rmBgProcessor = new ImageTransformProcessor($telegramFileDownloader, $rmBgClient, $photoResponder);
         $soundAndPromptToTargetAndResidualApiClient = new SoundAndPromptToTargetAndResidualApiClient($config['soundAndPromptToTargetAndResidualModels']);
@@ -554,6 +569,7 @@ class ProcessMessageTask implements Task
                 new TranscribeProcessor($internalMessageTranscriber),
             ),
             $videoEProcessor,
+            $voProcessor,
             new CommandBasedResponderTrigger(
                 ['/saveas'],
                 new SaveAsProcessor($telegramFileDownloader, $imageRepository)

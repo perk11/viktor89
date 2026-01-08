@@ -269,6 +269,12 @@
       "model": "EDitto"
     }
   },
+  "voiceOverModels": {
+    "ltx-2-distilled": {
+      "url": "http://localhost:8207",
+      "model": "ltx-2-distilled"
+    }
+  },
   "img2videoModels": {
     "CogVideoX-5B-I2V": {
       "steps": 50,
