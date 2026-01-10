@@ -17,13 +17,18 @@ class AudioImgTxt2VidClient
     ) {
     }
 
-    public function generateByPromptImageAndAudio(string $audioContent, string $imageContent, string $prompt, int $userId): VideoApiResponse
+    public function generateByPromptImageAndAudio(string $audioContent, ?string $imageContent, string $prompt, int $userId): VideoApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
         $params['init_audios'] = [base64_encode($audioContent)];
-        $params['init_images'] = [base64_encode($imageContent)];
+        if ($imageContent == null) {
+            $uri = 'audio_txt2vid';
+        } else {
+            $uri = 'audio_img_txt2vid';
+            $params['init_images'] = [base64_encode($imageContent)];
+        }
         $params['prompt'] = $prompt;
-        $response = $this->request('audio_img_txt2vid', $params);
+        $response = $this->request($uri, $params);
 
         return VideoApiResponse::fromString($response->getBody()->getContents());
     }

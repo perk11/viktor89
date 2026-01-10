@@ -32,7 +32,7 @@ class AudioImgTxt2VidProcessor implements MessageChainProcessor
         $lastMessage = $messageChain->last();
         if ($messageChain->previous() === null) {
             return new ProcessingResult(
-                InternalMessage::asResponseTo($lastMessage, 'Используйте эту команду в ответ на аудио. Добавьте промпт для генерации видео после команды. В промпте укажите исходное изображение сохранённое через /saveas в теге <img>image</img>'), true
+                InternalMessage::asResponseTo($lastMessage, 'Используйте эту команду в ответ на аудио. Добавьте промпт для генерации видео после команды. В промпте можно указать исходное изображение сохранённое через /saveas в теге <img>image</img>'), true
             );
         }
         $audioFile = $messageChain->previous()->getMessageAudio();
@@ -46,7 +46,7 @@ class AudioImgTxt2VidProcessor implements MessageChainProcessor
             return new ProcessingResult(
                 InternalMessage::asResponseTo(
                     $lastMessage,
-                    'Добавьте промпт для генерации видео после команды. В промпте укажите исходное изображение сохранённое через /saveas в теге <img>image</img>',
+                    'Добавьте промпт для генерации видео после команды. В промпте можно указать исходное изображение сохранённое через /saveas в теге <img>image</img>',
                 ), true
             );
         }
@@ -67,11 +67,11 @@ class AudioImgTxt2VidProcessor implements MessageChainProcessor
                 ), true
             );
         }
-        if (count($imageGenerationPrompt->sourceImagesContents) !== 1) {
+        if (count($imageGenerationPrompt->sourceImagesContents) > 1) {
             return new ProcessingResult(
                 InternalMessage::asResponseTo(
                     $lastMessage,
-                    'В промпте укажите одно исходное изображение сохранённое через /saveas в теге <img>image</img>',
+                    'В промпте укажите не более одного исходного изображения',
                 ),
                 true
             );
@@ -103,12 +103,16 @@ class AudioImgTxt2VidProcessor implements MessageChainProcessor
                 ), true, '🤔', $lastMessage
             );
         }
-        $progressUpdateCallback(static::class, "Generating video based on image and audio for prompt: $prompt");
+        if (count($imageGenerationPrompt->sourceImagesContents) === 0) {
+            $progressUpdateCallback(static::class, "Generating video based on audio for prompt: $prompt");
+        } else {
+            $progressUpdateCallback(static::class, "Generating video based on image and audio for prompt: $prompt");
+        }
 
         try {
             $videoResponse = $this->audioImgTxt2VidClient->generateByPromptImageAndAudio(
                 $audioContents,
-                $imageGenerationPrompt->sourceImagesContents[0],
+                $imageGenerationPrompt->sourceImagesContents[0] ?? null,
                 $imageGenerationPrompt->text,
                 $lastMessage->userId,
             );
