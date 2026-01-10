@@ -396,7 +396,7 @@ def main() -> None:
     @app.route("/txt2vid", methods=["POST"])
     def txt2vid() -> Any:
         data = request.get_json(silent=True) or {}
-        logging.info("Got new /txt2vid request")
+        logging.info("Got new /txt2vid request"+ json.dumps(data))
 
         prompt = str(data.get("prompt"))
         seed = int(data.get("seed", random.randint(1, 99999999999999)))
@@ -457,7 +457,9 @@ def main() -> None:
     @app.route("/img2vid", methods=["POST"])
     def img2vid() -> Any:
         data = request.get_json(silent=True) or {}
-        logging.info("Got new /img2vid request")
+        data_for_logging = data.copy()
+        data_for_logging['init_images'] = len(data_for_logging['init_images'])
+        logging.info("Got new /img2vid request" + json.dumps(data_for_logging))
 
         prompt = str(data.get("prompt"))
         seed = int(data.get("seed", random.randint(1, 99999999999999)))
