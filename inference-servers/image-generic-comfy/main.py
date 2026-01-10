@@ -224,6 +224,21 @@ def get_img2img_workflow_infotext_and_filename_qwen_image_edit_lora(prompt, seed
 
     comfy_workflow_object["127"]["inputs"]['image'] = input_image_filename
     return comfy_workflow_object,  f'{prompt}\nSteps: {steps}, Seed: {seed}, Model: Qwen_Image_Edit-Q8_0, Lora: ' + lora, input_image_filename
+def get_img2img_workflow_and_infotext_z_image(model,  prompt, negative_prompt, seed):
+    input_image_filename = 'viktor89-z_image.jpg'
+    workflow_file_path = Path(__file__).with_name("z-image-turbo-img2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    if negative_prompt is None:
+        negative_prompt = "blurry ugly bad"
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["6"]["inputs"]['text'] = prompt
+    comfy_workflow_object["7"]["inputs"]['text'] = negative_prompt
+    comfy_workflow_object["28"]["inputs"]['noise_seed'] = seed
+
+    comfy_workflow_object["38"]["inputs"]['image'] = input_image_filename
+
+    return comfy_workflow_object,  f'{prompt}\nNegative prompt: {negative_prompt}\n Seed: {seed}, Model: z-image-turbo', input_image_filename
 
 sem = threading.Semaphore() #Todo use a dict with semaphores based on input image file name
 @app.route('/sdapi/v1/img2img', methods=['POST'])
@@ -232,6 +247,7 @@ def generate_img2img():
 
     model = data.get('model', '(blank)')
     prompt = data.get('prompt')
+    negative_prompt = data.get('negative_prompt')
     steps = data.get('steps', 0)
     width = int(data.get('width', 1024))
     height = int(data.get('height', 1024))
@@ -256,6 +272,8 @@ def generate_img2img():
             if lora == '':
                 return jsonify({'error': "Lora is required"}), 400
             comfy_workflow_object, infotext, input_image_file_name = get_img2img_workflow_infotext_and_filename_qwen_image_edit_lora(prompt, seed, steps, lora)
+        case 'z_image_turbo':
+            comfy_workflow_object, infotext, input_image_file_name = get_img2img_workflow_and_infotext_z_image(model,  prompt, negative_prompt, seed)
         case _:
             return jsonify({"error": "Unknown model: " + model}), 400
     sem.acquire()
