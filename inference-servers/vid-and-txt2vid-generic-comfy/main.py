@@ -15,6 +15,7 @@ parent, root = file.parent, file.parents[1]
 sys.path.append(str(root))
 
 from util.comfy import comfy_workflow_to_json_video_response
+from util.comfy import comfy_workflow_vhs_video_combine_to_json_video_response
 
 
 parser = argparse.ArgumentParser(description="Inference server for Hunyuan-Video based on ComfyUI.")
@@ -34,8 +35,9 @@ semaphores = {}
 @app.route('/vid_txt2vid', methods=['POST'])
 def generate_video():
     data = request.json
-    print("Got new request", flush=True)
-    # print(data)
+    data_for_print = data.copy()
+    data_for_print['init_videos'] = len(data['init_videos'])
+    print("Got new request" + json.dumps(data_for_print), flush=True)
     init_videos = data.get('init_videos', None)
     if init_videos is None:
         return jsonify({'error': '"s" parameter is required'}), 400
@@ -63,10 +65,19 @@ def generate_video():
 
             match model:
                 case 'EDitto':
+                    vhs = False
                     comfy_workflow_object, infotext = get_workflow_and_infotext_editto(video_filenames[0], prompt, negative_prompt, seed, num_frames)
+                case 'LTX-2-extend':
+                    vhs = True
+                    comfy_workflow_object, infotext = get_workflow_and_infotext_ltx_2_extend(video_filenames[0], prompt, seed, num_frames)
                 case _:
                     return jsonify({"error": "Unknown model: " + model}), 400
-            return comfy_workflow_to_json_video_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
+            with open("/tmp/workflow.json", "w") as workflow:
+                workflow.write(json.dumps(comfy_workflow_object))
+            if vhs:
+                return comfy_workflow_vhs_video_combine_to_json_video_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
+            else:
+                return comfy_workflow_to_json_video_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
     except Exception as e:
         print(e)
         print(traceback.format_exc())
@@ -89,5 +100,19 @@ def get_workflow_and_infotext_editto(video_filename, prompt, negative_prompt, se
 
     return comfy_workflow_object, f'{prompt}\nSeed: {seed}, Model: EDitto'
 
+def get_workflow_and_infotext_ltx_2_extend(video_filename, prompt, seed, num_frames):
+    workflow_file_path = Path(__file__).with_name("ltx2-extend.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    num_frames = max(num_frames, 121)
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["5175"]["inputs"]["value"] = prompt
+
+    comfy_workflow_object["5216"]["inputs"]["video"] = video_filename
+    comfy_workflow_object["5224"]["inputs"]["video"] = video_filename
+    comfy_workflow_object["5186"]["inputs"]["value"] = num_frames
+    comfy_workflow_object["5189:5097"]["inputs"]["noise_seed"] = seed
+
+    return comfy_workflow_object, f'{prompt}\nSeed: {seed}, Model: ltx-2-19b-dev-fp8'
 if __name__ == '__main__':
     app.run(host='localhost', port=args.port)

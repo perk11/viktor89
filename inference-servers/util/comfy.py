@@ -111,6 +111,8 @@ def get_videos(workflow, comfy_ui_server_address):
                 data = message['data']
                 if data['output'] is None:
                     continue
+                if not "gifs" in data['output']:
+                    continue
                 print("Received video from Comfy", flush=True)
                 for video in data['output']['gifs']:
                     url = "http://{}/api/view?filename={}&type={}&subfolder={}&fullpath={}".format(

@@ -13,6 +13,8 @@ class TxtAndVid2VideoClient
     public function __construct(
         private readonly UserPreferenceReaderInterface $stepsPreference,
         private readonly UserPreferenceReaderInterface $seedPreference,
+        private readonly UserPreferenceReaderInterface $videoEditModelPreference,
+        private readonly UserPreferenceReaderInterface $framesPreference,
         private readonly array $modelConfig,
     ) {
     }
@@ -33,7 +35,13 @@ class TxtAndVid2VideoClient
      */
     private function getParamsBasedOnUserPreferences(int $userId): mixed
     {
-        $params = current($this->modelConfig);
+
+        $modelName = $this->videoEditModelPreference->getCurrentPreferenceValue($userId);
+        if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
+            $params = current($this->modelConfig);
+        } else {
+            $params = $this->modelConfig[$modelName];
+        }
         $apiUrl = rtrim($params['url'], '/');
         unset ($params['url']);
         $this->httpClient = new Client(['base_uri' => $apiUrl]);
@@ -45,6 +53,10 @@ class TxtAndVid2VideoClient
         $seed = $this->seedPreference->getCurrentPreferenceValue($userId);
         if ($seed !== null) {
             $params['seed'] = $seed;
+        }
+        $frames = $this->framesPreference->getCurrentPreferenceValue($userId);
+        if ($frames !== null) {
+            $params['num_frames'] = $frames;
         }
 
         return $params;

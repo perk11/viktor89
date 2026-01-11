@@ -171,6 +171,13 @@ class ProcessMessageTask implements Task
             $this->telegramBotUsername,
             array_keys($editModelConfig),
         );
+        $videoEditModelProcessor = new ListBasedPreferenceByCommandProcessor(
+            $database,
+            ['/vemodel'],
+            'vemodel',
+            $this->telegramBotUsername,
+            array_keys($config['videoEditModels']),
+        );
         $imageModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
             $imageModelProcessor,
             $config['imageModels'],
@@ -427,6 +434,8 @@ class ProcessMessageTask implements Task
                 new TxtAndVid2VideoClient(
                     $stepsProcessor,
                     $seedProcessor,
+                    $videoEditModelProcessor,
+                    $framesProcessor,
                     $config['videoEditModels'],
                 ),
                 $videoResponder
@@ -463,6 +472,7 @@ class ProcessMessageTask implements Task
             $imageSizeProcessor,
             $editModelProcessor,
             $videoModelProcessor,
+            $videoEditModelProcessor,
             $imv2VideModelProcessor,
             $upscaleModelProcessor,
             $styleProcessor,
