@@ -28,8 +28,7 @@ args = parser.parse_args()
 torch_dtype = torch.bfloat16
 device = "cuda"
 
-generator = torch.Generator(device=device)
-sem = threading.Semaphore(1)
+sem = threading.Semaphore()
 
 pipe = GlmImagePipeline.from_pretrained("zai-org/GLM-Image", torch_dtype=torch_dtype, device_map=device)
 
@@ -91,7 +90,7 @@ def infer_image_to_json(
                 width=width,
                 num_inference_steps=steps,
                 guidance_scale=1.5,
-                generator=generator.manual_seed(seed),
+                generator=torch.Generator(device=device).manual_seed(seed),
             ).images[0]
             infotext = build_info_text(prompt, steps, seed, width, height)
             return image_to_json_response(output_image, infotext)
@@ -102,14 +101,14 @@ def infer_image_to_json(
 
             resized_images = _resize_init_images(init_images, width, height)
             output_image = pipe(
-                    prompt=prompt,
-                    image=resized_images,
-                    height=height,
-                    width=width,
-                    num_inference_steps=steps,
-                    guidance_scale=1.5,
-                    generator=torch.Generator(device=device).manual_seed(seed)
-                ).images[0]
+                prompt=prompt,
+                image=resized_images,
+                height=height,
+                width=width,
+                num_inference_steps=steps,
+                guidance_scale=1.5,
+                generator=torch.Generator(device=device).manual_seed(seed)
+            ).images[0]
             infotext = build_info_text(prompt, steps, seed, width, height)
 
             return image_to_json_response(output_image, infotext)
@@ -159,7 +158,7 @@ def img2img():
     if not prompt:
         return jsonify({"error": "missing prompt"}), 400
 
-    init_images_b64 = data.get("init_images") or data.get("images") or []
+    init_images_b64 = data.get("init_images")
     if not isinstance(init_images_b64, list) or len(init_images_b64) == 0:
         return jsonify({"error": "missing init_images (base64 PNG/JPEG)"}), 400
 
