@@ -26,19 +26,32 @@ class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandPr
         }
 
         $buttons = [];
+        $rowIndex = 0;
         foreach ($this->acceptedValuesList as $acceptedValue) {
-            $buttons[] = [
+            if ($rowIndex === 0) {
+                if (isset($row)) {
+                    $buttons[] = $row;
+                }
+                $row = [];
+            }
+            $row[] =
                 [
-                    'text'                             => $acceptedValue,
-                    'switch_inline_query_current_chat' => $this->triggeringCommands[0] . ' ' . $acceptedValue,
-                ],
-            ];
+                    'text' => $this->triggeringCommands[0] . ' ' . $acceptedValue,
+                ];
+            $rowIndex = ($rowIndex +1 )% 2;
+        }
+        if (isset($row)) {
+            $buttons[] = $row;
         }
         Request::sendMessage([
                                  'chat_id'      => $message->chatId,
-                                 'text'         => 'Pick a value for ' . $this->preferenceName,
+                                 'reply_parameters' => ['message_id' => $message->id],
+                                 'text'         => 'Вот клавиатура для выбора ' . $this->preferenceName,
                                  'reply_markup' => [
-                                     'inline_keyboard' => $buttons,
+                                     'keyboard' => $buttons,
+                                     'one_time_keyboard' => true,
+                                     'resize_keyboard' => true,
+                                     'selective' => true,
                                  ],
                              ]);
 
