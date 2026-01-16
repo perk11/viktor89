@@ -42,6 +42,9 @@ class PhotoResponder
             'reply_parameters' => [
                 'message_id' => $message->id,
             ],
+            'reply_markup' => [
+                'remove_keyboard' => true,
+            ],
         ];
         if ($caption !== null) {
             $options['caption'] = mb_substr($caption, 0, 1024);
