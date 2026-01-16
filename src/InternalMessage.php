@@ -53,6 +53,8 @@ class InternalMessage
     public ?Voice $voice = null;
 
     public bool $isSaved = false;
+
+    public bool $forceReply = false;
     public static function fromSqliteAssoc(array $result): self
     {
         $message = new self();
@@ -146,6 +148,13 @@ class InternalMessage
         ];
         if ($this->replyToMessageId !== null) {
             $options['reply_parameters'] = ['message_id' => $this->replyToMessageId];
+        }
+        $options['reply_markup'] = [
+            'remove_keyboard' => true,
+        ];
+        if ($this->forceReply) {
+            $options['reply_markup']['force_reply'] = true;
+            $options['reply_markup']['selective'] = true;
         }
         if ($this->parseMode !== 'Default') {
             $options['parse_mode'] = $this->parseMode;
