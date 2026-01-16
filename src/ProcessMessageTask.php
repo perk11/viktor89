@@ -562,7 +562,7 @@ class ProcessMessageTask implements Task
                 new PrintHelpProcessor($database),
             ),
             new CommandBasedResponderTrigger(
-                ['/preferences'],
+                ['/preferences', '/settings'],
                 new PrintUserPreferencesResponder($database),
             ),
             new CommandBasedResponderTrigger(
