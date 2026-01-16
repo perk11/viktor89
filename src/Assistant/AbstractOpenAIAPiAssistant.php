@@ -51,6 +51,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         $message = new InternalMessage();
         $message->replyToMessageId = $lastMessage->id;
         $message->chatId = $lastMessage->chatId;
+        $message->forceReply = true;
         $message->parseMode = 'MarkdownV2';
         $message->messageText = $responseStart . trim($this->getCompletionBasedOnContext($assistantContext));
         for ($i = 0; $i < 5; $i++) {

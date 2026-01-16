@@ -54,6 +54,7 @@ class InternalMessage
 
     public bool $isSaved = false;
 
+    public bool $removeKeyboard = true;
     public bool $forceReply = false;
     public static function fromSqliteAssoc(array $result): self
     {
@@ -149,12 +150,15 @@ class InternalMessage
         if ($this->replyToMessageId !== null) {
             $options['reply_parameters'] = ['message_id' => $this->replyToMessageId];
         }
-        $options['reply_markup'] = [
-            'remove_keyboard' => true,
-        ];
-        if ($this->forceReply) {
-            $options['reply_markup']['force_reply'] = true;
-            $options['reply_markup']['selective'] = true;
+        if ($this->removeKeyboard) {
+            $options['reply_markup'] = [
+                'remove_keyboard' => true,
+            ];
+        } else if ($this->forceReply) {
+            $options['reply_markup'] = [
+                'force_reply' => true,
+                'selective' => true,
+            ];
         }
         if ($this->parseMode !== 'Default') {
             $options['parse_mode'] = $this->parseMode;
