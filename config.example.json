@@ -342,5 +342,10 @@
     "sam-audio": {
       "url": "http://localhost:8202"
     }
+  },
+  "singModels": {
+    "HeartMuLa": {
+      "url": "http://localhost:8212"
+    }
   }
 }

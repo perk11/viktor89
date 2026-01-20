@@ -63,6 +63,8 @@ use Perk11\Viktor89\VideoGeneration\VideoResponder;
 use Perk11\Viktor89\VideoGeneration\VideoSayProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoTxtAndVid2VidProcessor;
 use Perk11\Viktor89\VoiceGeneration\DialogResponder;
+use Perk11\Viktor89\VoiceGeneration\SingApiClient;
+use Perk11\Viktor89\VoiceGeneration\SingProcessor;
 use Perk11\Viktor89\VoiceGeneration\SoundAndPromptToTargetAndResidualApiClient;
 use Perk11\Viktor89\VoiceGeneration\SoundAndPromptToTargetAndResidualProcessor;
 use Perk11\Viktor89\VoiceGeneration\TtsApiClient;
@@ -141,6 +143,14 @@ class ProcessMessageTask implements Task
             $this->telegramBotUsername,
             8,
             480,
+        );
+        $durationProcessor = new NumericPreferenceInRangeByCommandProcessor(
+            $database,
+            ['/duration',],
+            'duration',
+            $this->telegramBotUsername,
+            8,
+            1200,
         );
         $clownProcessor = new UserPreferenceSetByCommandProcessor(
             $database,
@@ -482,6 +492,7 @@ class ProcessMessageTask implements Task
             $stepsProcessor,
             $seedProcessor,
             $framesProcessor,
+            $durationProcessor,
             $systemPromptProcessor,
             $responseStartProcessor,
             new CommandBasedResponderTrigger(
@@ -588,6 +599,15 @@ class ProcessMessageTask implements Task
                     $ttsApiClient,
                     $sayModelProcessor,
                     $config['voiceModels'],
+                ),
+            ),
+            new CommandBasedResponderTrigger(
+                ['/sing'],
+                new SingProcessor(
+                    new SingApiClient($config['singModels']),
+                    $voiceResponder,
+                    $durationProcessor,
+                    $config['singModels'],
                 ),
             ),
             new CommandBasedResponderTrigger(
