@@ -76,6 +76,8 @@ class MultipleModelsImageGenerateProcessor implements MessageChainProcessor
                 $this->processingResultExecutor->execute($result);
             }
         }
+
+        return new ProcessingResult(null, true);
     }
 
     private function getOrderedModelKeys(): array
