@@ -607,6 +607,7 @@ class ProcessMessageTask implements Task
                     new SingApiClient($config['singModels']),
                     $voiceResponder,
                     $durationProcessor,
+                    $seedProcessor,
                     $config['singModels'],
                 ),
             ),

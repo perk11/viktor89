@@ -1,6 +1,7 @@
 import argparse
 import base64
 import json
+import random
 import sys
 import threading
 from pathlib import Path
@@ -35,6 +36,7 @@ def generate_voice():
     tags: str = data.get('tags')
     model: str = data.get('model')
     duration: int = data.get('duration', 240000)
+    seed: int = data.get('seed', random.randint(1, 2 ** 32 - 1))
     if lyrics is None:
         return jsonify({'error': 'lyrics are required'}), 400
     if tags is None:
@@ -45,7 +47,7 @@ def generate_voice():
     semaphores[model].acquire()
     print("Acquired lock for " + model, flush=True)
     try:
-        workflow = get_workflow_heartmula(lyrics, tags, duration)
+        workflow = get_workflow_heartmula(lyrics, tags, duration, seed)
 
         voice_data = get_audio(workflow, args.comfy_ui_server_address)[0]
         response = {
@@ -60,14 +62,15 @@ def generate_voice():
         semaphores[model].release()
 
 
-def get_workflow_heartmula(lyrics, tags, duration):
+def get_workflow_heartmula(lyrics, tags, duration, seed):
     workflow_file_path = Path(__file__).with_name("HeartMuLa.json")
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
     comfy_workflow_object["1"]["inputs"]['lyrics'] = lyrics
     comfy_workflow_object["1"]["inputs"]['tags'] = tags
-    comfy_workflow_object["1"]["inputs"]['max_audio_length_ms'] = duration
+    comfy_workflow_object["1"]["inputs"]['seed'] = seed
+    comfy_workflow_object["1"]["inputs"]['max_audio_length_seconds'] = duration /1000
 
     return comfy_workflow_object
 

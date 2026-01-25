@@ -3,11 +3,16 @@
     "inputs": {
       "lyrics": "lyrics go here",
       "tags": "tags go here",
-      "version": "3B",
-      "max_audio_length_ms": 240000,
+      "version": "RL-oss-3B-20260123",
+      "codec_version": "oss-20260123",
+      "seed": 50,
+      "max_audio_length_seconds": 480,
       "topk": 50,
       "temperature": 1,
-      "cfg_scale": 1.5
+      "cfg_scale": 1.5,
+      "keep_model_loaded": true,
+      "offload_mode": "auto",
+      "quantize_4bit": false
     },
     "class_type": "HeartMuLa_Generate",
     "_meta": {

@@ -20,6 +20,7 @@ class SingProcessor implements MessageChainProcessor
         private readonly SingApiClient $songApiClient,
         private readonly VoiceResponder $voiceResponder,
         private readonly UserPreferenceReaderInterface $durationPreference,
+        private readonly UserPreferenceReaderInterface $seedPreference,
         private readonly array $modelConfig,
     ) {
     }
@@ -54,12 +55,23 @@ class SingProcessor implements MessageChainProcessor
                                     'chat_id' => $messageChain->last()->chatId,
                                     'action'  => ChatAction::RECORD_VOICE,
                                 ]);
+        Request::execute('setMessageReaction', [
+            'chat_id'    => $message->chatId,
+            'message_id' => $message->id,
+            'reaction'   => [
+                [
+                    'type'  => 'emoji',
+                    'emoji' => '👀',
+                ],
+            ],
+        ]);
         try {
             $response = $this->songApiClient->txtTags2Music(
                 $lyrics,
                 $tags,
                 $modelName,
                 $duration,
+                $this->seedPreference->getCurrentPreferenceValue($message->userId)
             );
             $this->voiceResponder->sendVoice(
                 $message,
@@ -71,6 +83,6 @@ class SingProcessor implements MessageChainProcessor
             return new ProcessingResult(null, true, '🤔', $message);
         }
 
-        return new ProcessingResult(null, true);
+        return new ProcessingResult(null, true, '😎', $message);
     }
 }

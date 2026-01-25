@@ -14,7 +14,13 @@ class SingApiClient
     ) {
     }
 
-    public function txtTags2Music(string $lyrics, string $tags, string $model, ?int $durationMs = null): TtsApiResponse
+    public function txtTags2Music(
+        string $lyrics,
+        string $tags,
+        string $model,
+        ?int $durationMs = null,
+        ?int $seed = null
+    ): TtsApiResponse
     {
         $this->initClientBasedOnModel($model);
 
@@ -23,6 +29,9 @@ class SingApiClient
             'tags'   => $tags,
             'model'  => $model,
         ];
+        if ($seed !== null) {
+            $params['seed'] = $seed;
+        }
 
         if ($durationMs !== null) {
             $params['duration'] = $durationMs;

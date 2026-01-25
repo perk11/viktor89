@@ -158,7 +158,7 @@ def generate_image():
 
     model_name = data.get('model', 'BAGEL')
     prompt = data.get('prompt')
-    seed = int(data.get('seed', random.randint(1, 2 ** 32 - 1)))
+    seed = data.get('seed', random.randint(0,18446744073709551615))
     steps = int(data.get('steps', 50))
 
     if model_name == 'BAGEL':
