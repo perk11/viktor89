@@ -106,7 +106,34 @@ def get_txt2img_workflow_and_infotext_flux2_turbo(prompt, seed, width, height):
     comfy_workflow_object["48"]["inputs"]['height'] = height
 
     return comfy_workflow_object, f'{prompt}\nSteps: 8, Seed: {seed}, Size: {width}x{height}, Model:  flux2_dev_fp8, Lora: Flux_2-Turbo-LoRA_comfyui'
-def get_txt2img_workflow_and_infotext_z_image(model, loras, prompt, negative_prompt, seed, steps, width, height):
+
+
+def get_txt2img_workflow_and_infotext_z_image(prompt, negative_prompt, seed, steps, width, height):
+    workflow_file_path = Path(__file__).with_name("z-image-txt2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["67"]["inputs"]['text'] = prompt
+    if negative_prompt is None:
+        negative_prompt = comfy_workflow_object["71"]["inputs"]['text']
+    else:
+        comfy_workflow_object["71"]["inputs"]['text'] = negative_prompt
+    if steps > 0:
+        comfy_workflow_object["69"]["inputs"]['steps'] = steps
+    else:
+        steps = comfy_workflow_object["69"]["inputs"]['steps']
+    comfy_workflow_object["69"]["inputs"]['seed'] = seed
+    comfy_workflow_object["68"]["inputs"]['width'] = width
+    comfy_workflow_object["68"]["inputs"]['height'] = height
+    infotext = prompt
+    if len(negative_prompt) > 0:
+        infotext += f'\n"Negative prompt: {negative_prompt}'
+    infotext += f'\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: z_image'
+
+    return comfy_workflow_object, infotext
+
+
+def get_txt2img_workflow_and_infotext_z_image_turbo(model, loras, prompt, negative_prompt, seed, steps, width, height):
     if len(loras) == 0:
         workflow_file_path = Path(__file__).with_name("z-image-turbo-txt2img.json")
     elif len(loras) == 1:
@@ -169,7 +196,12 @@ def generate_image():
         case 'flux2_dev_fp8-turbo-8-steps':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_flux2_turbo(prompt, seed, width, height)
         case 'z_image_turbo':
-            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_z_image(model, loras, prompt, negative_prompt, seed, steps, width, height)
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_z_image_turbo(model, loras, prompt,
+                                                                                              negative_prompt, seed,
+                                                                                              steps, width, height)
+        case 'z_image':
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_z_image(prompt, negative_prompt, seed,
+                                                                                        steps, width, height)
         case _:
             return jsonify({"error": "Unknown model: " + model}), 400
 
