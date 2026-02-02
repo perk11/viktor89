@@ -22,7 +22,30 @@ parser.add_argument('--comfy_ui_server_address', type=str, help='address where C
 parser.add_argument('--comfy_ui_input_dir', type=str, help='Path to ComfyUI "input" directory', required=True)
 args = parser.parse_args()
 
+def get_txt2img_workflow_and_infotext_anima(model, prompt, negative_prompt, seed, steps, width, height):
+    workflow_file_path = Path(__file__).with_name("anima-txt2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["44"]["inputs"]['unet_name'] = model + ".safetensors"
+    comfy_workflow_object["11"]["inputs"]['text'] = prompt
+    if negative_prompt is None:
+        negative_prompt = comfy_workflow_object["12"]["inputs"]['text']
+    else:
+        comfy_workflow_object["12"]["inputs"]['text'] = negative_prompt
+    if steps > 0:
+        comfy_workflow_object["19"]["inputs"]['steps'] = steps
+    else:
+        steps = comfy_workflow_object["19"]["inputs"]['steps']
+    comfy_workflow_object["19"]["inputs"]['seed'] = seed
+    comfy_workflow_object["28"]["inputs"]['width'] = width
+    comfy_workflow_object["28"]["inputs"]['height'] = height
 
+    infotext = prompt
+    if len(negative_prompt) > 0:
+        infotext += f'\nNegative prompt: {negative_prompt}'
+    infotext += f'\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
+    return comfy_workflow_object, infotext
 def get_txt2img_workflow_and_infotext_chroma(model, prompt, negative_prompt, seed, steps, width, height):
     workflow_file_path = Path(__file__).with_name("chroma-txt2img.json")
     with workflow_file_path.open('r') as workflow_file:
@@ -185,6 +208,8 @@ def generate_image():
             print(lora)
             return jsonify({'error': 'Missing Lora name attribute', lora: lora}), 500
     match model:
+        case 'anima-preview':
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_anima(model, prompt, negative_prompt, seed, steps, width, height)
         case 'chroma-unlocked-v31' | 'chroma_v41LowStepRl':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_chroma(model, prompt, negative_prompt, seed, steps, width, height)
         case 'qwen_image_fp8_e4m3fn':
