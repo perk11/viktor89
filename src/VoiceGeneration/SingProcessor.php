@@ -21,7 +21,7 @@ class SingProcessor implements MessageChainProcessor
         private readonly VoiceResponder $voiceResponder,
         private readonly UserPreferenceReaderInterface $durationPreference,
         private readonly UserPreferenceReaderInterface $seedPreference,
-        private readonly array $modelConfig,
+        private readonly UserPreferenceReaderInterface $singModelPreference,
     ) {
     }
 
@@ -43,7 +43,7 @@ class SingProcessor implements MessageChainProcessor
         $lines = explode("\n", $prompt);
         $tags = $lines[0];
         $lyrics = implode("\n", array_slice($lines, 1));
-        $modelName = array_key_first($this->modelConfig);
+        $modelName = $this->singModelPreference->getCurrentPreferenceValue($message->userId);
         $durationSeconds = $this->durationPreference->getCurrentPreferenceValue($message->userId);
         if ($durationSeconds === null) {
             $duration = null;

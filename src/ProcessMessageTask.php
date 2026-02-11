@@ -188,6 +188,13 @@ class ProcessMessageTask implements Task
             $this->telegramBotUsername,
             array_keys($config['videoEditModels']),
         );
+        $singModelProcessor = new ListBasedPreferenceByCommandProcessor(
+            $database,
+            ['/singmodel'],
+            'singmodel',
+            $this->telegramBotUsername,
+            array_keys($config['singModels']),
+        );
         $imageModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
             $imageModelProcessor,
             $config['imageModels'],
@@ -195,6 +202,10 @@ class ProcessMessageTask implements Task
         $editModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
             $editModelProcessor,
             $editModelConfig,
+        );
+        $singModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
+            $singModelProcessor,
+            $config['singModels'],
         );
         $imageSizeProcessor = new ListBasedPreferenceByCommandProcessor(
             $database, ['/imagesize'],
@@ -481,6 +492,7 @@ class ProcessMessageTask implements Task
             $imageModelProcessor,
             $imageSizeProcessor,
             $editModelProcessor,
+            $singModelProcessor,
             $videoModelProcessor,
             $videoEditModelProcessor,
             $imv2VideModelProcessor,
@@ -608,7 +620,7 @@ class ProcessMessageTask implements Task
                     $voiceResponder,
                     $durationProcessor,
                     $seedProcessor,
-                    $config['singModels'],
+                    $singModelPreferenceReader,
                 ),
             ),
             new CommandBasedResponderTrigger(
