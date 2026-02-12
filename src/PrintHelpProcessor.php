@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89;
 
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+use Perk11\Viktor89\Util\TelegramHtml;
 
 class PrintHelpProcessor implements MessageChainProcessor
 {
@@ -49,7 +50,7 @@ class PrintHelpProcessor implements MessageChainProcessor
                 $message = InternalMessage::asResponseTo($messageChain->last(), '');
                 $message->parseMode = 'HTML';
             }
-            $message->messageText .= "<b>" . htmlentities($command) . "</b> $description\n\n";
+            $message->messageText .= "<b>" . TelegramHtml::escape($command) . "</b> $description\n\n";
         }
 
         $message->messageText .= htmlspecialchars('Все команды использующие нейросеть выполняются по очереди, а значит бот может не сразу приступить к исполнению вашего задания. Если бот поставил реакцию "👀", значит запрос получен.');

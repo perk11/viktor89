@@ -7,6 +7,7 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\Util\TelegramHtml;
 
 class VoiceProcessor implements MessageChainProcessor
 {
@@ -24,12 +25,10 @@ class VoiceProcessor implements MessageChainProcessor
             return new ProcessingResult(null, false);
         }
         if ($transcribedText !== null && $transcribedText !== '') {
-            return new ProcessingResult(
-                InternalMessage::asResponseTo(
-                    $messageChain->last(),
-                    $transcribedText,
-                ), false
-            );
+
+            $message = InternalMessage::asResponseTo($messageChain->last(), "<blockquote expandable>" . TelegramHtml::escape($transcribedText) . "</blockquote>");
+            $message->parseMode = 'HTML';
+            return new ProcessingResult($message, false);
         }
 
         return new ProcessingResult(null, false);
