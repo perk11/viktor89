@@ -2,7 +2,6 @@
 
 namespace Perk11\Viktor89\ImageGeneration;
 
-use Longman\TelegramBot\Entities\File;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\CacheFileManager;
@@ -47,6 +46,10 @@ class PhotoResponder
             ],
         ];
         if ($caption !== null) {
+            if ($this->needsSpoiler($caption)) {
+                $options['has_spoiler'] = true;
+            }
+
             $options['caption'] = mb_substr($caption, 0, 1024);
         }
 
@@ -88,5 +91,23 @@ class PhotoResponder
                 ],
             ],
         ]);
+    }
+
+    private function needsSpoiler(string $caption): bool
+    {
+        $spoilerWords = file(__DIR__ . '/../../spoiler_words.txt');
+        if ($spoilerWords === false) {
+            echo "Failed to read spoiler words list\n";
+
+            return false;
+        }
+        $spoilerWords = array_map('trim', $spoilerWords);
+        $wordsInCaption = preg_split('/\s+/', trim($caption));
+        foreach ($wordsInCaption as $word) {
+            if (in_array(mb_strtolower($word), $spoilerWords, true)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

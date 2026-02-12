@@ -1,5 +1,5 @@
 /vendor/
 .env
 config.json
-automatic1111-model-config.json
+spoiler_words.txt
 /data/
