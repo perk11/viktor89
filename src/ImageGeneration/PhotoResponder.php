@@ -41,9 +41,6 @@ class PhotoResponder
             'reply_parameters' => [
                 'message_id' => $message->id,
             ],
-            'reply_markup' => [
-                'remove_keyboard' => true,
-            ],
         ];
         if ($caption !== null) {
             if ($this->needsSpoiler($caption)) {

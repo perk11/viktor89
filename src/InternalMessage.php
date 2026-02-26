@@ -54,7 +54,7 @@ class InternalMessage
 
     public bool $isSaved = false;
 
-    public bool $removeKeyboard = true;
+    public bool $removeKeyboard = false;
     public bool $forceReply = false;
     public static function fromSqliteAssoc(array $result): self
     {
