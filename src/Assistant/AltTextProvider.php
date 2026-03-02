@@ -31,7 +31,12 @@ class AltTextProvider
             if (!isset($this->assistantWithVision)) {
                 throw new \LogicException("assistantWithVision must be set on AltTextProvider before attempting to generate alt text for an image");
             }
-            $image = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($internalMessage);
+            try {
+                $image = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($internalMessage);
+            } catch (\Exception $e) {
+                echo "Failed to download image " . $internalMessage->photoFileId .': ' . $e->getMessage() . "\n";
+                return null;
+            }
             $assistantContext = new AssistantContext();
             $assistantContext->systemPrompt = 'You are describing the image sent by the user to another LLM. Be as detailed as possible, as it is unknown how the other will need to use the answer, describe the image from multiple perspectives.';
             $message = new AssistantContextMessage();
