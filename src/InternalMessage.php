@@ -15,6 +15,7 @@ use Perk11\Viktor89\VoiceGeneration\MessageAudio;
 class InternalMessage
 {
     public int $id;
+    public ?int $draftId = null;
 
     public string $type;
 
@@ -139,6 +140,27 @@ class InternalMessage
         $message->voice = $telegramMessage->getVoice();
 
         return $message;
+    }
+
+    public function sendAsDraft(): string
+    {
+        if ($this->draftId === null) {
+            $this->draftId = random_int(1, 1000000000);
+        }
+
+        $options = [
+            'chat_id' => $this->chatId,
+            'text' => $this->rawMessageText ?? $this->messageText,
+            'draft_id' => $this->draftId,
+        ];
+        if (isset($this->messageThreadId)) {
+            $options['message_thread_id'] = $this->messageThreadId;
+        }
+        if ($this->parseMode !== 'Default') {
+            $options['parse_mode'] = $this->parseMode;
+        }
+
+        return Request::execute('sendMessageDraft', $options);
     }
 
     public function send(): ServerResponse
