@@ -16,6 +16,7 @@ parent, root = file.parent, file.parents[1]
 sys.path.append(str(root))
 
 from util.comfy import comfy_workflow_to_json_video_response
+from util.comfy import comfy_workflow_vhs_video_combine_to_json_video_response
 
 parser = argparse.ArgumentParser(description="Inference server for Hunyuan-Video based on ComfyUI.")
 parser.add_argument('--port', type=int, help='port to listen on', required=True)
@@ -48,11 +49,18 @@ def generate_video():
     try:
         match model:
             case 'kandinsky5-lite':
+                vhs = False
                 comfy_workflow_object, infotext = get_workflow_and_infotext_kandinsky(prompt, negative_prompt, seed,
                                                                                       width, height, steps, num_frames)
+            case 'LTX-2.3-distilled':
+                vhs = True
+                comfy_workflow_object, infotext = get_workflow_and_infotext_ltx23(prompt, seed, num_frames)
             case _:
                 return jsonify({"error": "Unknown model: " + model}), 400
-        return comfy_workflow_to_json_video_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
+        if vhs:
+            return comfy_workflow_vhs_video_combine_to_json_video_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
+        else:
+            return comfy_workflow_to_json_video_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
     except Exception as e:
         print(e)
         print(traceback.format_exc())
@@ -77,7 +85,18 @@ def get_workflow_and_infotext_kandinsky(prompt, negative_prompt, seed, width, he
     comfy_workflow_object["12:8"]["inputs"]["seed"] = seed
 
     return comfy_workflow_object, f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: kandinsky5-lite'
+def get_workflow_and_infotext_ltx23(prompt, seed, num_frames):
+    workflow_file_path = Path(__file__).with_name("ltx-2.3.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    num_frames = max(num_frames, 121)
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["187"]["inputs"]["prompt"] = prompt + "\n"
 
+    comfy_workflow_object["166"]["inputs"]["value"] = num_frames
+    comfy_workflow_object["189"]["inputs"]["noise_seed"] = seed
+
+    return comfy_workflow_object, f'{prompt}\nSeed: {seed}, Model: ltx-2.3-22b-dev, Lora: ltx-23-22b-distilled-lora-384'
 
 if __name__ == '__main__':
     app.run(host='localhost', port=args.port)
