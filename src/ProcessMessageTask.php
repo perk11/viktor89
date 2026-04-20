@@ -15,6 +15,7 @@ use Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler;
 use Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantFactory;
+use Perk11\Viktor89\Assistant\Tool\OllamaWebSearchToolCallExecutor;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\DefaultingToFirstInConfigModelPreferenceReader;
 use Perk11\Viktor89\ImageGeneration\DownscaleProcessor;
@@ -256,6 +257,7 @@ class ProcessMessageTask implements Task
             $openAiCompletionStringParser,
             $telegramFileDownloader,
             $altTextProvider,
+            new OllamaWebSearchToolCallExecutor($config['ollamaWebSearchApiKey']),
             $telegram->getBotId(),
         );
         $altTextProvider->assistantWithVision = $assistantFactory->getAssistantInstanceByName('vision-for-alt-text');

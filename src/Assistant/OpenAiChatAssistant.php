@@ -18,8 +18,12 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         string $url,
         string $apiKey = '',
         bool $supportsImages,
+        array $toolDefintions = [],
     )
     {
+        if (count($toolDefintions) > 0) {
+            throw new \RuntimeException('Tools are not supported by OpenAiChatAssistant');
+        }
         parent::__construct(
             $systemPromptProcessor,
             $responseStartProcessor,

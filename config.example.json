@@ -1,4 +1,5 @@
 {
+  "ollamaWebSearchApiKey": "key-goes-here",
   "assistantModels": {
     "gemma2": {
       "url": "http://localhost:8081/",
