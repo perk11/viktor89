@@ -67,7 +67,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                 return new ProcessingResult(null, true, '🤔', $lastMessage);
             }
         } catch (\Exception $e) {
-            echo "Failed to get completion based on context: " . $e->getMessage() . "\n";
+            echo "Failed to get completion based on context: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
             return new ProcessingResult(null, true, '🤔', $lastMessage);
         }
 
