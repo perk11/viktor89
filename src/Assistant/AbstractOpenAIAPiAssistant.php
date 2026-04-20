@@ -52,14 +52,23 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         $message->replyToMessageId = $lastMessage->id;
         $message->chatId = $lastMessage->chatId;
         $message->parseMode = 'MarkdownV2';
-        $message->messageText = $responseStart . trim($this->getCompletionBasedOnContext($assistantContext));
-        for ($i = 0; $i < 5; $i++) {
-            if (trim($message->messageText) === '') {
-                echo "Bad response detected, trying again\n";
-                $message->messageText = $responseStart . $this->getCompletionBasedOnContext($assistantContext);
-            } else {
-                break;
+        try {
+            $message->messageText = $responseStart . trim($this->getCompletionBasedOnContext($assistantContext));
+            for ($i = 0; $i < 5; $i++) {
+                if (trim($message->messageText) === '') {
+                    echo "Bad response detected, trying again\n";
+                    $message->messageText = $responseStart . $this->getCompletionBasedOnContext($assistantContext);
+                } else {
+                    break;
+                }
             }
+            if (trim($message->messageText) === '') {
+                echo "Failed to get a valid response after 5 attempts\n";
+                return new ProcessingResult(null, true, '🤔', $lastMessage);
+            }
+        } catch (\Exception $e) {
+            echo "Failed to get completion based on context: " . $e->getMessage() . "\n";
+            return new ProcessingResult(null, true, '🤔', $lastMessage);
         }
 
         return new ProcessingResult($message, true);
