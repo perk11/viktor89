@@ -78,7 +78,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
                 return $completion;
             }
-            echo "Received tool calls: " . json_encode($toolCalls, JSON_THROW_ON_ERROR) . "\n";
+            echo "Received tool calls: " . json_encode($toolCalls, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
             $requestOptions['messages'][] = [
                 'role' => 'assistant',
                 'content' => $choice0Message->content,
@@ -101,7 +101,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     $toolResult = ['content' => 'Error: Unknown tool call: ' . $functionName];
                 } else {
                     $functionArgs = json_decode($toolCall->function->arguments, true, flags: JSON_THROW_ON_ERROR);
-                    echo "Executing tool $functionName with args " . json_encode($functionArgs, JSON_THROW_ON_ERROR) . "\n";
+                    echo "Executing tool $functionName with args " . json_encode($functionArgs, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
                     $toolResult = $this->toolDefintions[$functionName]->toolCallClass->executeToolCall($functionArgs);
                 }
                 $requestOptions['messages'][] = [
