@@ -7,7 +7,10 @@ use OpenAI\Client;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
+use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
+use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
@@ -25,6 +28,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         UserPreferenceReaderInterface $responseStartProcessor,
         TelegramFileDownloader $telegramFileDownloader,
         AltTextProvider $altTextProvider,
+        private readonly ProcessingResultExecutor $processingResultExecutor,
         int $telegramBotUserId,
         private readonly string $url,
         string $apiKey = '',
@@ -82,6 +86,14 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                 return $completion;
             }
             echo "Received tool calls: " . json_encode($toolCalls, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
+            if ($choice0Message->content !== '') {
+                echo "Received non-empty content alongside tool call: " . $choice0Message->content . "\n";
+                if ($messageChain !== null) {
+                    $this->processingResultExecutor->execute(new ProcessingResult(InternalMessage::asResponseTo($messageChain->last(), $choice0Message->content), false));
+                } else {
+                    echo "Can't process non-empty content without message chain\n";
+                }
+            }
             $requestOptions['messages'][] = [
                 'role' => 'assistant',
                 'content' => $choice0Message->content,

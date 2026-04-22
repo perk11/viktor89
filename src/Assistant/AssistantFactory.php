@@ -11,6 +11,7 @@ use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
 use Perk11\Viktor89\Assistant\Tool\ToolParameter;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
+use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
@@ -24,6 +25,7 @@ class AssistantFactory
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly AltTextProvider $altTextProvider,
+        private readonly ProcessingResultExecutor $processingResultExecutor,
         private readonly ToolCallExecutorInterface $webSearchTool,
         private readonly MessageChainAwareToolCallExecutorInterface $imageFromTextGeneratorTool,
         private readonly int $telegramBotId
@@ -116,6 +118,7 @@ class AssistantFactory
                 $this->responseStartProcessor,
                 $this->telegramFileDownloader,
                 $this->altTextProvider,
+                $this->processingResultExecutor,
                 $this->telegramBotId,
                 $requestedAssistantConfig['url'],
                 $requestedAssistantConfig['api_key'] ?? '',

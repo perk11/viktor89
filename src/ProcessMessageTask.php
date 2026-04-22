@@ -253,6 +253,7 @@ class ProcessMessageTask implements Task
         $photoResponder = new PhotoResponder($database, $cacheFileManager);
 
         $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $database);
+        $processingResultExecutor= new ProcessingResultExecutor($database);
         $assistantFactory = new AssistantFactory(
             $config['assistantModels'],
             $systemPromptProcessor,
@@ -260,6 +261,7 @@ class ProcessMessageTask implements Task
             $openAiCompletionStringParser,
             $telegramFileDownloader,
             $altTextProvider,
+            $processingResultExecutor,
             new OllamaWebSearchToolCallExecutor($config['ollamaWebSearchApiKey']),
             new ImageFromTextGeneratorToolCallExecutor($automatic1111APiClient, $photoResponder),
             $telegram->getBotId(),
@@ -294,7 +296,6 @@ class ProcessMessageTask implements Task
             $editModelPreferenceReader,
             $editModelConfig,
         );
-        $processingResultExecutor= new ProcessingResultExecutor($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchInstruct6($database);
         $responder = new SiepatchNonInstruct4(

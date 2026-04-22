@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\Assistant;
 
 use Exception;
 use Perk11\Viktor89\MessageChain;
+use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
@@ -15,6 +16,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         UserPreferenceReaderInterface $responseStartProcessor,
         TelegramFileDownloader $telegramFileDownloader,
         AltTextProvider $altTextProvider,
+        ProcessingResultExecutor $processingResultExecutor,
         int $telegramBotId,
         string $url,
         string $apiKey = '',
