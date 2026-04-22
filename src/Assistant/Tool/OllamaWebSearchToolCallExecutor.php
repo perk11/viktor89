@@ -7,7 +7,7 @@ use GuzzleHttp\Exception\GuzzleException;
 
 class OllamaWebSearchToolCallExecutor implements ToolCallExecutorInterface
 {
-    private const int DEFAULT_MAX_RESPONSE_SIZE_BYTES = 16384;
+    private const int DEFAULT_MAX_RESPONSE_SIZE_BYTES = 64000;
 
     private readonly Client $client;
 
