@@ -102,11 +102,11 @@ class AssistantFactory
                     );
             }
             if ($requestedAssistantConfig['generateImages'] ?? false) {
-                $tools['generate_image'] =
+                $tools['image_gen_tool'] =
                     new ToolDefinition(
-                        'generate_image',
+                        'image_gen_tool',
                         $this->imageFromTextGeneratorTool,
-                        'Generate an image from a text prompt',
+                        'Generate an image from a text prompt and send it to user. Use as a tool call, not an action',
                         [
                             new ToolParameter('prompt',    ['type' => 'string'], true),
                         ]

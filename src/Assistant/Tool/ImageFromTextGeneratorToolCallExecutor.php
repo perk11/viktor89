@@ -39,6 +39,6 @@ class ImageFromTextGeneratorToolCallExecutor implements MessageChainAwareToolCal
             return ['status' => 'failed'];
         }
 
-        return ['status' => 'success'];
+        return ['status' => 'image_succesfully_generated_and_sent_to_user'];
     }
 }

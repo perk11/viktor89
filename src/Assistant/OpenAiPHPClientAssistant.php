@@ -74,31 +74,46 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             if ($choice0Message === null) {
                 throw new \Exception("Unexpected response from OpenAI: " . json_encode($result, JSON_THROW_ON_ERROR));
             }
+
+            $content = (string) ($choice0Message->content ?? '');
             $toolCalls = $choice0Message->toolCalls ?? [];
 
+            [$contentWithoutAction, $actionToolCall] = $this->extractActionToolCallFromContent($content);
+            if ($actionToolCall !== null) {
+                $toolCalls[] = $actionToolCall;
+            }
+            $content = $contentWithoutAction;
+
             if (count($toolCalls) === 0) {
-                $completion = $choice0Message->content;
                 if ($streamFunction !== null) {
-                    //TODO: implement proper streaming
-                    $streamFunction($completion);
+                    // TODO: implement proper streaming
+                    $streamFunction($content);
                 }
 
-                return $completion;
+                return $content;
             }
+
             echo "Received tool calls: " . json_encode($toolCalls, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
-            if ($choice0Message->content !== '') {
-                echo "Received non-empty content alongside tool call: " . $choice0Message->content . "\n";
+
+            if ($content !== '') {
+                echo "Received non-empty content alongside tool call: " . $content . "\n";
                 if ($messageChain !== null) {
-                    $this->processingResultExecutor->execute(new ProcessingResult(InternalMessage::asResponseTo($messageChain->last(), $choice0Message->content), false));
+                    $this->processingResultExecutor->execute(
+                        new ProcessingResult(
+                            InternalMessage::asResponseTo($messageChain->last(), $content),
+                            false
+                        )
+                    );
                 } else {
                     echo "Can't process non-empty content without message chain\n";
                 }
             }
+
             $requestOptions['messages'][] = [
                 'role' => 'assistant',
-                'content' => $choice0Message->content,
+                'content' => $content,
                 'tool_calls' => array_map(
-                    static fn ($toolCall) => [
+                    static fn(object $toolCall): array => [
                         'id' => $toolCall->id,
                         'type' => 'function',
                         'function' => [
@@ -109,34 +124,117 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     $toolCalls
                 ),
             ];
+
             foreach ($toolCalls as $toolCall) {
                 $functionName = $toolCall->function->name;
+
                 if (!array_key_exists($functionName, $this->toolDefintions)) {
                     echo "Unknown tool called: $functionName\n";
                     $toolResult = ['content' => 'Error: Unknown tool call: ' . $functionName];
                 } else {
-                    $functionArgs = json_decode($toolCall->function->arguments, true, flags: JSON_THROW_ON_ERROR);
+                    $functionArgs = json_decode($toolCall->function->arguments, true, 512, JSON_THROW_ON_ERROR);
                     echo "Executing tool $functionName with args " . json_encode($functionArgs, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
+
                     $toolCallClass = $this->toolDefintions[$functionName]->toolCallClass;
-                    if ($toolCallClass instanceof  ToolCallExecutorInterface) {
-                        $toolResult = $this->toolDefintions[$functionName]->toolCallClass->executeToolCall(
-                            $functionArgs
-                        );
+
+                    if ($toolCallClass instanceof ToolCallExecutorInterface) {
+                        $toolResult = $toolCallClass->executeToolCall($functionArgs);
                     } elseif ($toolCallClass instanceof MessageChainAwareToolCallExecutorInterface) {
-                        $toolResult = $this->toolDefintions[$functionName]->toolCallClass->executeToolCall(
-                            $functionArgs,
-                            $messageChain
-                        );
+                        $toolResult = $toolCallClass->executeToolCall($functionArgs, $messageChain);
                     } else {
-                        throw new \RuntimeException('Tool call class does not implement a supported interface: ' . get_class($toolCallClass));
+                        throw new \RuntimeException(
+                            'Tool call class does not implement a supported interface: ' . get_class($toolCallClass)
+                        );
                     }
                 }
+
                 $requestOptions['messages'][] = [
-                    'role'         => 'tool',
+                    'role' => 'tool',
                     'tool_call_id' => $toolCall->id,
-                    'content'      => json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+                    'content' => json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
                 ];
             }
         }
+    }
+
+    /**
+     * @return array{0:string,1:?object}
+     */
+    private function extractActionToolCallFromContent(string $content): array
+    {
+        $trimmedContent = trim($content);
+        if ($trimmedContent === '') {
+            return ['', null];
+        }
+
+        $firstOpeningBracePosition = mb_strpos($trimmedContent, '{');
+        if ($firstOpeningBracePosition === false) {
+            return [$content, null];
+        }
+
+        $candidateJson = mb_substr($trimmedContent, $firstOpeningBracePosition);
+        try {
+            $decodedCandidate = json_decode($candidateJson, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return [$content, null];
+        }
+
+        if (!is_array($decodedCandidate) || !isset($decodedCandidate['action'])) {
+            return [$content, null];
+        }
+
+        $functionName = (string) $decodedCandidate['action'];
+        $functionArguments = $this->normalizeActionInputToToolArguments($decodedCandidate['action_input'] ?? []);
+
+        echo "Removing Gemma 4 action from content: " . $functionName . "\n";
+        $contentWithoutAction = trim(substr($trimmedContent, 0, $firstOpeningBracePosition));
+
+        $syntheticToolCall = (object) [
+            'id' => 'action_' . bin2hex(random_bytes(8)),
+            'type' => 'function',
+            'function' => (object) [
+                'name' => $functionName,
+                'arguments' => json_encode($functionArguments, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ],
+        ];
+
+        return [$contentWithoutAction, $syntheticToolCall];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function normalizeActionInputToToolArguments(mixed $actionInput): array
+    {
+        if (is_array($actionInput)) {
+            return $actionInput;
+        }
+
+        if (is_string($actionInput)) {
+            $trimmedActionInput = trim($actionInput);
+            if ($trimmedActionInput !== '') {
+                try {
+                    $trimmedActionInput = preg_replace(
+                        "/'([^'\\\\]*(?:\\\\.[^'\\\\]*)*)'/",
+                        '"$1"',
+                        $trimmedActionInput
+                    );
+                    $decodedActionInput = json_decode($trimmedActionInput, true, 512, JSON_THROW_ON_ERROR);
+                    if (is_array($decodedActionInput)) {
+                        return $decodedActionInput;
+                    }
+                } catch (\JsonException) {
+                    // Fallback below
+                }
+            }
+
+            return ['input' => $actionInput];
+        }
+
+        if ($actionInput === null) {
+            return [];
+        }
+
+        return ['input' => $actionInput];
     }
 }
