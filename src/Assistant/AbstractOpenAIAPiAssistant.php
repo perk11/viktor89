@@ -56,22 +56,6 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $message->messageText = $responseStart . trim(
                     $this->getCompletionBasedOnContext($assistantContext, null, $messageChain)
                 );
-            for ($i = 0; $i < 5; $i++) {
-                if (trim($message->messageText) === '') {
-                    echo "Bad response detected, trying again\n";
-                    $message->messageText = $responseStart . $this->getCompletionBasedOnContext(
-                            $assistantContext,
-                            null,
-                            $messageChain
-                        );
-                } else {
-                    break;
-                }
-            }
-            if (trim($message->messageText) === '') {
-                echo "Failed to get a valid response after 5 attempts\n";
-                return new ProcessingResult(null, true, '🤔', $lastMessage);
-            }
         } catch (\Exception $e) {
             echo "Failed to get completion based on context: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
             return new ProcessingResult(null, true, '🤔', $lastMessage);
