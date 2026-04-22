@@ -4,7 +4,10 @@ namespace Perk11\Viktor89\Assistant;
 
 use OpenAI;
 use OpenAI\Client;
+use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
+use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
+use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
@@ -44,7 +47,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         );
     }
 
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null): string
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): string
     {
         $requestOptions = [
             'messages' => $assistantContext->toOpenAiMessagesArray(),
@@ -102,7 +105,19 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                 } else {
                     $functionArgs = json_decode($toolCall->function->arguments, true, flags: JSON_THROW_ON_ERROR);
                     echo "Executing tool $functionName with args " . json_encode($functionArgs, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
-                    $toolResult = $this->toolDefintions[$functionName]->toolCallClass->executeToolCall($functionArgs);
+                    $toolCallClass = $this->toolDefintions[$functionName]->toolCallClass;
+                    if ($toolCallClass instanceof  ToolCallExecutorInterface) {
+                        $toolResult = $this->toolDefintions[$functionName]->toolCallClass->executeToolCall(
+                            $functionArgs
+                        );
+                    } elseif ($toolCallClass instanceof MessageChainAwareToolCallExecutorInterface) {
+                        $toolResult = $this->toolDefintions[$functionName]->toolCallClass->executeToolCall(
+                            $functionArgs,
+                            $messageChain
+                        );
+                    } else {
+                        throw new \RuntimeException('Tool call class does not implement a supported interface: ' . get_class($toolCallClass));
+                    }
                 }
                 $requestOptions['messages'][] = [
                     'role'         => 'tool',

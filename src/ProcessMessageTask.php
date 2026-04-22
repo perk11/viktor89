@@ -15,6 +15,7 @@ use Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler;
 use Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantFactory;
+use Perk11\Viktor89\Assistant\Tool\ImageFromTextGeneratorToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\OllamaWebSearchToolCallExecutor;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\DefaultingToFirstInConfigModelPreferenceReader;
@@ -249,6 +250,8 @@ class ProcessMessageTask implements Task
             $database,
         );
 
+        $photoResponder = new PhotoResponder($database, $cacheFileManager);
+
         $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $database);
         $assistantFactory = new AssistantFactory(
             $config['assistantModels'],
@@ -258,6 +261,7 @@ class ProcessMessageTask implements Task
             $telegramFileDownloader,
             $altTextProvider,
             new OllamaWebSearchToolCallExecutor($config['ollamaWebSearchApiKey']),
+            new ImageFromTextGeneratorToolCallExecutor($automatic1111APiClient, $photoResponder),
             $telegram->getBotId(),
         );
         $altTextProvider->assistantWithVision = $assistantFactory->getAssistantInstanceByName('vision-for-alt-text');
@@ -290,7 +294,6 @@ class ProcessMessageTask implements Task
             $editModelPreferenceReader,
             $editModelConfig,
         );
-        $photoResponder = new PhotoResponder($database, $cacheFileManager);
         $processingResultExecutor= new ProcessingResultExecutor($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNonInstruct5($database);
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchInstruct6($database);

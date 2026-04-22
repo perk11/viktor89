@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\Assistant;
 
 use Exception;
+use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
@@ -35,7 +36,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
             $supportsImages
         );
     }
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null): string
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): string
     {
         $parameters = $this->getResponseParameters($assistantContext);
         echo "Calling OpenAI chat API...\n";

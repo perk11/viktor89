@@ -14,7 +14,7 @@ final class ToolDefinition implements JsonSerializable
      */
     public function __construct(
         private(set) readonly string $name,
-        private(set) readonly ToolCallExecutorInterface $toolCallClass,
+        private(set) readonly ToolCallExecutorInterface|MessageChainAwareToolCallExecutorInterface $toolCallClass,
         private(set) readonly ?string $description,
         private(set) readonly array $parameters = [],
         private(set) readonly string $type = 'function',

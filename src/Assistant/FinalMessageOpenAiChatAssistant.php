@@ -2,9 +2,11 @@
 
 namespace Perk11\Viktor89\Assistant;
 
+use Perk11\Viktor89\MessageChain;
+
 class FinalMessageOpenAiChatAssistant extends OpenAiChatAssistant
 {
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null): string
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): string
     {
         $completion = parent::getCompletionBasedOnContext($assistantContext, $streamFunction);
 

@@ -5,6 +5,8 @@ namespace Perk11\Viktor89\Assistant;
 use Exception;
 use OpenAI\Responses\Responses\Tool\WebSearchTool;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
+use Perk11\Viktor89\Assistant\Tool\ImageFromTextGeneratorToolCallExecutor;
+use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
 use Perk11\Viktor89\Assistant\Tool\ToolParameter;
@@ -23,6 +25,7 @@ class AssistantFactory
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly AltTextProvider $altTextProvider,
         private readonly ToolCallExecutorInterface $webSearchTool,
+        private readonly MessageChainAwareToolCallExecutorInterface $imageFromTextGeneratorTool,
         private readonly int $telegramBotId
     )
     {
@@ -93,6 +96,17 @@ class AssistantFactory
                         [
                             new ToolParameter('query',    ['type' => 'string'], true),
                             new ToolParameter('max_results', ['type' => 'integer', 'minimum' => 1, 'maximum' => 10], false),
+                        ]
+                    );
+            }
+            if ($requestedAssistantConfig['generateImages'] ?? false) {
+                $tools['generate_image'] =
+                    new ToolDefinition(
+                        'generate_image',
+                        $this->imageFromTextGeneratorTool,
+                        'Generate an image from a text prompt',
+                        [
+                            new ToolParameter('prompt',    ['type' => 'string'], true),
                         ]
                     );
             }

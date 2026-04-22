@@ -53,11 +53,17 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         $message->chatId = $lastMessage->chatId;
         $message->parseMode = 'MarkdownV2';
         try {
-            $message->messageText = $responseStart . trim($this->getCompletionBasedOnContext($assistantContext));
+            $message->messageText = $responseStart . trim(
+                    $this->getCompletionBasedOnContext($assistantContext, null, $messageChain)
+                );
             for ($i = 0; $i < 5; $i++) {
                 if (trim($message->messageText) === '') {
                     echo "Bad response detected, trying again\n";
-                    $message->messageText = $responseStart . $this->getCompletionBasedOnContext($assistantContext);
+                    $message->messageText = $responseStart . $this->getCompletionBasedOnContext(
+                            $assistantContext,
+                            null,
+                            $messageChain
+                        );
                 } else {
                     break;
                 }
