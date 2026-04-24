@@ -138,9 +138,19 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     $toolCallClass = $this->toolDefintions[$functionName]->toolCallClass;
 
                     if ($toolCallClass instanceof ToolCallExecutorInterface) {
-                        $toolResult = $toolCallClass->executeToolCall($functionArgs);
+                        try {
+                            $toolResult = $toolCallClass->executeToolCall($functionArgs);
+                        } catch (\Throwable $e) {
+                            echo "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+                            $toolResult = ['content' => 'tool call failed'];
+                        }
                     } elseif ($toolCallClass instanceof MessageChainAwareToolCallExecutorInterface) {
-                        $toolResult = $toolCallClass->executeToolCall($functionArgs, $messageChain);
+                        try {
+                            $toolResult = $toolCallClass->executeToolCall($functionArgs, $messageChain);
+                        } catch (\Throwable $e) {
+                            echo "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+                            $toolResult = ['content' => 'tool call failed'];
+                        }
                     } else {
                         throw new \RuntimeException(
                             'Tool call class does not implement a supported interface: ' . get_class($toolCallClass)
