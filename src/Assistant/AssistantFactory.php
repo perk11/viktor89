@@ -3,10 +3,9 @@
 namespace Perk11\Viktor89\Assistant;
 
 use Exception;
-use OpenAI\Responses\Responses\Tool\WebSearchTool;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
-use Perk11\Viktor89\Assistant\Tool\ImageFromTextGeneratorToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
+use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
 use Perk11\Viktor89\Assistant\Tool\ToolParameter;
@@ -28,6 +27,7 @@ class AssistantFactory
         private readonly ProcessingResultExecutor $processingResultExecutor,
         private readonly ToolCallExecutorInterface $webSearchTool,
         private readonly MessageChainAwareToolCallExecutorInterface $imageFromTextGeneratorTool,
+        private readonly MessageChainAwareToolCallExecutorInterface $reactToolCallExecutor,
         private readonly int $telegramBotId
     )
     {
@@ -109,6 +109,20 @@ class AssistantFactory
                         'Generate an image from a text prompt and send it to user. Use as a tool call, not an action',
                         [
                             new ToolParameter('prompt',    ['type' => 'string'], true),
+                        ]
+                    );
+            }
+            if ($requestedAssistantConfig['toolReact'] ?? false) {
+                $tools['react_with_emoji'] =
+                    new ToolDefinition(
+                        'react_with_emoji',
+                        $this->reactToolCallExecutor,
+                        'React to user\'s message with an emoji, use to show emotions',
+                        [
+                            new ToolParameter('reaction',    [
+                                'type' => 'string',
+                                'allowed_values' => ReactToolCallExecutor::ALLOWED_REACTIONS,
+                            ], true),
                         ]
                     );
             }

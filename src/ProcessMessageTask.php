@@ -17,6 +17,7 @@ use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\Tool\ImageFromTextGeneratorToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\OllamaWebSearchToolCallExecutor;
+use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\DefaultingToFirstInConfigModelPreferenceReader;
 use Perk11\Viktor89\ImageGeneration\DownscaleProcessor;
@@ -264,6 +265,7 @@ class ProcessMessageTask implements Task
             $processingResultExecutor,
             new OllamaWebSearchToolCallExecutor($config['ollamaWebSearchApiKey']),
             new ImageFromTextGeneratorToolCallExecutor($automatic1111APiClient, $photoResponder),
+            new ReactToolCallExecutor(),
             $telegram->getBotId(),
         );
         $altTextProvider->assistantWithVision = $assistantFactory->getAssistantInstanceByName('vision-for-alt-text');
