@@ -117,7 +117,7 @@ class AssistantFactory
                     new ToolDefinition(
                         'react_with_emoji',
                         $this->reactToolCallExecutor,
-                        'React to user\'s message with an emoji, use to show emotions',
+                        'React to user\'s message with one of the allowed emojis, use to show emotions',
                         [
                             new ToolParameter('reaction',    [
                                 'type' => 'string',
