@@ -47,7 +47,9 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             $telegramFileDownloader,
             $altTextProvider,
             $telegramBotUserId,
-            $this->url
+            $this->url,
+            $apiKey,
+            $supportsImages,
         );
     }
 
