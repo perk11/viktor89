@@ -10,9 +10,13 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Perk11\Viktor89\Util\TelegramHtml;
+use Perk11\Viktor89\Util\TelegramMarkdownV2;
 
 abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 {
+    private const float DRAFT_FREQUENCY_SECONDS = 0.7;
+
     protected readonly OpenAI $openAi;
     public function __construct(
         private readonly UserPreferenceReaderInterface $systemPromptProcessor,
@@ -53,8 +57,45 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         $message->chatId = $lastMessage->chatId;
         $message->parseMode = 'MarkdownV2';
         try {
+            $partialContent = '';
+            if ($message->chatId > 0) {
+                $message->parseMode = 'HTML';
+                $draftAborted = false;
+                $lastDraftTime = 0;
+                $streamFunction = static function ($chunk) use (&$partialContent, &$message, &$draftAborted, &$lastDraftTime) {
+                    echo $chunk;
+                    $partialContent .= $chunk;
+                    if ($draftAborted) {
+                        return;
+                    }
+                    $currentDraftTime = microtime(true);
+                    if ($currentDraftTime - $lastDraftTime < self::DRAFT_FREQUENCY_SECONDS) {
+                        return;
+                    }
+                    $lastDraftTime = $currentDraftTime;
+                    $message->messageText = TelegramMarkdownV2::escape($partialContent);
+                    $sendAsDraftResult = $message->sendAsDraft();
+                    $sendAsDraftResultObject = json_decode($sendAsDraftResult, false);
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        echo "Failed to parse resutl of sending message as draft: " . json_last_error_msg() . "\n";
+                        $draftAborted = true;
+                    }
+                    if ($sendAsDraftResultObject->ok === false) {
+                        var_dump($sendAsDraftResultObject);
+                        if ($sendAsDraftResultObject->error_code === 429 && isset($sendAsDraftResultObject->parameters->retry_after)) {
+                            echo "Got retry after " . $sendAsDraftResultObject->parameters->retry_after ." when sending draft.: " . $sendAsDraftResultObject->error_code . ' '. $sendAsDraftResultObject->description . "\n";
+                            $lastDraftTime = microtime(true) + $sendAsDraftResultObject->parameters->retry_after - self::DRAFT_FREQUENCY_SECONDS;
+                        } else {
+                            echo "Failed to send message as draft: " . $sendAsDraftResultObject->error_code . ' ' . $sendAsDraftResultObject->description . "\n";
+                            $draftAborted = true;
+                        }
+                    }
+                };
+            } else {
+                $streamFunction = null;
+            }
             $message->messageText = $responseStart . trim(
-                    $this->getCompletionBasedOnContext($assistantContext, null, $messageChain)
+                    $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain)
                 );
         } catch (\Exception $e) {
             echo "Failed to get completion based on context: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";

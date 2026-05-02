@@ -71,14 +71,57 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         }
         while (true) {
             echo "Calling OpenAI chat API (PHPClient)...\n";
-            $result = $this->openAiClient->chat()->create($requestOptions);
-            $choice0Message = $result->choices[0]->message ?? null;
-            if ($choice0Message === null) {
-                throw new \Exception("Unexpected response from OpenAI: " . json_encode($result, JSON_THROW_ON_ERROR));
-            }
+            $content = '';
+            /** @var array<int, object> $toolCallsByIndex */
+            $toolCallsByIndex = [];
 
-            $content = (string) ($choice0Message->content ?? '');
-            $toolCalls = $choice0Message->toolCalls ?? [];
+            if ($streamFunction !== null) {
+                $stream = $this->openAiClient->chat()->createStreamed($requestOptions);
+                foreach ($stream as $response) {
+                    $delta = $response->choices[0]->delta;
+                    if (isset($delta->content)) {
+                        $contentChunk = $delta->content;
+                        $content .= $contentChunk;
+                        $streamFunction($contentChunk);
+                    }
+
+                    if (isset($delta->toolCalls)) {
+                        foreach ($delta->toolCalls as $toolCallChunk) {
+                            $index = $toolCallChunk->index;
+                            if (!isset($toolCallsByIndex[$index])) {
+                                $toolCallsByIndex[$index] = (object) [
+                                    'id' => $toolCallChunk->id ?? null,
+                                    'type' => 'function',
+                                    'function' => (object) [
+                                        'name' => $toolCallChunk->function->name ?? null,
+                                        'arguments' => $toolCallChunk->function->arguments ?? '',
+                                    ],
+                                ];
+                            } else {
+                                if (isset($toolCallChunk->id)) {
+                                    $toolCallsByIndex[$index]->id = $toolCallChunk->id;
+                                }
+                                if (isset($toolCallChunk->function->name)) {
+                                    $toolCallsByIndex[$index]->function->name = $toolCallChunk->function->name;
+                                }
+                                if (isset($toolCallChunk->function->arguments)) {
+                                    $toolCallsByIndex[$index]->function->arguments .= $toolCallChunk->function->arguments;
+                                }
+                            }
+                        }
+                    }
+                }
+                $toolCalls = array_values($toolCallsByIndex);
+            } else {
+                $result = $this->openAiClient->chat()->create($requestOptions);
+                $choice0Message = $result->choices[0]->message ?? null;
+                if ($choice0Message === null) {
+                    throw new \Exception("Unexpected response from OpenAI: " . json_encode($result, JSON_THROW_ON_ERROR));
+                }
+
+                $content = (string) ($choice0Message->content ?? '');
+                $toolCalls = $choice0Message->toolCalls ?? [];
+            }
 
             [$contentWithoutAction, $actionToolCall] = $this->extractActionToolCallFromContent($content);
             if ($actionToolCall !== null) {
@@ -87,11 +130,6 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             $content = $contentWithoutAction;
 
             if (count($toolCalls) === 0) {
-                if ($streamFunction !== null) {
-                    // TODO: implement proper streaming
-                    $streamFunction($content);
-                }
-
                 return $content;
             }
 
