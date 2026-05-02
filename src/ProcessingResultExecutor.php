@@ -15,13 +15,23 @@ class ProcessingResultExecutor
     public function execute(ProcessingResult $result): void
     {
         if ($result->response !== null) {
-            echo "Sending message in chat {$result->response->chatId}: {$result->response->messageText}\n";
+            if ($result->response->id === null) {
+                echo "Sending message in chat {$result->response->chatId}: {$result->response->messageText}\n";
 
-            $telegramServerResponse = $result->response->send();
-            if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof Message) {
-                $this->database->logMessage($telegramServerResponse->getResult());
+                $telegramServerResponse = $result->response->send();
+                if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof Message) {
+                    $this->database->logMessage($telegramServerResponse->getResult());
+                } else {
+                    echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
+                }
             } else {
-                echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
+                echo "Editing message in chat {$result->response->chatId}\n";
+                $telegramServerResponse = $result->response->edit($result->response->messageText);
+                if ($telegramServerResponse->isOk()) {
+                    $this->database->logInternalMessage($result->response);
+                } else {
+                    echo "Failed to edit response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
+                }
             }
         }
 

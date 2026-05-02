@@ -16,6 +16,7 @@ use Perk11\Viktor89\Util\TelegramMarkdownV2;
 abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 {
     private const float DRAFT_FREQUENCY_SECONDS = 0.7;
+    private const float EDIT_FREQUENCY_SECONDS = 0.7;
 
     protected readonly OpenAI $openAi;
     public function __construct(
@@ -59,7 +60,6 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         try {
             $partialContent = '';
             if ($message->chatId > 0) {
-                $message->parseMode = 'HTML';
                 $draftAborted = false;
                 $lastDraftTime = 0;
                 $streamFunction = static function ($chunk) use (&$partialContent, &$message, &$draftAborted, &$lastDraftTime) {
@@ -77,7 +77,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                     $sendAsDraftResult = $message->sendAsDraft();
                     $sendAsDraftResultObject = json_decode($sendAsDraftResult, false);
                     if (json_last_error() !== JSON_ERROR_NONE) {
-                        echo "Failed to parse resutl of sending message as draft: " . json_last_error_msg() . "\n";
+                        echo "Failed to parse result of sending message as draft: " . json_last_error_msg() . "\n";
                         $draftAborted = true;
                     }
                     if ($sendAsDraftResultObject->ok === false) {
@@ -92,11 +92,48 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                     }
                 };
             } else {
-                $streamFunction = null;
+                $editAborted = false;
+                $lastEditTime = 0;
+                $streamFunction = static function ($chunk) use (&$partialContent, &$message, &$editAborted, &$lastEditTime, $responseStart) {
+                    echo $chunk;
+                    $partialContent .= $chunk;
+                    if ($editAborted) {
+                        return;
+                    }
+                    if (mb_strlen($partialContent) < 32) {
+                        return;
+                    }
+                    $currentEditTime = microtime(true);
+                    if ($currentEditTime - $lastEditTime < self::EDIT_FREQUENCY_SECONDS) {
+                        return;
+                    }
+                    $lastEditTime = $currentEditTime;
+                    $messageText = $responseStart . TelegramMarkdownV2::escape($partialContent) . '**\.\.\.**';
+                    if ($message->id === null) {
+                        $message->messageText = $messageText;
+                        $sendResult = $message->send();
+                        if (!$sendResult->isOk()) {
+                            echo "Failed to send initial message for streaming: " . $sendResult->getErrorCode() . ' ' . $sendResult->getDescription() . "\n";
+                            $editAborted = true;
+                        }
+                    } else {
+                        $editResult = $message->edit($messageText, false);
+                        if (!$editResult->isOk()) {
+                            var_dump($editResult);
+                            if ($editResult->getErrorCode() === 429 && isset($editResult->getRawData()['parameters']['retry_after'])) {
+                                echo "Got retry after " . $editResult->getRawData()['parameters']['retry_after'] . " when editing message.: " . $editResult->getErrorCode() . ' ' . $editResult->getDescription() . "\n";
+                                $lastEditTime = microtime(true) + $editResult->getRawData()['parameters']['retry_after'] - self::EDIT_FREQUENCY_SECONDS;
+                            } else {
+                                echo "Failed to edit message for streaming: " . $editResult->getErrorCode() . ' ' . $editResult->getDescription() . "\n";
+                                $editAborted = true;
+                            }
+                        }
+                    }
+                };
             }
-            $message->messageText = $responseStart . trim(
+            $message->messageText = TelegramMarkdownV2::escape($responseStart . trim(
                     $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain)
-                );
+                ));
         } catch (\Exception $e) {
             echo "Failed to get completion based on context: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
             return new ProcessingResult(null, true, '🤔', $lastMessage);

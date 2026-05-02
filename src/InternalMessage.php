@@ -14,7 +14,7 @@ use Perk11\Viktor89\VoiceGeneration\MessageAudio;
 
 class InternalMessage
 {
-    public int $id;
+    public ?int $id = null;
     public ?int $draftId = null;
 
     public string $type;
@@ -75,10 +75,8 @@ class InternalMessage
 
         return $message;
     }
-
-    public static function fromTelegramMessage(Message $telegramMessage): self
+    private static function extractPropertiesFromTelegramMessage(InternalMessage $message, Message $telegramMessage)
     {
-        $message = new self();
         $message->id = $telegramMessage->getMessageId();
         $message->type = $telegramMessage->getType();
         $message->messageThreadId = $telegramMessage->getMessageThreadId();
@@ -102,9 +100,9 @@ class InternalMessage
             }
         }
         $message->messageText = preg_replace(
-                                          '/@' . preg_quote($_ENV['TELEGRAM_BOT_USERNAME'], '/'). '?(\s+)/',
-                                          '',
-                                          $message->messageText,
+            '/@' . preg_quote($_ENV['TELEGRAM_BOT_USERNAME'], '/'). '?(\s+)/',
+            '',
+            $message->messageText,
         );
         if ($telegramMessage->getPhoto() !== null) {
             $maxSize = 0;
@@ -139,6 +137,12 @@ class InternalMessage
         $message->videoNote = $telegramMessage->getVideoNote();
         $message->voice = $telegramMessage->getVoice();
 
+    }
+
+    public static function fromTelegramMessage(Message $telegramMessage): self
+    {
+        $message = new self();
+        self::extractPropertiesFromTelegramMessage($message, $telegramMessage);
         return $message;
     }
 
@@ -188,9 +192,13 @@ class InternalMessage
 
         $response =  Request::sendMessage($options);
         if (!isset($options['parse_mode']) || $options['parse_mode'] === 'Default') {
+            if ($response->isOk()) {
+                self::extractPropertiesFromTelegramMessage($this, $response->getResult());
+            }
             return $response;
         }
         if ($response->isOk()) {
+            self::extractPropertiesFromTelegramMessage($this, $response->getResult());
             return $response;
         }
         if ($options['parse_mode'] === 'MarkdownV2') {
@@ -200,6 +208,7 @@ class InternalMessage
 
             $response =  Request::sendMessage($options);
             if ($response->isOk()) {
+                self::extractPropertiesFromTelegramMessage($this, $response->getResult());
                 return $response;
             }
         }
@@ -208,7 +217,38 @@ class InternalMessage
         echo "\nMessage failed to send in ". $options['parse_mode'] . " mode, trying again in Default mode\n";
 
         unset($options['parse_mode']);
-        return Request::sendMessage($options);
+        $response = Request::sendMessage($options);
+        if ($response->isOk()) {
+            self::extractPropertiesFromTelegramMessage($this, $response->getResult());
+        }
+        return $response;
+    }
+
+    public function edit(string $newText, $autoRetry = true): ServerResponse
+    {
+        $options = [
+            'chat_id' => $this->chatId,
+            'message_id' => $this->id,
+            'text' => $newText,
+        ];
+
+        if ($this->parseMode !== 'Default') {
+            $options['parse_mode'] = $this->parseMode;
+        }
+
+        $response = Request::editMessageText($options);
+        if ($response->isOk()) {
+            $this->messageText = $newText;
+            if ($this->rawMessageText !== null) {
+                $this->rawMessageText = $newText;
+            }
+        } elseif ($autoRetry && $response->getErrorCode() === 429 && isset($response->getRawData()['parameters']['retry_after'])) {
+            echo "Got retry after " . $response->getRawData()['parameters']['retry_after'] . " when editing message.: " . $response->getErrorCode() . ' ' . $response->getDescription() . "\n";
+            sleep(max($response->getRawData()['parameters']['retry_after'], 120));
+            return $this->edit($newText, false);
+        }
+
+        return $response;
     }
 
     public static function asResponseTo(InternalMessage $messageToRespondTo, ?string $responseText = null): self
