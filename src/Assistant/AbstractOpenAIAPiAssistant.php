@@ -38,7 +38,8 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
     {
         $userId = $messageChain->last()->userId;
         $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($userId);
-        $systemPrompt = $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
+        $systemPrompt = 'Use Telegram Markdown for your responses. Current date and time: ' . date('Y-m-d H:i:s') . "\n";
+        $systemPrompt .= $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
             "Always respond to the user in the language they use or request.\n";
 
         $userName = trim($messageChain->last()->userName);
