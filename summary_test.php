@@ -7,6 +7,7 @@ use Perk11\Viktor89\CacheFileManager;
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\FixedValuePreferenceProvider;
 use Perk11\Viktor89\OpenAISummaryProvider;
+use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\VoiceRecognition\InternalMessageTranscriber;
 use Perk11\Viktor89\VoiceRecognition\VoiceRecogniser;
@@ -45,6 +46,7 @@ $altTextProvider->assistantWithVision = new \Perk11\Viktor89\Assistant\OpenAiCha
     $systemPromptProcessor,
     $telegramFileDownloader,
     $altTextProvider,
+    new ProcessingResultExecutor($database),
     $telegram->getBotId(),
     $assistantConfig['url'],
     $assistantConfig['apiKey'] ?? '',

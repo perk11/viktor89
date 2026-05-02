@@ -64,6 +64,7 @@ class SummaryTask implements Task
             $systemPromptProcessor,
             $telegramFileDownloader,
             $altTextProvider,
+            new ProcessingResultExecutor($database),
             $telegram->getBotId(),
             $assistantConfig['url'],
             $assistantConfig['apiKey'] ?? '',
