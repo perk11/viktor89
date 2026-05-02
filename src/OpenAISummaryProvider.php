@@ -6,6 +6,7 @@ use Exception;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\IPC\EchoUpdateCallback;
+use Perk11\Viktor89\Util\TelegramMarkdownV2;
 
 class OpenAISummaryProvider
 {
@@ -47,9 +48,9 @@ class OpenAISummaryProvider
         $chunks = mb_str_split($summary, $maxSize);
         foreach ($chunks as $chunk) {
             $message = new InternalMessage();
-            $message->parseMode = 'Default';
+            $message->parseMode = 'MarkdownV2';
             $message->chatId = $chatId;
-            $message->messageText = "#summary\n" . $chunk;
+            $message->messageText = "#summary\n" . TelegramMarkdownV2::makeValid($chunk);
             $message->send();
         }
 

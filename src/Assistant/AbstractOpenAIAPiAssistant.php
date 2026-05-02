@@ -73,7 +73,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                         return;
                     }
                     $lastDraftTime = $currentDraftTime;
-                    $message->messageText = TelegramMarkdownV2::escape($partialContent);
+                    $message->messageText = TelegramMarkdownV2::makeValid($partialContent);
                     $sendAsDraftResult = $message->sendAsDraft();
                     $sendAsDraftResultObject = json_decode($sendAsDraftResult, false);
                     if (json_last_error() !== JSON_ERROR_NONE) {
@@ -108,7 +108,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                         return;
                     }
                     $lastEditTime = $currentEditTime;
-                    $messageText = $responseStart . TelegramMarkdownV2::escape($partialContent) . '**\.\.\.**';
+                    $messageText = $responseStart . TelegramMarkdownV2::makeValid($partialContent) . ' **\.\.\.**';
                     if ($message->id === null) {
                         $message->messageText = $messageText;
                         $sendResult = $message->send();
@@ -131,7 +131,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                     }
                 };
             }
-            $message->messageText = TelegramMarkdownV2::escape($responseStart . trim(
+            $message->messageText = TelegramMarkdownV2::makeValid($responseStart . trim(
                     $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain)
                 ));
         } catch (\Exception $e) {
