@@ -108,7 +108,11 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                     if ($timeSinceLastEdit < self::EDIT_FREQUENCY_SECONDS) {
                         return;
                     }
-                    if ($timeSinceLastEdit < self::SMALL_EDIT_MIN_TIME_SECONDS && (mb_strlen($lastLength) - mb_strlen($partialContent) < 64)) {
+                    if ($lastLength === 0) {
+                      if (mb_strlen($partialContent) < 32) {
+                          return;
+                      }
+                    } elseif ($timeSinceLastEdit < self::SMALL_EDIT_MIN_TIME_SECONDS && (mb_strlen($partialContent) - mb_strlen($lastLength) < 64)) {
                         return;
                     }
                     $lastLength = mb_strlen($partialContent);
@@ -122,6 +126,10 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                             $editAborted = true;
                         }
                     } else {
+                        if (mb_strlen($messageText) > 4000) {
+                            $messageText = TelegramMarkdownV2::makeValid(mb_substr($responseStart . ($partialContent), 0, 4000));
+                            $editAborted = true;
+                        }
                         $editResult = $message->edit($messageText, false);
                         if (!$editResult->isOk()) {
                             var_dump($editResult);
