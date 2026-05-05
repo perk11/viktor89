@@ -16,7 +16,8 @@ use Perk11\Viktor89\Util\TelegramMarkdownV2;
 abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 {
     private const float DRAFT_FREQUENCY_SECONDS = 0.7;
-    private const float EDIT_FREQUENCY_SECONDS = 0.7;
+    private const float EDIT_FREQUENCY_SECONDS = 1.5;
+    private const float SMALL_EDIT_MIN_TIME_SECONDS = 10;
 
     protected readonly OpenAI $openAi;
     public function __construct(
@@ -38,7 +39,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
     {
         $userId = $messageChain->last()->userId;
         $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($userId);
-        $systemPrompt = 'Use Telegram Markdown for your responses. Current date and time: ' . date('Y-m-d H:i:s') . "\n";
+        $systemPrompt = 'Use Telegram Markdown for your responses. Today is ' . date('Y-m-d') . "\n";
         $systemPrompt .= $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
             "Always respond to the user in the language they use or request.\n";
 
@@ -95,19 +96,22 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             } else {
                 $editAborted = false;
                 $lastEditTime = 0;
-                $streamFunction = static function ($chunk) use (&$partialContent, &$message, &$editAborted, &$lastEditTime, $responseStart) {
+                $lastLength = 0;
+                $streamFunction = static function ($chunk) use (&$partialContent, &$message, &$editAborted, &$lastEditTime, &$lastLength, $responseStart) {
                     echo $chunk;
                     $partialContent .= $chunk;
                     if ($editAborted) {
                         return;
                     }
-                    if (mb_strlen($partialContent) < 32) {
-                        return;
-                    }
                     $currentEditTime = microtime(true);
-                    if ($currentEditTime - $lastEditTime < self::EDIT_FREQUENCY_SECONDS) {
+                    $timeSinceLastEdit = $currentEditTime - $lastEditTime;
+                    if ($timeSinceLastEdit < self::EDIT_FREQUENCY_SECONDS) {
                         return;
                     }
+                    if ($timeSinceLastEdit < self::SMALL_EDIT_MIN_TIME_SECONDS && (mb_strlen($lastLength) - mb_strlen($partialContent) < 64)) {
+                        return;
+                    }
+                    $lastLength = mb_strlen($partialContent);
                     $lastEditTime = $currentEditTime;
                     $messageText = $responseStart . TelegramMarkdownV2::makeValid($partialContent) . ' **\.\.\.**';
                     if ($message->id === null) {
