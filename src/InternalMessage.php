@@ -244,7 +244,7 @@ class InternalMessage
             }
         } elseif ($autoRetry && $response->getErrorCode() === 429 && isset($response->getRawData()['parameters']['retry_after'])) {
             echo "Got retry after " . $response->getRawData()['parameters']['retry_after'] . " when editing message.: " . $response->getErrorCode() . ' ' . $response->getDescription() . "\n";
-            sleep(max($response->getRawData()['parameters']['retry_after'], 120));
+            sleep(min($response->getRawData()['parameters']['retry_after'], 120));
             return $this->edit($newText, false);
         }
 
