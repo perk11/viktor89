@@ -2,6 +2,7 @@
 
 namespace Perk11\Viktor89\Assistant;
 
+use GuzzleHttp\Client as GuzzleClient;
 use OpenAI;
 use OpenAI\Client;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
@@ -36,7 +37,8 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         private readonly array $toolDefintions = [],
     ) {
         $openAiFactory = OpenAI::factory()
-            ->withBaseUri(rtrim($url, '/'));
+            ->withBaseUri(rtrim($url, '/'))
+            ->withHttpClient(new GuzzleClient(['timeout' => 3600*4]));
         if ($apiKey !== '') {
             $openAiFactory->withApiKey($apiKey);
         }
