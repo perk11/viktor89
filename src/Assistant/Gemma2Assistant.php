@@ -23,13 +23,14 @@ class Gemma2Assistant extends AbstractOpenAIAPICompletingAssistant
     public function __construct(
         UserPreferenceReaderInterface $systemPromptProcessor,
         UserPreferenceReaderInterface $responseStartProcessor,
+        UserPreferenceReaderInterface $editFrequencyProcessor,
         TelegramFileDownloader $telegramFileDownloader,
         private readonly AltTextProvider $altTextProvider,
         int $telegramBotId,
         string $url,
         OpenAiCompletionStringParser $openAiCompletionStringParser,
     ) {
-        parent::__construct($systemPromptProcessor, $responseStartProcessor, $telegramFileDownloader,$this->altTextProvider, $telegramBotId, $url, $openAiCompletionStringParser, false);
+        parent::__construct($systemPromptProcessor, $responseStartProcessor, $editFrequencyProcessor, $telegramFileDownloader,$this->altTextProvider, $telegramBotId, $url, $openAiCompletionStringParser, false);
         $this->tokenReplacements = array_fill(0, count($this->tokens) - 1, '');
     }
 

@@ -26,6 +26,7 @@ class Qwen25Assistant extends AbstractOpenAIAPICompletingAssistant
     public function __construct(
         UserPreferenceReaderInterface $systemPromptProcessor,
         UserPreferenceReaderInterface $responseStartProcessor,
+        UserPreferenceReaderInterface $editFrequencyProcessor,
         TelegramFileDownloader $telegramFileDownloader,
         AltTextProvider $altTextProvider,
         int $telegramBotId,
@@ -36,6 +37,7 @@ class Qwen25Assistant extends AbstractOpenAIAPICompletingAssistant
         parent::__construct(
             $systemPromptProcessor,
             $responseStartProcessor,
+            $editFrequencyProcessor,
             $telegramFileDownloader,
             $altTextProvider,
             $telegramBotId,

@@ -21,6 +21,7 @@ class AssistantFactory
         private readonly array $assistantConfig,
         private readonly UserPreferenceReaderInterface $defaultSystemPromptProcessor,
         private readonly UserPreferenceReaderInterface $responseStartProcessor,
+        private readonly UserPreferenceReaderInterface $editFrequencyProcessor,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly AltTextProvider $altTextProvider,
@@ -78,6 +79,7 @@ class AssistantFactory
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
                 $systemPromptProcessor,
                 $this->responseStartProcessor,
+                $this->editFrequencyProcessor,
                 $this->telegramFileDownloader,
                 $this->altTextProvider,
                 $this->telegramBotId,
@@ -130,6 +132,7 @@ class AssistantFactory
                 $requestedAssistantConfig['model'] ?? null,
                 $systemPromptProcessor,
                 $this->responseStartProcessor,
+                $this->editFrequencyProcessor,
                 $this->telegramFileDownloader,
                 $this->altTextProvider,
                 $this->processingResultExecutor,

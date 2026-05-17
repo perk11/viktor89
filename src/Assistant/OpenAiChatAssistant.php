@@ -14,6 +14,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         private readonly ?string $model,
         UserPreferenceReaderInterface $systemPromptProcessor,
         UserPreferenceReaderInterface $responseStartProcessor,
+        UserPreferenceReaderInterface $editFrequencyProcessor,
         TelegramFileDownloader $telegramFileDownloader,
         AltTextProvider $altTextProvider,
         ProcessingResultExecutor $processingResultExecutor,
@@ -30,6 +31,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         parent::__construct(
             $systemPromptProcessor,
             $responseStartProcessor,
+            $editFrequencyProcessor,
             $telegramFileDownloader,
             $altTextProvider,
             $telegramBotId,

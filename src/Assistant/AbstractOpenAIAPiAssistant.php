@@ -16,14 +16,16 @@ use Perk11\Viktor89\Util\TelegramMarkdownV2;
 abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 {
     private const float DRAFT_FREQUENCY_SECONDS = 0.7;
-    private const float EDIT_FREQUENCY_SECONDS = 1.5;
+    private const float EDIT_FREQUENCY_MIN_SECONDS = 1.5;
+    private const float EDIT_FREQUENCY_MAX_SECONDS = 120;
     private const float SMALL_EDIT_MIN_TIME_SECONDS = 10;
 
     protected readonly OpenAI $openAi;
     public function __construct(
         private readonly UserPreferenceReaderInterface $systemPromptProcessor,
         private readonly UserPreferenceReaderInterface $responseStartProcessor,
-        private readonly TelegramFileDownloader$telegramFileDownloader,
+        private readonly UserPreferenceReaderInterface $editFrequencyProcessor,
+        private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly AltTextProvider $altTextProvider,
         private readonly int $telegramBotUserId,
         string $url,
@@ -59,6 +61,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         $message->replyToMessageId = $lastMessage->id;
         $message->chatId = $lastMessage->chatId;
         $message->parseMode = 'MarkdownV2';
+        $editFrequency = $this->getEditFrequency($userId);
         try {
             $partialContent = '';
             if ($message->chatId > 0) {
@@ -97,7 +100,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                 $editAborted = false;
                 $lastEditTime = 0;
                 $lastLength = 0;
-                $streamFunction = static function ($chunk) use (&$partialContent, &$message, &$editAborted, &$lastEditTime, &$lastLength, $responseStart) {
+                $streamFunction = static function ($chunk) use (&$partialContent, &$message, &$editAborted, &$lastEditTime, &$lastLength, $responseStart, $editFrequency) {
                     echo $chunk;
                     $partialContent .= $chunk;
                     if ($editAborted) {
@@ -105,7 +108,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                     }
                     $currentEditTime = microtime(true);
                     $timeSinceLastEdit = $currentEditTime - $lastEditTime;
-                    if ($timeSinceLastEdit < self::EDIT_FREQUENCY_SECONDS) {
+                    if ($timeSinceLastEdit < $editFrequency) {
                         return;
                     }
                     if ($lastLength === 0) {
@@ -135,7 +138,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                             var_dump($editResult);
                             if ($editResult->getErrorCode() === 429 && isset($editResult->getRawData()['parameters']['retry_after'])) {
                                 echo "Got retry after " . $editResult->getRawData()['parameters']['retry_after'] . " when editing message.: " . $editResult->getErrorCode() . ' ' . $editResult->getDescription() . "\n";
-                                $lastEditTime = microtime(true) + $editResult->getRawData()['parameters']['retry_after'] - self::EDIT_FREQUENCY_SECONDS;
+                                $lastEditTime = microtime(true) + $editResult->getRawData()['parameters']['retry_after'] - $editFrequency;
                             } else {
                                 echo "Failed to edit message for streaming: " . $editResult->getErrorCode() . ' ' . $editResult->getDescription() . "\n";
                                 $editAborted = true;
@@ -153,6 +156,16 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         }
 
         return new ProcessingResult($message, true);
+    }
+
+    private function getEditFrequency(int $userId): float
+    {
+        $value = $this->editFrequencyProcessor->getCurrentPreferenceValue($userId);
+        if ($value === null) {
+            return self::EDIT_FREQUENCY_MIN_SECONDS;
+        }
+        $frequency = (float)$value;
+        return max(self::EDIT_FREQUENCY_MIN_SECONDS, min(self::EDIT_FREQUENCY_MAX_SECONDS, $frequency));
     }
 
     protected function convertMessageChainToAssistantContext(

@@ -244,6 +244,14 @@ class ProcessMessageTask implements Task
             'response-start',
             $this->telegramBotUsername,
         );
+        $editFrequencyProcessor = new NumericPreferenceInRangeByCommandProcessor(
+            $database,
+            ['/editfrequency'],
+            'edit-frequency',
+            $this->telegramBotUsername,
+            1.5,
+            120,
+        );
         $voiceRecogniser = new VoiceRecogniser($config['whisperCppUrl']);
         $internalMessageTranscriber = new InternalMessageTranscriber(
             $telegramFileDownloader,
@@ -259,6 +267,7 @@ class ProcessMessageTask implements Task
             $config['assistantModels'],
             $systemPromptProcessor,
             $responseStartProcessor,
+            $editFrequencyProcessor,
             $openAiCompletionStringParser,
             $telegramFileDownloader,
             $altTextProvider,
@@ -515,6 +524,7 @@ class ProcessMessageTask implements Task
             $durationProcessor,
             $systemPromptProcessor,
             $responseStartProcessor,
+            $editFrequencyProcessor,
             new CommandBasedResponderTrigger(
                 ['/quiz'],
                 new RandomQuizResponder($questionRepository)

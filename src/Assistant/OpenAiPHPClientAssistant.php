@@ -27,6 +27,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         private readonly ?string $model,
         UserPreferenceReaderInterface $systemPromptProcessor,
         UserPreferenceReaderInterface $responseStartProcessor,
+        UserPreferenceReaderInterface $editFrequencyProcessor,
         TelegramFileDownloader $telegramFileDownloader,
         AltTextProvider $altTextProvider,
         private readonly ProcessingResultExecutor $processingResultExecutor,
@@ -46,6 +47,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         parent::__construct(
             $systemPromptProcessor,
             $responseStartProcessor,
+            $editFrequencyProcessor,
             $telegramFileDownloader,
             $altTextProvider,
             $telegramBotUserId,

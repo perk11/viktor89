@@ -22,6 +22,7 @@ class Llama3Assistant extends AbstractOpenAIAPICompletingAssistant
     public function __construct(
         UserPreferenceReaderInterface $systemPromptProcessor,
         UserPreferenceReaderInterface $responseStartProcessor,
+        UserPreferenceReaderInterface $editFrequencyProcessor,
         TelegramFileDownloader $telegramFileDownloader,
         AltTextProvider $altTextProvider,
         int $telegramBotId,
@@ -32,6 +33,7 @@ class Llama3Assistant extends AbstractOpenAIAPICompletingAssistant
         parent::__construct(
             $systemPromptProcessor,
             $responseStartProcessor,
+            $editFrequencyProcessor,
             $telegramFileDownloader,
             $altTextProvider,
             $telegramBotId,
