@@ -50,7 +50,7 @@ class OpenAISummaryProvider
             $message = new InternalMessage();
             $message->parseMode = 'MarkdownV2';
             $message->chatId = $chatId;
-            $message->messageText = "#summary\n" . TelegramMarkdownV2::makeValid($chunk);
+            $message->messageText = "#summary\n" . $chunk;
             $message->send();
         }
 
