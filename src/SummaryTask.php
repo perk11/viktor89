@@ -58,10 +58,12 @@ class SummaryTask implements Task
         $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $database);
         $assistantConfig =$config['assistantModels']['vision-for-alt-text'];
         $systemPromptProcessor = new FixedValuePreferenceProvider('');
+        $nullProcessor = new FixedValuePreferenceProvider(null);
         $altTextProvider->assistantWithVision = new \Perk11\Viktor89\Assistant\OpenAiChatAssistant(
             $assistantConfig['model'],
             $systemPromptProcessor,
             $systemPromptProcessor,
+            $nullProcessor,
             $telegramFileDownloader,
             $altTextProvider,
             new ProcessingResultExecutor($database),
