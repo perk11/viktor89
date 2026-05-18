@@ -201,11 +201,13 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         );
                     }
                 }
+                $content = json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+                echo "Tool call result: " . mb_substr($content, 0, 1000) . "\n";
 
                 $requestOptions['messages'][] = [
                     'role' => 'tool',
                     'tool_call_id' => $toolCall->id,
-                    'content' => json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+                    'content' => $content,
                 ];
             }
         }

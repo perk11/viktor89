@@ -29,6 +29,7 @@ class AssistantFactory
         private readonly ToolCallExecutorInterface $webSearchTool,
         private readonly MessageChainAwareToolCallExecutorInterface $imageFromTextGeneratorTool,
         private readonly MessageChainAwareToolCallExecutorInterface $reactToolCallExecutor,
+        private readonly ToolCallExecutorInterface $getUrlContentsTool,
         private readonly int $telegramBotId
     )
     {
@@ -125,6 +126,17 @@ class AssistantFactory
                                 'type' => 'string',
                                 'allowed_values' => ReactToolCallExecutor::ALLOWED_REACTIONS,
                             ], true),
+                        ]
+                    );
+            }
+            if ($requestedAssistantConfig['toolGetUrlContents'] ?? false) {
+                $tools['get_url_contents'] =
+                    new ToolDefinition(
+                        'get_url_contents',
+                        $this->getUrlContentsTool,
+                        'Fetch the contents of a URL and return the text with HTML tags stripped, limited to 10000 characters',
+                        [
+                            new ToolParameter('url', ['type' => 'string'], true),
                         ]
                     );
             }
