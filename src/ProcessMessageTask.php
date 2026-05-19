@@ -27,6 +27,8 @@ use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\ImageTransformProcessor;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\ImageGeneration\MultipleModelsImageGenerateProcessor;
+use Perk11\Viktor89\Util\Telegram\ReactionDeleter;
+use Perk11\Viktor89\Util\Telegram\ReactionReplacer;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\RemixProcessor;
 use Perk11\Viktor89\ImageGeneration\RestyleGenerator;
@@ -260,7 +262,8 @@ class ProcessMessageTask implements Task
             $database,
         );
 
-        $photoResponder = new PhotoResponder($database, $cacheFileManager, $telegram->getBotId());
+        $reactionReplacer = new ReactionReplacer(new ReactionDeleter($telegram->getBotId()));
+        $photoResponder = new PhotoResponder($database, $cacheFileManager, $reactionReplacer);
 
         $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $database);
         $processingResultExecutor= new ProcessingResultExecutor($database);
@@ -371,7 +374,7 @@ class ProcessMessageTask implements Task
             $config['img2videoModels']
         );
         $upscaleClient = new UpscaleApiClient($stepsProcessor, $seedProcessor, $upscaleModelProcessor, $config['upscaleModels']);
-        $videoResponder = new VideoResponder();
+        $videoResponder = new VideoResponder($reactionReplacer);
         $videoImg2VidProcessor = new VideoImg2VidProcessor($telegramFileDownloader, $img2VideoClient, $videoResponder);
         $videoProcessor = new VideoProcessor($txt2VideoClient, $videoResponder, $videoImg2VidProcessor, $altTextProvider);
         $assistedVideoProcessor = new AssistedVideoProcessor(

@@ -5,9 +5,14 @@ namespace Perk11\Viktor89\VideoGeneration;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\Util\Telegram\ReactionReplacer;
 
 class VideoResponder
 {
+    public function __construct(
+        private readonly ReactionReplacer $reactionReplacer,
+    ) {
+    }
     public function sendVideo(InternalMessage $message, string $videoContents, ?string $caption = null): void
     {
         $videoPath = tempnam(sys_get_temp_dir(), 'viktor89-video-generator');
@@ -26,15 +31,6 @@ class VideoResponder
         Request::sendVideo($options);
         echo "Deleting $videoPath\n";
         unlink($videoPath);
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $message->chatId,
-            'message_id' => $message->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '😎',
-                ],
-            ],
-        ]);
+        $this->reactionReplacer->deleteOrReplaceWith($message->chatId, $message->id, '😎');
     }
 }
