@@ -11,7 +11,11 @@ use Perk11\Viktor89\InternalMessage;
 class PhotoResponder
 {
 
-    public function __construct(private readonly Database $database, private readonly CacheFileManager $cacheFileManager)
+    public function __construct(
+        private readonly Database $database,
+        private readonly CacheFileManager $cacheFileManager,
+        private readonly string $telegramBotId,
+    )
     {
     }
 
@@ -78,16 +82,30 @@ class PhotoResponder
         }
         echo "Deleting $imagePath\n";
         unlink($imagePath);
-        Request::execute('setMessageReaction', [
+        $deleteResultString = Request::execute('deleteMessageReaction', [
             'chat_id'    => $message->chatId,
             'message_id' => $message->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '😎',
-                ],
-            ],
+            'user_id'    => $this->telegramBotId,
         ]);
+        echo "Reaction delete result: $deleteResultString\n";
+        $deleteResult = json_decode($deleteResultString, false);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            echo "Failed to parse result of deleting message reaction " . json_last_error_msg() . "\n";
+            return;
+        }
+        if (!property_exists($deleteResult, 'ok') || $deleteResult->ok === false) {
+            echo "Failed to delete message reaction, falling back to emoji reaction\n";
+            Request::execute('setMessageReaction', [
+                'chat_id'    => $message->chatId,
+                'message_id' => $message->id,
+                'reaction'   => [
+                    [
+                        'type'  => 'emoji',
+                        'emoji' => '😎',
+                    ],
+                ],
+            ]);
+        }
     }
 
     private function needsSpoiler(string $caption): bool

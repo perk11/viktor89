@@ -260,7 +260,7 @@ class ProcessMessageTask implements Task
             $database,
         );
 
-        $photoResponder = new PhotoResponder($database, $cacheFileManager);
+        $photoResponder = new PhotoResponder($database, $cacheFileManager, $telegram->getBotId());
 
         $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $database);
         $processingResultExecutor= new ProcessingResultExecutor($database);
