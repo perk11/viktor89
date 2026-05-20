@@ -10,6 +10,8 @@ class RunningTask
         public readonly string $processor,
         public readonly string $message,
         public readonly DateTimeImmutable $startTime,
+        public readonly ?\Perk11\Viktor89\Util\Telegram\ChatAction $chatAction = null,
+        public readonly ?DateTimeImmutable $actionAddedTime = null,
     ) {
     }
 }

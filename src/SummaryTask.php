@@ -9,13 +9,17 @@ use Dotenv\Dotenv;
 use Exception;
 use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\Assistant\AltTextProvider;
+use Perk11\Viktor89\IPC\TaskCompletedMessage;
 use Perk11\Viktor89\IPC\TaskUpdateMessage;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 use Perk11\Viktor89\VoiceRecognition\InternalMessageTranscriber;
 use Perk11\Viktor89\VoiceRecognition\VoiceRecogniser;
 
 class SummaryTask implements Task
 {
     public function __construct(
+        private readonly int $workerId,
         private readonly int $summarizedChatId,
         private readonly int $telegramBotId,
         private readonly string $telegramApiKey,
@@ -25,11 +29,13 @@ class SummaryTask implements Task
 
     public function run(Channel $channel, Cancellation $cancellation): mixed
     {
-        $channel->send(new TaskUpdateMessage($this->summarizedChatId,'Summary', 'Generating summary'));
+        $channel->send(new TaskUpdateMessage($this->workerId, 'Summary', 'Generating summary', new ChatAction($this->summarizedChatId, ChatActionEnum::typing)));
         try {
             $this->handle();
         } catch (Exception $e) {
             echo "Error " . $e->getMessage() . "\n" . $e->getTraceAsString();
+        } finally {
+            $channel->send(new TaskCompletedMessage($this->workerId));
         }
 
         return true;

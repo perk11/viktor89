@@ -10,6 +10,7 @@ use Perk11\Viktor89\Database;
 use Perk11\Viktor89\HistoryReader;
 
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ChatActionUpdater;
 use Perk11\Viktor89\IPC\RunningTaskTracker;
 use Perk11\Viktor89\JoinQuiz\PollResponseProcessor;
 use Perk11\Viktor89\OpenAISummaryProvider;
@@ -52,7 +53,8 @@ $processingResultExecutor = new ProcessingResultExecutor($database);
 $lastSummaryTimestamp = $database->readSystemVariable(
     OpenAISummaryProvider::LAST_SUMMARY_TIMESTAMP_SYSTEM_VARIABLE_NAME
 ) ?? 0;
-$runningTaskTracker = new RunningTaskTracker();
+$chatActionUpdater = new ChatActionUpdater();
+$runningTaskTracker = new RunningTaskTracker($chatActionUpdater);
 $workerId = 1;
 EventLoop::repeat(
     1,
@@ -127,12 +129,16 @@ EventLoop::repeat(
 
             foreach ($chats as $chat) {
                 $handleTask = new SummaryTask(
+                    $workerId++,
                     $chat,
                     $telegram->getBotId(),
                     $telegram->getApiKey(),
                     $_ENV['TELEGRAM_BOT_USERNAME'],
                 );
                 $taskExecution = $workerPool->submit($handleTask);
+                Amp\async(function () use ($taskExecution, $runningTaskTracker) {
+                    $runningTaskTracker->receive($taskExecution);
+                });
                 $taskExecution->getFuture()->catch(function (Throwable $e) use ($chat) {
                     echo "Error when providing summary for chat" . $chat . $e->getMessage();
                 });

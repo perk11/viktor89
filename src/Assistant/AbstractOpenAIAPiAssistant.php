@@ -1,8 +1,6 @@
 <?php
 
 namespace Perk11\Viktor89\Assistant;
-use Longman\TelegramBot\ChatAction;
-use Longman\TelegramBot\Request;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
@@ -10,7 +8,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
-use Perk11\Viktor89\Util\TelegramHtml;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 use Perk11\Viktor89\Util\TelegramMarkdownV2;
 
 abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
@@ -51,11 +50,10 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         }
         $assistantContext = $this->convertMessageChainToAssistantContext($messageChain, $systemPrompt, $responseStart, $progressUpdateCallback);
 
-        $progressUpdateCallback(static::class, 'Generating assistant response');
-        Request::sendChatAction([
-                                    'chat_id' => $messageChain->last()->chatId,
-                                    'action'  => ChatAction::TYPING,
-                                ]);
+        $progressUpdateCallback(static::class,
+                                'Generating assistant response',
+                                new ChatAction($messageChain->last()->chatId, ChatActionEnum::typing)
+        );
         $lastMessage = $messageChain->last();
         $message = new InternalMessage();
         $message->replyToMessageId = $lastMessage->id;

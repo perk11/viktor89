@@ -11,6 +11,10 @@ class RunningTaskTracker
 {
     private array $runningTasks = [];
 
+    public function __construct(private readonly ChatActionUpdater $chatActionUpdater)
+    {
+    }
+
     public function receive(Execution $execution): void
     {
         $channel = $execution->getChannel();
@@ -26,12 +30,26 @@ class RunningTaskTracker
             }
             switch (get_class($message)) {
                 case TaskUpdateMessage::class:
-                    echo  date('Y-m-d H:i:s') . " $message->workerId: Task update received from $message->processor: $message->status\n";
-                    $this->runningTasks[$message->workerId] = new RunningTask($message->processor, $message->status, new DateTimeImmutable());
+                    /** @var TaskUpdateMessage $message */
+                    echo date('Y-m-d H:i:s') . " $message->workerId: Task update received from $message->processor: $message->status\n";
+                    $existingTask = $this->runningTasks[$message->workerId] ?? null;
+                    $chatAction = $message->chatAction ?? $existingTask?->chatAction;
+                    $actionAddedTime = $message->chatAction ? new DateTimeImmutable() : $existingTask?->actionAddedTime;
+
+                    $this->runningTasks[$message->workerId] = new RunningTask(
+                        $message->processor,
+                        $message->status,
+                        $existingTask?->startTime ?? new DateTimeImmutable(),
+                        $chatAction,
+                        $actionAddedTime
+                    );
+
+                    $this->chatActionUpdater->updateAction($message->workerId, $chatAction);
                     break;
                 case TaskCompletedMessage::class:
-//                    echo  date('Y-m-d H:i:s') . " $message->workerId: Task completed\n";
+                    /** @var TaskCompletedMessage $message */
                     unset($this->runningTasks[$message->workerId]);
+                    $this->chatActionUpdater->removeAction($message->workerId);
                     break;
                 case RunningTasksQueryMessage::class:
                     echo date('Y-m-d H:i:s') . " Received tasks report request\n";
