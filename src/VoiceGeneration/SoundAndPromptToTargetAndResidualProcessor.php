@@ -2,7 +2,6 @@
 
 namespace Perk11\Viktor89\VoiceGeneration;
 
-use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
@@ -10,6 +9,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 
 class SoundAndPromptToTargetAndResidualProcessor implements MessageChainProcessor
 {
@@ -64,19 +65,16 @@ class SoundAndPromptToTargetAndResidualProcessor implements MessageChainProcesso
         ]);
         try {
             $audioFile = $this->telegramFileDownloader->downloadFile($messageAudio->fileId);
-            $progressUpdateCallback(static::class, "Extracting $prompt from audio");
-            Request::sendChatAction([
-                                        'chat_id' => $messageChain->last()->chatId,
-                                        'action'  => ChatAction::RECORD_VOICE,
-                                    ]);
+            $chatAction = new ChatAction($lastMessage->chatId, ChatActionEnum::record_voice);
+            $progressUpdateCallback(static::class, "Extracting $prompt from audio", $chatAction);
             $result = $this->andPromptToTargetAndResidualApiClient->soundAndPromptToTargetAndResidual(
                 $prompt,
                 $audioFile,
             );
 
-            $progressUpdateCallback(static::class, "Sending target audio");
+            $progressUpdateCallback(static::class, "Sending target audio", $chatAction);
             $this->voiceResponder->sendVoice($lastMessage, $result->target);
-            $progressUpdateCallback(static::class, "Sending residual audio");
+            $progressUpdateCallback(static::class, "Sending residual audio", $chatAction);
             $this->voiceResponder->sendVoice($lastMessage, $result->residual);
             return new ProcessingResult(null , true, '😎', $lastMessage);
         } catch (\Exception $e) {

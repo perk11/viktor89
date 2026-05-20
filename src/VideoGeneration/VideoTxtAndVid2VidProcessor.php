@@ -3,7 +3,6 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
-use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
@@ -11,6 +10,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 
 class VideoTxtAndVid2VidProcessor implements MessageChainProcessor
 {
@@ -43,7 +44,11 @@ class VideoTxtAndVid2VidProcessor implements MessageChainProcessor
                 ), true
             );
         }
-        $progressUpdateCallback(static::class,"Donwloading source video");
+        $progressUpdateCallback(
+            static::class,
+            "Donwloading source video",
+            new ChatAction($lastMessage->chatId, ChatActionEnum::record_video)
+        );
         Request::execute('setMessageReaction', [
             'chat_id'    => $lastMessage->chatId,
             'message_id' => $lastMessage->id,
@@ -54,10 +59,7 @@ class VideoTxtAndVid2VidProcessor implements MessageChainProcessor
                 ],
             ],
         ]);
-        Request::sendChatAction([
-                                    'chat_id' => $messageChain->last()->chatId,
-                                    'action'  => ChatAction::RECORD_VIDEO,
-                                ]);
+
         try {
             $videoContents = $this->telegramFileDownloader->downloadFile($messageChain->previous()->video->getFileId());
         } catch (Exception $e) {
@@ -70,14 +72,18 @@ class VideoTxtAndVid2VidProcessor implements MessageChainProcessor
                 ), true, '🤔', $lastMessage
             );
         }
-        $progressUpdateCallback(static::class,"Generating txtAndVid2vid for prompt: $prompt");
+        $progressUpdateCallback(
+            static::class,
+            "Generating txtAndVid2vid for prompt: $prompt",
+            new ChatAction($lastMessage->chatId, ChatActionEnum::upload_video)
+        );
         try {
             $videoResponse = $this->txtAndVid2VideoClient->generateByPromptAndVid(
                 $videoContents,
                 $prompt,
                 $lastMessage->userId,
             );
-            $progressUpdateCallback(static::class,"Sending video response for prompt: $prompt");
+            $progressUpdateCallback(static::class,"Sending video response for prompt: $prompt", new ChatAction($lastMessage->chatId, ChatActionEnum::upload_video));
             $this->videoResponder->sendVideo(
                 $lastMessage,
                 $videoResponse->getFirstVideoAsMp4(),

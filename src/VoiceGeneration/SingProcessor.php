@@ -4,7 +4,6 @@ namespace Perk11\Viktor89\VoiceGeneration;
 
 use Exception;
 use LanguageDetection\Language;
-use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\InternalMessage;
@@ -13,6 +12,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 
 class SingProcessor implements MessageChainProcessor
 {
@@ -50,11 +51,11 @@ class SingProcessor implements MessageChainProcessor
         } else {
             $duration = $durationSeconds * 1000;
         }
-        $progressUpdateCallback(static::class, "Generating a song with tags: $tags");
-        Request::sendChatAction([
-                                    'chat_id' => $messageChain->last()->chatId,
-                                    'action'  => ChatAction::RECORD_VOICE,
-                                ]);
+        $progressUpdateCallback(
+            static::class,
+            "Generating a song with tags: $tags",
+           new ChatAction($message->chatId, ChatActionEnum::record_voice),
+        );
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,
             'message_id' => $message->id,

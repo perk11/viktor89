@@ -4,7 +4,6 @@ namespace Perk11\Viktor89\VoiceGeneration;
 
 use Exception;
 use LanguageDetection\Language;
-use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\InternalMessage;
@@ -13,6 +12,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 
 class TtsProcessor implements MessageChainProcessor
 {
@@ -58,11 +59,11 @@ class TtsProcessor implements MessageChainProcessor
             $voiceSource = null;
         }
         $language = array_key_first($this->languageDetection->detect($prompt)->close()) ?? 'ru';
-        $progressUpdateCallback(static::class, "Generating voice for prompt: $prompt");
-        Request::sendChatAction([
-                                    'chat_id' => $messageChain->last()->chatId,
-                                    'action'  => ChatAction::RECORD_VOICE,
-                                ]);
+        $progressUpdateCallback(
+            static::class,
+            "Generating voice for prompt: $prompt",
+            new ChatAction($message->chatId, ChatActionEnum::record_voice)
+        );
         try {
             $response = $this->voiceClient->text2Voice(
                 $prompt,

@@ -3,7 +3,6 @@
 namespace Perk11\Viktor89\ImageGeneration;
 
 use Exception;
-use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
@@ -11,6 +10,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 
 class RemixProcessor implements MessageChainProcessor
 {
@@ -48,11 +49,11 @@ class RemixProcessor implements MessageChainProcessor
         try {
             $progressUpdateCallback(static::class, 'Downloading source photo');
             $photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageChain->previous());
-            $progressUpdateCallback(static::class, 'Remixing image');
-            Request::sendChatAction([
-                                        'chat_id' => $messageChain->last()->chatId,
-                                        'action'  => ChatAction::UPLOAD_PHOTO,
-                                    ]);
+            $progressUpdateCallback(
+                static::class,
+                'Remixing image',
+                new ChatAction($lastMessage->chatId, ChatActionEnum::upload_photo),
+            );
             $transformedPhotoResponse = $this->imageRemixer->remixImage(
                 $photo,
                 $lastMessage->userId,

@@ -3,7 +3,6 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
-use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\InternalMessage;
@@ -11,6 +10,8 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 
 class VideoProcessor implements MessageChainProcessor
 {
@@ -43,7 +44,7 @@ class VideoProcessor implements MessageChainProcessor
             $this->videoImg2ImgProcessor->respondWithImg2VidResultBasedOnPhotoInMessage($messageChain->previous() , $message, $prompt, $progressUpdateCallback);
             return new ProcessingResult(null, true);
         }
-        $progressUpdateCallback(static::class,"Generating video for prompt: $prompt");
+        $progressUpdateCallback(static::class,"Generating video for prompt: $prompt",  new ChatAction($message->chatId, ChatActionEnum::upload_video));
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,
             'message_id' => $message->id,
@@ -54,10 +55,6 @@ class VideoProcessor implements MessageChainProcessor
                 ],
             ],
         ]);
-        Request::sendChatAction([
-                                    'chat_id' => $messageChain->last()->chatId,
-                                    'action'  => ChatAction::RECORD_VIDEO,
-                                ]);
         try {
             $response = $this->txt2VideoClient->generateByPromptTxt2Vid($prompt, $message->userId);
             $progressUpdateCallback(static::class,"Sending video response");

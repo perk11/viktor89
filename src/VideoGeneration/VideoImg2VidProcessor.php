@@ -3,11 +3,12 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
-use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\TelegramFileDownloader;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 
 class VideoImg2VidProcessor
 {
@@ -38,17 +39,13 @@ class VideoImg2VidProcessor
         try {
             $progressUpdateCallback(static::class, "Downloading source photo for prompt: $prompt\n");
             $photoContents = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageWithPhoto);
-            $progressUpdateCallback(static::class, "Generating img2vid for prompt: $prompt\n");
-            Request::sendChatAction([
-                                        'chat_id' => $messageWithCommand->chatId,
-                                        'action'  => ChatAction::RECORD_VIDEO,
-                                    ]);
+            $progressUpdateCallback(static::class, "Generating img2vid for prompt: $prompt\n",  new ChatAction($messageWithCommand->chatId, ChatActionEnum::record_video));
             $videoResponse = $this->img2VideoClient->generateByPromptImg2Vid(
                 $photoContents,
                 $prompt,
                 $messageWithCommand->userId,
             );
-            $progressUpdateCallback(static::class, "Sending video for prompt: $prompt\n");
+            $progressUpdateCallback(static::class, "Sending video for prompt: $prompt\n",  new ChatAction($messageWithCommand->chatId,ChatActionEnum::upload_video));
             $this->videoResponder->sendVideo(
                 $messageWithCommand,
                 $videoResponse->getFirstVideoAsMp4(),

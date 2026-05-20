@@ -3,7 +3,6 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
-use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantContext;
@@ -16,6 +15,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 
 class AssistedVideoProcessor implements MessageChainProcessor
 {
@@ -59,13 +60,10 @@ class AssistedVideoProcessor implements MessageChainProcessor
                 ],
             ],
         ]);
+        $chatAction = new ChatAction($messageChain->last()->chatId, ChatActionEnum::record_video);
 
-        Request::sendChatAction([
-                                    'chat_id' => $messageChain->last()->chatId,
-                                    'action'  => ChatAction::RECORD_VIDEO,
-                                ]);
         if ($messageChain->previous()?->photoFileId !== null) {
-            $progressUpdateCallback(static::class, "Generating new video generation prompt for: $prompt");
+            $progressUpdateCallback(static::class, "Generating new video generation prompt for: $prompt", $chatAction);
             $newPrompt = $this->rewriteVideoPrompt($prompt, $this->telegramFileDownloader->downloadFile($messageChain->previous()->photoFileId), null);
             $this->videoImg2VidProcessor->respondWithImg2VidResultBasedOnPhotoInMessage(
                 $messageChain->previous(),
@@ -76,7 +74,7 @@ class AssistedVideoProcessor implements MessageChainProcessor
 
             return new ProcessingResult(null,true);
         }
-        $progressUpdateCallback(static::class, "Generating a prompt to generate the image for the first frame: $prompt");
+        $progressUpdateCallback(static::class, "Generating a prompt to generate the image for the first frame: $prompt", $chatAction);
         $assistantContext = $this->createFirstFrameContext($prompt);
         $firstFramePrompt = $this->promptAssistant->getCompletionBasedOnContext($assistantContext);
 
@@ -91,7 +89,7 @@ class AssistedVideoProcessor implements MessageChainProcessor
             ],
         ]);
 
-        $progressUpdateCallback(static::class, "Generating the first frame for: $firstFramePrompt");
+        $progressUpdateCallback(static::class, "Generating the first frame for: $firstFramePrompt", $chatAction);
         try {
             $imageResponse = $this->automatic1111APiClient->generateImageByPromptAndModelParams(
                 $firstFramePrompt,
@@ -108,10 +106,10 @@ class AssistedVideoProcessor implements MessageChainProcessor
                     ],
                 ],
             ]);
-            $progressUpdateCallback(static::class, "Generating video based on the generated first frame for prompt: $prompt");
+            $progressUpdateCallback(static::class, "Generating video based on the generated first frame for prompt: $prompt", $chatAction);
 
             $newPrompt = $this->rewriteVideoPrompt($prompt, $imageResponse->getFirstImageAsPng(), $firstFramePrompt);
-            $progressUpdateCallback(static::class, "Generating video for prompt: $newPrompt");
+            $progressUpdateCallback(static::class, "Generating video for prompt: $newPrompt", new ChatAction($message->chatId, ChatActionEnum::upload_video));
 
             Request::execute('setMessageReaction', [
                 'chat_id'    => $message->chatId,

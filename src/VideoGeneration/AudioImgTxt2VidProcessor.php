@@ -3,7 +3,6 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
-use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
@@ -14,6 +13,8 @@ use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\PreResponseProcessor\SavedImageNotFoundException;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 
 class AudioImgTxt2VidProcessor implements MessageChainProcessor
 {
@@ -76,7 +77,7 @@ class AudioImgTxt2VidProcessor implements MessageChainProcessor
                 true
             );
         }
-        $progressUpdateCallback(static::class, "Donwloading source audio");
+        $progressUpdateCallback(static::class, "Donwloading source audio", new ChatAction($lastMessage->chatId, ChatActionEnum::record_video));
         Request::execute('setMessageReaction', [
             'chat_id'    => $lastMessage->chatId,
             'message_id' => $lastMessage->id,
@@ -87,10 +88,6 @@ class AudioImgTxt2VidProcessor implements MessageChainProcessor
                 ],
             ],
         ]);
-        Request::sendChatAction([
-                                    'chat_id' => $messageChain->last()->chatId,
-                                    'action'  => ChatAction::RECORD_VIDEO,
-                                ]);
         try {
             $audioContents = $this->telegramFileDownloader->downloadFile($audioFile->fileId);
         } catch (Exception $e) {

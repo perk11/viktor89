@@ -3,7 +3,6 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
-use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantContext;
@@ -18,6 +17,8 @@ use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 use Perk11\Viktor89\VoiceGeneration\TtsApiClient;
 use Perk11\Viktor89\VoiceGeneration\TtsProcessor;
 
@@ -156,13 +157,11 @@ class VideoSayProcessor implements MessageChainProcessor
         }
         $actualAudioDurationSecondsText = $this->formatSecondsForPrompt($actualAudioDurationSeconds);
 
-
-        Request::sendChatAction([
-                                    'chat_id' => $messageChain->last()->chatId,
-                                    'action'  => ChatAction::RECORD_VIDEO,
-                                ]);
-
-        $progressUpdateCallback(static::class, "Generating a prompt for video");
+        $progressUpdateCallback(
+            static::class,
+                                "Generating a prompt for video",
+            new ChatAction($message->chatId, ChatActionEnum::record_video)
+        );
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,
             'message_id' => $message->id,
@@ -199,7 +198,8 @@ class VideoSayProcessor implements MessageChainProcessor
             ],
         ]);
 
-        $progressUpdateCallback(static::class, "Generating video");
+
+        $progressUpdateCallback(static::class, "Generating video", new ChatAction($message->chatId, ChatActionEnum::upload_video));
 
         $videoResponse = $this->audioImgTxt2VidClient->generateByPromptImageAndAudio(
             $voiceFileContents,
