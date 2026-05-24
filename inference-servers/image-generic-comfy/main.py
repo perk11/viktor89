@@ -78,6 +78,22 @@ def get_txt2img_workflow_and_infotext_ernie(model, prompt,negative_prompt, seed,
     comfy_workflow_object["88:71"]["inputs"]['height'] = height
     return comfy_workflow_object, f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
 
+def get_txt2img_workflow_and_infotext_lens(model, prompt,negative_prompt, seed, steps, width, height):
+    workflow_file_path = Path(__file__).with_name("microsoft-lens-txt2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["3"]["inputs"]['text'] = prompt
+    comfy_workflow_object["7"]["inputs"]['text'] = negative_prompt
+    if steps > 0:
+        comfy_workflow_object["16"]["inputs"]['steps'] = steps
+    else:
+        steps = comfy_workflow_object["16"]["inputs"]['steps']
+    comfy_workflow_object["14"]["inputs"]['seed'] = seed
+    comfy_workflow_object["21"]["inputs"]['width'] = width
+    comfy_workflow_object["21"]["inputs"]['height'] = height
+    return comfy_workflow_object, f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
+
 def get_txt2img_workflow_and_infotext_qwen(model, prompt, negative_prompt, seed, steps, width, height):
     workflow_file_path = Path(__file__).with_name("qwen-image_txt2img.json")
     with workflow_file_path.open('r') as workflow_file:
@@ -229,6 +245,8 @@ def generate_image():
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_chroma(model, prompt, negative_prompt, seed, steps, width, height)
         case 'ernie-image':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_ernie(model, prompt, negative_prompt, seed, steps, width, height)
+        case 'microsoft-lens':
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_lens(model, prompt, negative_prompt, seed, steps, width, height)
         case 'qwen_image_fp8_e4m3fn':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_qwen(model, prompt, negative_prompt, seed, steps, width, height)
         case 'wan2.2_t2v_fp8':
