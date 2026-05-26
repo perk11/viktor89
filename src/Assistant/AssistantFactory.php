@@ -4,6 +4,10 @@ namespace Perk11\Viktor89\Assistant;
 
 use Exception;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
+use Mcp\Client;
+use Mcp\Client\Transport\HttpTransport;
+use Mcp\Client\Transport\StdioTransport;
+use Perk11\Viktor89\Assistant\Tool\McpToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
@@ -139,6 +143,48 @@ class AssistantFactory
                             new ToolParameter('url', ['type' => 'string'], true),
                         ]
                     );
+            }
+            if ($requestedAssistantConfig['mcpServers'] ?? []) {
+                foreach ($requestedAssistantConfig['mcpServers'] as $serverName => $serverConfig) {
+                    if (isset($serverConfig['command'])) {
+                        $transport = new StdioTransport(
+                            command: $serverConfig['command'],
+                            args: $serverConfig['args'] ?? [],
+                            env: $serverConfig['env'] ?? null,
+                        );
+                    } elseif (isset($serverConfig['url'])) {
+                        $transport = new HttpTransport(
+                            endpoint: $serverConfig['url'],
+                            headers: $serverConfig['headers'] ?? [],
+                        );
+                    } else {
+                        throw new Exception("Invalid MCP server configuration for $serverName: missing command or url");
+                    }
+                    $client = Client::builder()
+                        ->setClientInfo('Viktor89', '1.0.0')
+                        ->build();
+                    $client->connect($transport);
+                    foreach ($client->listTools()->tools as $tool) {
+                        $parameters = [];
+                        $properties = $tool->inputSchema['properties'] ?? [];
+                        if ($properties instanceof \stdClass) {
+                            $properties = (array) $properties;
+                        }
+                        foreach ($properties as $parameterName => $parameterProperties) {
+                            $parameters[] = new ToolParameter(
+                                $parameterName,
+                                $parameterProperties,
+                                in_array($parameterName, $tool->inputSchema['required'] ?? [], true)
+                            );
+                        }
+                        $tools[$tool->name] = new ToolDefinition(
+                            $tool->name,
+                            new McpToolCallExecutor($client, $tool->name),
+                            $tool->description,
+                            $parameters
+                        );
+                    }
+                }
             }
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
                 $requestedAssistantConfig['model'] ?? null,

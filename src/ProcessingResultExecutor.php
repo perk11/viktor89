@@ -8,12 +8,15 @@ use Longman\TelegramBot\Request;
 
 class ProcessingResultExecutor
 {
-    public function __construct(private Database $database)
+    public function __construct(private Database $database, private bool $repliesInPMs = true)
     {
         
     }
     public function execute(ProcessingResult $result): void
     {
+        if (!$this->repliesInPMs && $result->response !== null && $result->response->chatId > 0 && $result->response->replyToMessageId !== null) {
+            $result->response->replyToMessageId = null;
+        }
         if ($result->response !== null) {
             if ($result->response->id === null) {
                 echo "Sending message in chat {$result->response->chatId}: {$result->response->messageText}\n";
