@@ -82,3 +82,15 @@ CREATE TABLE IF NOT EXISTS `file_cache`
     `sha1` text NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sha1 ON file_cache(sha1);
+
+CREATE TABLE IF NOT EXISTS `tool_call`
+(
+    `id` integer PRIMARY KEY AUTOINCREMENT,
+    `message_id` bigint NOT NULL,
+    `tool_call_id` text NOT NULL,
+    `tool_name` text NOT NULL,
+    `arguments` text NOT NULL,
+    `result` text NOT NULL,
+    `chat_id` bigint NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tool_call_message_id ON tool_call(message_id, chat_id);

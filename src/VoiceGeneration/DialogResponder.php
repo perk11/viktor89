@@ -75,7 +75,7 @@ Dialog Prompt: $prompt";
             ],
         ]);
 
-        $dialogText = $this->assistant->getCompletionBasedOnContext($context);
+        $dialogText = $this->assistant->getCompletionBasedOnContext($context)->content;
         echo "Dialog: $dialogText\n";
 
         Request::execute('setMessageReaction', [

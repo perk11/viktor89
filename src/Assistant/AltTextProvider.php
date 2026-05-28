@@ -46,7 +46,7 @@ class AltTextProvider
             $assistantContext->messages[] = $message;
 
             $progressUpdateCallback(static::class,"Generating alt text for photo " . $internalMessage->photoFileId);
-            $altText = '[image] ' . $this->assistantWithVision->getCompletionBasedOnContext($assistantContext);
+            $altText = '[image] ' . $this->assistantWithVision->getCompletionBasedOnContext($assistantContext)->content;
             $internalMessage->altText = $altText;
             $this->database->logInternalMessage($internalMessage);
             return $altText;

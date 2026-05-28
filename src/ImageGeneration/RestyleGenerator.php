@@ -41,7 +41,7 @@ class RestyleGenerator implements ImageByImageGenerator
             }
             $assistantContext->messages[] = $message;
 
-            $prompt = $this->assistantWithVision->getCompletionBasedOnContext($assistantContext);
+            $prompt = $this->assistantWithVision->getCompletionBasedOnContext($assistantContext)->content;
             echo "Generated restyle prompt: $prompt\n";
         }
         $styleImageData = $this->imageRepository->retrieve($style);

@@ -85,6 +85,7 @@ class Engine
             $previousMessageFromDB = array_pop($priorMessages); //Delete last message, since we will use $previousMessage instead so that media in that message is available
             if ($previousMessageFromDB !== null) {
                 $previousMessage->altText = $previousMessageFromDB->altText;
+                $previousMessage->toolCalls = $previousMessageFromDB->toolCalls;
             }
             $chain = new MessageChain(array_merge($priorMessages, [$previousMessage, $lastMessage]));
         } else {

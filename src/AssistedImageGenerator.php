@@ -42,7 +42,7 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
         $userMessage->text = $originalPrompt;
         $context->messages[] = $userMessage;
 
-        return $this->assistant->getCompletionBasedOnContext($context);
+        return $this->assistant->getCompletionBasedOnContext($context)->content;
     }
 
     public function generateImageByPromptAndImages(
@@ -65,7 +65,7 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
         $userMessage->isUser = true;
         $userMessage->text = $imageGenerationPrompt->text;
         $context->messages[] = $userMessage;
-        $improvedPrompt->text = $this->assistant->getCompletionBasedOnContext($context);
+        $improvedPrompt->text = $this->assistant->getCompletionBasedOnContext($context)->content;
 
         echo "Edit prompt from assistant: " . $improvedPrompt->text . "\n";
 

@@ -8,6 +8,7 @@ use OpenAI\Client;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
+use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResult;
@@ -57,8 +58,11 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         );
     }
 
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): string
-    {
+    public function getCompletionBasedOnContext(
+        AssistantContext $assistantContext,
+        ?callable $streamFunction = null,
+        ?MessageChain $messageChain = null
+    ): CompletionResponse {
         $requestOptions = [
             'messages' => $assistantContext->toOpenAiMessagesArray(),
         ];
@@ -73,6 +77,9 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         if (json_last_error() !== JSON_ERROR_NONE) {
             echo 'Failed to convert context to JSON: ' . json_last_error_msg();
         }
+
+        $allToolCalls = [];
+        $accumulatedContent = '';
         while (true) {
             echo "Calling OpenAI chat API (PHPClient)...\n";
             $content = '';
@@ -133,8 +140,15 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             }
             $content = $contentWithoutAction;
 
+            if ($content !== '') {
+                if ($accumulatedContent !== '') {
+                    $accumulatedContent .= "\n";
+                }
+                $accumulatedContent .= $content;
+            }
+
             if (count($toolCalls) === 0) {
-                return $content;
+                return new CompletionResponse($accumulatedContent, $allToolCalls);
             }
 
             echo "Received tool calls: " . json_encode($toolCalls, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
@@ -172,42 +186,49 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             foreach ($toolCalls as $toolCall) {
                 $functionName = $toolCall->function->name;
 
-                if (!array_key_exists($functionName, $this->toolDefintions)) {
+                if (!isset($this->toolDefintions[$functionName])) {
                     echo "Unknown tool called: $functionName\n";
                     $toolResult = ['content' => 'Error: Unknown tool call: ' . $functionName];
                 } else {
                     $functionArgs = json_decode($toolCall->function->arguments, true, 512, JSON_THROW_ON_ERROR);
                     echo "Executing tool $functionName with args " . json_encode($functionArgs, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
 
-                    $toolCallClass = $this->toolDefintions[$functionName]->toolCallClass;
+                    $toolCallExecutor = $this->toolDefintions[$functionName]->toolCallClass;
 
-                    if ($toolCallClass instanceof ToolCallExecutorInterface) {
+                    if ($toolCallExecutor instanceof ToolCallExecutorInterface) {
                         try {
-                            $toolResult = $toolCallClass->executeToolCall($functionArgs);
+                            $toolResult = $toolCallExecutor->executeToolCall($functionArgs);
                         } catch (\Throwable $e) {
                             echo "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
                             $toolResult = ['content' => 'tool call failed'];
                         }
-                    } elseif ($toolCallClass instanceof MessageChainAwareToolCallExecutorInterface) {
+                    } elseif ($toolCallExecutor instanceof MessageChainAwareToolCallExecutorInterface) {
                         try {
-                            $toolResult = $toolCallClass->executeToolCall($functionArgs, $messageChain);
+                            $toolResult = $toolCallExecutor->executeToolCall($functionArgs, $messageChain);
                         } catch (\Throwable $e) {
                             echo "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
                             $toolResult = ['content' => 'tool call failed'];
                         }
                     } else {
                         throw new \RuntimeException(
-                            'Tool call class does not implement a supported interface: ' . get_class($toolCallClass)
+                            'Tool call class does not implement a supported interface: ' . get_class($toolCallExecutor)
                         );
                     }
                 }
-                $content = json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
-                echo "Tool call result: " . mb_substr($content, 0, 1000) . "\n";
+                $toolResultContent = json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+                echo "Tool call result: " . mb_substr($toolResultContent, 0, 1000) . "\n";
+
+                $allToolCalls[] = new ToolCall(
+                    $toolCall->id,
+                    $toolCall->function->name,
+                    $toolCall->function->arguments,
+                    $toolResultContent,
+                );
 
                 $requestOptions['messages'][] = [
                     'role' => 'tool',
                     'tool_call_id' => $toolCall->id,
-                    'content' => $content,
+                    'content' => $toolResultContent,
                 ];
             }
         }

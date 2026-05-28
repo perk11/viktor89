@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\Assistant;
 
 use Exception;
+use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
@@ -40,7 +41,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
             $supportsImages
         );
     }
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): string
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): CompletionResponse
     {
         $parameters = $this->getResponseParameters($assistantContext);
         echo "Calling OpenAI chat API...\n";
@@ -56,9 +57,24 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         if (!is_array($parsedResult) || !array_key_exists('choices', $parsedResult)) {
             throw new Exception("Unexpected response from OpenAI: $response");
         }
-        $content = $parsedResult['choices'][0]['message']['content'];
+        $content = $parsedResult['choices'][0]['message']['content'] ?? '';
+        $toolCalls = $parsedResult['choices'][0]['message']['tool_calls'] ?? null;
+        if ($toolCalls !== null) {
+            return new CompletionResponse(
+                $content,
+                array_map(
+                    static fn(array $toolCall): ToolCall => new ToolCall(
+                        $toolCall['id'],
+                        $toolCall['function']['name'],
+                        $toolCall['function']['arguments'],
+                    ),
+                    $toolCalls
+                ),
+            );
+        }
+
         if (is_string($content)) {
-            return $content;
+            return new CompletionResponse($content);
         }
         if (is_array($content)) {
             $firstContentElement = current($content);
@@ -69,8 +85,10 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
                 throw new \Exception("Missing \"text\" property in OpenAI response: $firstContentElement[type]");
             }
 
-            return $firstContentElement['text'];
+            return new CompletionResponse($firstContentElement['text']);
         }
+
+        throw new Exception("Unexpected OpenAI response format: " . json_encode($content));
     }
 
     protected function getResponseParameters(AssistantContext $assistantContext): array

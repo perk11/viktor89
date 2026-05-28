@@ -6,9 +6,10 @@ use Perk11\Viktor89\MessageChain;
 
 class FinalMessageOpenAiChatAssistant extends OpenAiChatAssistant
 {
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): string
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): CompletionResponse
     {
-        $completion = parent::getCompletionBasedOnContext($assistantContext, $streamFunction);
+        $completionResponse = parent::getCompletionBasedOnContext($assistantContext, $streamFunction);
+        $completion = $completionResponse->content;
 
         if (
             preg_match(
@@ -17,10 +18,10 @@ class FinalMessageOpenAiChatAssistant extends OpenAiChatAssistant
                 $matches
             )
         ) {
-            return trim($matches[1]);
+            return new CompletionResponse(trim($matches[1]), $completionResponse->toolCalls);
         }
 
-        return $completion;
+        return $completionResponse;
 
     }
 

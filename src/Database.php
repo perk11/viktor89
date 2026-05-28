@@ -4,6 +4,7 @@ namespace Perk11\Viktor89;
 
 use LogicException;
 use Longman\TelegramBot\Entities\Message;
+use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\JoinQuiz\KickQueueItem;
 use Perk11\Viktor89\RateLimiting\BanTimeLeft;
 use Perk11\Viktor89\RateLimiting\RateLimit;
@@ -17,6 +18,8 @@ class Database
 
     private SQLite3Stmt $insertMessageStatement;
     private SQLite3Stmt $updateMessageStatement;
+
+    private SQLite3Stmt $insertToolCallStatement;
 
     private SQLite3Stmt|false $selectMessageStatement;
 
@@ -39,6 +42,11 @@ VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_mes
 '
         );
         $this->updateMessageStatement = $this->sqlite3Database->prepare('UPDATE message SET alt_text = :alt_text WHERE id = :id AND chat_id = :chat_id');
+
+        $this->insertToolCallStatement = $this->sqlite3Database->prepare(
+            'INSERT INTO tool_call (message_id, tool_call_id, tool_name, arguments, result, chat_id)
+VALUES (:message_id, :tool_call_id, :tool_name, :arguments, :result, :chat_id)'
+        );
 
         $this->selectMessageStatement = $this->sqlite3Database->prepare(
             'SELECT * FROM message WHERE id = :id AND chat_id = :chat_id'
@@ -79,6 +87,20 @@ VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_mes
         $statement->execute();
         $message->isSaved = true;
 
+        foreach ($message->toolCalls as $toolCall) {
+            $this->logToolCall($message->id, $message->chatId, $toolCall);
+        }
+    }
+
+    private function logToolCall(int $messageId, int $chatId, ToolCall $toolCall): void
+    {
+        $this->insertToolCallStatement->bindValue(':message_id', $messageId);
+        $this->insertToolCallStatement->bindValue(':tool_call_id', $toolCall->id);
+        $this->insertToolCallStatement->bindValue(':tool_name', $toolCall->name);
+        $this->insertToolCallStatement->bindValue(':arguments', $toolCall->arguments);
+        $this->insertToolCallStatement->bindValue(':result', $toolCall->result);
+        $this->insertToolCallStatement->bindValue(':chat_id', $chatId);
+        $this->insertToolCallStatement->execute();
     }
 
     public function findMessageByIdInChat(int $id, int $chatId): ?InternalMessage
@@ -91,7 +113,30 @@ VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_mes
             return null;
         }
 
-        return InternalMessage::fromSqliteAssoc($result);
+        $message = InternalMessage::fromSqliteAssoc($result);
+        $message->toolCalls = $this->findToolCallsByMessageId($id, $chatId);
+        return $message;
+    }
+
+    /**
+     * @return ToolCall[]
+     */
+    private function findToolCallsByMessageId(int $messageId, int $chatId): array
+    {
+        $statement = $this->sqlite3Database->prepare('SELECT * FROM tool_call WHERE message_id = :message_id AND chat_id = :chat_id');
+        $statement->bindValue(':message_id', $messageId);
+        $statement->bindValue(':chat_id', $chatId);
+        $result = $statement->execute();
+        $toolCalls = [];
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $toolCalls[] = new ToolCall(
+                $row['tool_call_id'],
+                $row['tool_name'],
+                $row['arguments'],
+                $row['result'],
+            );
+        }
+        return $toolCalls;
     }
 
     public function findNPreviousMessagesInChat(int $chatId, int $messageId, int $limit, array $excludedIds): array
@@ -114,7 +159,9 @@ VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_mes
         $resultingMessages = [];
         $queryResult = $findNPreviousMessagesInChatStatement->execute();
         while ($result = $queryResult->fetchArray(SQLITE3_ASSOC)) {
-            $resultingMessages[] = InternalMessage::fromSqliteAssoc($result);
+            $message = InternalMessage::fromSqliteAssoc($result);
+            $message->toolCalls = $this->findToolCallsByMessageId($message->id, $message->chatId);
+            $resultingMessages[] = $message;
         }
 
         return $resultingMessages;
@@ -220,7 +267,9 @@ SQL;
         $resultingMessages = [];
         $queryResult = $fetchMessagesStatement->execute();
         while ($result = $queryResult->fetchArray(SQLITE3_ASSOC)) {
-            $resultingMessages[] = InternalMessage::fromSqliteAssoc($result);
+            $message = InternalMessage::fromSqliteAssoc($result);
+            $message->toolCalls = $this->findToolCallsByMessageId($message->id, $message->chatId);
+            $resultingMessages[] = $message;
         }
 
         return $resultingMessages;

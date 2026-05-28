@@ -10,6 +10,7 @@ use Longman\TelegramBot\Entities\Video;
 use Longman\TelegramBot\Entities\VideoNote;
 use Longman\TelegramBot\Entities\Voice;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\VoiceGeneration\MessageAudio;
 
 class InternalMessage
@@ -57,6 +58,9 @@ class InternalMessage
 
     public bool $removeKeyboard = false;
     public bool $forceReply = false;
+
+    /** @var ToolCall[] */
+    public array $toolCalls = [];
     public static function fromSqliteAssoc(array $result): self
     {
         $message = new self();

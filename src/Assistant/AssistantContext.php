@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\Assistant;
 
 use Exception;
 use JsonException;
+use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\ImageGeneration\ContentTypeGuesser;
 
 class AssistantContext
@@ -69,8 +70,8 @@ class AssistantContext
 
         foreach ($this->messages as $message) {
             $role = $message->isUser ? 'user' : 'assistant';
-            $previousMessage = $openAiMessages[array_key_last($openAiMessages)];
-            if ($previousMessage['role'] === $role) {
+            $previousMessage = $openAiMessages[array_key_last($openAiMessages)] ?? null;
+            if ($previousMessage !== null && $previousMessage['role'] === $role && !isset($previousMessage['tool_calls'])) {
                 array_pop($openAiMessages);
                 $messageContentParts = $previousMessage['content'];
             } else {
@@ -127,11 +128,38 @@ class AssistantContext
             }
 
             $finalContent = $messageContentParts;
+            $role = $message->isUser ? 'user' : 'assistant';
 
-            $openAiMessages[] = [
+            $openAiMessage = [
                 'role'    => $role,
                 'content' => $finalContent,
             ];
+
+            if (!$message->isUser && count($message->toolCalls) > 0) {
+                $openAiMessage['tool_calls'] = array_map(
+                    static fn(ToolCall $toolCall): array => [
+                        'id' => $toolCall->id,
+                        'type' => 'function',
+                        'function' => [
+                            'name' => $toolCall->name,
+                            'arguments' => $toolCall->arguments,
+                        ],
+                    ],
+                    $message->toolCalls
+                );
+            }
+
+            $openAiMessages[] = $openAiMessage;
+
+            if (!$message->isUser && count($message->toolCalls) > 0) {
+                foreach ($message->toolCalls as $toolCall) {
+                    $openAiMessages[] = [
+                        'role' => 'tool',
+                        'tool_call_id' => $toolCall->id,
+                        'content' => $toolCall->result,
+                    ];
+                }
+            }
         }
 
         return $openAiMessages;

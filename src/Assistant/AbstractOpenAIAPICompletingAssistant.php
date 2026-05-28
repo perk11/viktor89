@@ -6,6 +6,7 @@ use Exception;
 use JsonException;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
+use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\TelegramFileDownloader;
@@ -37,12 +38,12 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
         $this->abortResponseHandlers[] = $abortResponseHandler;
     }
 
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): string
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): CompletionResponse
     {
         $prompt = $this->convertContextToPrompt($assistantContext);
         echo $prompt;
 
-        return $this->getCompletion($prompt, $streamFunction);
+        return new CompletionResponse($this->getCompletion($prompt, $streamFunction));
     }
 
     abstract protected function convertContextToPrompt(AssistantContext $assistantContext): string;

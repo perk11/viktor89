@@ -186,7 +186,7 @@ class VideoSayProcessor implements MessageChainProcessor
 
         $context->messages[] = $contextMessage;
 
-        $videoPrompt = $this->promptAssistant->getCompletionBasedOnContext($context);
+        $videoPrompt = $this->promptAssistant->getCompletionBasedOnContext($context)->content;
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,
             'message_id' => $message->id,

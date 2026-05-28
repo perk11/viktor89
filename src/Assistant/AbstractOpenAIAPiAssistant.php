@@ -145,9 +145,9 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                     }
                 };
             }
-            $message->messageText = TelegramMarkdownV2::makeValid($responseStart . trim(
-                    $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain)
-                ));
+            $completion = $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain);
+            $message->messageText = TelegramMarkdownV2::makeValid($responseStart . trim($completion->content));
+            $message->toolCalls = $completion->toolCalls;
         } catch (\Exception $e) {
             echo "Failed to get completion based on context: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
             return new ProcessingResult(null, true, '🤔', $lastMessage);
@@ -179,6 +179,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $assistantContextMessage = new AssistantContextMessage();
             $assistantContextMessage->text = $message->messageText;
             $assistantContextMessage->isUser = $message->userId !== $this->telegramBotUserId;
+            $assistantContextMessage->toolCalls = $message->toolCalls;
             if ($message->photoFileId !== null) {
                 if ($this->supportsImages) {
                     $assistantContextMessage->photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);

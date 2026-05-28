@@ -76,7 +76,7 @@ class AssistedVideoProcessor implements MessageChainProcessor
         }
         $progressUpdateCallback(static::class, "Generating a prompt to generate the image for the first frame: $prompt", $chatAction);
         $assistantContext = $this->createFirstFrameContext($prompt);
-        $firstFramePrompt = $this->promptAssistant->getCompletionBasedOnContext($assistantContext);
+        $firstFramePrompt = $this->promptAssistant->getCompletionBasedOnContext($assistantContext)->content;
 
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,
@@ -208,6 +208,6 @@ JSON;
 
         $assistantContext->messages[] = $promptMessage;
 
-        return $this->promptAssistant->getCompletionBasedOnContext($assistantContext);
+        return $this->promptAssistant->getCompletionBasedOnContext($assistantContext)->content;
     }
 }

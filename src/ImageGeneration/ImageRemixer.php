@@ -26,7 +26,7 @@ class ImageRemixer
         $message->text = 'Describe this image. Your responses will be fed directly to an image generator. Be as detailed as possible so that everything can be re-captured in the new image, but do not add anything that is not related to the image. Open with image description, your first word should already describe the image. Do not break description into sections';
         $assistantContext->messages[] = $message;
 
-        $prompt = $this->assistantWithVision->getCompletionBasedOnContext($assistantContext);
+        $prompt = $this->assistantWithVision->getCompletionBasedOnContext($assistantContext)->content;
         echo "Remix prompt: $prompt\n";
 
         return $this->automatic1111APiClient->generateImageByPrompt($prompt, $userId);

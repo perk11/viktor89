@@ -22,7 +22,7 @@ class PerplexicaAssistant implements AssistantInterface
                                    ]);
     }
 
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): string
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): CompletionResponse
     {
         $lastMessage = $assistantContext->messages[count($assistantContext->messages) - 1];
         $history = [];
@@ -66,7 +66,7 @@ class PerplexicaAssistant implements AssistantInterface
             $streamFunction($message);
         }
 
-        return $message;
+        return new CompletionResponse($message);
     }
 
     private function convertMessageChainToAssistantContext(
@@ -96,11 +96,13 @@ class PerplexicaAssistant implements AssistantInterface
         $message->replyToMessageId = $lastMessage->id;
         $message->chatId = $lastMessage->chatId;
         $message->parseMode = 'MarkdownV2';
-        $message->messageText = trim($this->getCompletionBasedOnContext($assistantContext));
+        $completion = $this->getCompletionBasedOnContext($assistantContext);
+        $message->messageText = $completion->content;
         for ($i = 0; $i < 5; $i++) {
             if (trim($message->messageText) === '') {
                 echo "Bad response detected, trying again\n";
-                $message->messageText =  $this->getCompletionBasedOnContext($assistantContext);
+                $completion = $this->getCompletionBasedOnContext($assistantContext);
+                $message->messageText = $completion->content;
             } else {
                 break;
             }
