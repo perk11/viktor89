@@ -3,10 +3,10 @@
 namespace Perk11\Viktor89\Assistant;
 
 use Exception;
-use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Mcp\Client;
 use Mcp\Client\Transport\HttpTransport;
 use Mcp\Client\Transport\StdioTransport;
+use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\Assistant\Tool\McpToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
@@ -95,97 +95,7 @@ class AssistantFactory
         } elseif (is_a($requestedAssistantConfig['class'], OpenAiChatAssistant::class, true)
                || is_a($requestedAssistantConfig['class'], OpenAiPHPClientAssistant::class, true)
         ) {
-            $tools = [];
-            if ($requestedAssistantConfig['webSearch'] ?? false) {
-                $tools['web_search'] =
-                    new ToolDefinition(
-                        'web_search',
-                        $this->webSearchTool,
-                        'Search the web',
-                        [
-                            new ToolParameter('query',    ['type' => 'string'], true),
-                            new ToolParameter('max_results', ['type' => 'integer', 'minimum' => 1, 'maximum' => 10], false),
-                        ]
-                    );
-            }
-            if ($requestedAssistantConfig['generateImages'] ?? false) {
-                $tools['image_gen_tool'] =
-                    new ToolDefinition(
-                        'image_gen_tool',
-                        $this->imageFromTextGeneratorTool,
-                        'Generate an image from a text prompt and send it to user. Use as a tool call, not an action',
-                        [
-                            new ToolParameter('prompt',    ['type' => 'string'], true),
-                        ]
-                    );
-            }
-            if ($requestedAssistantConfig['toolReact'] ?? false) {
-                $tools['react_with_emoji'] =
-                    new ToolDefinition(
-                        'react_with_emoji',
-                        $this->reactToolCallExecutor,
-                        'React to user\'s message with one of the allowed emojis, use to show emotions',
-                        [
-                            new ToolParameter('reaction',    [
-                                'type' => 'string',
-                                'allowed_values' => ReactToolCallExecutor::ALLOWED_REACTIONS,
-                            ], true),
-                        ]
-                    );
-            }
-            if ($requestedAssistantConfig['toolGetUrlContents'] ?? false) {
-                $tools['get_url_contents'] =
-                    new ToolDefinition(
-                        'get_url_contents',
-                        $this->getUrlContentsTool,
-                        'Fetch the contents of a URL and return the text with HTML tags stripped, limited to 10000 characters',
-                        [
-                            new ToolParameter('url', ['type' => 'string'], true),
-                        ]
-                    );
-            }
-            if ($requestedAssistantConfig['mcpServers'] ?? []) {
-                foreach ($requestedAssistantConfig['mcpServers'] as $serverName => $serverConfig) {
-                    if (isset($serverConfig['command'])) {
-                        $transport = new StdioTransport(
-                            command: $serverConfig['command'],
-                            args: $serverConfig['args'] ?? [],
-                            env: $serverConfig['env'] ?? null,
-                        );
-                    } elseif (isset($serverConfig['url'])) {
-                        $transport = new HttpTransport(
-                            endpoint: $serverConfig['url'],
-                            headers: $serverConfig['headers'] ?? [],
-                        );
-                    } else {
-                        throw new Exception("Invalid MCP server configuration for $serverName: missing command or url");
-                    }
-                    $client = Client::builder()
-                        ->setClientInfo('Viktor89', '1.0.0')
-                        ->build();
-                    $client->connect($transport);
-                    foreach ($client->listTools()->tools as $tool) {
-                        $parameters = [];
-                        $properties = $tool->inputSchema['properties'] ?? [];
-                        if ($properties instanceof \stdClass) {
-                            $properties = (array) $properties;
-                        }
-                        foreach ($properties as $parameterName => $parameterProperties) {
-                            $parameters[] = new ToolParameter(
-                                $parameterName,
-                                $parameterProperties,
-                                in_array($parameterName, $tool->inputSchema['required'] ?? [], true)
-                            );
-                        }
-                        $tools[$tool->name] = new ToolDefinition(
-                            $tool->name,
-                            new McpToolCallExecutor($client, $tool->name),
-                            $tool->description,
-                            $parameters
-                        );
-                    }
-                }
-            }
+            $tools = $this->getTools($requestedAssistantConfig);
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
                 $requestedAssistantConfig['model'] ?? null,
                 $systemPromptProcessor,
@@ -221,5 +131,102 @@ class AssistantFactory
         }
 
         return $this->assistantInstanceByName[$name];
+    }
+
+    protected function getTools(array $requestedAssistantConfig): array
+    {
+        $tools = [];
+        if ($requestedAssistantConfig['webSearch'] ?? false) {
+            $tools['web_search'] =
+                new ToolDefinition(
+                    'web_search',
+                    $this->webSearchTool,
+                    'Search the web',
+                    [
+                        new ToolParameter('query', ['type' => 'string'], true),
+                        new ToolParameter('max_results', ['type' => 'integer', 'minimum' => 1, 'maximum' => 10], false),
+                    ]
+                );
+        }
+        if ($requestedAssistantConfig['generateImages'] ?? false) {
+            $tools['image_gen_tool'] =
+                new ToolDefinition(
+                    'image_gen_tool',
+                    $this->imageFromTextGeneratorTool,
+                    'Generate an image from a text prompt and send it to user. Use as a tool call, not an action',
+                    [
+                        new ToolParameter('prompt', ['type' => 'string'], true),
+                    ]
+                );
+        }
+        if ($requestedAssistantConfig['toolReact'] ?? false) {
+            $tools['react_with_emoji'] =
+                new ToolDefinition(
+                    'react_with_emoji',
+                    $this->reactToolCallExecutor,
+                    'React to user\'s message with one of the allowed emojis, use to show emotions',
+                    [
+                        new ToolParameter('reaction', [
+                            'type'           => 'string',
+                            'allowed_values' => ReactToolCallExecutor::ALLOWED_REACTIONS,
+                        ],                true),
+                    ]
+                );
+        }
+        if ($requestedAssistantConfig['toolGetUrlContents'] ?? false) {
+            $tools['get_url_contents'] =
+                new ToolDefinition(
+                    'get_url_contents',
+                    $this->getUrlContentsTool,
+                    'Fetch the contents of a URL and return the text with HTML tags stripped, limited to 10000 characters',
+                    [
+                        new ToolParameter('url', ['type' => 'string'], true),
+                    ]
+                );
+        }
+        if ($requestedAssistantConfig['mcpServers'] ?? []) {
+            foreach ($requestedAssistantConfig['mcpServers'] as $serverName => $serverConfig) {
+                if (isset($serverConfig['command'])) {
+                    $transport = new StdioTransport(
+                        command: $serverConfig['command'],
+                        args:    $serverConfig['args'] ?? [],
+                        env:     $serverConfig['env'] ?? null,
+                    );
+                } elseif (isset($serverConfig['url'])) {
+                    $transport = new HttpTransport(
+                        endpoint: $serverConfig['url'],
+                        headers:  $serverConfig['headers'] ?? [],
+                    );
+                } else {
+                    throw new \RuntimeException("Invalid MCP server configuration for $serverName: missing command or url");
+                }
+                $client = Client::builder()
+                    ->setClientInfo('Viktor89', '1.0.0')
+                    ->build();
+                $client->connect($transport);
+                foreach ($client->listTools()->tools as $tool) {
+                    $parameters = [];
+                    $properties = $tool->inputSchema['properties'] ?? [];
+                    if ($properties instanceof \stdClass) {
+                        $properties = (array)$properties;
+                    }
+                    foreach ($properties as $parameterName => $parameterProperties) {
+                        $parameters[] = new ToolParameter(
+                            $parameterName,
+                            $parameterProperties,
+                            in_array($parameterName, $tool->inputSchema['required'] ?? [], true)
+                        );
+                    }
+                    $tools[$tool->name] = new ToolDefinition(
+                        $tool->name,
+                        new McpToolCallExecutor($client, $tool->name),
+                        $tool->description,
+                        $parameters
+                    );
+                }
+            }
+        }
+
+        return $tools;
     }
 }
