@@ -23,7 +23,8 @@ class ProcessingResultExecutor
 
                 $telegramServerResponse = $result->response->send();
                 if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof Message) {
-                    $this->database->logMessage($telegramServerResponse->getResult());
+                    InternalMessage::extractPropertiesFromTelegramMessage($result->response, $telegramServerResponse->getResult());
+                    $this->database->logInternalMessage($result->response);
                 } else {
                     echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
                 }

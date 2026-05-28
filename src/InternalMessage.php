@@ -79,7 +79,7 @@ class InternalMessage
 
         return $message;
     }
-    private static function extractPropertiesFromTelegramMessage(InternalMessage $message, Message $telegramMessage)
+    public static function extractPropertiesFromTelegramMessage(InternalMessage $message, Message $telegramMessage)
     {
         $message->id = $telegramMessage->getMessageId();
         $message->type = $telegramMessage->getType();
