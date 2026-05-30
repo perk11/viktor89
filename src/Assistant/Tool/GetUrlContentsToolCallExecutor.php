@@ -66,8 +66,7 @@ class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
         }
 
         $statusCode = $response->getStatusCode();
-        if ($statusCode !== 200) {
-            throw new \RuntimeException("URL returned status code: $statusCode");
+        if ($statusCode !== 200 && $statusCode !== 202) {throw new \RuntimeException("URL returned status code: $statusCode");
         }
 
         $contentLengthHeader = $response->getHeaderLine('Content-Length');
