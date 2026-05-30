@@ -19,6 +19,7 @@ use Perk11\Viktor89\UserPreferenceReaderInterface;
 /** Uses https://github.com/openai-php/client */
 class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 {
+    private const int REPETITION_THRESHOLD_CHARACTERS = 512;
     private readonly Client $openAiClient;
 
     /**
@@ -94,6 +95,20 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         $contentChunk = $delta->content;
                         $content .= $contentChunk;
                         $streamFunction($contentChunk);
+                        if ($this->isStringStartingToRepeat($content, self::REPETITION_THRESHOLD_CHARACTERS)) {
+                            echo "\nRepetition detected, aborting response\n";
+                            $content .= "\n\n(Response was aborted due to repetition)";
+                            // Close the stream by unsetting it and clearing references
+                            $stream = null;
+                            unset($stream);
+                            gc_collect_cycles();
+                            if ($accumulatedContent !== '') {
+                                $accumulatedContent .= "\n";
+                            }
+                            $accumulatedContent .= $content;
+
+                            return new CompletionResponse($accumulatedContent, $allToolCalls);
+                        }
                     }
 
                     if (isset($delta->toolCalls)) {
@@ -313,5 +328,16 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         }
 
         return ['input' => $actionInput];
+    }
+
+    private function isStringStartingToRepeat(string $str, int $charactersToCheck): bool
+    {
+        if (mb_strlen($str) < $charactersToCheck) {
+            return false;
+        }
+        $lastCharacters = mb_substr($str, -$charactersToCheck);
+        $earlierPart = mb_substr($str, 0, -$charactersToCheck);
+
+        return str_contains($earlierPart, $lastCharacters);
     }
 }
