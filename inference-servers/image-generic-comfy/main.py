@@ -265,6 +265,8 @@ def generate_image():
         case _:
             return jsonify({"error": "Unknown model: " + model}), 400
 
+    print("Executing workflow against " +  args.comfy_ui_server_address + " with infotext " + infotext +":")
+    print(json.dumps(comfy_workflow_object), flush=True)
     return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
 
 def get_img2img_workflow_infotext_and_filename_fluxkontext(prompt, seed, steps, width, height):
