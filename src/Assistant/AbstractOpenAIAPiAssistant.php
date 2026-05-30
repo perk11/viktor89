@@ -50,101 +50,25 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         }
         $assistantContext = $this->convertMessageChainToAssistantContext($messageChain, $systemPrompt, $responseStart, $progressUpdateCallback);
 
-        $progressUpdateCallback(static::class,
-                                'Generating assistant response',
-                                new ChatAction($messageChain->last()->chatId, ChatActionEnum::typing)
+        $progressUpdateCallback(
+            static::class,
+            'Generating assistant response',
+            new ChatAction($messageChain->last()->chatId, ChatActionEnum::typing)
         );
+
         $lastMessage = $messageChain->last();
         $message = new InternalMessage();
         $message->replyToMessageId = $lastMessage->id;
         $message->chatId = $lastMessage->chatId;
         $message->parseMode = 'MarkdownV2';
+
         $editFrequency = $this->getEditFrequency($userId);
+
         try {
             $partialContent = '';
-            if ($message->chatId > 0) {
-                $draftAborted = false;
-                $lastDraftTime = 0;
-                $streamFunction = static function ($chunk) use (&$partialContent, &$message, &$draftAborted, &$lastDraftTime) {
-                    echo $chunk;
-                    $partialContent .= $chunk;
-                    if ($draftAborted) {
-                        return;
-                    }
-                    $currentDraftTime = microtime(true);
-                    if ($currentDraftTime - $lastDraftTime < self::DRAFT_FREQUENCY_SECONDS) {
-                        return;
-                    }
-                    $lastDraftTime = $currentDraftTime;
-                    $message->messageText = TelegramMarkdownV2::makeValid($partialContent);
-                    $sendAsDraftResult = $message->sendAsDraft();
-                    $sendAsDraftResultObject = json_decode($sendAsDraftResult, false);
-                    if (json_last_error() !== JSON_ERROR_NONE) {
-                        echo "Failed to parse result of sending message as draft: " . json_last_error_msg() . "\n";
-                        $draftAborted = true;
-                    }
-                    if ($sendAsDraftResultObject->ok === false) {
-                        var_dump($sendAsDraftResultObject);
-                        if ($sendAsDraftResultObject->error_code === 429 && isset($sendAsDraftResultObject->parameters->retry_after)) {
-                            echo "Got retry after " . $sendAsDraftResultObject->parameters->retry_after ." when sending draft.: " . $sendAsDraftResultObject->error_code . ' '. $sendAsDraftResultObject->description . "\n";
-                            $lastDraftTime = microtime(true) + $sendAsDraftResultObject->parameters->retry_after - self::DRAFT_FREQUENCY_SECONDS;
-                        } else {
-                            echo "Failed to send message as draft: " . $sendAsDraftResultObject->error_code . ' ' . $sendAsDraftResultObject->description . "\n";
-                            $draftAborted = true;
-                        }
-                    }
-                };
-            } else {
-                $editAborted = false;
-                $lastEditTime = 0;
-                $lastLength = 0;
-                $streamFunction = static function ($chunk) use (&$partialContent, &$message, &$editAborted, &$lastEditTime, &$lastLength, $responseStart, $editFrequency) {
-                    echo $chunk;
-                    $partialContent .= $chunk;
-                    if ($editAborted) {
-                        return;
-                    }
-                    $currentEditTime = microtime(true);
-                    $timeSinceLastEdit = $currentEditTime - $lastEditTime;
-                    if ($timeSinceLastEdit < $editFrequency) {
-                        return;
-                    }
-                    if ($lastLength === 0) {
-                      if (mb_strlen($partialContent) < 32) {
-                          return;
-                      }
-                    } elseif ($timeSinceLastEdit < self::SMALL_EDIT_MIN_TIME_SECONDS && (mb_strlen($partialContent) - mb_strlen($lastLength) < 64)) {
-                        return;
-                    }
-                    $lastLength = mb_strlen($partialContent);
-                    $lastEditTime = $currentEditTime;
-                    $messageText = $responseStart . TelegramMarkdownV2::makeValid($partialContent) . ' **\.\.\.**';
-                    if ($message->id === null) {
-                        $message->messageText = $messageText;
-                        $sendResult = $message->send();
-                        if (!$sendResult->isOk()) {
-                            echo "Failed to send initial message for streaming: " . $sendResult->getErrorCode() . ' ' . $sendResult->getDescription() . "\n";
-                            $editAborted = true;
-                        }
-                    } else {
-                        if (mb_strlen($messageText) > 4000) {
-                            $messageText = TelegramMarkdownV2::makeValid(mb_substr($responseStart . ($partialContent), 0, 4000));
-                            $editAborted = true;
-                        }
-                        $editResult = $message->edit($messageText, false);
-                        if (!$editResult->isOk()) {
-                            var_dump($editResult);
-                            if ($editResult->getErrorCode() === 429 && isset($editResult->getRawData()['parameters']['retry_after'])) {
-                                echo "Got retry after " . $editResult->getRawData()['parameters']['retry_after'] . " when editing message.: " . $editResult->getErrorCode() . ' ' . $editResult->getDescription() . "\n";
-                                $lastEditTime = microtime(true) + $editResult->getRawData()['parameters']['retry_after'] - $editFrequency;
-                            } else {
-                                echo "Failed to edit message for streaming: " . $editResult->getErrorCode() . ' ' . $editResult->getDescription() . "\n";
-                                $editAborted = true;
-                            }
-                        }
-                    }
-                };
-            }
+
+            $streamFunction = $this->createStreamFunction($message, $responseStart, $editFrequency, $partialContent);
+
             $completion = $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain);
             $message->messageText = TelegramMarkdownV2::makeValid($responseStart . trim($completion->content));
             $message->toolCalls = $completion->toolCalls;
@@ -154,6 +78,139 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         }
 
         return new ProcessingResult($message, true);
+    }
+
+    private function createStreamFunction(
+        InternalMessage $message,
+        ?string $responseStart,
+        float $editFrequency,
+        string &$partialContent
+    ): \Closure {
+        $isDraft = $message->chatId > 0;
+        $editingAborted = false;
+        $lastActionTime = 0;
+        $lastLength = 0;
+
+        return function (string $chunk) use (
+            $message, $isDraft, $responseStart, $editFrequency,
+            &$partialContent, &$editingAborted, &$lastActionTime, &$lastLength
+        ) {
+            echo $chunk;
+            $partialContent .= $chunk;
+
+            if ($editingAborted) {
+                return;
+            }
+
+            $currentTime = microtime(true);
+            $frequency = $isDraft ? self::DRAFT_FREQUENCY_SECONDS : $editFrequency;
+
+            if ($currentTime - $lastActionTime < $frequency) {
+                return;
+            }
+
+            // Edit-specific throttling
+            if (!$isDraft) {
+                if ($lastLength === 0) {
+                    if (mb_strlen($partialContent) < 32) {
+                        return;
+                    }
+                } elseif (($currentTime - $lastActionTime) < self::SMALL_EDIT_MIN_TIME_SECONDS && (mb_strlen($partialContent) - $lastLength < 64)) {
+                    return;
+                }
+            }
+
+            $lastActionTime = $currentTime;
+            $lastLength = mb_strlen($partialContent);
+
+            if ($isDraft) {
+                $this->processDraftStream($message, $partialContent, $frequency, $editingAborted, $lastActionTime);
+            } else {
+                $this->processEditStream($message, $partialContent, $responseStart, $frequency, $editingAborted, $lastActionTime);
+            }
+        };
+    }
+
+    private function processDraftStream(InternalMessage $message, string $partialContent, float $frequency, bool &$aborted, float &$lastActionTime): void
+    {
+        $message->messageText = TelegramMarkdownV2::makeValid($partialContent);
+        $sendAsDraftResult = $message->sendAsDraft();
+        $sendAsDraftResultObject = json_decode($sendAsDraftResult, false);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            echo "Failed to parse result of sending message as draft: " . json_last_error_msg() . "\n";
+            $aborted = true;
+            return;
+        }
+
+        if ($sendAsDraftResultObject->ok === false) {
+            var_dump($sendAsDraftResultObject);
+            $retryAfter = $sendAsDraftResultObject->parameters->retry_after ?? null;
+            $this->handleRateLimitError(
+                $sendAsDraftResultObject->error_code,
+                $retryAfter,
+                $sendAsDraftResultObject->description,
+                "sending draft",
+                "send message as draft",
+                $frequency,
+                $aborted,
+                $lastActionTime
+            );
+        }
+    }
+
+    private function processEditStream(InternalMessage $message, string $partialContent, ?string $responseStart, float $frequency, bool &$editingAborted, float &$lastActionTime): void
+    {
+        $messageText = $responseStart . TelegramMarkdownV2::makeValid($partialContent) . ' **\.\.\.**';
+
+        if ($message->id === null) {
+            $message->messageText = $messageText;
+            $sendResult = $message->send();
+            if (!$sendResult->isOk()) {
+                echo "Failed to send initial message for streaming: " . $sendResult->getErrorCode() . ' ' . $sendResult->getDescription() . "\n";
+                $editingAborted = true;
+            }
+        } else {
+            if (mb_strlen($messageText) > 4000) {
+                $messageText = TelegramMarkdownV2::makeValid(mb_substr($responseStart . $partialContent, 0, 4000));
+                $editingAborted = true; // Truncating early and aborting updates once standard bounds are met
+            }
+            $editResult = $message->edit($messageText, false);
+            if (!$editResult->isOk()) {
+                var_dump($editResult);
+                $rawData = $editResult->getRawData();
+                $retryAfter = $rawData['parameters']['retry_after'] ?? null;
+                $this->handleRateLimitError(
+                    $editResult->getErrorCode(),
+                    $retryAfter,
+                    $editResult->getDescription(),
+                    "editing message",
+                    "edit message for streaming",
+                    $frequency,
+                    $editingAborted,
+                    $lastActionTime
+                );
+            }
+        }
+    }
+
+    private function handleRateLimitError(
+        int $errorCode,
+        ?int $retryAfter,
+        string $description,
+        string $retryActionContext,
+        string $failActionContext,
+        float $frequency,
+        bool &$aborted,
+        float &$lastActionTime
+    ): void {
+        if ($errorCode === 429 && $retryAfter !== null) {
+            echo "Got retry after {$retryAfter} when {$retryActionContext}.: {$errorCode} {$description}\n";
+            $lastActionTime = microtime(true) + $retryAfter - $frequency;
+        } else {
+            echo "Failed to {$failActionContext}: {$errorCode} {$description}\n";
+            $aborted = true;
+        }
     }
 
     private function getEditFrequency(int $userId): float
