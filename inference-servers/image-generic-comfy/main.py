@@ -239,7 +239,7 @@ def generate_image():
             print(lora)
             return jsonify({'error': 'Missing Lora name attribute', lora: lora}), 500
     match model:
-        case 'anima-preview':
+        case 'anima-preview' | 'anima_baseV10':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_anima(model, prompt, negative_prompt, seed, steps, width, height)
         case 'chroma-unlocked-v31' | 'chroma_v41LowStepRl':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_chroma(model, prompt, negative_prompt, seed, steps, width, height)
