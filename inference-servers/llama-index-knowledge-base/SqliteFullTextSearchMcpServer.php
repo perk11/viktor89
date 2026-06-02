@@ -61,7 +61,7 @@ class SqliteFullTextSearchMcpServer
             SELECT 
                 title, 
                 url, 
-                content
+                snippet(searchable_documents, 2, '<b>', '</b>', '...', 5) AS content_snippet
             FROM searchable_documents 
             WHERE searchable_documents MATCH :search_query_parameter 
             ORDER BY rank 
