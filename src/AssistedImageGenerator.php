@@ -21,6 +21,13 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
         private readonly array $modelConfig,
     ) {
     }
+    public function generateImageByImagePrompt(ImageGenerationPrompt $imageGenerationPrompt, int $userId): Automatic1111ImageApiResponse
+    {
+        if (count($imageGenerationPrompt->sourceImagesContents) === 0) {
+            return $this->generateImageByPrompt($imageGenerationPrompt->text, $userId);
+        }
+        return $this->generateImageByPromptAndImages($imageGenerationPrompt, $userId);
+    }
 
     public function generateImageByPrompt(string $prompt, int $userId): Automatic1111ImageApiResponse
     {

@@ -14,7 +14,7 @@ class ImgTagExtractor
 
     public function extractImageTags(
         ImageGenerationPrompt $promptTobeProcessed,
-        string $modelName
+        ?string $modelName = null
     ): ImageGenerationPrompt {
         $newPrompt = clone $promptTobeProcessed;
         $newPrompt->text = preg_replace_callback(

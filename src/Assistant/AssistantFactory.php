@@ -34,6 +34,7 @@ class AssistantFactory
         private readonly MessageChainAwareToolCallExecutorInterface $imageFromTextGeneratorTool,
         private readonly MessageChainAwareToolCallExecutorInterface $reactToolCallExecutor,
         private readonly ToolCallExecutorInterface $getUrlContentsTool,
+        private readonly ToolCallExecutorInterface $listSavedImagesTool,
         private readonly int $telegramBotId
     )
     {
@@ -153,7 +154,7 @@ class AssistantFactory
                 new ToolDefinition(
                     'image_gen_tool',
                     $this->imageFromTextGeneratorTool,
-                    'Generate an image from a text prompt and send it to user. Use as a tool call, not an action',
+                    'Generate an image from a text prompt and send it to user. Use <img>savedImageName</img> in the prompt if you need to reference saved images.',
                     [
                         new ToolParameter('prompt', ['type' => 'string'], true),
                     ]
@@ -182,6 +183,14 @@ class AssistantFactory
                     [
                         new ToolParameter('url', ['type' => 'string'], true),
                     ]
+                );
+        }
+        if ($requestedAssistantConfig['toolListSavedImages'] ?? false) {
+            $tools['list_saved_images'] =
+                new ToolDefinition(
+                    'list_saved_images',
+                    $this->listSavedImagesTool,
+                    'List names of all saved images. Saved images can be used as a reference for image generation. If user references concepts that are not common, check this before generating an image.',
                 );
         }
         if ($requestedAssistantConfig['mcpServers'] ?? []) {

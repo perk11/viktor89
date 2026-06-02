@@ -17,6 +17,7 @@ use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\Tool\GetUrlContentsToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ImageFromTextGeneratorToolCallExecutor;
+use Perk11\Viktor89\Assistant\Tool\ListSavedImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\OllamaWebSearchToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
@@ -265,6 +266,8 @@ class ProcessMessageTask implements Task
 
         $reactionReplacer = new ReactionReplacer(new ReactionDeleter($telegram->getBotId()));
         $photoResponder = new PhotoResponder($database, $cacheFileManager, $reactionReplacer);
+        $imageRepository = new ImageRepository($database->sqlite3Database);
+        $imgTagExtractor = new ImgTagExtractor($imageRepository);
 
         $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $database);
         $processingResultExecutor= new ProcessingResultExecutor($database);
@@ -278,9 +281,10 @@ class ProcessMessageTask implements Task
             $altTextProvider,
             $processingResultExecutor,
             new OllamaWebSearchToolCallExecutor($config['ollamaWebSearchApiKey']),
-            new ImageFromTextGeneratorToolCallExecutor($automatic1111APiClient, $photoResponder),
+            new ImageFromTextGeneratorToolCallExecutor($automatic1111APiClient, $photoResponder, $imgTagExtractor),
             new ReactToolCallExecutor(),
             new GetUrlContentsToolCallExecutor(),
+            new ListSavedImagesToolCallExecutor($imageRepository),
             $telegram->getBotId(),
         );
         $altTextProvider->assistantWithVision = $assistantFactory->getAssistantInstanceByName('vision-for-alt-text');
@@ -299,8 +303,6 @@ class ProcessMessageTask implements Task
             $this->telegramBotUsername,
             array_keys($config['voiceModels']),
         );
-        $imageRepository = new ImageRepository($database->sqlite3Database);
-        $imgTagExtractor = new ImgTagExtractor($imageRepository);
         $assistedImageGenerator = new AssistedImageGenerator(
             $automatic1111APiClient,
             $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
