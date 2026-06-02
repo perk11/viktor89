@@ -517,7 +517,7 @@ class ProcessMessageTask implements Task
             $imageModelProcessor,
             $imageSizeProcessor,
             new CommandBasedResponderTrigger(
-                ['/images'],
+                ['/images', '/saved'],
                 new ImageCatalogPdfProcessor($imageRepository),
             ),
             $editModelProcessor,
