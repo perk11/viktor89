@@ -83,18 +83,25 @@ class ImageRepository
     }
 
     /**
-     * @return array{id: int, name: string, filename: string, user_id: int, created_at: string}[]
+     * @return SavedImage[]
      */
     public function findAllPublicImages(): array
     {
         $stmt = $this->sqlite3Database->prepare(
-            'SELECT id, name, filename, user_id, created_at FROM saved_image WHERE private = 0 ORDER BY name'
+            'SELECT id, name, filename, user_id, created_at, private FROM saved_image WHERE private = 0 ORDER BY name'
         );
         $result = $stmt->execute();
 
         $images = [];
         while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-            $images[] = $row;
+            $images[] = new SavedImage(
+                $row['id'],
+                $row['name'],
+                $row['filename'],
+                $row['user_id'],
+                $row['created_at'],
+                (bool)$row['private'],
+            );
         }
         return $images;
     }

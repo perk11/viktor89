@@ -14,7 +14,7 @@ use TCPDF;
 class ImageCatalogPdfProcessor implements MessageChainProcessor
 {
     private const int IMAGES_PER_PAGE = 64;
-    private const int THUMBNAIL_SIZE = 100; // pixels
+    private const int THUMBNAIL_SIZE = 180; // pixels
 
     public function __construct(
         private readonly ImageRepository $imageRepository,
@@ -113,7 +113,7 @@ class ImageCatalogPdfProcessor implements MessageChainProcessor
 
     private function drawImageCell(
         TCPDF $pdf,
-        array $image,
+        SavedImage $image,
         float $cellWidth,
         float $cellHeight,
         float $x,
@@ -124,7 +124,7 @@ class ImageCatalogPdfProcessor implements MessageChainProcessor
         $pdf->Rect($x, $y, $cellWidth, $cellHeight, 'DF');
 
         // Load and resize image, maintaining proportions
-        $thumbnailPath = $this->getThumbnail($image['name']);
+        $thumbnailPath = $this->getThumbnail($image->name);
         if ($thumbnailPath !== null) {
             $imgMaxWidth = $cellWidth - 2;
             $imgMaxHeight = $cellHeight - 7;
@@ -146,7 +146,7 @@ class ImageCatalogPdfProcessor implements MessageChainProcessor
         }
 
         // Draw name label
-        $name = $image['name'];
+        $name = $image->name;
         $maxLabelWidth = $cellWidth - 2;
 
         $pdf->SetXY($x + 1, $y + $cellHeight - 6);
