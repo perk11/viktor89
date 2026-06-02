@@ -82,6 +82,23 @@ class ImageRepository
         return true;
     }
 
+    /**
+     * @return array{id: int, name: string, filename: string, user_id: int, created_at: string}[]
+     */
+    public function findAllPublicImages(): array
+    {
+        $stmt = $this->sqlite3Database->prepare(
+            'SELECT id, name, filename, user_id, created_at FROM saved_image WHERE private = 0 ORDER BY name'
+        );
+        $result = $stmt->execute();
+
+        $images = [];
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $images[] = $row;
+        }
+        return $images;
+    }
+
     private function random_str(
         int $length = 64,
         string $keyspace = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'

@@ -23,6 +23,7 @@ use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\DefaultingToFirstInConfigModelPreferenceReader;
 use Perk11\Viktor89\ImageGeneration\DownscaleProcessor;
 use Perk11\Viktor89\ImageGeneration\ImageRemixer;
+use Perk11\Viktor89\ImageGeneration\ImageCatalogPdfProcessor;
 use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\ImageTransformProcessor;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
@@ -513,6 +514,10 @@ class ProcessMessageTask implements Task
                                      ]),
             $imageModelProcessor,
             $imageSizeProcessor,
+            new CommandBasedResponderTrigger(
+                ['/images'],
+                new ImageCatalogPdfProcessor($imageRepository),
+            ),
             $editModelProcessor,
             $singModelProcessor,
             $videoModelProcessor,
