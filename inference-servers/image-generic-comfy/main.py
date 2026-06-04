@@ -146,6 +146,18 @@ def get_txt2img_workflow_and_infotext_flux2(model, prompt, seed, steps, width, h
     comfy_workflow_object["48"]["inputs"]['height'] = height
 
     return comfy_workflow_object, f'{prompt}\nSteps: {steps}, Seed: {seed}, Size: {width}x{height}, Model: ' + model
+def get_txt2img_workflow_and_infotext_ideogram4(model, prompt, seed, steps, width, height):
+    workflow_file_path = Path(__file__).with_name("ideogram4-txt2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["161"]["inputs"]['prompt'] = prompt
+    comfy_workflow_object["98:18"]["inputs"]['noise_seed'] = seed
+
+    comfy_workflow_object["162"]["inputs"]['width'] = width
+    comfy_workflow_object["163"]["inputs"]['height'] = height
+
+    return comfy_workflow_object, f'{prompt}\nSteps: 40, Seed: {seed}, Preset: "V4_DEFAULT_20, Std: 1.75, Size: {width}x{height}, Model: ' + model
 def get_txt2img_workflow_and_infotext_flux2_turbo(prompt, seed, width, height):
     workflow_file_path = Path(__file__).with_name("flux2-turbo-txt2img.json")
     with workflow_file_path.open('r') as workflow_file:
@@ -251,6 +263,8 @@ def generate_image():
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_qwen(model, prompt, negative_prompt, seed, steps, width, height)
         case 'wan2.2_t2v_fp8':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_wan22(model, prompt, negative_prompt, seed, steps, width, height)
+        case 'ideogram4':
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_ideogram4(model, prompt, seed, steps, width, height)
         case 'flux2_dev_fp8':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_flux2(model, prompt, seed, steps, width, height)
         case 'flux2_dev_fp8-turbo-8-steps':
