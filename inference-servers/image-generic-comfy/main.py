@@ -154,8 +154,8 @@ def get_txt2img_workflow_and_infotext_ideogram4(model, prompt, seed, steps, widt
     comfy_workflow_object["161"]["inputs"]['prompt'] = prompt
     comfy_workflow_object["98:18"]["inputs"]['noise_seed'] = seed
 
-    comfy_workflow_object["162"]["inputs"]['width'] = width
-    comfy_workflow_object["163"]["inputs"]['height'] = height
+    comfy_workflow_object["162"]["inputs"]['value'] = width
+    comfy_workflow_object["163"]["inputs"]['value'] = height
 
     return comfy_workflow_object, f'{prompt}\nSteps: 48, Seed: {seed}, Preset: V4_QUALITY_48, Std: 1.5, Size: {width}x{height}, Model: ' + model
 def get_txt2img_workflow_and_infotext_flux2_turbo(prompt, seed, width, height):
