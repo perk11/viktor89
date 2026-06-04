@@ -110,7 +110,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                             $currentTime = microtime(true);
                             if ($currentTime - $lastUpdateTime > 3) {
                                 $progressUpdateCallback(static::class, "Streaming response: (" . mb_strlen($content) . ") characters");
-                                $lastUpdateTime = $currentTime;.
+                                $lastUpdateTime = $currentTime;
                             }
                         }
                         if ($this->isStringStartingToRepeat($content, self::REPETITION_THRESHOLD_CHARACTERS)) {
