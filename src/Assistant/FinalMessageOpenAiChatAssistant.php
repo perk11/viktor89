@@ -2,13 +2,14 @@
 
 namespace Perk11\Viktor89\Assistant;
 
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 
 class FinalMessageOpenAiChatAssistant extends OpenAiChatAssistant
 {
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): CompletionResponse
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null, ?ProgressUpdateCallback $progressUpdateCallback = null): CompletionResponse
     {
-        $completionResponse = parent::getCompletionBasedOnContext($assistantContext, $streamFunction);
+        $completionResponse = parent::getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain, $progressUpdateCallback);
         $completion = $completionResponse->content;
 
         if (

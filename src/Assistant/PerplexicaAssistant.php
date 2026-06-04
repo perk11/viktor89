@@ -22,7 +22,7 @@ class PerplexicaAssistant implements AssistantInterface
                                    ]);
     }
 
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): CompletionResponse
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null, ?ProgressUpdateCallback $progressUpdateCallback = null): CompletionResponse
     {
         $lastMessage = $assistantContext->messages[count($assistantContext->messages) - 1];
         $history = [];

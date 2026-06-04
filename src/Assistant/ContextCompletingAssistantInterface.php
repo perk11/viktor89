@@ -2,9 +2,10 @@
 
 namespace Perk11\Viktor89\Assistant;
 
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 
 interface ContextCompletingAssistantInterface
 {
-    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null): CompletionResponse;
+    public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null, ?ProgressUpdateCallback $progressUpdateCallback = null): CompletionResponse;
 }

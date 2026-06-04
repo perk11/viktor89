@@ -9,6 +9,7 @@ use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResult;
@@ -62,7 +63,8 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
     public function getCompletionBasedOnContext(
         AssistantContext $assistantContext,
         ?callable $streamFunction = null,
-        ?MessageChain $messageChain = null
+        ?MessageChain $messageChain = null,
+        ?ProgressUpdateCallback $progressUpdateCallback = null
     ): CompletionResponse {
         $requestOptions = [
             'messages' => $assistantContext->toOpenAiMessagesArray(),
@@ -82,11 +84,20 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         $allToolCalls = [];
         $accumulatedContent = '';
         while (true) {
-            echo "Calling OpenAI chat API (PHPClient)...\n";
+            $statusMessage = "Calling OpenAI chat API (PHPClient)...";
+            if (count($allToolCalls) > 0) {
+                $statusMessage .= " (" . count($allToolCalls) . " tool calls)";
+            }
+            if ($progressUpdateCallback !== null) {
+                $progressUpdateCallback(static::class, $statusMessage);
+            } else {
+                echo $statusMessage . "\n";
+            }
             $content = '';
             /** @var array<int, object> $toolCallsByIndex */
             $toolCallsByIndex = [];
 
+            $lastUpdateTime = 0;
             if ($streamFunction !== null) {
                 $stream = $this->openAiClient->chat()->createStreamed($requestOptions);
                 foreach ($stream as $response) {
@@ -95,6 +106,13 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         $contentChunk = $delta->content;
                         $content .= $contentChunk;
                         $streamFunction($contentChunk);
+                        if ($progressUpdateCallback !== null) {
+                            $currentTime = microtime(true);
+                            if ($currentTime - $lastUpdateTime > 3) {
+                                $progressUpdateCallback(static::class, "Streaming response: (" . mb_strlen($content) . ") characters");
+                                $lastUpdateTime = $currentTime;.
+                            }
+                        }
                         if ($this->isStringStartingToRepeat($content, self::REPETITION_THRESHOLD_CHARACTERS)) {
                             echo "\nRepetition detected, aborting response\n";
                             $content .= "\n\n(Response was aborted due to repetition)";
@@ -207,6 +225,10 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                 } else {
                     $functionArgs = json_decode($toolCall->function->arguments, true, 512, JSON_THROW_ON_ERROR);
                     echo "Executing tool $functionName with args " . json_encode($functionArgs, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
+
+                    if ($progressUpdateCallback !== null) {
+                        $progressUpdateCallback(static::class, "Executing tool call $functionName");
+                    }
 
                     $toolCallExecutor = $this->toolDefintions[$functionName]->toolCallClass;
 

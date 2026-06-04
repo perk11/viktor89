@@ -69,7 +69,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 
             $streamFunction = $this->createStreamFunction($message, $responseStart, $editFrequency, $partialContent);
 
-            $completion = $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain);
+            $completion = $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain, $progressUpdateCallback);
             $message->messageText = TelegramMarkdownV2::makeValid($responseStart . trim($completion->content));
             $message->toolCalls = $completion->toolCalls;
         } catch (\Exception $e) {
