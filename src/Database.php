@@ -480,6 +480,45 @@ ON CONFLICT(name) DO UPDATE SET
         $statement->execute();
     }
 
+    /**
+     * @return array<int, array{user_id: int, username: string, message_count: int, text_count: int, sticker_count: int, other_count: int, word_count: int}>
+     */
+    public function findTopTalkersInChat(int $chatId, int $limit = 30, int $days = 30): array
+    {
+        $statement = $this->sqlite3Database->prepare(
+            "SELECT user_id, username, COUNT(1) AS message_count,
+                    SUM(CASE WHEN type = 'text' THEN 1 ELSE 0 END) AS text_count,
+                    SUM(CASE WHEN type = 'sticker' THEN 1 ELSE 0 END) AS sticker_count,
+                    SUM(CASE WHEN type NOT IN ('text', 'sticker') THEN 1 ELSE 0 END) AS other_count,
+                    SUM(CASE WHEN type = 'text' THEN LENGTH(message_text) - LENGTH(REPLACE(message_text, ' ', '')) + 1 ELSE 0 END) AS word_count
+FROM message
+WHERE chat_id = :chat_id
+  AND date > unixepoch(DATETIME(CURRENT_TIMESTAMP, '-' || :days || ' days'))
+GROUP BY user_id, username
+ORDER BY message_count DESC
+LIMIT :limit"
+        );
+        $statement->bindValue(':chat_id', $chatId, SQLITE3_INTEGER);
+        $statement->bindValue(':limit', $limit, SQLITE3_INTEGER);
+        $statement->bindValue(':days', $days, SQLITE3_INTEGER);
+
+        $result = $statement->execute();
+        $talkers = [];
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $talkers[] = [
+                'user_id' => (int)$row['user_id'],
+                'username' => (string)$row['username'],
+                'message_count' => (int)$row['message_count'],
+                'text_count' => (int)$row['text_count'],
+                'sticker_count' => (int)$row['sticker_count'],
+                'other_count' => (int)$row['other_count'],
+                'word_count' => (int)$row['word_count'],
+            ];
+        }
+
+        return $talkers;
+    }
+
     public function readFileCacheNameById(string $fileId): ?string
     {
         $statement = $this->sqlite3Database->prepare('SELECT file_name FROM file_cache WHERE file_id = :file_id');
