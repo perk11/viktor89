@@ -151,13 +151,13 @@ def get_txt2img_workflow_and_infotext_ideogram4(model, prompt, seed, steps, widt
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
-    comfy_workflow_object["161"]["inputs"]['prompt'] = prompt
-    comfy_workflow_object["98:18"]["inputs"]['noise_seed'] = seed
+    comfy_workflow_object["42"]["inputs"]['prompt'] = prompt
+    comfy_workflow_object["23"]["inputs"]['noise_seed'] = seed
 
-    comfy_workflow_object["162"]["inputs"]['value'] = width
-    comfy_workflow_object["163"]["inputs"]['value'] = height
+    comfy_workflow_object["25"]["inputs"]['value'] = width
+    comfy_workflow_object["26"]["inputs"]['value'] = height
 
-    return comfy_workflow_object, f'{prompt}\nSteps: 48, Seed: {seed}, Preset: V4_QUALITY_48, Std: 1.5, Size: {width}x{height}, Model: ' + model
+    return comfy_workflow_object, f'{prompt}\nSteps: 48, Seed: {seed}, Size: {width}x{height}, Model: ' + model
 def get_txt2img_workflow_and_infotext_flux2_turbo(prompt, seed, width, height):
     workflow_file_path = Path(__file__).with_name("flux2-turbo-txt2img.json")
     with workflow_file_path.open('r') as workflow_file:
