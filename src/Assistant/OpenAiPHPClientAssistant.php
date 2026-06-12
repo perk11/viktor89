@@ -218,7 +218,11 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
             foreach ($toolCalls as $toolCall) {
                 $functionName = $toolCall->function->name;
-
+                $toolCallNotification = "\n>Executing `" . $functionName . "` with arguments `" . $toolCall->function->arguments . "`\n";
+                $accumulatedContent .= $toolCallNotification;
+                if ($streamFunction !== null) {
+                    $streamFunction($toolCallNotification);
+                }
                 if (!isset($this->toolDefintions[$functionName])) {
                     echo "Unknown tool called: $functionName\n";
                     $toolResult = ['content' => 'Error: Unknown tool call: ' . $functionName];
