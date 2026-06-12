@@ -9,7 +9,9 @@ use Longman\TelegramBot\Entities\ServerResponse;
 use Longman\TelegramBot\Entities\Video;
 use Longman\TelegramBot\Entities\VideoNote;
 use Longman\TelegramBot\Entities\Voice;
+use Longman\TelegramBot\Exception\TelegramException;
 use Longman\TelegramBot\Request;
+use Longman\TelegramBot\TelegramLog;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\VoiceGeneration\MessageAudio;
 
@@ -158,12 +160,19 @@ class InternalMessage
 
         $options = [
             'chat_id' => $this->chatId,
-            'text' => $this->rawMessageText ?? $this->messageText,
             'draft_id' => $this->draftId,
         ];
         if (isset($this->messageThreadId)) {
             $options['message_thread_id'] = $this->messageThreadId;
         }
+        if ($this->parseMode === 'RichMarkdown') {
+            $options['rich_message'] = [
+                'markdown' => $this->rawMessageText ?? $this->messageText,
+            ];
+
+            return Request::execute('sendRichMessageDraft', $options);
+        }
+        $options['text'] = $this->rawMessageText ?? $this->messageText;
         if ($this->parseMode !== 'Default') {
             $options['parse_mode'] = $this->parseMode;
         }
@@ -175,7 +184,6 @@ class InternalMessage
     {
         $options = [
             'chat_id' => $this->chatId,
-            'text' => $this->rawMessageText ?? $this->messageText,
         ];
         if ($this->replyToMessageId !== null) {
             $options['reply_parameters'] = ['message_id' => $this->replyToMessageId];
@@ -190,22 +198,32 @@ class InternalMessage
                 'selective' => true,
             ];
         }
-        if ($this->parseMode !== 'Default') {
-            $options['parse_mode'] = $this->parseMode;
+        if ($this->parseMode === 'RichMarkdown') {
+            $options['rich_message'] = [
+                'markdown' => $this->rawMessageText ?? $this->messageText,
+            ];
+            $rawResponse = Request::execute('sendRichMessage', $options);
+            $response = json_decode($rawResponse, true);
+
+            if (null === $response || json_last_error() !== JSON_ERROR_NONE) {
+                TelegramLog::debug($rawResponse);
+                throw new TelegramException('Telegram returned an invalid response!');
+            }
+
+            $response = new ServerResponse($response, $_ENV['TELEGRAM_BOT_USERNAME']);
+        } else {
+            $options['text'] = $this->rawMessageText ?? $this->messageText;
+            if ($this->parseMode !== 'Default') {
+                $options['parse_mode'] = $this->parseMode;
+            }
+            $response = Request::sendMessage($options);
         }
 
-        $response =  Request::sendMessage($options);
-        if (!isset($options['parse_mode']) || $options['parse_mode'] === 'Default') {
-            if ($response->isOk()) {
-                self::extractPropertiesFromTelegramMessage($this, $response->getResult());
-            }
-            return $response;
-        }
         if ($response->isOk()) {
             self::extractPropertiesFromTelegramMessage($this, $response->getResult());
             return $response;
         }
-        if ($options['parse_mode'] === 'MarkdownV2') {
+        if ($this->parseMode === 'MarkdownV2') {
             print_r($response->getRawData());
             echo "\nMessage failed to send in " . $options['parse_mode'] . " mode, trying again in Markdown mode\n";
             $options['parse_mode'] = 'markdown';
@@ -218,9 +236,14 @@ class InternalMessage
         }
 
         print_r($response->getRawData());
-        echo "\nMessage failed to send in ". $options['parse_mode'] . " mode, trying again in Default mode\n";
+        echo "\nMessage failed to send in ". $this->parseMode . " mode, trying again in Default mode\n";
 
         unset($options['parse_mode']);
+        if ($this->parseMode === 'RichMarkdown') {
+            $options['text'] = $this->rawMessageText ?? $this->messageText;
+            unset($options['rich_message']);
+        }
+
         $response = Request::sendMessage($options);
         if ($response->isOk()) {
             self::extractPropertiesFromTelegramMessage($this, $response->getResult());
@@ -233,11 +256,17 @@ class InternalMessage
         $options = [
             'chat_id' => $this->chatId,
             'message_id' => $this->id,
-            'text' => $newText,
         ];
 
-        if ($this->parseMode !== 'Default') {
-            $options['parse_mode'] = $this->parseMode;
+        if ($this->parseMode === 'RichMarkdown') {
+            $options['rich_message'] = [
+                'markdown' => $newText,
+            ];
+        } else {
+            $options['text'] = $newText;
+            if ($this->parseMode !== 'Default') {
+                $options['parse_mode'] = $this->parseMode;
+            }
         }
 
         $response = Request::editMessageText($options);

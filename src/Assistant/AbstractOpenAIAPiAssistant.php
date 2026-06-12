@@ -40,7 +40,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
     {
         $userId = $messageChain->last()->userId;
         $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($userId);
-        $systemPrompt = 'Use Telegram Markdown for your responses. Today is ' . date('Y-m-d') . "\n";
+        $systemPrompt = 'Use Github Markdown for your responses. Today is ' . date('Y-m-d') . "\n";
         $systemPrompt .= $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
             "Always respond to the user in the language they use or request.\n";
 
@@ -60,7 +60,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         $message = new InternalMessage();
         $message->replyToMessageId = $lastMessage->id;
         $message->chatId = $lastMessage->chatId;
-        $message->parseMode = 'MarkdownV2';
+        $message->parseMode = 'RichMarkdown';
 
         $editFrequency = $this->getEditFrequency($userId);
 
@@ -70,7 +70,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $streamFunction = $this->createStreamFunction($message, $responseStart, $editFrequency, $partialContent);
 
             $completion = $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain, $progressUpdateCallback);
-            $message->messageText = TelegramMarkdownV2::makeValid($responseStart . trim($completion->content));
+            $message->messageText = $responseStart . trim($completion->content);
             $message->toolCalls = $completion->toolCalls;
         } catch (\Exception $e) {
             echo "Failed to get completion based on context: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
@@ -133,7 +133,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 
     private function processDraftStream(InternalMessage $message, string $partialContent, float $frequency, bool &$aborted, float &$lastActionTime): void
     {
-        $message->messageText = TelegramMarkdownV2::makeValid($partialContent);
+        $message->messageText = $partialContent;
         $sendAsDraftResult = $message->sendAsDraft();
         $sendAsDraftResultObject = json_decode($sendAsDraftResult, false);
 
@@ -161,7 +161,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 
     private function processEditStream(InternalMessage $message, string $partialContent, ?string $responseStart, float $frequency, bool &$editingAborted, float &$lastActionTime): void
     {
-        $messageText = $responseStart . TelegramMarkdownV2::makeValid($partialContent) . ' **\.\.\.**';
+        $messageText = $responseStart . $partialContent . ' **\.\.\.**';
 
         if ($message->id === null) {
             $message->messageText = $messageText;
@@ -171,8 +171,8 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                 $editingAborted = true;
             }
         } else {
-            if (mb_strlen($messageText) > 4000) {
-                $messageText = TelegramMarkdownV2::makeValid(mb_substr($responseStart . $partialContent, 0, 4000));
+            if (mb_strlen($messageText) > 32768) {
+                $messageText = mb_substr($responseStart . $partialContent, 0, 32768);
                 $editingAborted = true; // Truncating early and aborting updates once standard bounds are met
             }
             $editResult = $message->edit($messageText, false);
