@@ -2,18 +2,16 @@
 
 namespace Perk11\Viktor89\Assistant\Tool;
 
-use Perk11\Viktor89\ImageGeneration\Automatic1111APiClient;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
-use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\MessageChain;
 
 class ImageFromTextGeneratorToolCallExecutor implements MessageChainAwareToolCallExecutorInterface
 {
     public function __construct(
         private readonly ImageByPromptGenerator $imageByPromptGenerator,
-        private readonly PhotoResponder $photoResponder,
+        private readonly ImageUploader $generatedImageMarkdownUploader,
         private readonly ImgTagExtractor $imgTagExtractor,
     )
     {
@@ -37,12 +35,19 @@ class ImageFromTextGeneratorToolCallExecutor implements MessageChainAwareToolCal
         $lastMesage = $messageChain->last();
         try {
             $response = $this->imageByPromptGenerator->generateImageByImagePrompt($prompt, $lastMesage->userId);
-            $this->photoResponder->sendPhoto($lastMesage, $response->getFirstImageAsPng(), $response->sendAsFile, $response->getCaption());
+            $uploadedImage = $this->generatedImageMarkdownUploader->uploadPng($response->getFirstImageAsPng());
         } catch (\Exception $e) {
             echo $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
-            return ['status' => 'failed'];
+            return [
+                'status' => 'failed',
+                'content' => 'Image generation failed.',
+            ];
         }
 
-        return ['status' => 'image_succesfully_generated_and_sent_to_user'];
+        return [
+            'status' => 'image_succesfully_generated_and_sent_to_user',
+            'directions' => 'Do not attempt to send the image to the user, they already have it',
+            'automatic_output_markdown' => $uploadedImage->toRichMarkdown($response->getCaption()),
+        ];
     }
 }

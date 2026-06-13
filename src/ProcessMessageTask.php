@@ -16,6 +16,7 @@ use Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\Tool\GetUrlContentsToolCallExecutor;
+use Perk11\Viktor89\Assistant\Tool\ImageUploader;
 use Perk11\Viktor89\Assistant\Tool\ImageFromTextGeneratorToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ListSavedImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\OllamaWebSearchToolCallExecutor;
@@ -267,6 +268,24 @@ class ProcessMessageTask implements Task
 
         $reactionReplacer = new ReactionReplacer(new ReactionDeleter($telegram->getBotId()));
         $photoResponder = new PhotoResponder($database, $cacheFileManager, $reactionReplacer);
+        $generatedImageMarkdownUploaderConfig = $config['generatedImageMarkdownUploader'] ?? null;
+        if (!is_array($generatedImageMarkdownUploaderConfig)) {
+            throw new Exception('Missing generatedImageMarkdownUploader configuration');
+        }
+        if (!is_string($generatedImageMarkdownUploaderConfig['scpTarget'] ?? null)
+            || !is_string($generatedImageMarkdownUploaderConfig['publicUrlPrefix'] ?? null)
+            || !is_string($generatedImageMarkdownUploaderConfig['privateKeyPath'] ?? null)
+        ) {
+            throw new Exception('generatedImageMarkdownUploader config must contain string scpTarget, publicUrlPrefix and privateKeyPath');
+        }
+        $generatedImageMarkdownUploader = new ImageUploader(
+            $generatedImageMarkdownUploaderConfig['scpTarget'],
+            $generatedImageMarkdownUploaderConfig['publicUrlPrefix'],
+            $generatedImageMarkdownUploaderConfig['privateKeyPath'],
+            is_string($generatedImageMarkdownUploaderConfig['publicKeyPath'] ?? null) ? $generatedImageMarkdownUploaderConfig['publicKeyPath'] : null,
+            is_string($generatedImageMarkdownUploaderConfig['keyPassphrase'] ?? null) ? $generatedImageMarkdownUploaderConfig['keyPassphrase'] : null,
+            is_int($generatedImageMarkdownUploaderConfig['port'] ?? null) ? $generatedImageMarkdownUploaderConfig['port'] : 22,
+        );
         $imageRepository = new ImageRepository($database->sqlite3Database);
         $imgTagExtractor = new ImgTagExtractor($imageRepository);
 
@@ -282,7 +301,7 @@ class ProcessMessageTask implements Task
             $altTextProvider,
             $processingResultExecutor,
             new OllamaWebSearchToolCallExecutor($config['ollamaWebSearchApiKey']),
-            new ImageFromTextGeneratorToolCallExecutor($automatic1111APiClient, $photoResponder, $imgTagExtractor),
+            new ImageFromTextGeneratorToolCallExecutor($automatic1111APiClient, $generatedImageMarkdownUploader, $imgTagExtractor),
             new ReactToolCallExecutor(),
             new GetUrlContentsToolCallExecutor(),
             new ListSavedImagesToolCallExecutor($imageRepository),

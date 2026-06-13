@@ -12,7 +12,6 @@ use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
-use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
@@ -256,6 +255,20 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         );
                     }
                 }
+                if (isset($toolResult['automatic_output_markdown'])) {
+                    if (!is_string($toolResult['automatic_output_markdown'])) {
+                        throw new \RuntimeException(
+                            'Tool call result automatic_output_markdown must be a string'
+                        );
+                    }
+                    $autoOutput  = "\n\n". $toolResult['automatic_output_markdown'] . "\n\n";
+                    $accumulatedContent .= $autoOutput;
+                    if ($streamFunction !== null) {
+                        $streamFunction($autoOutput);
+                    }
+                    unset($toolResult['automatic_output_markdown']);
+                }
+
                 $toolResultContent = json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
                 echo "Tool call result: " . mb_substr($toolResultContent, 0, 1000) . "\n";
 
