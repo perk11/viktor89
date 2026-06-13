@@ -9,106 +9,70 @@ use Revolt\EventLoop;
 class ChatActionUpdater
 {
     /** @var array<int, string> */
-    private array $timers = [];
+    private array $chatActionTimers = [];
 
     /** @var array<int, ChatAction> */
-    private array $actions = [];
+    private array $workerChatActions = [];
 
-    /** @var array<int, true> */
-    private array $queuedChatIds = [];
-
-    private ?int $activeChatId = null;
-
-    public function updateAction(int $workerId, ?ChatAction $chatAction): void
+    public function updateAction(int $workerIdentifier, ?ChatAction $chatActionToUpdate): void
     {
-        if ($chatAction === null) {
-            $this->removeAction($workerId);
+        if ($chatActionToUpdate === null) {
+            $this->removeAction($workerIdentifier);
             return;
         }
 
-        $previousAction = $this->actions[$workerId] ?? null;
-        if ($previousAction !== null && $previousAction->chatId !== $chatAction->chatId) {
-            $this->removeAction($workerId);
+        $previouslyAssignedAction = $this->workerChatActions[$workerIdentifier] ?? null;
+        if ($previouslyAssignedAction !== null && $previouslyAssignedAction->chatId !== $chatActionToUpdate->chatId) {
+            $this->removeAction($workerIdentifier);
         }
 
-        $chatId = $chatAction->chatId;
-        $this->actions[$workerId] = $chatAction;
+        $targetChatIdentifier = $chatActionToUpdate->chatId;
+        $this->workerChatActions[$workerIdentifier] = $chatActionToUpdate;
 
-        if ($this->activeChatId === null) {
-            $this->startChatTimer($chatId);
-            return;
-        }
-
-        if ($this->activeChatId === $chatId) {
-            return;
-        }
-
-        $this->queuedChatIds[$chatId] = true;
-    }
-
-    public function removeAction(int $workerId): void
-    {
-        $chatAction = $this->actions[$workerId] ?? null;
-        if ($chatAction === null) {
-            return;
-        }
-
-        unset($this->actions[$workerId]);
-
-        $chatId = $chatAction->chatId;
-        if ($this->chatHasActions($chatId)) {
-            return;
-        }
-
-        unset($this->queuedChatIds[$chatId]);
-
-        if ($this->activeChatId === $chatId) {
-            $this->stopChatTimer($chatId);
-            $this->activeChatId = null;
-            $this->startNextQueuedChat();
+        if (!isset($this->chatActionTimers[$targetChatIdentifier])) {
+            $this->startChatActionTimer($targetChatIdentifier);
         }
     }
 
-    private function startChatTimer(int $chatId): void
+    public function removeAction(int $workerIdentifier): void
     {
-        if (!$this->chatHasActions($chatId)) {
+        $chatActionToRemove = $this->workerChatActions[$workerIdentifier] ?? null;
+        if ($chatActionToRemove === null) {
             return;
         }
 
-        unset($this->queuedChatIds[$chatId]);
+        unset($this->workerChatActions[$workerIdentifier]);
 
-        $this->activeChatId = $chatId;
-        $this->timers[$chatId] = EventLoop::repeat(4, fn() => $this->sendAction($chatId));
-
-        $this->sendAction($chatId);
+        $associatedChatIdentifier = $chatActionToRemove->chatId;
+        if (!$this->chatHasPendingActions($associatedChatIdentifier)) {
+            $this->stopChatActionTimer($associatedChatIdentifier);
+        }
     }
 
-    private function stopChatTimer(int $chatId): void
+    private function startChatActionTimer(int $targetChatIdentifier): void
     {
-        if (!isset($this->timers[$chatId])) {
+        $this->chatActionTimers[$targetChatIdentifier] = EventLoop::repeat(
+            4,
+            fn() => $this->sendActionToTargetChat($targetChatIdentifier)
+        );
+
+        $this->sendActionToTargetChat($targetChatIdentifier);
+    }
+
+    private function stopChatActionTimer(int $targetChatIdentifier): void
+    {
+        if (!isset($this->chatActionTimers[$targetChatIdentifier])) {
             return;
         }
 
-        EventLoop::cancel($this->timers[$chatId]);
-        unset($this->timers[$chatId]);
+        EventLoop::cancel($this->chatActionTimers[$targetChatIdentifier]);
+        unset($this->chatActionTimers[$targetChatIdentifier]);
     }
 
-    private function startNextQueuedChat(): void
+    private function chatHasPendingActions(int $targetChatIdentifier): bool
     {
-        foreach (array_keys($this->queuedChatIds) as $queuedChatId) {
-            unset($this->queuedChatIds[$queuedChatId]);
-
-            if ($this->chatHasActions($queuedChatId)) {
-                $this->startChatTimer($queuedChatId);
-                return;
-            }
-        }
-    }
-
-    private function chatHasActions(int $chatId): bool
-    {
-        foreach ($this->actions as $action) {
-            if ($action->chatId === $chatId) {
+        foreach ($this->workerChatActions as $activeChatAction) {
+            if ($activeChatAction->chatId === $targetChatIdentifier) {
                 return true;
             }
         }
@@ -116,39 +80,33 @@ class ChatActionUpdater
         return false;
     }
 
-    private function sendAction(int $chatId): void
+    private function sendActionToTargetChat(int $targetChatIdentifier): void
     {
-        $workerId = null;
-        $action = null;
+        $responsibleWorkerIdentifier = null;
+        $chatActionToSend = null;
 
-        foreach ($this->actions as $currentWorkerId => $currentAction) {
-            if ($currentAction->chatId === $chatId) {
-                $workerId = $currentWorkerId;
-                $action = $currentAction;
+        foreach ($this->workerChatActions as $currentWorkerIdentifier => $currentChatAction) {
+            if ($currentChatAction->chatId === $targetChatIdentifier) {
+                $responsibleWorkerIdentifier = $currentWorkerIdentifier;
+                $chatActionToSend = $currentChatAction;
                 break;
             }
         }
 
-        if ($action === null) {
-            $this->stopChatTimer($chatId);
-
-            if ($this->activeChatId === $chatId) {
-                $this->activeChatId = null;
-                $this->startNextQueuedChat();
-            }
-
+        if ($chatActionToSend === null) {
+            $this->stopChatActionTimer($targetChatIdentifier);
             return;
         }
 
-        echo date('Y-m-d H:i:s') . " Sending chat action to $chatId ($workerId): " . $action->action->name . "\n";
+        echo date('Y-m-d H:i:s') . " Sending chat action to $targetChatIdentifier ($responsibleWorkerIdentifier): " . $chatActionToSend->action->name . "\n";
 
-        $result = Request::sendChatAction([
-                                              'chat_id' => $chatId,
-                                              'action' => $action->action->name,
-                                          ]);
+        $telegramApiRequestResult = Request::sendChatAction([
+                                                                'chat_id' => $targetChatIdentifier,
+                                                                'action'  => $chatActionToSend->action->name,
+                                                            ]);
 
-        if (!$result->isOk()) {
-            echo date('Y-m-d H:i:s') . " Failed to send chat action to $chatId ($workerId): " . $result->getDescription() . "\n";
+        if (!$telegramApiRequestResult->isOk()) {
+            echo date('Y-m-d H:i:s') . " Failed to send chat action to $targetChatIdentifier ($responsibleWorkerIdentifier): " . $telegramApiRequestResult->getDescription() . "\n";
         }
     }
 }
