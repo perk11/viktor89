@@ -187,16 +187,6 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
             if ($content !== '') {
                 echo "Received non-empty content alongside tool call: " . $content . "\n";
-                if ($messageChain !== null) {
-                    $this->processingResultExecutor->execute(
-                        new ProcessingResult(
-                            InternalMessage::asResponseTo($messageChain->last(), $content),
-                            false
-                        )
-                    );
-                } else {
-                    echo "Can't process non-empty content without message chain\n";
-                }
             }
 
             $requestOptions['messages'][] = [
