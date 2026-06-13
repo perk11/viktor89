@@ -1,4 +1,11 @@
 {
+  "generatedImageMarkdownUploader": {
+    "scpTarget": "user@example.com:/var/www/generated-images",
+    "publicUrlPrefix": "https://example.com/generated-images",
+    "privateKeyPath": "/home/user/.ssh/id_ed25519",
+    "publicKeyPath": "/home/user/.ssh/id_ed25519.pub",
+    "port": 22
+  },
   "ollamaWebSearchApiKey": "key-goes-here",
   "assistantModels": {
     "gemma2": {
