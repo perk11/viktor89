@@ -46,7 +46,7 @@ class ImageFromTextGeneratorToolCallExecutor implements MessageChainAwareToolCal
 
         return [
             'status' => 'image_succesfully_generated_and_sent_to_user',
-            'directions' => 'Do not attempt to send the image to the user, they already have it',
+            'directions' => 'Do not attempt to send the image to the user or embed it again. The user has the generated image but you cannot embed it again.',
             'automatic_output_markdown' => $uploadedImage->toRichMarkdown($response->getCaption()),
         ];
     }
