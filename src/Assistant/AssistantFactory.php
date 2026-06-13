@@ -190,7 +190,7 @@ class AssistantFactory
                 new ToolDefinition(
                     'list_saved_images',
                     $this->listSavedImagesTool,
-                    'List names of all saved images. Saved images can be used as a reference for image generation. If user references concepts that are not common, check this before generating an image.',
+                    'List names of images saved by user. Saved images can be used as a reference for image generation. If user references concepts that are not common, check this before generating an image. Newly generated images are not added, the user has to save them using /saveas command first.',
                 );
         }
         if ($requestedAssistantConfig['mcpServers'] ?? []) {
