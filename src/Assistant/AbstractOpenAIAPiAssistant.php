@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\Assistant;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+use Perk11\Viktor89\IPC\TaskUpdateMessage;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
@@ -20,6 +21,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
     private const float SMALL_EDIT_MIN_TIME_SECONDS = 10;
 
     protected readonly OpenAI $openAi;
+    private ?string $progressUpdateStatus = null;
     public function __construct(
         private readonly UserPreferenceReaderInterface $systemPromptProcessor,
         private readonly UserPreferenceReaderInterface $responseStartProcessor,
@@ -66,8 +68,13 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 
         try {
             $partialContent = '';
-
+            $this->progressUpdateStatus = 'Thinking...';
             $streamFunction = $this->createStreamFunction($message, $responseStart, $editFrequency, $partialContent);
+            $progressUpdateCallback->subscribe(function (TaskUpdateMessage $taskUpdateMessage) use ($streamFunction) {
+                $this->progressUpdateStatus = $taskUpdateMessage->status;
+                $streamFunction(''); //Update status
+            });
+
 
             $completion = $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain, $progressUpdateCallback);
             $message->messageText = $responseStart . trim($completion->content);
@@ -84,7 +91,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         InternalMessage $message,
         ?string $responseStart,
         float $editFrequency,
-        string &$partialContent
+        string &$partialContent,
     ): \Closure {
         $isDraft = $message->chatId > 0;
         $editingAborted = false;
@@ -105,17 +112,15 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $currentTime = microtime(true);
             $frequency = $isDraft ? self::DRAFT_FREQUENCY_SECONDS : $editFrequency;
 
-            if ($currentTime - $lastActionTime < $frequency) {
-                return;
-            }
+            if ($chunk !== '') { //Not a statu update
+                $timeSinceLastAction = $currentTime - $lastActionTime;
+                if ($timeSinceLastAction < $frequency) {
+                    return;
+                }
 
-            // Edit-specific throttling
-            if (!$isDraft) {
-                if ($lastLength === 0) {
-                    if (mb_strlen($partialContent) < 32) {
-                        return;
-                    }
-                } elseif (($currentTime - $lastActionTime) < self::SMALL_EDIT_MIN_TIME_SECONDS && (mb_strlen($partialContent) - $lastLength < 64)) {
+                if (!$isDraft && $timeSinceLastAction < self::SMALL_EDIT_MIN_TIME_SECONDS && (mb_strlen(
+                            $partialContent
+                        ) - $lastLength < 64)) {
                     return;
                 }
             }
@@ -134,6 +139,9 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
     private function processDraftStream(InternalMessage $message, string $partialContent, float $frequency, bool &$aborted, float &$lastActionTime): void
     {
         $message->messageText = $partialContent;
+        if ($message->parseMode === 'RichMarkdown') {
+            $message->messageText .= '<tg-thinking>' . $this->progressUpdateStatus . '...</tg-thinking>';
+        }
         $sendAsDraftResult = $message->sendAsDraft();
         $sendAsDraftResultObject = json_decode($sendAsDraftResult, false);
 
@@ -161,7 +169,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 
     private function processEditStream(InternalMessage $message, string $partialContent, ?string $responseStart, float $frequency, bool &$editingAborted, float &$lastActionTime): void
     {
-        $messageText = $responseStart . $partialContent . ' **\.\.\.**';
+        $messageText = $responseStart . $partialContent . "\n```status\n" . $this->progressUpdateStatus ."...\n```";
 
         if ($message->id === null) {
             $message->messageText = $messageText;

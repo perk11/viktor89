@@ -83,7 +83,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         $allToolCalls = [];
         $accumulatedContent = '';
         while (true) {
-            $statusMessage = "Calling OpenAI chat API (PHPClient)...";
+            $statusMessage = "Waiting for LLM response";
             if (count($allToolCalls) > 0) {
                 $statusMessage .= " (" . count($allToolCalls) . " tool calls)";
             }
@@ -207,20 +207,23 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
             foreach ($toolCalls as $toolCall) {
                 $functionName = $toolCall->function->name;
-                $toolCallNotification = "\n>Executing `" . $functionName . "` with arguments `" . $toolCall->function->arguments . "`\n";
+                $toolCallNotification = "\n>Executing `" . $functionName . "` with arguments `" . $toolCall->function->arguments . "`\n\n";
                 $accumulatedContent .= $toolCallNotification;
-                if ($streamFunction !== null) {
-                    $streamFunction($toolCallNotification);
-                }
                 if (!isset($this->toolDefintions[$functionName])) {
                     echo "Unknown tool called: $functionName\n";
                     $toolResult = ['content' => 'Error: Unknown tool call: ' . $functionName];
+                    if ($streamFunction !== null) {
+                        $streamFunction($toolCallNotification);
+                    }
                 } else {
                     $functionArgs = json_decode($toolCall->function->arguments, true, 512, JSON_THROW_ON_ERROR);
                     echo "Executing tool $functionName with args " . json_encode($functionArgs, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
 
                     if ($progressUpdateCallback !== null) {
-                        $progressUpdateCallback(static::class, "Executing tool call $functionName");
+                        $progressUpdateCallback(static::class, "Executing $functionName");
+                    }
+                    if ($streamFunction !== null) {
+                        $streamFunction($toolCallNotification);
                     }
 
                     $toolCallExecutor = $this->toolDefintions[$functionName]->toolCallClass;
@@ -245,6 +248,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         );
                     }
                 }
+
                 if (isset($toolResult['automatic_output_markdown'])) {
                     if (!is_string($toolResult['automatic_output_markdown'])) {
                         throw new \RuntimeException(
