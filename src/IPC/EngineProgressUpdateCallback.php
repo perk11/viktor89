@@ -30,4 +30,5 @@ class EngineProgressUpdateCallback implements ProgressUpdateCallback
         }
         $this->channel->send($taskUpdateMessage);
     }
+
 }

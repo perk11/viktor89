@@ -13,6 +13,7 @@ use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
 use Perk11\Viktor89\Assistant\Tool\ToolParameter;
+use Perk11\Viktor89\IPC\DraftUpdatePublisher;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
@@ -29,6 +30,7 @@ class AssistantFactory
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly AltTextProvider $altTextProvider,
+        private readonly DraftUpdatePublisher $draftUpdatePublisher,
         private readonly ProcessingResultExecutor $processingResultExecutor,
         private readonly ToolCallExecutorInterface $webSearchTool,
         private readonly MessageChainAwareToolCallExecutorInterface $imageFromTextGeneratorTool,
@@ -88,6 +90,7 @@ class AssistantFactory
                 $this->editFrequencyProcessor,
                 $this->telegramFileDownloader,
                 $this->altTextProvider,
+                $this->draftUpdatePublisher,
                 $this->telegramBotId,
                 $requestedAssistantConfig['url'],
                 $this->openAiCompletionStringParser,
@@ -104,6 +107,7 @@ class AssistantFactory
                 $this->editFrequencyProcessor,
                 $this->telegramFileDownloader,
                 $this->altTextProvider,
+                $this->draftUpdatePublisher,
                 $this->processingResultExecutor,
                 $this->telegramBotId,
                 $requestedAssistantConfig['url'],

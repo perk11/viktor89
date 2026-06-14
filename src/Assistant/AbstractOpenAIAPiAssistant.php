@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\Assistant;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\DraftUpdatePublisher;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\IPC\TaskUpdateMessage;
 use Perk11\Viktor89\MessageChain;
@@ -28,6 +29,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         private readonly UserPreferenceReaderInterface $editFrequencyProcessor,
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly AltTextProvider $altTextProvider,
+        private readonly DraftUpdatePublisher $draftUpdatePublisher,
         private readonly int $telegramBotUserId,
         string $url,
         string $apiKey = '',
@@ -80,10 +82,12 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $message->messageText = $responseStart . trim($completion->content);
             $message->toolCalls = $completion->toolCalls;
         } catch (\Exception $e) {
+            $this->clearDraftState();
             echo "Failed to get completion based on context: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
             return new ProcessingResult(null, true, '🤔', $lastMessage);
         }
 
+        $this->clearDraftState();
         return new ProcessingResult($message, true);
     }
 
@@ -136,35 +140,19 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         };
     }
 
-    private function processDraftStream(InternalMessage $message, string $partialContent, float $frequency, bool &$aborted, float &$lastActionTime): void
+    private function processDraftStream(
+        InternalMessage $message,
+        string $partialContent,
+        float $frequency,
+        bool &$aborted,
+        float &$lastActionTime,
+    ): void
     {
         $message->messageText = $partialContent;
         if ($message->parseMode === 'RichMarkdown') {
             $message->messageText .= '<tg-thinking>' . $this->progressUpdateStatus . '...</tg-thinking>';
         }
-        $sendAsDraftResult = $message->sendAsDraft();
-        $sendAsDraftResultObject = json_decode($sendAsDraftResult, false);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            echo "Failed to parse result of sending message as draft: " . json_last_error_msg() . "\n";
-            $aborted = true;
-            return;
-        }
-
-        if ($sendAsDraftResultObject->ok === false) {
-            var_dump($sendAsDraftResultObject);
-            $retryAfter = $sendAsDraftResultObject->parameters->retry_after ?? null;
-            $this->handleRateLimitError(
-                $sendAsDraftResultObject->error_code,
-                $retryAfter,
-                $sendAsDraftResultObject->description,
-                "sending draft",
-                "send message as draft",
-                $frequency,
-                $aborted,
-                $lastActionTime
-            );
-        }
+        $this->publishDraftUpdate($message);
     }
 
     private function processEditStream(InternalMessage $message, string $partialContent, ?string $responseStart, float $frequency, bool &$editingAborted, float &$lastActionTime): void
@@ -229,6 +217,16 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         }
         $frequency = (float)$value;
         return max(self::EDIT_FREQUENCY_MIN_SECONDS, min(self::EDIT_FREQUENCY_MAX_SECONDS, $frequency));
+    }
+
+    private function publishDraftUpdate(InternalMessage $message): void
+    {
+        $this->draftUpdatePublisher->updateDraft($message);
+    }
+
+    private function clearDraftState(): void
+    {
+        $this->draftUpdatePublisher->clearDraft();
     }
 
     protected function convertMessageChainToAssistantContext(
