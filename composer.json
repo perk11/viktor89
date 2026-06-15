@@ -20,7 +20,7 @@
         "amphp/parallel": "^2.2",
       "ext-curl": "*",
       "ext-gd": "*",
-      "openai-php/client": "^0.19",
+      "openai-php/client": "^0.20",
       "ext-dom": "*",
       "ext-ssh2": "*",
         "tecnickcom/tcpdf": "^6.7",
