@@ -11,10 +11,7 @@ class RunningTaskTracker
 {
     private array $runningTasks = [];
 
-    public function __construct(
-        private readonly ChatActionUpdater $chatActionUpdater,
-        private readonly DraftUpdater $draftUpdater,
-    )
+    public function __construct(private readonly ChatActionUpdater $chatActionUpdater)
     {
     }
 
@@ -53,15 +50,6 @@ class RunningTaskTracker
                     /** @var TaskCompletedMessage $message */
                     unset($this->runningTasks[$message->workerId]);
                     $this->chatActionUpdater->removeAction($message->workerId);
-                    $this->draftUpdater->removeDraft($message->workerId);
-                    break;
-                case DraftUpdateMessage::class:
-                    /** @var DraftUpdateMessage $message */
-                    $this->draftUpdater->updateDraft($message->workerId, $message->draftMessage);
-                    break;
-                case DraftCompletedMessage::class:
-                    /** @var DraftCompletedMessage $message */
-                    $this->draftUpdater->removeDraft($message->workerId);
                     break;
                 case RunningTasksQueryMessage::class:
                     echo date('Y-m-d H:i:s') . " Received tasks report request\n";

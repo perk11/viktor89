@@ -7,7 +7,6 @@ use JsonException;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
-use Perk11\Viktor89\IPC\DraftUpdatePublisher;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
@@ -26,14 +25,13 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
         UserPreferenceReaderInterface $editFrequencyProcessor,
         TelegramFileDownloader $telegramFileDownloader,
         AltTextProvider $altTextProvider,
-        DraftUpdatePublisher $draftUpdatePublisher,
         int $telegramBotId,
         string $url,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
         bool $supportsImages,
     )
     {
-        parent::__construct($systemPromptProcessor, $responseStartProcessor, $editFrequencyProcessor, $telegramFileDownloader, $altTextProvider, $draftUpdatePublisher, $telegramBotId, $url, '', $supportsImages);
+        parent::__construct($systemPromptProcessor, $responseStartProcessor, $editFrequencyProcessor, $telegramFileDownloader, $altTextProvider, $telegramBotId, $url, '', $supportsImages);
     }
 
     public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void

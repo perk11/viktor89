@@ -4,7 +4,6 @@ namespace Perk11\Viktor89\Assistant;
 
 use Exception;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
-use Perk11\Viktor89\IPC\DraftUpdatePublisher;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResultExecutor;
@@ -20,7 +19,6 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         UserPreferenceReaderInterface $editFrequencyProcessor,
         TelegramFileDownloader $telegramFileDownloader,
         AltTextProvider $altTextProvider,
-        DraftUpdatePublisher $draftUpdatePublisher,
         ProcessingResultExecutor $processingResultExecutor,
         int $telegramBotId,
         string $url,
@@ -38,7 +36,6 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
             $editFrequencyProcessor,
             $telegramFileDownloader,
             $altTextProvider,
-            $draftUpdatePublisher,
             $telegramBotId,
             $url,
             $apiKey,

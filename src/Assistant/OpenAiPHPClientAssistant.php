@@ -9,7 +9,6 @@ use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
-use Perk11\Viktor89\IPC\DraftUpdatePublisher;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
@@ -33,7 +32,6 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         UserPreferenceReaderInterface $editFrequencyProcessor,
         TelegramFileDownloader $telegramFileDownloader,
         AltTextProvider $altTextProvider,
-        DraftUpdatePublisher $draftUpdatePublisher,
         private readonly ProcessingResultExecutor $processingResultExecutor,
         int $telegramBotUserId,
         private readonly string $url,
@@ -54,7 +52,6 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             $editFrequencyProcessor,
             $telegramFileDownloader,
             $altTextProvider,
-            $draftUpdatePublisher,
             $telegramBotUserId,
             $this->url,
             $apiKey,

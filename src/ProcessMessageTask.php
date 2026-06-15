@@ -41,7 +41,6 @@ use Perk11\Viktor89\ImageGeneration\SendAsDocumentProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\ImageGeneration\ZoomApiClient;
 use Perk11\Viktor89\ImageGeneration\ZoomCommandProcessor;
-use Perk11\Viktor89\IPC\ChannelDraftUpdatePublisher;
 use Perk11\Viktor89\IPC\EngineProgressUpdateCallback;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\IPC\StatusProcessor;
@@ -102,9 +101,8 @@ class ProcessMessageTask implements Task
         ini_set('memory_limit', -1);
 
         $progressUpdateCallback = new EngineProgressUpdateCallback($channel, $this->workerId);
-        $draftUpdatePublisher = new ChannelDraftUpdatePublisher($channel, $this->workerId);
         try {
-         $this->handle($channel, $progressUpdateCallback, $draftUpdatePublisher);
+         $this->handle($channel, $progressUpdateCallback);
         } catch (Exception $e) {
             echo "Error " . $e->getMessage() . "\n". $e->getTraceAsString();
         } finally {
@@ -116,11 +114,7 @@ class ProcessMessageTask implements Task
         return true;
     }
 
-    public function handle(
-        Channel $channel,
-        ProgressUpdateCallback $progressUpdateCallback,
-        ChannelDraftUpdatePublisher $draftUpdatePublisher,
-    ): void
+    public function handle(Channel $channel, ProgressUpdateCallback $progressUpdateCallback): void
     {
 
         $dotenv = Dotenv::createImmutable(__DIR__.'/..');
@@ -305,7 +299,6 @@ class ProcessMessageTask implements Task
             $openAiCompletionStringParser,
             $telegramFileDownloader,
             $altTextProvider,
-            $draftUpdatePublisher,
             $processingResultExecutor,
             new OllamaWebSearchToolCallExecutor($config['ollamaWebSearchApiKey']),
             new ImageFromTextGeneratorToolCallExecutor($automatic1111APiClient, $generatedImageMarkdownUploader, $imgTagExtractor),
