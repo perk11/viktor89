@@ -16,10 +16,10 @@ train/                       # Model training (out of scope)
 
 ### PHP Application (`src/`)
 
-The bot uses an event loop (`viktor89.php`) that:
-1. Receives Telegram updates via `getUpdates`
-2. Dispatches each message to `ProcessMessageTask`
-3. Runs background tasks (summaries, patches monitor)
+The bot uses an async event loop (`viktor89.php`) built on Amp:
+- Polls Telegram via `getUpdates` using `EventLoop::repeat()`
+- Dispatches each message to a parallel `ProcessMessageTask` worker via `Amp\Parallel\Worker\workerPool()`
+- Runs background tasks on timers: chat summaries, kick queue cleanup, patches monitor
 
 Message flow:
 1. `Engine::handleMessage()` receives a Telegram `Message`
@@ -39,7 +39,7 @@ Key classes:
 - `InternalMessage` — normalized message representation
 - `MessageChainProcessorRunner` — runs processors and handles abort/max-length logic
 - `ProcessingResultExecutor` — sends `ProcessingResult` back to Telegram
-- `Database` — SQLite-backed storage for messages, preferences, queues
+- `Database` — SQLite-backed storage for messages, preferences, queues (stored in `data/`)
 
 ### Inference Servers (`inference-servers/`)
 
@@ -118,3 +118,7 @@ Do not attempt to run the bot directly.
 
 - This project has **no automated tests**. Changes should be validated manually.
 - The README is outdated; do not rely on it for setup or architecture guidance.
+- Required PHP extensions: `sqlite3`, `curl`, `gd`, `dom`, `ssh2`.
+- The bot uses `longman/telegram-bot`, both `orhanerday/open-ai` and `openai-php/client` for OpenAI, `amphp/amp` + `amphp/parallel` for async workers, and `mcp/sdk` for MCP tool support.
+- In non-command messages, the bot only responds if the message mentions `@botusername` or is a reply to the bot's own message.
+- Multiple commands can be chained in one message (newline-separated); `MessageChainProcessorRunner` splits and processes each command separately.
