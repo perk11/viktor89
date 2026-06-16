@@ -97,11 +97,42 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             $toolCallsByIndex = [];
 
             $lastUpdateTime = 0;
+            $isPrivateChat = $messageChain !== null && $messageChain->last()->chatId > 0;
             if ($streamFunction !== null) {
                 $stream = $this->openAiClient->chat()->createStreamed($requestOptions);
+
+                $thinkingBuffer = '';
+                $thinkingTagOpened = false;
+
                 foreach ($stream as $response) {
                     $delta = $response->choices[0]->delta;
+                    if (isset($delta->reasoningContent)) {
+                        $thinkingBuffer .= $delta->reasoningContent;
+
+                        if ($isPrivateChat) {
+                            if (!$thinkingTagOpened) {
+                                $streamFunction('<tg-thinking>');
+                                $thinkingTagOpened = true;
+                            }
+                            $streamFunction($delta->reasoningContent);
+                        }
+                        // group chat: buffer only, format after thinking ends
+                    }
+
                     if (isset($delta->content)) {
+                        // Flush group-chat thinking buffer as a details block before content
+
+                        if (!$isPrivateChat && $thinkingBuffer !== '') {
+                            $thinkingDetailsBlock = $this->formatThinkingAsDetailsBlock($thinkingBuffer);
+                            $streamFunction($thinkingDetailsBlock);
+                            $content .= $thinkingDetailsBlock;
+                            $thinkingBuffer = '';
+                        }
+                        if ($isPrivateChat && $thinkingTagOpened) {
+                            $streamFunction('</tg-thinking>');
+                            $thinkingTagOpened = false;
+                        }
+
                         $contentChunk = $delta->content;
                         $content .= $contentChunk;
                         $streamFunction($contentChunk);
@@ -372,5 +403,30 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         $earlierPart = mb_substr($str, 0, -$charactersToCheck);
 
         return str_contains($earlierPart, $lastCharacters);
+    }
+
+    /**
+     * Formats thinking/reasoning content as a collapsible details block for group chats.
+     * The first line serves as the summary, the rest is the body.
+     */
+    private function formatThinkingAsDetailsBlock(string $thinking): string
+    {
+        $thinking = trim($thinking);
+        if ($thinking === '') {
+            return '';
+        }
+
+        $lines = preg_split('/\r\n|\r|\n/', $thinking);
+//        $summary = $lines[0];
+        $summary = 'Thinking';
+        $body = count($lines) > 1 ? implode("\n", array_slice($lines, 1)) : '';
+
+        $output = "<details>\n<summary>{$summary}</summary>\n";
+        if ($body !== '') {
+            $output .= "\n{$body}\n";
+        }
+        $output .= "</details>\n\n";
+
+        return $output;
     }
 }
