@@ -80,10 +80,16 @@ class Engine
 
         $lastMessage = InternalMessage::fromTelegramMessage($message);
         if ($message->getReplyToMessage() !== null) {
-            $previousMessage = InternalMessage::fromTelegramMessage($message->getReplyToMessage());
             $priorMessages = $this->historyReader->getPreviousMessages($message, 999, 999, 0);
-            InternalMessage::extractPropertiesFromTelegramMessage(array_last($priorMessages), $message->getReplyToMessage());
-            $chain = new MessageChain(array_merge($priorMessages, [$previousMessage, $lastMessage]));
+            if (count($priorMessages) > 0) {
+                InternalMessage::extractPropertiesFromTelegramMessage(
+                    array_last($priorMessages),
+                    $message->getReplyToMessage()
+                );
+            } else {
+                $priorMessages = [InternalMessage::fromTelegramMessage($message->getReplyToMessage())];
+            }
+            $chain = new MessageChain(array_merge($priorMessages, [$lastMessage]));
         } else {
             $chain = new MessageChain([$lastMessage]);
         }
