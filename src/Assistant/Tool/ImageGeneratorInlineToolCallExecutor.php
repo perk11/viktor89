@@ -7,7 +7,7 @@ use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\MessageChain;
 
-class ImageFromTextGeneratorToolCallExecutor implements MessageChainAwareToolCallExecutorInterface
+class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallExecutorInterface
 {
     public function __construct(
         private readonly ImageByPromptGenerator $imageByPromptGenerator,

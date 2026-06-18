@@ -16,8 +16,9 @@ use Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\Tool\GetUrlContentsToolCallExecutor;
+use Perk11\Viktor89\Assistant\Tool\ImageGeneratorTelegramPhotoToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ImageUploader;
-use Perk11\Viktor89\Assistant\Tool\ImageFromTextGeneratorToolCallExecutor;
+use Perk11\Viktor89\Assistant\Tool\ImageGeneratorInlineToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ListSavedImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\OllamaWebSearchToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
@@ -301,7 +302,7 @@ class ProcessMessageTask implements Task
             $altTextProvider,
             $processingResultExecutor,
             new OllamaWebSearchToolCallExecutor($config['ollamaWebSearchApiKey']),
-            new ImageFromTextGeneratorToolCallExecutor($automatic1111APiClient, $generatedImageMarkdownUploader, $imgTagExtractor),
+            new ImageGeneratorTelegramPhotoToolCallExecutor($automatic1111APiClient, $photoResponder, $imgTagExtractor),
             new ReactToolCallExecutor(),
             new GetUrlContentsToolCallExecutor(),
             new ListSavedImagesToolCallExecutor($imageRepository),
