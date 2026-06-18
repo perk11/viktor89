@@ -42,7 +42,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
     {
         $userId = $messageChain->last()->userId;
         $responseStart = $this->responseStartProcessor->getCurrentPreferenceValue($userId);
-        $systemPrompt = 'Use Github Markdown for your responses. Today is ' . date('Y-m-d') . "\n";
+        $systemPrompt = 'Use Github Markdown for your responses, but never embed images. Today is ' . date('Y-m-d') . "\n";
         $systemPrompt .= $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
             "Always respond to the user in the language they use or request.\n";
 
