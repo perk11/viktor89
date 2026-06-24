@@ -416,6 +416,6 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             return '';
         }
 
-        return "<details>\n<summary>Thinking</summary>\n$thinking</details>";
+        return "<details>\n<summary>Thinking</summary>\n$thinking</details>\n";
     }
 }
