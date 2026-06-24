@@ -416,17 +416,6 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             return '';
         }
 
-        $lines = preg_split('/\r\n|\r|\n/', $thinking);
-//        $summary = $lines[0];
-        $summary = 'Thinking';
-        $body = count($lines) > 1 ? implode("\n", array_slice($lines, 1)) : '';
-
-        $output = "<details>\n<summary>{$summary}</summary>\n";
-        if ($body !== '') {
-            $output .= "\n{$body}\n";
-        }
-        $output .= "</details>\n\n";
-
-        return $output;
+        return "<details>\n<summary>Thinking</summary>\n$thinking</details>";
     }
 }
