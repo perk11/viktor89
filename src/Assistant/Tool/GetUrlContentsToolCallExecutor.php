@@ -98,10 +98,10 @@ class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
         // If it's already plain text, skip HTML stripping
         if (str_contains($contentType, 'text/html')) {
             $text = $this->stripHtml($body);
-        } elseif (str_contains($contentType, 'text/')) {
+        } elseif (str_contains($contentType, 'text/') || str_contains($contentType, 'application/json')) {
             $text = $body;
         } else {
-            throw new \RuntimeException("Unsupported content type $contentType. Only text/html and text/* are supported.");
+            throw new \RuntimeException("Unsupported content type $contentType. Only text/html, applicaiton/json and text/* are supported.");
         }
         // Strip invalid UTF-8 byte sequences before any mb_* or /u regex operations
         $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');
