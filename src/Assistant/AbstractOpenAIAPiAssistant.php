@@ -11,7 +11,6 @@ use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
-use Perk11\Viktor89\Util\TelegramMarkdownV2;
 
 abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 {
@@ -112,7 +111,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $currentTime = microtime(true);
             $frequency = $isDraft ? self::DRAFT_FREQUENCY_SECONDS : $editFrequency;
 
-            if ($chunk !== '') { //Not a statu update
+            if ($chunk !== '') { //Not a status update
                 $timeSinceLastAction = $currentTime - $lastActionTime;
                 if ($timeSinceLastAction < $frequency) {
                     return;
@@ -172,6 +171,10 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         $messageText = $responseStart . $partialContent . "\n```status\n" . $this->progressUpdateStatus ."...\n```";
 
         if ($message->id === null) {
+            if (mb_strlen(trim($partialContent)) < 10) {
+                echo "Refusing to send a message for edit stream that is too short: " . mb_strlen(trim($partialContent)) . "\n";
+                return;
+            }
             $message->messageText = $messageText;
             $sendResult = $message->send();
             if (!$sendResult->isOk()) {
