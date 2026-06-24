@@ -85,6 +85,16 @@ class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
             $body .= $chunk;
         }
         $contentType = $response->getHeaderLine('Content-Type');
+
+        // Detect charset from Content-Type header and convert body to UTF-8
+        $encoding = $this->extractCharsetFromContentType($contentType);
+        if ($encoding !== null && !in_array($encoding, ['utf-8', 'utf8'], true)) {
+            $converted = mb_convert_encoding($body, 'UTF-8', $encoding);
+            if ($converted !== false) {
+                $body = $converted;
+            }
+        }
+
         // If it's already plain text, skip HTML stripping
         if (str_contains($contentType, 'text/html')) {
             $text = $this->stripHtml($body);
@@ -93,6 +103,9 @@ class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
         } else {
             throw new \RuntimeException("Unsupported content type $contentType. Only text/html and text/* are supported.");
         }
+        // Strip invalid UTF-8 byte sequences before any mb_* or /u regex operations
+        $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+
         // Remove control/format characters except newlines and tabs
         $text = preg_replace('/[^\P{C}\r\n\t]/u', '', $text);
 
@@ -145,10 +158,28 @@ class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
         return $text;
     }
 
+    /**
+     * Extract charset from Content-Type header value.
+     * Example: 'text/html; charset=windows-1251' -> 'windows-1251'
+     */
+    private function extractCharsetFromContentType(string $contentType): ?string
+    {
+        if (preg_match('/charset\s*=\s*([^\s;]+)/i', $contentType, $matches)) {
+            $charset = trim($matches[1]);
+            // Remove surrounding quotes if present
+            $charset = trim($charset, '"\'');
+            return $charset !== '' ? $charset : null;
+        }
+
+        return null;
+    }
+
     private function extractTitle(string $html): ?string
     {
         if (preg_match('#<title[^>]*>(.*?)</title>#is', $html, $matches)) {
-            return trim(strip_tags($matches[1]));
+            $title = trim(strip_tags($matches[1]));
+            // Strip invalid UTF-8 byte sequences
+            return mb_convert_encoding($title, 'UTF-8', 'UTF-8');
         }
 
         return null;
