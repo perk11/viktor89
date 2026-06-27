@@ -6,6 +6,9 @@ use Exception;
 use Mcp\Client;
 use Mcp\Client\Transport\HttpTransport;
 use Mcp\Client\Transport\StdioTransport;
+use Monolog\Handler\ErrorLogHandler;
+use Monolog\Level;
+use Monolog\Logger;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\Assistant\Tool\McpToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
@@ -154,7 +157,7 @@ class AssistantFactory
                 new ToolDefinition(
                     'image_gen_tool',
                     $this->imageFromTextGeneratorTool,
-                    'Generate an image from a text prompt and send it to user. Use <img>savedImageName</img> in the prompt if you need to reference saved images.',
+                    'Generate an image from a text prompt and send it to user. Use img tag in the prompt, e.g. <img>savedImageName</img> in the prompt if you need to reference a saved image.',
                     [
                         new ToolParameter('prompt', ['type' => 'string'], true),
                     ]
@@ -190,7 +193,7 @@ class AssistantFactory
                 new ToolDefinition(
                     'list_saved_images',
                     $this->listSavedImagesTool,
-                    'List names of images saved by user. Saved images can be used as a reference for image generation. If user references concepts that are not common, check this before generating an image. Newly generated images are not added, the user has to save them using /saveas command first.',
+                    'List names of images saved by user. Saved images are only available to image_gen_tool if used in a prompt inside "img" XML tag, e.g. <img>SavedImageName</img>. No more than 3 images per prompt. When you want to generate an image for a non-common concept mentioned by the user, check this before generating an image. Newly generated images are not automatically added, the user has to save them using /saveas command first.',
                 );
         }
         if ($requestedAssistantConfig['mcpServers'] ?? []) {
@@ -209,8 +212,10 @@ class AssistantFactory
                 } else {
                     throw new \RuntimeException("Invalid MCP server configuration for $serverName: missing command or url");
                 }
+                $logger = new Logger('mcp', [new ErrorLogHandler(ErrorLogHandler::OPERATING_SYSTEM, Level::Debug)]);
                 $client = Client::builder()
                     ->setClientInfo('Viktor89', '1.0.0')
+                    ->setLogger($logger)
                     ->build();
                 $client->connect($transport);
                 foreach ($client->listTools()->tools as $tool) {

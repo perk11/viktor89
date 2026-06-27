@@ -3,8 +3,10 @@
 namespace Perk11\Viktor89\Assistant;
 
 use GuzzleHttp\Client as GuzzleClient;
+use Monolog\Logger;
 use OpenAI;
 use OpenAI\Client;
+use OpenAI\Exceptions\ErrorException;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
@@ -20,7 +22,9 @@ use Perk11\Viktor89\UserPreferenceReaderInterface;
 class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 {
     private const int REPETITION_THRESHOLD_CHARACTERS = 512;
+    private const int MAX_COMPACTION_RETRIES = 2;
     private readonly Client $openAiClient;
+    private readonly ContextCompactor $contextCompactor;
 
     /**
      * @param ToolDefinition[] $toolDefintions
@@ -57,6 +61,40 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             $apiKey,
             $supportsImages,
         );
+        $this->contextCompactor = new ContextCompactor(
+            $this->createSummaryGenerator(),
+            new Logger('OpenAIPHPClientAssistant_' . $this->model),
+        );
+    }
+
+    /**
+     * Returns a callable that sends a simple chat completion to the same LLM
+     * and returns the response text.  Used by ContextCompactor to generate
+     * summaries.
+     */
+    private function createSummaryGenerator(): callable
+    {
+        $client = $this->openAiClient;
+        $model  = $this->model;
+
+        return static function (string $prompt) use ($client, $model): string {
+            $result = $client->chat()->create([
+                'model'     => $model,
+                'messages'  => [
+                    ['role' => 'system', 'content' => 'You are a helpful assistant that summarizes conversations concisely.'],
+                    ['role' => 'user',   'content' => $prompt],
+                ],
+                'max_tokens' => 600,
+            ]);
+
+            $content = $result->choices[0]->message->content ?? '';
+            if (is_array($content)) {
+                $first = current($content);
+                $content = $first['text'] ?? '';
+            }
+
+            return trim($content);
+        };
     }
 
     public function getCompletionBasedOnContext(
@@ -65,6 +103,9 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         ?MessageChain $messageChain = null,
         ?ProgressUpdateCallback $progressUpdateCallback = null
     ): CompletionResponse {
+        $compactionCount = 0;
+
+        /** @var array<string, mixed> $requestOptions */
         $requestOptions = [
             'messages' => $assistantContext->toOpenAiMessagesArray(),
         ];
@@ -74,32 +115,36 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         foreach ($this->toolDefintions as $toolDefinition) {
             $requestOptions['tools'][] = $toolDefinition->toArray();
         }
-        echo "Sending OpenAI request to " . $this->url ."...\n";
-        echo json_encode($requestOptions, JSON_UNESCAPED_UNICODE) . PHP_EOL ;
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            echo 'Failed to convert context to JSON: ' . json_last_error_msg();
-        }
 
         $allToolCalls = [];
         $accumulatedContent = '';
-        while (true) {
-            $statusMessage = "Waiting for LLM response";
-            if (count($allToolCalls) > 0) {
-                $statusMessage .= " (" . count($allToolCalls) . " tool calls)";
-            }
-            if ($progressUpdateCallback !== null) {
-                $progressUpdateCallback(static::class, $statusMessage);
-            } else {
-                echo $statusMessage . "\n";
-            }
-            $content = '';
-            /** @var array<int, object> $toolCallsByIndex */
-            $toolCallsByIndex = [];
 
-            $lastUpdateTime = 0;
-            $isPrivateChat = $messageChain !== null && $messageChain->last()->chatId > 0;
-            if ($streamFunction !== null) {
-                $stream = $this->openAiClient->chat()->createStreamed($requestOptions);
+        retry_compaction:
+        try {
+            echo "Sending OpenAI request to " . $this->url ."...\n";
+            echo json_encode($requestOptions, JSON_UNESCAPED_UNICODE) . PHP_EOL ;
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                echo 'Failed to convert context to JSON: ' . json_last_error_msg();
+            }
+
+            while (true) {
+                $statusMessage = "Waiting for LLM response";
+                if (count($allToolCalls) > 0) {
+                    $statusMessage .= " (" . count($allToolCalls) . " tool calls)";
+                }
+                if ($progressUpdateCallback !== null) {
+                    $progressUpdateCallback(static::class, $statusMessage);
+                } else {
+                    echo $statusMessage . "\n";
+                }
+                $content = '';
+                /** @var array<int, object> $toolCallsByIndex */
+                $toolCallsByIndex = [];
+
+                $lastUpdateTime = 0;
+                $isPrivateChat = $messageChain !== null && $messageChain->last()->chatId > 0;
+                if ($streamFunction !== null) {
+                    $stream = $this->openAiClient->chat()->createStreamed($requestOptions);
 
                 $thinkingBuffer = '';
                 $thinkingTagOpened = false;
@@ -310,6 +355,34 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     'content' => $toolResultContent,
                 ];
             }
+        }
+        } catch (ErrorException $e) {
+            if ($compactionCount >= self::MAX_COMPACTION_RETRIES || !ContextCompactor::isContextLengthError($e)) {
+                throw $e;
+            }
+
+            echo "Context length error caught, compacting...\n";
+            echo "Error: " . $e->getMessage() . "\n";
+
+            $compactionCount++;
+            $assistantContext = $this->contextCompactor->compact($assistantContext);
+
+            // Rebuild request options from the compacted context
+            $requestOptions = [
+                'messages' => $assistantContext->toOpenAiMessagesArray(),
+            ];
+            if ($this->model !== null) {
+                $requestOptions['model'] = $this->model;
+            }
+            foreach ($this->toolDefintions as $toolDefinition) {
+                $requestOptions['tools'][] = $toolDefinition->toArray();
+            }
+
+            // Reset accumulators so we start fresh with compacted context
+            $allToolCalls = [];
+            $accumulatedContent = '';
+
+            goto retry_compaction;
         }
     }
 

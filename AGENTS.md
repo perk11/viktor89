@@ -116,9 +116,9 @@ Do not attempt to run the bot directly.
 
 ## Important Notes
 
-- This project has **no automated tests**. Changes should be validated manually.
 - The README is outdated; do not rely on it for setup or architecture guidance.
 - Required PHP extensions: `sqlite3`, `curl`, `gd`, `dom`, `ssh2`.
 - The bot uses `longman/telegram-bot`, both `orhanerday/open-ai` and `openai-php/client` for OpenAI, `amphp/amp` + `amphp/parallel` for async workers, and `mcp/sdk` for MCP tool support.
 - In non-command messages, the bot only responds if the message mentions `@botusername` or is a reply to the bot's own message.
 - Multiple commands can be chained in one message (newline-separated); `MessageChainProcessorRunner` splits and processes each command separately.
+- Run tests with vendor/bin/phpunit
