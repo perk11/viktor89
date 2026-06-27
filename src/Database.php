@@ -37,8 +37,8 @@ class Database
         $this->sqlite3Database->busyTimeout(30000);
         $this->sqlite3Database->query(file_get_contents(__DIR__ . '/db-structure.sql'));
         $this->insertMessageStatement = $this->sqlite3Database->prepare(
-            'INSERT INTO message (chat_id, id, type, message_thread_id, user_id, `date`, reply_to_message, username, message_text, photo_file_id, alt_text)
-VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_message, :username, :message_text, :photo_file_id, :alt_text)
+            'INSERT INTO message (chat_id, id, type, message_thread_id, user_id, `date`, reply_to_message, username, message_text, photo_file_id, alt_text, reasoning)
+VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_message, :username, :message_text, :photo_file_id, :alt_text, :reasoning)
 '
         );
         $this->updateMessageStatement = $this->sqlite3Database->prepare('UPDATE message SET alt_text = :alt_text WHERE id = :id AND chat_id = :chat_id');
@@ -83,6 +83,9 @@ VALUES (:message_id, :tool_call_id, :tool_name, :arguments, :result, :chat_id)'
         $statement->bindValue(':id', $message->id);
         $statement->bindValue(':chat_id', $message->chatId);
         $statement->bindValue(':alt_text', $message->altText);
+        if (!$message->isSaved) {
+            $statement->bindValue(':reasoning', $message->reasoning);
+        }
 
         $statement->execute();
         $message->isSaved = true;

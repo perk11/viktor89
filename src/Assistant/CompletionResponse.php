@@ -14,6 +14,7 @@ final readonly class CompletionResponse
     public function __construct(
         public string $content,
         public array $toolCalls = [],
+        public ?string $reasoning = null,
     ) {
     }
 }

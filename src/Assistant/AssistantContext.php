@@ -128,12 +128,19 @@ class AssistantContext
             }
 
             $finalContent = $messageContentParts;
+            if (count($messageContentParts) === 1 && $messageContentParts[0]['type'] === 'text') {
+                $finalContent = $messageContentParts[0]['text'];
+            }
             $role = $message->isUser ? 'user' : 'assistant';
 
             $openAiMessage = [
                 'role'    => $role,
                 'content' => $finalContent,
             ];
+
+            if ($message->reasoning !== null) {
+                $openAiMessage['reasoning_content'] = $message->reasoning;
+            }
 
             if (!$message->isUser && count($message->toolCalls) > 0) {
                 $openAiMessage['tool_calls'] = array_map(

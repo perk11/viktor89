@@ -11,6 +11,7 @@ class AssistantContextMessage
     public bool $isUser;
     public string $text;
     public ?string $photo = null;
+    public ?string $reasoning = null;
 
     /** @var ToolCall[] */
     public array $toolCalls = [];

@@ -148,11 +148,13 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
                 $thinkingBuffer = '';
                 $thinkingTagOpened = false;
+                $reasoning = '';
 
                 foreach ($stream as $response) {
                     $delta = $response->choices[0]->delta;
                     if (isset($delta->reasoningContent)) {
                         $thinkingBuffer .= $delta->reasoningContent;
+                        $reasoning .= $delta->reasoningContent;
 
                         if ($isPrivateChat) {
                             if (!$thinkingTagOpened) {
@@ -170,7 +172,6 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         if (!$isPrivateChat && $thinkingBuffer !== '') {
                             $thinkingDetailsBlock = $this->formatThinkingAsDetailsBlock($thinkingBuffer);
                             $streamFunction($thinkingDetailsBlock);
-                            $content .= $thinkingDetailsBlock;
                             $thinkingBuffer = '';
                         }
                         if ($isPrivateChat && $thinkingTagOpened) {
@@ -200,7 +201,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                             }
                             $accumulatedContent .= $content;
 
-                            return new CompletionResponse($accumulatedContent, $allToolCalls);
+                            return new CompletionResponse($accumulatedContent, $allToolCalls, reasoning: $reasoning);
                         }
                     }
 
@@ -239,6 +240,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                 }
 
                 $content = (string) ($choice0Message->content ?? '');
+                $reasoning = (string) ($choice0Message->reasoningContent ?? '');
                 $toolCalls = $choice0Message->toolCalls ?? [];
             }
 
@@ -256,7 +258,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             }
 
             if (count($toolCalls) === 0) {
-                return new CompletionResponse($accumulatedContent, $allToolCalls);
+                return new CompletionResponse($accumulatedContent, $allToolCalls, reasoning: $reasoning);
             }
 
             echo "Received tool calls: " . json_encode($toolCalls, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
@@ -268,6 +270,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             $requestOptions['messages'][] = [
                 'role' => 'assistant',
                 'content' => $content,
+                'reasoning' => $reasoning,
                 'tool_calls' => array_map(
                     static fn(object $toolCall): array => [
                         'id' => $toolCall->id,
@@ -478,17 +481,4 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         return str_contains($earlierPart, $lastCharacters);
     }
 
-    /**
-     * Formats thinking/reasoning content as a collapsible details block for group chats.
-     * The first line serves as the summary, the rest is the body.
-     */
-    private function formatThinkingAsDetailsBlock(string $thinking): string
-    {
-        $thinking = trim($thinking);
-        if ($thinking === '') {
-            return '';
-        }
-
-        return "<details>\n<summary>Thinking</summary>\n$thinking</details>\n";
-    }
 }

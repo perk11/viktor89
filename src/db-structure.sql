@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS `message` (
     `username`          varchar,                      -- 'Message that this message is reply to',
     `message_text`      varchar,                           -- Message text,
     `photo_file_id`     varchar DEFAULT NULL,               -- id of telegram file that can be used to download photo
-    `alt_text`          varchar DEFAULT NULL          -- for non-text messages
+    `alt_text`          varchar DEFAULT NULL,          -- for non-text messages
+    `reasoning`         varchar DEFAULT NULL          -- AI reasoning context
 );
 CREATE INDEX IF NOT EXISTS idx_chat_id_id ON message (chat_id, id);
 CREATE INDEX IF NOT EXISTS idx_date ON message (date);

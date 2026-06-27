@@ -59,6 +59,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
             throw new Exception("Unexpected response from OpenAI: $response");
         }
         $content = $parsedResult['choices'][0]['message']['content'] ?? '';
+        $reasoning = $parsedResult['choices'][0]['message']['reasoning_content'] ?? null;
         $toolCalls = $parsedResult['choices'][0]['message']['tool_calls'] ?? null;
         if ($toolCalls !== null) {
             return new CompletionResponse(
@@ -71,11 +72,12 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
                     ),
                     $toolCalls
                 ),
+                reasoning: $reasoning,
             );
         }
 
         if (is_string($content)) {
-            return new CompletionResponse($content);
+            return new CompletionResponse($content, reasoning: $reasoning);
         }
         if (is_array($content)) {
             $firstContentElement = current($content);
@@ -86,7 +88,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
                 throw new \Exception("Missing \"text\" property in OpenAI response: $firstContentElement[type]");
             }
 
-            return new CompletionResponse($firstContentElement['text']);
+            return new CompletionResponse($firstContentElement['text'], reasoning: $reasoning);
         }
 
         throw new Exception("Unexpected OpenAI response format: " . json_encode($content));

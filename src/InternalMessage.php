@@ -49,6 +49,13 @@ class InternalMessage
 
     public ?string $photoFileId = null;
     public ?string $altText = null;
+    public ?string $reasoning = null;
+
+    /**
+     * If set, this will be prepended to messageText when sending to Telegram,
+     * but it will NOT be saved to the database.
+     */
+    public ?string $reasoningForDisplay = null;
 
     /** Everything below is currently not stored in the database */
     public ?Audio $audio = null;
@@ -76,7 +83,8 @@ class InternalMessage
         $message->userName = $result['username'];
         $message->messageText = $result['message_text'];
         $message->photoFileId = $result['photo_file_id'];
-        $message->altText = $result['alt_text'];
+        $message->altText = $result['alt_text'] ?? null;
+        $message->reasoning = $result['reasoning'] ?? null;
         $message->isSaved = true;
 
         return $message;
@@ -253,6 +261,11 @@ class InternalMessage
 
     public function edit(string $newText, $autoRetry = true): ServerResponse
     {
+        $textToEdit = $newText;
+        if ($this->reasoningForDisplay !== null) {
+            $textToEdit = $this->reasoningForDisplay . $newText;
+        }
+
         $options = [
             'chat_id' => $this->chatId,
             'message_id' => $this->id,
@@ -260,10 +273,10 @@ class InternalMessage
 
         if ($this->parseMode === 'RichMarkdown') {
             $options['rich_message'] = [
-                'markdown' => $newText,
+                'markdown' => $textToEdit,
             ];
         } else {
-            $options['text'] = $newText;
+            $options['text'] = $textToEdit;
             if ($this->parseMode !== 'Default') {
                 $options['parse_mode'] = $this->parseMode;
             }

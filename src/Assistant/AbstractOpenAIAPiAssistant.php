@@ -78,12 +78,20 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $completion = $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain, $progressUpdateCallback);
             $message->messageText = $responseStart . trim($completion->content);
             $message->toolCalls = $completion->toolCalls;
+            $message->reasoning = $completion->reasoning;
+
+            if ($message->reasoning !== null) {
+                $isPrivateChat = $lastMessage->chatId > 0;
+                $message->reasoningForDisplay = $isPrivateChat
+                    ? '<tg-thinking>' . $message->reasoning . '</tg-thinking>'
+                    : $this->formatThinkingAsDetailsBlock($message->reasoning);
+            }
+
+            return new ProcessingResult($message, true);
         } catch (\Exception $e) {
             echo "Failed to get completion based on context: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
             return new ProcessingResult(null, true, '🤔', $lastMessage);
         }
-
-        return new ProcessingResult($message, true);
     }
 
     private function createStreamFunction(
@@ -234,6 +242,16 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         return max(self::EDIT_FREQUENCY_MIN_SECONDS, min(self::EDIT_FREQUENCY_MAX_SECONDS, $frequency));
     }
 
+    protected function formatThinkingAsDetailsBlock(string $thinking): string
+    {
+        $thinking = trim($thinking);
+        if ($thinking === '') {
+            return '';
+        }
+
+        return "<details>\n<summary>Thinking</summary>\n$thinking\n</details>\n";
+    }
+
     protected function convertMessageChainToAssistantContext(
         MessageChain $messageChain,
         ?string $systemPrompt,
@@ -248,6 +266,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $assistantContextMessage->text = $message->messageText;
             $assistantContextMessage->isUser = $message->userId !== $this->telegramBotUserId;
             $assistantContextMessage->toolCalls = $message->toolCalls;
+            $assistantContextMessage->reasoning = $message->reasoning;
             if ($message->photoFileId !== null) {
                 if ($this->supportsImages) {
                     $assistantContextMessage->photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);
