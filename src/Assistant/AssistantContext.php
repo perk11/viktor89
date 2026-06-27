@@ -70,12 +70,34 @@ class AssistantContext
 
         foreach ($this->messages as $message) {
             $role = $message->isUser ? 'user' : 'assistant';
-            $previousMessage = $openAiMessages[array_key_last($openAiMessages)] ?? null;
-            if ($previousMessage !== null && $previousMessage['role'] === $role && !isset($previousMessage['tool_calls'])) {
+            $messageContentParts = [];
+            $messageHasToolCalls = !$message->isUser && count($message->toolCalls) > 0;
+            $messageHasReasoning = $message->reasoning !== null;
+
+            $previousMessageKey = array_key_last($openAiMessages);
+            $previousMessage = $previousMessageKey !== null ? $openAiMessages[$previousMessageKey] : null;
+
+            if (
+                $previousMessage !== null
+                && $previousMessage['role'] === $role
+                && !isset($previousMessage['tool_calls'])
+                && !array_key_exists('reasoning_content', $previousMessage)
+                && !$messageHasReasoning
+            ) {
                 array_pop($openAiMessages);
-                $messageContentParts = $previousMessage['content'];
-            } else {
-                $messageContentParts = [];
+
+                if (is_string($previousMessage['content'])) {
+                    if (trim($previousMessage['content']) !== '') {
+                        $messageContentParts[] = [
+                            'type' => 'text',
+                            'text' => $previousMessage['content'],
+                        ];
+                    }
+                } elseif (is_array($previousMessage['content'])) {
+                    foreach ($previousMessage['content'] as $previousMessageContentPart) {
+                        $messageContentParts[] = $previousMessageContentPart;
+                    }
+                }
             }
 
             $messageText = $message->text ?? '';
@@ -88,6 +110,8 @@ class AssistantContext
 
             if ($message->photo !== null) {
                 $extension = ContentTypeGuesser::guessFileExtension($message->photo);
+                $url = null;
+
                 switch ($extension) {
                     case 'jpg':
                         $url = 'data:image/jpeg;base64,' . base64_encode($message->photo);
@@ -108,9 +132,6 @@ class AssistantContext
                             $url = 'data:image/png;base64,' . base64_encode($pngImageBinaryString);
                         }
                         break;
-                    default:
-                        $url = null;
-
                 }
                 if ($url !== null) {
                     $messageContentParts[] = [
@@ -122,27 +143,28 @@ class AssistantContext
                 }
             }
 
-            if (empty($messageContentParts)) {
-                // Skip messages that have neither text nor image.
+            if (empty($messageContentParts) && !$messageHasToolCalls && !$messageHasReasoning) {
                 continue;
             }
 
-            $finalContent = $messageContentParts;
-            if (count($messageContentParts) === 1 && $messageContentParts[0]['type'] === 'text') {
+            if (empty($messageContentParts)) {
+                $finalContent = '';
+            } elseif (count($messageContentParts) === 1 && $messageContentParts[0]['type'] === 'text') {
                 $finalContent = $messageContentParts[0]['text'];
+            } else {
+                $finalContent = $messageContentParts;
             }
-            $role = $message->isUser ? 'user' : 'assistant';
 
             $openAiMessage = [
                 'role'    => $role,
                 'content' => $finalContent,
             ];
 
-            if ($message->reasoning !== null) {
+            if ($messageHasReasoning) {
                 $openAiMessage['reasoning_content'] = $message->reasoning;
             }
 
-            if (!$message->isUser && count($message->toolCalls) > 0) {
+            if ($messageHasToolCalls) {
                 $openAiMessage['tool_calls'] = array_map(
                     static fn(ToolCall $toolCall): array => [
                         'id' => $toolCall->id,
@@ -158,7 +180,7 @@ class AssistantContext
 
             $openAiMessages[] = $openAiMessage;
 
-            if (!$message->isUser && count($message->toolCalls) > 0) {
+            if ($messageHasToolCalls) {
                 foreach ($message->toolCalls as $toolCall) {
                     $openAiMessages[] = [
                         'role' => 'tool',
