@@ -339,7 +339,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     unset($toolResult['automatic_output_markdown']);
                 }
 
-                $toolResultContent = json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+                $toolResultContent = json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 echo "Tool call result: " . mb_substr($toolResultContent, 0, 1000) . "\n";
 
                 $allToolCalls[] = new ToolCall(

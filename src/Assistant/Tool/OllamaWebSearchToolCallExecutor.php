@@ -208,6 +208,6 @@ class OllamaWebSearchToolCallExecutor implements ToolCallExecutorInterface
 
     private function getJsonSizeInBytes(array $value): int
     {
-        return strlen(json_encode($value, JSON_THROW_ON_ERROR));
+        return strlen(json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 }
