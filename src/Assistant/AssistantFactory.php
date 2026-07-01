@@ -238,11 +238,16 @@ class AssistantFactory
                             in_array($parameterName, $tool->inputSchema['required'] ?? [], true)
                         );
                     }
+                    $serverSilent = $serverConfig['silent'] ?? false;
+                    $silentTools = (array) ($serverConfig['silentTools'] ?? []);
+                    $toolSilent = $serverSilent || in_array($tool->name, $silentTools, true);
                     $tools[$tool->name] = new ToolDefinition(
                         $tool->name,
                         new McpToolCallExecutor($client, $tool->name),
                         $tool->description,
-                        $parameters
+                        $parameters,
+                        'function',
+                        $toolSilent
                     );
                 }
             }

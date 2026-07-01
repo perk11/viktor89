@@ -11,6 +11,7 @@ final class ToolDefinition implements JsonSerializable
 {
     /**
      * @param list<ToolParameter> $parameters
+     * @param bool $silent If true, no "Executing tool" notification is sent to the user
      */
     public function __construct(
         private(set) readonly string $name,
@@ -18,6 +19,7 @@ final class ToolDefinition implements JsonSerializable
         private(set) readonly ?string $description,
         private(set) readonly array $parameters = [],
         private(set) readonly string $type = 'function',
+        private(set) readonly bool $silent = false,
     ) {
         if ($this->name === '') {
             throw new InvalidArgumentException('Tool name cannot be empty.');

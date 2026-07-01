@@ -286,8 +286,14 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
             foreach ($toolCalls as $toolCall) {
                 $functionName = $toolCall->function->name;
-                $toolCallNotification = "\n>Executing `" . $functionName . "` with arguments `" . $toolCall->function->arguments . "`\n\n";
-                $accumulatedContent .= $toolCallNotification;
+                $toolDefinition = $this->toolDefintions[$functionName] ?? null;
+                $isSilent = $toolDefinition !== null && $toolDefinition->silent;
+
+                if (!$isSilent) {
+                    $toolCallNotification = "\n>Executing `" . $functionName . "` with arguments `" . $toolCall->function->arguments . "`\n\n";
+                    $accumulatedContent .= $toolCallNotification;
+                }
+
                 if (!isset($this->toolDefintions[$functionName])) {
                     echo "Unknown tool called: $functionName\n";
                     $toolResult = ['content' => 'Error: Unknown tool call: ' . $functionName];
@@ -301,7 +307,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     if ($progressUpdateCallback !== null) {
                         $progressUpdateCallback(static::class, "Executing $functionName");
                     }
-                    if ($streamFunction !== null) {
+                    if ($streamFunction !== null && !$isSilent) {
                         $streamFunction($toolCallNotification);
                     }
 
