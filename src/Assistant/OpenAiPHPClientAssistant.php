@@ -299,6 +299,9 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     $toolResult = ['content' => 'Error: Unknown tool call: ' . $functionName];
                     if ($streamFunction !== null) {
                         $streamFunction($toolCallNotification);
+                        $errorNotification = "\n> ==Tool not found: $functionName==\n";
+                        $accumulatedContent .= $errorNotification;
+                        $streamFunction($errorNotification);
                     }
                 } else {
                     $functionArgs = json_decode($toolCall->function->arguments, true, 512, JSON_THROW_ON_ERROR);
@@ -312,6 +315,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     }
 
                     $toolCallExecutor = $this->toolDefintions[$functionName]->toolCallClass;
+                    $toolCallFailed = false;
 
                     if ($toolCallExecutor instanceof ToolCallExecutorInterface) {
                         try {
@@ -319,6 +323,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         } catch (\Throwable $e) {
                             echo "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
                             $toolResult = ['content' => 'tool call failed'];
+                            $toolCallFailed = true;
                         }
                     } elseif ($toolCallExecutor instanceof MessageChainAwareToolCallExecutorInterface) {
                         try {
@@ -326,11 +331,21 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         } catch (\Throwable $e) {
                             echo "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
                             $toolResult = ['content' => 'tool call failed'];
+                            $toolCallFailed = true;
                         }
                     } else {
                         throw new \RuntimeException(
                             'Tool call class does not implement a supported interface: ' . get_class($toolCallExecutor)
                         );
+                    }
+
+                    if ($toolCallFailed) {
+                        $errorMsg = $e->getMessage() ?? 'tool call failed';
+                        $errorNotification = "\n> ==Error in $functionName: $errorMsg==\n";
+                        $accumulatedContent .= $errorNotification;
+                        if ($streamFunction !== null) {
+                            $streamFunction($errorNotification);
+                        }
                     }
                 }
 
