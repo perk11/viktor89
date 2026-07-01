@@ -21,7 +21,7 @@ use Perk11\Viktor89\UserPreferenceReaderInterface;
 /** Uses https://github.com/openai-php/client */
 class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 {
-    private const int REPETITION_THRESHOLD_CHARACTERS = 512;
+    private const int REPETITION_THRESHOLD_CHARACTERS = 2048;
     private const int MAX_COMPACTION_RETRIES = 2;
     private readonly Client $openAiClient;
     private readonly ContextCompactor $contextCompactor;
