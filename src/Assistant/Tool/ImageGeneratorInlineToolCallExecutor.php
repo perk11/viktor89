@@ -11,6 +11,7 @@ class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallE
 {
     public function __construct(
         private readonly ImageByPromptGenerator $imageByPromptGenerator,
+        private readonly ?ImageByPromptGenerator $editByPromptGenerator,
         private readonly ImageUploader $generatedImageMarkdownUploader,
         private readonly ImgTagExtractor $imgTagExtractor,
     )
@@ -31,10 +32,19 @@ class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallE
             }
         }
 
-        $prompt = $this->imgTagExtractor->extractImageTags(new ImageGenerationPrompt($arguments['prompt']));
-        $lastMesage = $messageChain->last();
+        $lastMessage = $messageChain->last();
+        $hasImageReferences = str_contains($arguments['prompt'], '<img>') && str_contains($arguments['prompt'], '</img>');
+        $generator = ($hasImageReferences && $this->editByPromptGenerator !== null)
+            ? $this->editByPromptGenerator
+            : $this->imageByPromptGenerator;
+
+        $prompt = $this->imgTagExtractor->extractImageTags(
+            new ImageGenerationPrompt($arguments['prompt']),
+            null,
+            $messageChain,
+        );
         try {
-            $response = $this->imageByPromptGenerator->generateImageByImagePrompt($prompt, $lastMesage->userId);
+            $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId);
             $uploadedImage = $this->generatedImageMarkdownUploader->uploadPng($response->getFirstImageAsPng());
         } catch (\Exception $e) {
             echo $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";

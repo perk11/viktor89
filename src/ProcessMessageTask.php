@@ -19,6 +19,7 @@ use Perk11\Viktor89\Assistant\Tool\GetUrlContentsToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ImageGeneratorTelegramPhotoToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ImageUploader;
 use Perk11\Viktor89\Assistant\Tool\ImageGeneratorInlineToolCallExecutor;
+use Perk11\Viktor89\Assistant\Tool\ListChainImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ListSavedImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\OllamaWebSearchToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
@@ -288,7 +289,7 @@ class ProcessMessageTask implements Task
             is_int($generatedImageMarkdownUploaderConfig['port'] ?? null) ? $generatedImageMarkdownUploaderConfig['port'] : 22,
         );
         $imageRepository = new ImageRepository($database->sqlite3Database);
-        $imgTagExtractor = new ImgTagExtractor($imageRepository);
+        $imgTagExtractor = new ImgTagExtractor($imageRepository, $telegramFileDownloader);
 
         $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $database);
         $processingResultExecutor= new ProcessingResultExecutor($database);
@@ -302,10 +303,11 @@ class ProcessMessageTask implements Task
             $altTextProvider,
             $processingResultExecutor,
             new OllamaWebSearchToolCallExecutor($config['ollamaWebSearchApiKey']),
-            new ImageGeneratorTelegramPhotoToolCallExecutor($automatic1111APiClient, $photoResponder, $imgTagExtractor),
+            new ImageGeneratorTelegramPhotoToolCallExecutor($automatic1111APiClient, $editAutomatic1111APiClient, $photoResponder, $imgTagExtractor),
             new ReactToolCallExecutor(),
             new GetUrlContentsToolCallExecutor(),
             new ListSavedImagesToolCallExecutor($imageRepository),
+            new ListChainImagesToolCallExecutor($telegram->getBotId()),
             $telegram->getBotId(),
         );
         $altTextProvider->assistantWithVision = $assistantFactory->getAssistantInstanceByName('vision-for-alt-text');

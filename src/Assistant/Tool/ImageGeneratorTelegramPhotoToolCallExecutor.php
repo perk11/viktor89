@@ -13,6 +13,7 @@ class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareTo
 {
     public function __construct(
         private readonly ImageByPromptGenerator $imageByPromptGenerator,
+        private readonly ?ImageByPromptGenerator $editByPromptGenerator,
         private readonly PhotoResponder $photoResponder,
         private readonly ImgTagExtractor $imgTagExtractor,
     )
@@ -33,12 +34,20 @@ class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareTo
             }
         }
 
-        $prompt = $this->imgTagExtractor->extractImageTags(new ImageGenerationPrompt($arguments['prompt']));
-        $lastMesage = $messageChain->last();
+        $lastMessage = $messageChain->last();
+        $hasImageReferences = str_contains($arguments['prompt'], '<img>') && str_contains($arguments['prompt'], '</img>');
+        $generator = ($hasImageReferences && $this->editByPromptGenerator !== null)
+            ? $this->editByPromptGenerator
+            : $this->imageByPromptGenerator;
+
+        $prompt = $this->imgTagExtractor->extractImageTags(
+            new ImageGenerationPrompt($arguments['prompt']),
+            null,
+            $messageChain,
+        );
         try {
-            $response = $this->imageByPromptGenerator->generateImageByPrompt($arguments['prompt'], $lastMesage->userId);
-            $response = $this->imageByPromptGenerator->generateImageByImagePrompt($prompt, $lastMesage->userId);
-            $this->photoResponder->sendPhoto($lastMesage, $response->getFirstImageAsPng(), $response->sendAsFile, $response->getCaption());
+            $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId);
+            $this->photoResponder->sendPhoto($lastMessage, $response->getFirstImageAsPng(), $response->sendAsFile, $response->getCaption());
         } catch (\Exception $e) {
             echo $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
             return ['status' => 'failed'];
