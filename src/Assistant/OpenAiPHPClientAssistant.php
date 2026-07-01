@@ -337,6 +337,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     $autoOutput  = "\n\n". $toolResult['automatic_output_markdown'] . "\n\n";
                     $accumulatedContent .= $autoOutput;
                     if ($streamFunction !== null) {
+                        $this->suppressDraftUpdates = true;
                         $streamFunction($autoOutput);
                     }
                     unset($toolResult['automatic_output_markdown']);

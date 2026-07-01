@@ -20,6 +20,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
     private const float SMALL_EDIT_MIN_TIME_SECONDS = 10;
 
     protected readonly OpenAI $openAi;
+    protected bool $suppressDraftUpdates = false;
     private ?string $progressUpdateStatus = null;
     public function __construct(
         private readonly UserPreferenceReaderInterface $systemPromptProcessor,
@@ -112,7 +113,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             echo $chunk;
             $partialContent .= $chunk;
 
-            if ($editingAborted) {
+            if ($editingAborted || $this->suppressDraftUpdates) {
                 return;
             }
 
