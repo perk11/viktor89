@@ -32,7 +32,7 @@ class ImgTagExtractor
                     $imageIndex = (int)substr($reference, 1);
                     $imageData = $this->resolveChainImage($messageChain, $imageIndex);
                     if ($imageData === null) {
-                        throw new SavedImageNotFoundException("Chain image $reference");
+                        throw new SavedImageNotFoundException("Chain image $reference does not exist");
                     }
                     $newPrompt->sourceImagesContents[] = $imageData;
                 } else {
@@ -65,18 +65,17 @@ class ImgTagExtractor
 
     /**
      * Resolve a chain image reference to its binary contents.
-     * $imageIndex is 1-based.
+     * $imageIndex is 0-based.
      */
     private function resolveChainImage(MessageChain $messageChain, int $imageIndex): ?string
     {
-        if ($imageIndex < 1) {
+        if ($imageIndex < 0) {
             return null;
         }
 
         $foundIndex = 0;
         foreach ($messageChain->getMessages() as $message) {
             if ($message->photoFileId !== null) {
-                $foundIndex++;
                 if ($foundIndex === $imageIndex) {
                     try {
                         return $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);
@@ -85,6 +84,7 @@ class ImgTagExtractor
                         return null;
                     }
                 }
+                $foundIndex++;
             }
         }
 

@@ -158,7 +158,7 @@ class AssistantFactory
                 new ToolDefinition(
                     'image_gen_tool',
                     $this->imageFromTextGeneratorTool,
-                    'Generate an image from a text prompt and send it to user. Use img tag in the prompt to reference images. For saved images: <img>savedImageName</img>. For images in this conversation: <img>#1</img> where #1, #2 etc. are indices from list_chain_images. Use list_chain_images to see available conversation images and their indices. Max 3 images per prompt.',
+                    'Generate an image from a text prompt and send it to user. Use img tag in the prompt to reference images. For saved images: <img>savedImageName</img>. For images in this conversation: <img>#0</img> where #0, #1 etc. are indices from list_chain_images. Use list_chain_images to see available conversation images and their indices. Max 3 images per prompt.',
                     [
                         new ToolParameter('prompt', ['type' => 'string'], true),
                     ]
@@ -167,7 +167,7 @@ class AssistantFactory
                 new ToolDefinition(
                     'list_chain_images',
                     $this->listChainImagesTool,
-                    'List images present in the current conversation (message chain). Each image has a numbered ID like "#1", "#2" that can be used to reference the image in image_gen_tool prompt inside "img" XML tag, e.g. <img>#1</img>. Images are numbered in order they appear in the conversation. Use this to reference previously sent or generated images in the chat.',
+                    'List images present in the current conversation (message chain). Each image has a numbered ID like "#0", "#1" that can be used to reference the image in image_gen_tool prompt inside "img" XML tag, e.g. <img>#0</img>. Images are numbered starting from 0 in the order they appear in the conversation. Use this to reference previously sent or generated images in the chat.',
                 );
         }
         if ($requestedAssistantConfig['toolReact'] ?? false) {
