@@ -261,14 +261,6 @@ class InternalMessage
 
     public function edit(string $newText, $autoRetry = true): ServerResponse
     {
-        // The displayed text is always reasoningForDisplay . messageText (or just messageText).
-        // Since reasoningForDisplay is prepended to both sides, the no-op condition is simply
-        // newText === messageText. Editing with unchanged content triggers a
-        // 400 "message is not modified" error from Telegram, so skip the API call.
-        if ($newText === $this->messageText) {
-            return new ServerResponse(['ok' => true, 'result' => true], $_ENV['TELEGRAM_BOT_USERNAME']);
-        }
-
         $textToEdit = $newText;
         if ($this->reasoningForDisplay !== null) {
             $textToEdit = $this->reasoningForDisplay . $newText;
