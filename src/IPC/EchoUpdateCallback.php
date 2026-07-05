@@ -9,6 +9,16 @@ class EchoUpdateCallback implements ProgressUpdateCallback
     /** @var array callable[] */
     private array $subscribers = [];
 
+    /**
+     * @param int $workerId Worker id attached to the emitted TaskUpdateMessage.
+     *                     Echo callbacks are used outside of the worker IPC
+     *                     flow (e.g. by the summary task), so this defaults
+     *                     to 0 rather than being required.
+     */
+    public function __construct(private readonly int $workerId = 0)
+    {
+    }
+
     public function subscribe(callable $subscriber): void
     {
         $this->subscribers[] = $subscriber;
