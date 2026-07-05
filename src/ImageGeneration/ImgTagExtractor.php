@@ -32,7 +32,7 @@ class ImgTagExtractor
                     $imageIndex = (int)substr($reference, 1);
                     $imageData = $this->resolveChainImage($messageChain, $imageIndex);
                     if ($imageData === null) {
-                        throw new SavedImageNotFoundException("Chain image $reference does not exist");
+                        throw new SavedImageNotFoundException("Chain image $reference not found");
                     }
                     $newPrompt->sourceImagesContents[] = $imageData;
                 } else {

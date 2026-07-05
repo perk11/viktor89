@@ -69,7 +69,7 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         }
         $modelName = $this->imageModelPreference->getCurrentPreferenceValue($lastMessage->userId);
         try {
-            $prompt = $this->imgTagExtractor->extractImageTags($prompt, $modelName);
+            $prompt = $this->imgTagExtractor->extractImageTags($prompt, $modelName, $messageChain);
         } catch (SavedImageNotFoundException $e) {
             return new ProcessingResult(
                 InternalMessage::asResponseTo(

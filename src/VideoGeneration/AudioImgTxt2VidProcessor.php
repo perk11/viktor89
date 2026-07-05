@@ -55,7 +55,8 @@ class AudioImgTxt2VidProcessor implements MessageChainProcessor
         try {
             $imageGenerationPrompt = $this->imgTagExtractor->extractImageTags(
                 $imageGenerationPrompt,
-                'not implemented'
+                'not implemented',
+                $messageChain,
             );
         } catch (SavedImageNotFoundException $e) {
             return new ProcessingResult(
