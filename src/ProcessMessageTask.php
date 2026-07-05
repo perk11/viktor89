@@ -21,8 +21,8 @@ use Perk11\Viktor89\Assistant\Tool\ImageUploader;
 use Perk11\Viktor89\Assistant\Tool\ImageGeneratorInlineToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ListChainImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ListSavedImagesToolCallExecutor;
-use Perk11\Viktor89\Assistant\Tool\OllamaWebSearchToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
+use Perk11\Viktor89\Assistant\Tool\WebSearchToolFactory;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\DefaultingToFirstInConfigModelPreferenceReader;
 use Perk11\Viktor89\ImageGeneration\DownscaleProcessor;
@@ -302,7 +302,7 @@ class ProcessMessageTask implements Task
             $telegramFileDownloader,
             $altTextProvider,
             $processingResultExecutor,
-            new OllamaWebSearchToolCallExecutor($config['ollamaWebSearchApiKey']),
+            new WebSearchToolFactory()->buildFromConfig($config),
             new ImageGeneratorTelegramPhotoToolCallExecutor($automatic1111APiClient, $editAutomatic1111APiClient, $photoResponder, $imgTagExtractor),
             new ReactToolCallExecutor(),
             new GetUrlContentsToolCallExecutor(),
