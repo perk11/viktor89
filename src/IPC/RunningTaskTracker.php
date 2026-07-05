@@ -17,6 +17,7 @@ class RunningTaskTracker
 
     public function receive(Execution $execution): void
     {
+        ini_set('memory_limit', -1);
         $channel = $execution->getChannel();
         while (true) {
             try {
