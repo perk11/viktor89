@@ -45,14 +45,6 @@ class InternalMessage
     // Cannot contain photo caption.
     public ?string $rawMessageText = null;
 
-    /**
-     * The messageText portion currently displayed on Telegram.
-     * Updated only after a successful send()/edit(). Callers that pre-set
-     * messageText to intended-but-not-yet-sent content do not affect this, so
-     * the edit() no-op guard is not fooled into skipping a real edit.
-     */
-    public ?string $displayedText = null;
-
     public int $chatId;
 
     public ?string $photoFileId = null;
@@ -90,7 +82,6 @@ class InternalMessage
         $message->replyToMessageId = $result['reply_to_message'];
         $message->userName = $result['username'];
         $message->messageText = $result['message_text'];
-        $message->displayedText = $result['message_text'];
         $message->photoFileId = $result['photo_file_id'];
         $message->altText = $result['alt_text'] ?? null;
         $message->reasoning = $result['reasoning'] ?? null;
@@ -270,14 +261,11 @@ class InternalMessage
 
     public function edit(string $newText, $autoRetry = true): ServerResponse
     {
-        // displayedText is the messageText portion last successfully pushed to Telegram.
-        // reasoningForDisplay is prepended to both sides, so the no-op condition is simply
-        // newText === displayedText. Comparing against messageText instead would be wrong,
-        // because callers (e.g. the streaming assistant) set messageText to the intended final
-        // text before the edit is actually performed, which would silently skip the edit.
-        // Editing with unchanged content triggers a 400 "message is not modified" error from
-        // Telegram, so skip the API call when the content is genuinely unchanged.
-        if ($newText === $this->displayedText) {
+        // The displayed text is always reasoningForDisplay . messageText (or just messageText).
+        // Since reasoningForDisplay is prepended to both sides, the no-op condition is simply
+        // newText === messageText. Editing with unchanged content triggers a
+        // 400 "message is not modified" error from Telegram, so skip the API call.
+        if ($newText === $this->messageText) {
             return new ServerResponse(['ok' => true, 'result' => true], $_ENV['TELEGRAM_BOT_USERNAME']);
         }
 
@@ -305,7 +293,6 @@ class InternalMessage
         $response = Request::editMessageText($options);
         if ($response->isOk()) {
             $this->messageText = $newText;
-            $this->displayedText = $newText;
             if ($this->rawMessageText !== null) {
                 $this->rawMessageText = $newText;
             }
