@@ -17,11 +17,17 @@ class ChatActionUpdaterTest extends TestCase
         $this->assertFalse($reflection->isAbstract());
     }
 
-    public function testHasNoCustomConstructor(): void
+    public function testConstructorTakesFinalMessageTracker(): void
     {
         $reflection = new \ReflectionClass(\Perk11\Viktor89\IPC\ChatActionUpdater::class);
         $constructor = $reflection->getConstructor();
-        $this->assertNull($constructor);
+        $this->assertNotNull($constructor);
+        $params = $constructor->getParameters();
+        $this->assertCount(2, $params);
+        $this->assertSame('finalMessageTracker', $params[0]->getName());
+        $this->assertSame(\Perk11\Viktor89\IPC\FinalMessageTracker::class, $params[0]->getType()->getName());
+        $this->assertSame('actionIntervalSeconds', $params[1]->getName());
+        $this->assertSame(4.0, $params[1]->getDefaultValue());
     }
 
     public function testHasUpdateActionMethod(): void

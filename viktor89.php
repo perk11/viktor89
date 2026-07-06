@@ -11,6 +11,8 @@ use Perk11\Viktor89\HistoryReader;
 
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ChatActionUpdater;
+use Perk11\Viktor89\IPC\DraftUpdater;
+use Perk11\Viktor89\IPC\FinalMessageTracker;
 use Perk11\Viktor89\IPC\RunningTaskTracker;
 use Perk11\Viktor89\JoinQuiz\PollResponseProcessor;
 use Perk11\Viktor89\OpenAISummaryProvider;
@@ -53,8 +55,10 @@ $processingResultExecutor = new ProcessingResultExecutor($database);
 $lastSummaryTimestamp = $database->readSystemVariable(
     OpenAISummaryProvider::LAST_SUMMARY_TIMESTAMP_SYSTEM_VARIABLE_NAME
 ) ?? 0;
-$chatActionUpdater = new ChatActionUpdater();
-$runningTaskTracker = new RunningTaskTracker($chatActionUpdater);
+$finalMessageTracker = new FinalMessageTracker();
+$chatActionUpdater = new ChatActionUpdater($finalMessageTracker);
+$draftUpdater = new DraftUpdater($finalMessageTracker);
+$runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker);
 $workerId = 1;
 EventLoop::repeat(
     1,

@@ -16,6 +16,7 @@ use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
 use Perk11\Viktor89\Assistant\Tool\ToolParameter;
+use Perk11\Viktor89\IPC\DraftUpdateCallback;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
@@ -39,7 +40,8 @@ class AssistantFactory
         private readonly ToolCallExecutorInterface $getUrlContentsTool,
         private readonly ToolCallExecutorInterface $listSavedImagesTool,
         private readonly MessageChainAwareToolCallExecutorInterface $listChainImagesTool,
-        private readonly int $telegramBotId
+        private readonly int $telegramBotId,
+        private readonly DraftUpdateCallback $draftUpdateCallback,
     )
     {
     }
@@ -133,6 +135,10 @@ class AssistantFactory
                 $handlerInstance = new $abortResponseHandler(...$args);
                 $this->assistantInstanceByName[$name]->addAbortResponseHandler($handlerInstance);
             }
+        }
+
+        if ($this->assistantInstanceByName[$name] instanceof AbstractOpenAIAPiAssistant) {
+            $this->assistantInstanceByName[$name]->setDraftUpdateCallback($this->draftUpdateCallback);
         }
 
         return $this->assistantInstanceByName[$name];

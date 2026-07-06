@@ -175,7 +175,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                             $thinkingBuffer = '';
                         }
                         if ($isPrivateChat && $thinkingTagOpened) {
-                            $streamFunction('</tg-thinking>');
+                            $streamFunction("\n</tg-thinking>");
                             $thinkingTagOpened = false;
                         }
 

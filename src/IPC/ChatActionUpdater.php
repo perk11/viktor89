@@ -14,8 +14,18 @@ class ChatActionUpdater
     /** @var array<int, ChatAction> */
     private array $workerChatActions = [];
 
+    public function __construct(
+        private readonly FinalMessageTracker $finalMessageTracker,
+        private readonly float $actionIntervalSeconds = 4,
+    ) {
+    }
+
     public function updateAction(int $workerIdentifier, ?ChatAction $chatActionToUpdate): void
     {
+        if ($this->finalMessageTracker->isFinalMessageBeingSentByWorker($workerIdentifier)) {
+            return;
+        }
+
         if ($chatActionToUpdate === null) {
             $this->removeAction($workerIdentifier);
             return;
@@ -52,7 +62,7 @@ class ChatActionUpdater
     private function startChatActionTimer(int $targetChatIdentifier): void
     {
         $this->chatActionTimers[$targetChatIdentifier] = EventLoop::repeat(
-            4,
+            $this->actionIntervalSeconds,
             fn() => $this->sendActionToTargetChat($targetChatIdentifier)
         );
 
@@ -87,6 +97,10 @@ class ChatActionUpdater
 
         foreach ($this->workerChatActions as $currentWorkerIdentifier => $currentChatAction) {
             if ($currentChatAction->chatId === $targetChatIdentifier) {
+                if ($this->finalMessageTracker->isFinalMessageBeingSentByWorker($currentWorkerIdentifier)) {
+                    continue;
+                }
+
                 $responsibleWorkerIdentifier = $currentWorkerIdentifier;
                 $chatActionToSend = $currentChatAction;
                 break;

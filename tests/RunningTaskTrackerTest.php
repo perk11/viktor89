@@ -34,13 +34,15 @@ class RunningTaskTrackerTest extends TestCase
         $this->assertSame('void', $method->getReturnType()->getName());
     }
 
-    public function testConstructorTakesChatActionUpdater(): void
+    public function testConstructorTakesUpdatersAndTracker(): void
     {
         $reflection = new \ReflectionClass(\Perk11\Viktor89\IPC\RunningTaskTracker::class);
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
-        $this->assertCount(1, $params);
+        $this->assertCount(3, $params);
         $this->assertSame(\Perk11\Viktor89\IPC\ChatActionUpdater::class, $params[0]->getType()->getName());
+        $this->assertSame(\Perk11\Viktor89\IPC\DraftUpdater::class, $params[1]->getType()->getName());
+        $this->assertSame(\Perk11\Viktor89\IPC\FinalMessageTracker::class, $params[2]->getType()->getName());
     }
 
     public function testHasRunningTasksProperty(): void

@@ -11,8 +11,11 @@ class RunningTaskTracker
 {
     private array $runningTasks = [];
 
-    public function __construct(private readonly ChatActionUpdater $chatActionUpdater)
-    {
+    public function __construct(
+        private readonly ChatActionUpdater $chatActionUpdater,
+        private readonly DraftUpdater $draftUpdater,
+        private readonly FinalMessageTracker $finalMessageTracker,
+    ) {
     }
 
     public function receive(Execution $execution): void
@@ -47,10 +50,24 @@ class RunningTaskTracker
 
                     $this->chatActionUpdater->updateAction($message->workerId, $chatAction);
                     break;
+                case DraftUpdateMessage::class:
+                    /** @var DraftUpdateMessage $message */
+                    $this->draftUpdater->updateDraft($message->workerId, $message->draft);
+                    break;
+                case MessageAboutToBeSentMessage::class:
+                    /** @var MessageAboutToBeSentMessage $message */
+                    echo date('Y-m-d H:i:s') . " $message->workerId: Final message about to be sent in chat $message->chatId, stopping notifications\n";
+                    $this->finalMessageTracker->markWorkerFinalizing($message->workerId);
+                    $this->chatActionUpdater->removeAction($message->workerId);
+                    $this->draftUpdater->removeDraft($message->workerId);
+                    $channel->send(new AckMessage());
+                    break;
                 case TaskCompletedMessage::class:
                     /** @var TaskCompletedMessage $message */
                     unset($this->runningTasks[$message->workerId]);
                     $this->chatActionUpdater->removeAction($message->workerId);
+                    $this->draftUpdater->removeDraft($message->workerId);
+                    $this->finalMessageTracker->clearWorker($message->workerId);
                     break;
                 case RunningTasksQueryMessage::class:
                     echo date('Y-m-d H:i:s') . " Received tasks report request\n";

@@ -160,11 +160,18 @@ class InternalMessage
         return $message;
     }
 
-    public function sendAsDraft(): string
+    public function ensureDraftId(): int
     {
         if ($this->draftId === null) {
             $this->draftId = random_int(1, 1000000000);
         }
+
+        return $this->draftId;
+    }
+
+    public function sendAsDraft(): string
+    {
+        $this->ensureDraftId();
 
         $options = [
             'chat_id' => $this->chatId,

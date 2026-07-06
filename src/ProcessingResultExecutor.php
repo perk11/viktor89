@@ -8,8 +8,17 @@ use Longman\TelegramBot\Request;
 
 class ProcessingResultExecutor
 {
-    public function __construct(private Database $database, private bool $repliesInPMs = true)
-    {
+    public function __construct(
+        private Database $database,
+        private bool $repliesInPMs = true,
+        /**
+         * Invoked immediately before a response message is sent or edited.
+         * In a worker this notifies the main process to stop sending typing
+         * notifications and drafts for the chat, so that none can appear after
+         * the actual message.
+         */
+        private readonly ?\Closure $beforeMessageSentNotifier = null,
+    ) {
         
     }
     public function execute(ProcessingResult $result): void
@@ -18,6 +27,9 @@ class ProcessingResultExecutor
             $result->response->replyToMessageId = null;
         }
         if ($result->response !== null) {
+            if ($this->beforeMessageSentNotifier !== null) {
+                ($this->beforeMessageSentNotifier)($result->response->chatId);
+            }
             if ($result->response->id === null) {
                 echo "Sending message in chat {$result->response->chatId}: {$result->response->messageText}\n";
 

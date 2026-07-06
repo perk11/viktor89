@@ -3,6 +3,8 @@
 namespace Perk11\Viktor89\Assistant;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\DraftState;
+use Perk11\Viktor89\IPC\DraftUpdateCallback;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\IPC\TaskUpdateMessage;
 use Perk11\Viktor89\MessageChain;
@@ -14,14 +16,26 @@ use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 
 abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 {
-    private const float DRAFT_FREQUENCY_SECONDS = 0.7;
     private const float EDIT_FREQUENCY_MIN_SECONDS = 1.5;
     private const float EDIT_FREQUENCY_MAX_SECONDS = 120;
     private const float SMALL_EDIT_MIN_TIME_SECONDS = 10;
 
+    /**
+     * Minimum interval between consecutive draft updates sent while streaming.
+     * Declared as a static property so tests can override it to speed things up.
+     */
+    protected static float $draftFrequencySeconds = 0.7;
+
     protected readonly OpenAI $openAi;
     protected bool $suppressDraftUpdates = false;
     private ?string $progressUpdateStatus = null;
+
+    private ?DraftUpdateCallback $draftUpdateCallback = null;
+
+    public function setDraftUpdateCallback(DraftUpdateCallback $draftUpdateCallback): void
+    {
+        $this->draftUpdateCallback = $draftUpdateCallback;
+    }
     public function __construct(
         private readonly UserPreferenceReaderInterface $systemPromptProcessor,
         private readonly UserPreferenceReaderInterface $responseStartProcessor,
@@ -84,7 +98,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             if ($message->reasoning !== null) {
                 $isPrivateChat = $lastMessage->chatId > 0;
                 $message->reasoningForDisplay = $isPrivateChat
-                    ? '<tg-thinking>' . $message->reasoning . '</tg-thinking>'
+                    ? '<tg-thinking>' . $message->reasoning . "\n</tg-thinking>"
                     : $this->formatThinkingAsDetailsBlock($message->reasoning);
             }
 
@@ -118,7 +132,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             }
 
             $currentTime = microtime(true);
-            $frequency = $isDraft ? self::DRAFT_FREQUENCY_SECONDS : $editFrequency;
+            $frequency = $isDraft ? static::$draftFrequencySeconds : $editFrequency;
 
             if ($chunk !== '') { //Not a status update
                 $timeSinceLastAction = $currentTime - $lastActionTime;
@@ -137,42 +151,33 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $lastLength = mb_strlen($partialContent);
 
             if ($isDraft) {
-                $this->processDraftStream($message, $partialContent, $frequency, $editingAborted, $lastActionTime);
+                $this->processDraftStream($message, $partialContent);
             } else {
                 $this->processEditStream($message, $partialContent, $responseStart, $frequency, $editingAborted, $lastActionTime);
             }
         };
     }
 
-    private function processDraftStream(InternalMessage $message, string $partialContent, float $frequency, bool &$aborted, float &$lastActionTime): void
+    private function processDraftStream(InternalMessage $message, string $partialContent): void
     {
-        $message->messageText = $partialContent;
-        if ($message->parseMode === 'RichMarkdown') {
-            $message->messageText .= '<tg-thinking>' . $this->progressUpdateStatus . '...</tg-thinking>';
-        }
-        $sendAsDraftResult = $message->sendAsDraft();
-        $sendAsDraftResultObject = json_decode($sendAsDraftResult, false);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            echo "Failed to parse result of sending message as draft: " . json_last_error_msg() . "\n";
-            $aborted = true;
+        if ($this->draftUpdateCallback === null) {
             return;
         }
 
-        if ($sendAsDraftResultObject->ok === false) {
-            var_dump($sendAsDraftResultObject);
-            $retryAfter = $sendAsDraftResultObject->parameters->retry_after ?? null;
-            $this->handleRateLimitError(
-                $sendAsDraftResultObject->error_code,
-                $retryAfter,
-                $sendAsDraftResultObject->description,
-                "sending draft",
-                "send message as draft",
-                $frequency,
-                $aborted,
-                $lastActionTime
-            );
+        $text = $partialContent;
+        if ($message->parseMode === 'RichMarkdown') {
+            $text .= '<tg-thinking>' . $this->progressUpdateStatus . "...\n</tg-thinking>";
         }
+
+        $this->draftUpdateCallback->updateDraft(
+            new DraftState(
+                $message->chatId,
+                $message->ensureDraftId(),
+                $text,
+                $message->parseMode,
+                $message->messageThreadId,
+            )
+        );
     }
 
     private function processEditStream(InternalMessage $message, string $partialContent, ?string $responseStart, float $frequency, bool &$editingAborted, float &$lastActionTime): void
