@@ -1,124 +1,126 @@
 # Viktor89 AGENTS.md
 
-This file provides guidance for AI coding agents working on the Viktor89 Telegram bot.
+Guidance for AI coding agents working on the Viktor89 Telegram bot.
 
-## Project Overview
+## What it is
 
-Viktor89 is a PHP/Telegram bot that routes messages to processors and delegates heavy work to Python inference servers. The main entry point is `viktor89.php`. Configuration is loaded from `config.json` which uses jsonc (and deprecated parameters from`.env`).
+Viktor89 is a personal PHP/Telegram bot for group chats and PMs. It supports dozens of AI models for text, image, video, audio and voice generation, transcription, vision (alt-text, remix), web/tool use, chat moderation (join-quiz captcha, rate limiting, kick queue), and periodic chat summaries. Heavy inference is delegated to a fleet of standalone Python HTTP services in `inference-servers/`.
 
-## Architecture
+- Entry point: `viktor89.php` (async Amp event loop). Do **not** run the bot yourself.
+- Config: `config.json` (jsonc, gitignored) — copy from `config.example.json`. Legacy values still read from `.env` (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `OPENAI_SERVER`, …).
+- README.md is outdated; trust this file and the code over it.
+- PHP **8.5**. PSR-4: `Perk11\Viktor89\` → `src/`. Required exts: `sqlite3`, `curl`, `gd`, `dom`, `ssh2`.
+- Tests: `vendor/bin/phpunit`.
+
+## Tech stack
+
+`longman/telegram-bot` (Telegram API), `amphp/amp` + `amphp/parallel` (async + worker pool), `orhanerday/open-ai` & `openai-php/client` (LLM APIs), `vlucas/phpdotenv`, `mcp/sdk` (MCP tool calling), `monolog/monolog`, `tecnickcom/tcpdf`, `patrickschur/language-detection`.
+
+## Directory layout
 
 ```
-src/                         # PHP application
-inference-servers/           # Python inference services
-train/                       # Model training (out of scope)
+viktor89.php            # Event loop: polling, worker dispatch, timers
+src/                    # PHP application (Perk11\Viktor89\)
+  ProcessMessageTask.php  # DI wiring: builds ALL processors/assistants per message
+  Engine.php              # Message dispatcher
+  Database.php            # SQLite storage (data/), all persistence goes here
+  InternalMessage.php     # Normalized message model for the whole pipeline
+  MessageChain*.php       # Chain of InternalMessage + processor interface/runner
+  ProcessingResult*.php   # Result of a processor; executor sends it to Telegram
+  Assistant/              # LLM assistants + Tool/ (incl. MCP, web search, image tools)
+  ImageGeneration/        # A1111/Comfy clients, processors, image repo
+  VideoGeneration/  VoiceGeneration/  VoiceRecognition/   # media pipelines
+  PreResponseProcessor/   # Legacy pre-chain processors (deprecated)
+  IPC/                    # Worker↔main messaging: drafts, typing, status, progress
+  AbortStreamingResponse/ # Handlers that cut off runaway streamed responses
+  JoinQuiz/  Quiz/  RateLimiting/  Util/Telegram/         # moderation + helpers
+inference-servers/       # Standalone Python HTTP services (FastAPI/Flask)
+  util/                  # Shared: comfy.py (ComfyUI websocket client), image_resize.py
+train/                   # Model fine-tuning (out of scope)
+tests/                   # PHPUnit; flat namespace, mirrors src/
 ```
 
-### PHP Application (`src/`)
+## Runtime architecture
 
-The bot uses an async event loop (`viktor89.php`) built on Amp:
-- Polls Telegram via `getUpdates` using `EventLoop::repeat()`
-- Dispatches each message to a parallel `ProcessMessageTask` worker via `Amp\Parallel\Worker\workerPool()`
-- Runs background tasks on timers: chat summaries, kick queue cleanup, patches monitor
+`viktor89.php` runs one `Revolt\EventLoop`:
 
-Message flow:
-1. `Engine::handleMessage()` receives a Telegram `Message`
-2. `Engine` runs all `PreResponseProcessor` instances; if one returns a string, that string is sent as a reply
-3. If no pre-response processor handles it, a `MessageChain` is built from the message and history
-4. `MessageChainProcessorRunner::run()` executes the chain
-5. If the chain is not handled, the `fallBackResponder` generates a response
+1. `EventLoop::repeat(1, …)` — `getUpdates`, dispatches each `Message` to the Amp worker pool as a `ProcessMessageTask`. Poll answers go to `JoinQuiz\PollResponseProcessor`.
+2. `EventLoop::repeat(300, …)` — processes pending items in the kick queue (ban/unban/delete per `findPendingKickQueueItems`).
+3. `EventLoop::repeat(300, …)` — `PatchesMonitorTask`.
+4. A daily summary loop submits `SummaryTask` workers for configured chats.
 
-Key interfaces:
-- `PreResponseProcessor` — handles messages before the chain is built. Returns `false` to continue, `string` to respond, or `null` to skip responding. **Deprecated** in favor of `MessageChainProcessor`.
-- `MessageChainProcessor` — processes a full `MessageChain`. Returns `ProcessingResult`.
-- `TelegramInternalMessageResponderInterface` — fallback responders that take a raw Telegram message.
+**Worker / IPC model:** each message is handled in a separate worker process (`ProcessMessageTask::run`). The worker builds the full object graph in `handle()` (Database, assistants, all processors) on a fresh `Telegram`/`Database` per message. Workers talk to the main process over an Amp `Channel` via `IPC\*` messages:
+- `ProgressUpdateCallback` → `EngineProgressUpdateCallback`: worker reports progress → main process shows Telegram "typing"/chat actions (`ChatActionUpdater`) and live **draft** messages (`DraftUpdater`) while a long task runs.
+- `MessageAboutToBeSentMessage` + `AckMessage`: a handshake that makes the main process stop emitting drafts/typing for a chat *before* the real message lands, so a draft can never appear after the final reply.
+- `RunningTaskTracker` tracks in-flight tasks; `/status` (`StatusProcessor`) reads it.
 
-Key classes:
-- `Engine` — central message dispatcher
-- `MessageChain` — ordered list of `InternalMessage` objects representing a conversation
-- `InternalMessage` — normalized message representation
-- `MessageChainProcessorRunner` — runs processors and handles abort/max-length logic
-- `ProcessingResultExecutor` — sends `ProcessingResult` back to Telegram
-- `Database` — SQLite-backed storage for messages, preferences, queues (stored in `data/`)
+**Streaming & aborts:** assistants stream tokens; `DraftUpdater` edits the draft as text arrives. `AbortStreamingResponse\*Handler`s (`MaxLengthHandler`, `MaxNewLinesHandler`, `RepetitionAfterAuthorHandler`) stop generation early on length/repetition heuristics; attach via `AbortableStreamingResponseGenerator::addAbortResponseHandler()`.
 
-### Inference Servers (`inference-servers/`)
+## Message processing pipeline
 
-Each subdirectory is a standalone Python service exposing an HTTP API. Common utilities are in `inference-servers/util/`.
+`Engine::handleMessage(Message)`:
 
-Typical server pattern:
-- `main.py` starts a FastAPI/Flask/HTTP server
-- Accepts JSON requests with prompt, image, audio, or video data
-- Returns generated media or text
-- May depend on ComfyUI workflows (`.json` files) or model checkpoints
+1. `Database::logMessage()`. Early-out on unsupported types / no sender.
+2. Run every `PreResponseProcessor` (legacy, registered in `Engine`'s constructor). Return `false` → continue; `string` → reply with it; `null` → stop, no reply.
+3. Build a `MessageChain` from the message + reply history (`HistoryReader`). For a reply, prior messages are pulled from DB.
+4. `MessageChainProcessorRunner::run()` iterates registered `MessageChainProcessor`s. Each returns a `ProcessingResult` which `ProcessingResultExecutor` sends immediately (message send/edit, reaction, callback). If `abortProcessing` is true, the runner stops. **Multiple commands in one message are split** by the triggering-command regex and run separately (with a small delay to respect rate limits).
+5. If nothing handled it and the message isn't a command: only respond when `@botusername` is mentioned **or** it's a reply to the bot. Otherwise hand off to the `fallBackResponder` (`SiepatchNonInstruct4`, a non-instruct chat responder).
 
-Examples:
-- `image-generic-comfy/` — generic image generation via ComfyUI, supports many models
-- `sd35/`, `flux/`, `cogvideo/`, `mochi/` — model-specific servers
+## Adding a command
 
-## How to Create Commands
+A command is a `MessageChainProcessor` registered in the `$messageChainProcessors` array in `src/ProcessMessageTask.php::handle()`. For slash commands, wrap it in `PreResponseProcessor\CommandBasedResponderTrigger(['/cmd'], $processor)`. Declare trigger commands via `GetTriggeringCommandsInterface::getTriggeringCommands()` so the runner can split chained commands.
 
-Commands are implemented as `PreResponseProcessor` or `MessageChainProcessor` classes.
-
-### Using PreResponseProcessor (legacy)
-
-1. Create a class in `src/` implementing `PreResponseProcessor`
-2. Register it in the processor list passed to `Engine`
-3. Return `false` to let other processors run, a `string` to send a reply, or `null` to stop processing without a reply
-
-### Using MessageChainProcessor (recommended)
-
-1. Create a class in `src/` implementing `MessageChainProcessor`
-2. Implement `processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult`
-3. Return a `ProcessingResult` with the response message and a handled flag
-4. The runner will stop processing if `$abortProcessing` is `true`
-
-Prefer returning results from `processMessageChain()` over sending messages directly.
-
-Example structure:
 ```php
-class MyCommand implements MessageChainProcessor
+public function processMessageChain(MessageChain $chain, ProgressUpdateCallback $cb): ProcessingResult
 {
-    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
-    {
-        $lastMessage = $messageChain->last();
-        // ... do work ...
-        $response = InternalMessage::asResponseTo($lastMessage, "Hello");
-        return new ProcessingResult($response, true);
-    }
+    $last = $chain->last();
+    $resp = InternalMessage::asResponseTo($last, "Hi");
+    return new ProcessingResult($resp, abortProcessing: true);
 }
 ```
 
-## How to Create Inference Servers
+- Construct responses with `InternalMessage` (never raw Telegram calls).
+- Return a `ProcessingResult` instead of sending messages directly; `ProcessingResultExecutor` handles drafts/typing/ack handshake.
+- `ProcessingResult(response, abort, reaction, messageToReactTo, callback)` — any combination of reply / reaction / side-effect callback.
+- Persist settings via `Database::readUserPreference`/`writeUserPreference`. Prefer `UserPreferenceSetByCommandProcessor`, `NumericPreferenceInRangeByCommandProcessor`, or `ListBasedPreferenceByCommandProcessor` for `/set`-style prefs.
+- **Avoid** `PreResponseProcessor` for new code (deprecated) — use `MessageChainProcessor` so the message chain/history is available.
 
-1. Create a new subdirectory under `inference-servers/`
-2. Add a `main.py` that starts an HTTP server (FastAPI recommended)
-3. Define request/response schemas
-4. If using ComfyUI, add workflow `.json` files
-5. Document the server's API in a `README.md` in the same directory
-6. Update the corresponding PHP client in `src/` to call the new endpoint
+## Assistants, tools & MCP
 
-Server conventions:
-- Accept JSON payloads
-- Return JSON responses
-- Use HTTP endpoint that can already consumed by the PHP bot
-- Handle errors gracefully with appropriate HTTP status codes
+- `Assistant\AssistantFactory` builds assistants from `config.json` → `assistantModels`. Each entry: `url`, `class` (e.g. `OpenAiChatAssistant`, `ThinkRemovingOpenAIChatAssistant`, `Gemma2Assistant`), `model`, `systemPrompt`, `supportsImages`, `supportsResponseStart`, `selectableByUser`, `abortResponseHandlers`.
+- Assistants implement `AssistantInterface` (which extends `MessageChainProcessor`), so `/assistant` (`UserSelectedAssistant`) lets a user pick one per chat.
+- LLM tools implement `Assistant\Tool\ToolCallExecutorInterface`. Built-ins: image generation (inline + Telegram photo), web search (Ollama/ZAI/Generic, rate-limited via `WebSearchResponseLimiter`), URL fetch, react, list saved/chain images, SQLite knowledge lookup.
+- **MCP** servers (`mcp/sdk`) are exposed as tools via `McpToolCallExecutor($client, $toolName)`.
+- Vision: named assistants (`vision-for-alt-text`, `vision-for-remix`, `gemma2-for-imagine`) drive `AltTextProvider`, `RemixProcessor`, `AssistedImageGenerator`/`AssistedVideoProcessor` (LLM writes the prompt, then a media model generates).
 
-## Running the Bot
+## Configuration (`config.json`)
 
-Do not attempt to run the bot directly.
+jsonc, gitignored. Model-pick arrays are each `name → {url, …}`; commands like `/imagemodel` switch the active entry per user. Key sections:
 
-## Code Style
+| Key | Used by |
+|---|---|
+| `assistantModels` | `AssistantFactory` (chat/vision assistants) |
+| `imageModels`, `imageEditModels`, `restyleModels`, `rmBgModels`, `zoomModels`, `videoFirstFrameImageModels` | image generation / transform pipelines |
+| `videoModels`, `img2videoModels`, `videoEditModels`, `voiceOverModels`, `upscaleModels` | video clients |
+| `voiceModels`, `singModels`, `soundAndPromptToTargetAndResidualModels`, `podcastVoices` | audio/TTS |
+| `imageSizes` | `/imagesize` |
+| `whisperCppUrl` | voice transcription |
+| `generatedImageMarkdownUploader` | SCP-uploads generated images to a public host (`scpTarget`, `publicUrlPrefix`, SSH key paths, `port`) |
+| `ollamaWebSearchApiKey`, `zAiWebSearchApiKey` | web search tools |
 
-- PHP 8.5+ features are used (readonly, enums where applicable)
-- PSR-4 autoloading: `Perk11\Viktor89\` maps to `src/`
-- Use `InternalMessage` for all message construction
-- Use `Database` for persistence; never direct SQL outside of it
+## Command catalog (registered in `ProcessMessageTask`)
 
-## Important Notes
+- **Generation:** `/image`, `/imagine` (LLM-assisted), `/e`, `/edit` (img2img), `/image_all_models`, `/imagine_all_models`, `/remix`, `/restyle`, `/zoom`, `/upscale`, `/downscale`, `/rmbg`, `/video`, `/vid`, `/ve`, `/vo`, `/say`, `/vsay`, `/sing`, `/podcast`, `/aextract`.
+- **Transcription / files:** `/transcribe`, `/saveas`, `/file`, `/images` (`/saved`, image catalog PDF).
+- **Moderation / chat:** join-quiz captcha + auto-kick queue, `/talkers`, `/ratelimits`, `/quiz`, `/save` (poll).
+- **Preferences:** `/assistantmodel`, `/imagemodel`, `/editmodel`, `/singmodel`, `/videomodel`, `/img2videomodel`, `/vemodel`, `/upscalemodel`, `/saymodel`, `/imagesize`, `/style`, `/clown`, `/steps`, `/seed`, `/denoising_strength`, `/frames`, `/duration`, `/editfrequency`, `/system_prompt`, `/responsestart`, `/assistant`, `/preferences` (`/settings`).
+- **Meta:** `/start`, `/help`, `/status`, plus `WhoAreYouProcessor`/`HelloProcessor` phrase triggers.
 
-- The README is outdated; do not rely on it for setup or architecture guidance.
-- Required PHP extensions: `sqlite3`, `curl`, `gd`, `dom`, `ssh2`.
-- The bot uses `longman/telegram-bot`, both `orhanerday/open-ai` and `openai-php/client` for OpenAI, `amphp/amp` + `amphp/parallel` for async workers, and `mcp/sdk` for MCP tool support.
-- In non-command messages, the bot only responds if the message mentions `@botusername` or is a reply to the bot's own message.
-- Multiple commands can be chained in one message (newline-separated); `MessageChainProcessorRunner` splits and processes each command separately.
-- Run tests with vendor/bin/phpunit
+## Inference servers (`inference-servers/`)
+
+Each subdirectory is a standalone Python HTTP service: `main.py` (FastAPI/Flask) takes JSON (prompt/image/audio/video, often base64) and returns generated media/text. ComfyUI-based servers ship workflow `.json` and use `util/comfy.py` (websocket client: queue prompt → stream outputs). Examples: `image-generic-comfy/` (many models), `sd35/`, `flux/`, `cogvideo/`, `mochi*/`, `wan2-comfy/`, `rmbg/`, `tts/`, `qwen3-vl/`, `BAGEL/`. Add a server: new subdir → `main.py` → JSON request/response → (optional) workflow JSON + `README.md` → add the matching PHP client under `src/`.
+
+## Conventions & gotchas
+
+- All message construction uses `InternalMessage`; all persistence goes through `Data
+- Keep comments minimal — only where intent isn't obvious from code.
