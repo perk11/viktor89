@@ -13,6 +13,7 @@ use Longman\TelegramBot\Exception\TelegramException;
 use Longman\TelegramBot\Request;
 use Longman\TelegramBot\TelegramLog;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
+use Perk11\Viktor89\Util\TelegramRichMarkdown;
 use Perk11\Viktor89\VoiceGeneration\MessageAudio;
 
 class InternalMessage
@@ -185,7 +186,7 @@ class InternalMessage
         }
         if ($this->parseMode === 'RichMarkdown') {
             $options['rich_message'] = [
-                'markdown' => $this->rawMessageText ?? $this->messageText,
+                'markdown' => TelegramRichMarkdown::removeImages($this->rawMessageText ?? $this->messageText),
             ];
 
             return Request::execute('sendRichMessageDraft', $options);
@@ -218,7 +219,7 @@ class InternalMessage
         }
         if ($this->parseMode === 'RichMarkdown') {
             $options['rich_message'] = [
-                'markdown' => $this->rawMessageText ?? $this->messageText,
+                'markdown' => TelegramRichMarkdown::removeImages($this->rawMessageText ?? $this->messageText),
             ];
             $rawResponse = Request::execute('sendRichMessage', $options);
             $response = json_decode($rawResponse, true);
@@ -283,7 +284,7 @@ class InternalMessage
 
         if ($this->parseMode === 'RichMarkdown') {
             $options['rich_message'] = [
-                'markdown' => $textToEdit,
+                'markdown' => TelegramRichMarkdown::removeImages($textToEdit),
             ];
         } else {
             $options['text'] = $textToEdit;
