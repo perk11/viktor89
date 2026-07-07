@@ -13,8 +13,11 @@ use Revolt\EventLoop;
  * done reliably from the worker process, because the worker is blocked while
  * waiting for the model (e.g. during "thinking"). Instead, the worker forwards
  * the latest draft content here, and this class:
- *  - sends the draft to Telegram immediately whenever new content arrives, and
- *  - refreshes it on a timer so it does not disappear during pauses.
+ *  - sends the draft to Telegram immediately whenever new content arrives,
+ *  - refreshes it on a timer so it does not disappear during pauses, and
+ *  - throttles sends to at most $maxSendsPerWindow per $sendWindowSeconds per
+ *    chat, deferring (and coalescing) any excess so only the latest content is
+ *    delivered once a slot frees up.
  *
  * Drafts are never refreshed for a worker whose final message is being sent
  * (see FinalMessageTracker), so a draft should never be sent after the actual
@@ -31,9 +34,17 @@ class DraftUpdater
     /** @var array<int, float> chatId => microtime until which sending is paused due to rate limiting */
     private array $pausedUntil = [];
 
+    /** @var array<int, list<float>> chatId => send timestamps still inside the throttle window */
+    private array $sendTimestamps = [];
+
+    /** @var array<int, string> chatId => EventLoop delay ID for a deferred (throttled) send */
+    private array $pendingFlushTimers = [];
+
     public function __construct(
         private readonly FinalMessageTracker $finalMessageTracker,
         private readonly float $refreshIntervalSeconds = 10,
+        private readonly int $maxSendsPerWindow = 3,
+        private readonly float $sendWindowSeconds = 1.0,
     ) {
     }
 
@@ -50,11 +61,13 @@ class DraftUpdater
 
         $this->workerDrafts[$workerId] = $draft;
 
-        if (!isset($this->draftTimers[$draft->chatId])) {
+        // Edits target a message that does not disappear, so unlike drafts they
+        // need no periodic refresh timer.
+        if ($draft->editMessageId === null && !isset($this->draftTimers[$draft->chatId])) {
             $this->startDraftTimer($draft->chatId);
         }
 
-        $this->sendDraftForWorker($workerId);
+        $this->requestSend($draft->chatId);
     }
 
     public function removeDraft(int $workerId): void
@@ -66,8 +79,8 @@ class DraftUpdater
 
         unset($this->workerDrafts[$workerId]);
 
-        if (!$this->chatHasPendingDrafts($draft->chatId)) {
-            $this->stopDraftTimer($draft->chatId);
+        if ($this->workerIdsForChat($draft->chatId) === []) {
+            $this->cleanupChat($draft->chatId);
         }
     }
 
@@ -75,48 +88,103 @@ class DraftUpdater
     {
         $this->draftTimers[$chatId] = EventLoop::repeat(
             $this->refreshIntervalSeconds,
-            fn () => $this->refreshDraftsForChat($chatId)
+            fn () => $this->requestSend($chatId),
         );
     }
 
-    private function stopDraftTimer(int $chatId): void
+    private function cleanupChat(int $chatId): void
     {
-        if (!isset($this->draftTimers[$chatId])) {
+        if (isset($this->draftTimers[$chatId])) {
+            EventLoop::cancel($this->draftTimers[$chatId]);
+            unset($this->draftTimers[$chatId]);
+        }
+
+        if (isset($this->pendingFlushTimers[$chatId])) {
+            EventLoop::cancel($this->pendingFlushTimers[$chatId]);
+            unset($this->pendingFlushTimers[$chatId]);
+        }
+
+        unset($this->sendTimestamps[$chatId], $this->pausedUntil[$chatId]);
+    }
+
+    /**
+     * Entry point for every desire to push a draft to Telegram: the streaming
+     * worker, the periodic refresh timer, and a deferred (throttled) flush all
+     * funnel through here.
+     *
+     * Sends right away while the chat is below its rate limit; otherwise
+     * schedules a single deferred flush (see scheduleFlush) that will carry the
+     * latest content once a slot frees up. If such a flush is already pending
+     * this is a no-op, so rapid updates collapse into the one deferred send.
+     */
+    private function requestSend(int $chatId): void
+    {
+        if (isset($this->pendingFlushTimers[$chatId])) {
             return;
         }
 
-        EventLoop::cancel($this->draftTimers[$chatId]);
-        unset($this->draftTimers[$chatId], $this->pausedUntil[$chatId]);
-    }
-
-    private function chatHasPendingDrafts(int $chatId): bool
-    {
-        foreach ($this->workerDrafts as $draft) {
-            if ($draft->chatId === $chatId) {
-                return true;
-            }
+        $workerIds = $this->workerIdsForChat($chatId);
+        if ($workerIds === []) {
+            return;
         }
 
-        return false;
-    }
+        $now = microtime(true);
 
-    private function refreshDraftsForChat(int $chatId): void
-    {
-        $workerIds = array_keys(
-            array_filter(
-                $this->workerDrafts,
-                static fn(DraftState $draft): bool => $draft->chatId === $chatId,
-            ),
-        );
+        if (($this->pausedUntil[$chatId] ?? 0.0) > $now) {
+            return;
+        }
 
+        $cutoff = $now - $this->sendWindowSeconds;
         foreach ($workerIds as $workerId) {
             if ($this->finalMessageTracker->isFinalMessageBeingSentByWorker($workerId)) {
                 $this->removeDraft($workerId);
                 continue;
             }
 
+            $this->sendTimestamps[$chatId] = array_values(array_filter(
+                $this->sendTimestamps[$chatId] ?? [],
+                static fn(float $timestamp): bool => $timestamp > $cutoff,
+            ));
+            if (count($this->sendTimestamps[$chatId]) >= $this->maxSendsPerWindow) {
+                $this->scheduleFlush(
+                    $chatId,
+                    $this->sendTimestamps[$chatId][0] + $this->sendWindowSeconds - $now,
+                );
+
+                return;
+            }
+
+            $this->sendTimestamps[$chatId][] = $now;
             $this->sendDraftForWorker($workerId);
+
+            if (($this->pausedUntil[$chatId] ?? 0.0) > microtime(true)) {
+                return;
+            }
         }
+    }
+
+    private function scheduleFlush(int $chatId, float $delaySeconds): void
+    {
+        if (isset($this->pendingFlushTimers[$chatId])) {
+            return;
+        }
+
+        $this->pendingFlushTimers[$chatId] = EventLoop::delay(
+            max($delaySeconds, 0.001),
+            function () use ($chatId): void {
+                unset($this->pendingFlushTimers[$chatId]);
+                $this->requestSend($chatId);
+            },
+        );
+    }
+
+    /** @return list<int> */
+    private function workerIdsForChat(int $chatId): array
+    {
+        return array_keys(array_filter(
+            $this->workerDrafts,
+            static fn(DraftState $draft): bool => $draft->chatId === $chatId,
+        ));
     }
 
     private function sendDraftForWorker(int $workerId): void
@@ -126,35 +194,57 @@ class DraftUpdater
             return;
         }
 
-        if (($this->pausedUntil[$draft->chatId] ?? 0.0) > microtime(true)) {
-            return;
-        }
-
-        echo date('Y-m-d H:i:s') . " Sending draft to {$draft->chatId} ($workerId)\n";
-
         $message = new InternalMessage();
         $message->chatId = $draft->chatId;
-        $message->draftId = $draft->draftId;
         $message->messageText = $draft->text;
         $message->parseMode = $draft->parseMode;
         $message->messageThreadId = $draft->messageThreadId;
 
-        $sendAsDraftResult = $message->sendAsDraft();
-        $sendAsDraftResultObject = json_decode($sendAsDraftResult, false);
+        if ($draft->editMessageId !== null) {
+            echo date('Y-m-d H:i:s') . " Editing message {$draft->editMessageId} in {$draft->chatId} ($workerId)\n";
+            $message->id = $draft->editMessageId;
+            $response = $message->edit($draft->text, false);
+            if (!$response->isOk()) {
+                $rawData = $response->getRawData();
+                $this->handleFailedSend(
+                    $draft->chatId,
+                    $workerId,
+                    $response->getErrorCode(),
+                    $response->getDescription(),
+                    $rawData['parameters']['retry_after'] ?? null,
+                );
+            }
+
+            return;
+        }
+
+        echo date('Y-m-d H:i:s') . " Sending draft to {$draft->chatId} ($workerId)\n";
+        $message->draftId = $draft->draftId;
+        $result = json_decode($message->sendAsDraft(), false);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             echo date('Y-m-d H:i:s') . " Failed to parse result of sending draft: " . json_last_error_msg() . "\n";
             return;
         }
 
-        if ($sendAsDraftResultObject->ok === false) {
-            $retryAfter = $sendAsDraftResultObject->parameters->retry_after ?? null;
-            if ($sendAsDraftResultObject->error_code === 429 && $retryAfter !== null) {
-                echo date('Y-m-d H:i:s') . " Got retry after {$retryAfter} when sending draft to {$draft->chatId} ($workerId): {$sendAsDraftResultObject->description}\n";
-                $this->pausedUntil[$draft->chatId] = microtime(true) + $retryAfter;
-            } else {
-                echo date('Y-m-d H:i:s') . " Failed to send draft to {$draft->chatId} ($workerId): {$sendAsDraftResultObject->error_code} {$sendAsDraftResultObject->description}\n";
-            }
+        if ($result->ok === false) {
+            $this->handleFailedSend(
+                $draft->chatId,
+                $workerId,
+                $result->error_code,
+                $result->description,
+                $result->parameters->retry_after ?? null,
+            );
+        }
+    }
+
+    private function handleFailedSend(int $chatId, int $workerId, int $errorCode, string $description, ?int $retryAfter): void
+    {
+        if ($errorCode === 429 && $retryAfter !== null) {
+            echo date('Y-m-d H:i:s') . " Got retry after {$retryAfter} in chat {$chatId} ($workerId): {$description}\n";
+            $this->pausedUntil[$chatId] = microtime(true) + $retryAfter;
+        } else {
+            echo date('Y-m-d H:i:s') . " Failed to send in chat {$chatId} ($workerId): {$errorCode} {$description}\n";
         }
     }
 }

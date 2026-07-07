@@ -27,6 +27,15 @@ class DraftStateTest extends TestCase
         $draft = new DraftState(1, 1, 'text', 'Default');
 
         $this->assertNull($draft->messageThreadId);
+        $this->assertNull($draft->editMessageId, 'A draft must not target an existing message');
+    }
+
+    public function testEditTargetCarriesMessageIdAndNoDraftId(): void
+    {
+        $edit = new DraftState(chatId: -100, draftId: null, text: 'edited', parseMode: 'RichMarkdown', editMessageId: 55);
+
+        $this->assertNull($edit->draftId);
+        $this->assertSame(55, $edit->editMessageId);
     }
 
     public function testPropertiesAreReadonly(): void

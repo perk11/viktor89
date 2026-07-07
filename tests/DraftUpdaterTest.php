@@ -25,11 +25,15 @@ class DraftUpdaterTest extends TestCase
         $reflection = new \ReflectionClass(DraftUpdater::class);
         $params = $reflection->getConstructor()->getParameters();
 
-        $this->assertCount(2, $params);
+        $this->assertCount(4, $params);
         $this->assertSame('finalMessageTracker', $params[0]->getName());
         $this->assertSame(FinalMessageTracker::class, $params[0]->getType()->getName());
         $this->assertSame('refreshIntervalSeconds', $params[1]->getName());
         $this->assertSame(10.0, $params[1]->getDefaultValue());
+        $this->assertSame('maxSendsPerWindow', $params[2]->getName());
+        $this->assertSame(3, $params[2]->getDefaultValue());
+        $this->assertSame('sendWindowSeconds', $params[3]->getName());
+        $this->assertSame(1.0, $params[3]->getDefaultValue());
     }
 
     public function testHasUpdateDraftMethod(): void

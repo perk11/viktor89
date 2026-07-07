@@ -200,6 +200,21 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                 $messageText = mb_substr($responseStart . $partialContent, 0, 32768);
                 $editingAborted = true; // Truncating early and aborting updates once standard bounds are met
             }
+            if ($this->draftUpdateCallback !== null) {
+                // Route through DraftUpdater so edits share the same per-chat
+                // throttle as drafts (no refresh timer needed for edits).
+                $this->draftUpdateCallback->updateDraft(
+                    new DraftState(
+                        chatId: $message->chatId,
+                        draftId: null,
+                        text: $messageText,
+                        parseMode: $message->parseMode,
+                        editMessageId: $message->id,
+                    )
+                );
+
+                return;
+            }
             $editResult = $message->edit($messageText, false);
             if (!$editResult->isOk()) {
                 var_dump($editResult);
