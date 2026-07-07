@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Perk11\Viktor89\Test;
 
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\Test\Support\TelegramRecordingTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+
+require_once __DIR__ . '/Support/IntegrationTestSupport.php';
 
 #[CoversClass(InternalMessage::class)]
 class InternalMessageTest extends TestCase
 {
+    use TelegramRecordingTrait;
     public function testAsResponseToCreatesReplyMessage(): void
     {
         $original = new InternalMessage();
@@ -160,5 +164,45 @@ class InternalMessageTest extends TestCase
         $this->assertFalse($message->removeKeyboard);
         $this->assertFalse($message->forceReply);
         $this->assertSame('Default', $message->parseMode);
+    }
+
+    public function testEditRetriesOnRateLimitUntilItSucceeds(): void
+    {
+        $this->installRecordingTelegramClient();
+
+        $attempt = 0;
+        $this->telegramResponseOverride = function (string $action, array $form) use (&$attempt): ?array {
+            if ($action !== 'editMessageText') {
+                return null;
+            }
+            $attempt++;
+            // Fail the first two attempts with a rate limit, then succeed.
+            if ($attempt <= 2) {
+                return [
+                    'ok' => false,
+                    'error_code' => 429,
+                    'description' => 'Too Many Requests',
+                    'parameters' => ['retry_after' => 1],
+                ];
+            }
+
+            return null;
+        };
+
+        $message = new InternalMessage();
+        $message->id = 42;
+        $message->chatId = -100;
+        $message->parseMode = 'Default';
+
+        ob_start();
+        try {
+            $response = $message->edit('final content');
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertTrue($response->isOk(), 'edit() must keep retrying past repeated 429s until it succeeds');
+        $this->assertSame(3, $attempt, 'edit() must retry past repeated 429s (previous behaviour gave up after a single retry)');
+        $this->assertSame('final content', $message->messageText);
     }
 }

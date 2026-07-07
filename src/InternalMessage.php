@@ -17,6 +17,9 @@ use Perk11\Viktor89\VoiceGeneration\MessageAudio;
 
 class InternalMessage
 {
+    /** Maximum number of times edit() will back off and retry on a Telegram 429. */
+    private const int EDIT_RATE_LIMIT_MAX_RETRIES = 5;
+
     public ?int $id = null;
     public ?int $draftId = null;
 
@@ -290,15 +293,26 @@ class InternalMessage
         }
 
         $response = Request::editMessageText($options);
+        $attempts = 0;
+        while (
+            $autoRetry
+            && !$response->isOk()
+            && $response->getErrorCode() === 429
+            && isset($response->getRawData()['parameters']['retry_after'])
+            && $attempts < self::EDIT_RATE_LIMIT_MAX_RETRIES
+        ) {
+            $retryAfter = $response->getRawData()['parameters']['retry_after'];
+            echo "Got retry after {$retryAfter} when editing message, retrying: {$response->getDescription()}\n";
+            sleep(min($retryAfter, 120));
+            $attempts++;
+            $response = Request::editMessageText($options);
+        }
+
         if ($response->isOk()) {
             $this->messageText = $newText;
             if ($this->rawMessageText !== null) {
                 $this->rawMessageText = $newText;
             }
-        } elseif ($autoRetry && $response->getErrorCode() === 429 && isset($response->getRawData()['parameters']['retry_after'])) {
-            echo "Got retry after " . $response->getRawData()['parameters']['retry_after'] . " when editing message.: " . $response->getErrorCode() . ' ' . $response->getDescription() . "\n";
-            sleep(min($response->getRawData()['parameters']['retry_after'], 120));
-            return $this->edit($newText, false);
         }
 
         return $response;
