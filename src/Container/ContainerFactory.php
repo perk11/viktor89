@@ -230,12 +230,6 @@ final class ContainerFactory
         }
     }
 
-    /**
-     * Catches the classic "two strings in a row" swap early: a Telegram bot
-     * token always starts with "<botId>:", and the username never contains a
-     * colon. If this fails, warmup()/getContainer() were called with the
-     * username and API key in the wrong order.
-     */
     private static function validateArguments(int $botId, string $botUsername, string $botApiKey): void
     {
         if ($botApiKey === '' || !str_starts_with($botApiKey, $botId . ':')) {
