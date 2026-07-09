@@ -121,3 +121,4 @@ Each subdirectory is a standalone Python HTTP service: `main.py` (FastAPI/Flask)
 
 - All message construction uses `InternalMessage`; all persistence goes through `Data
 - Keep comments minimal — only where intent isn't obvious from code.
+- Prefer imports over fully-qualified names.
