@@ -13,7 +13,7 @@ class TelegramFileDownloader
     private readonly Client $guzzle;
     public function __construct(
         private readonly CacheFileManager $cacheFileManager,
-        private string $telegramBotApiKey
+        private readonly string $telegramBotApiKey
     )
     {
         $this->guzzle = new Client();

@@ -46,7 +46,7 @@ if (!isset($_ENV['OPENAI_SERVER'])) {
 $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
 
 // Compile the DI container once for all worker processes to load.
-ContainerFactory::warmup($telegram->getBotId(), $telegram->getApiKey(), $_ENV['TELEGRAM_BOT_USERNAME']);
+ContainerFactory::warmup($telegram->getBotId(), $_ENV['TELEGRAM_BOT_USERNAME'], $telegram->getApiKey());
 
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
 //$fallBackResponder = new \Perk11\Viktor89\Siepatch2Responder();

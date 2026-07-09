@@ -154,7 +154,7 @@ class ProcessMessageTask implements Task
         $dotenv = Dotenv::createImmutable(__DIR__.'/..');
         $dotenv->load();
         $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
-        $container = ContainerFactory::getContainer($this->telegramBotId, $this->telegramApiKey, $this->telegramBotUsername);
+        $container = ContainerFactory::getContainer($this->telegramBotId, $this->telegramBotUsername, $this->telegramApiKey);
         $database = $container->get(Database::class);
         $messageRepository = $container->get(\Perk11\Viktor89\Repository\MessageRepository::class);
         $userPreferenceRepository = $container->get(\Perk11\Viktor89\Repository\UserPreferenceRepository::class);

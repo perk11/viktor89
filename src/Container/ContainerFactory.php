@@ -134,6 +134,7 @@ final class ContainerFactory
 
     private static function build(int $botId, string $botUsername, string $botApiKey): ContainerBuilder
     {
+        self::validateArguments($botId, $botUsername, $botApiKey);
         $whisperCppUrl = self::readConfig()['whisperCppUrl'];
         $scalarValues = self::scalarValues($botId, $botUsername, $botApiKey, $whisperCppUrl);
 
@@ -226,6 +227,29 @@ final class ContainerFactory
     {
         if (!is_dir(self::cacheDir()) && !@mkdir(self::cacheDir(), 0775, true) && !is_dir(self::cacheDir())) {
             throw new Exception(sprintf('Failed to create directory "%s"', self::cacheDir()));
+        }
+    }
+
+    /**
+     * Catches the classic "two strings in a row" swap early: a Telegram bot
+     * token always starts with "<botId>:", and the username never contains a
+     * colon. If this fails, warmup()/getContainer() were called with the
+     * username and API key in the wrong order.
+     */
+    private static function validateArguments(int $botId, string $botUsername, string $botApiKey): void
+    {
+        if ($botApiKey === '' || !str_starts_with($botApiKey, $botId . ':')) {
+            throw new Exception(sprintf(
+                'Invalid bot API key for id %d (got %s)',
+                $botId,
+                $botApiKey === '' ? '(empty)' : $botApiKey,
+            ));
+        }
+        if (str_contains($botUsername, ':')) {
+            throw new Exception(sprintf(
+                'Invalid bot username %s (must not contain ":")',
+                $botUsername,
+            ));
         }
     }
 
