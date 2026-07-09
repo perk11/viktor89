@@ -71,7 +71,7 @@ $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, 
 $workerId = 1;
 EventLoop::repeat(
     1,
-    static function () use ($telegram, $workerPool, &$iterationId, &$lastSummaryTimestamp, $database, $pollResponseProcessor, $processingResultExecutor, $runningTaskTracker, &$workerId) {
+    static function () use ($systemVariableRepository, $telegram, $workerPool, &$iterationId, &$lastSummaryTimestamp, $database, $pollResponseProcessor, $processingResultExecutor, $runningTaskTracker, &$workerId) {
     try {
         $serverResponse = $telegram->handleGetUpdates([
                                                           'allowed_updates' => [
