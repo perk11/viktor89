@@ -56,7 +56,10 @@ class PersonaAwareSystemPromptReaderTest extends TestCase
         $this->personaRepository->addPersona('pirate', 'You are a pirate.', 999, 'Bob');
         $this->userPreferenceRepository->writeUserPreference(111, PersonaHelper::PERSONA_PREFERENCE, 'pirate');
 
-        $this->assertSame('You are a pirate.', $this->createReader(null)->getCurrentPreferenceValue(111));
+        $this->assertSame(
+            'The user has required you to be the following persona: You are a pirate.',
+            $this->createReader(null)->getCurrentPreferenceValue(111)
+        );
     }
 
     public function testSystemPromptOnly(): void
@@ -64,7 +67,7 @@ class PersonaAwareSystemPromptReaderTest extends TestCase
         $this->assertSame('Be concise.', $this->createReader('Be concise.')->getCurrentPreferenceValue(111));
     }
 
-    public function testPersonaPromptIsPrependedBeforeSystemPrompt(): void
+    public function testPersonaPromptIsAppendedAfterSystemPrompt(): void
     {
         $this->personaRepository->addPersona('pirate', 'You are a pirate.', 999, 'Bob');
         $this->userPreferenceRepository->writeUserPreference(111, PersonaHelper::PERSONA_PREFERENCE, 'pirate');
@@ -73,10 +76,11 @@ class PersonaAwareSystemPromptReaderTest extends TestCase
 
         $this->assertStringContainsString('You are a pirate.', $value);
         $this->assertStringContainsString('Be concise.', $value);
+        $this->assertStringContainsString('The user has required you to be the following persona: You are a pirate.', $value);
         $this->assertLessThan(
-            strpos($value, 'Be concise.'),
             strpos($value, 'You are a pirate.'),
-            'Persona prompt must come before the /systemprompt value'
+            strpos($value, 'Be concise.'),
+            'System prompt must come before the persona prompt'
         );
     }
 
