@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
-use Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor;
+use Perk11\Viktor89\UserSettings\ListBasedPreferenceByCommandProcessor;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace Perk11\Viktor89\PreResponseProcessor;
+namespace Perk11\Viktor89\UserSettings;
 
 use Perk11\Viktor89\Database;
 

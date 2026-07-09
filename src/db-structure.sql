@@ -97,3 +97,13 @@ CREATE TABLE IF NOT EXISTS `tool_call`
     `chat_id` bigint NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_tool_call_message_id ON tool_call(message_id, chat_id);
+
+CREATE TABLE IF NOT EXISTS `persona`
+(
+    `id` integer PRIMARY KEY AUTOINCREMENT,
+    `name` text NOT NULL UNIQUE,
+    `system_prompt` text NOT NULL,
+    `user_id` bigint NOT NULL,
+    `username` text NOT NULL,
+    `created_at` timestamp NOT NULL
+);

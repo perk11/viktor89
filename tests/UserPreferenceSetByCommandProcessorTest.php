@@ -7,19 +7,19 @@ namespace Perk11\Viktor89\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(\Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor::class)]
+#[CoversClass(\Perk11\Viktor89\UserSettings\UserPreferenceSetByCommandProcessor::class)]
 class UserPreferenceSetByCommandProcessorTest extends TestCase
 {
     public function testIsClass(): void
     {
-        $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor::class);
+        $reflection = new \ReflectionClass(\Perk11\Viktor89\UserSettings\UserPreferenceSetByCommandProcessor::class);
         $this->assertFalse($reflection->isInterface());
         $this->assertFalse($reflection->isAbstract());
     }
 
     public function testImplementsMessageChainProcessor(): void
     {
-        $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor::class);
+        $reflection = new \ReflectionClass(\Perk11\Viktor89\UserSettings\UserPreferenceSetByCommandProcessor::class);
         $this->assertTrue(
             $reflection->implementsInterface(\Perk11\Viktor89\MessageChainProcessor::class)
         );
@@ -27,7 +27,7 @@ class UserPreferenceSetByCommandProcessorTest extends TestCase
 
     public function testImplementsUserPreferenceReaderInterface(): void
     {
-        $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor::class);
+        $reflection = new \ReflectionClass(\Perk11\Viktor89\UserSettings\UserPreferenceSetByCommandProcessor::class);
         $this->assertTrue(
             $reflection->implementsInterface(\Perk11\Viktor89\UserPreferenceReaderInterface::class)
         );
@@ -35,7 +35,7 @@ class UserPreferenceSetByCommandProcessorTest extends TestCase
 
     public function testImplementsGetTriggeringCommandsInterface(): void
     {
-        $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor::class);
+        $reflection = new \ReflectionClass(\Perk11\Viktor89\UserSettings\UserPreferenceSetByCommandProcessor::class);
         $this->assertTrue(
             $reflection->implementsInterface(\Perk11\Viktor89\GetTriggeringCommandsInterface::class)
         );
@@ -43,7 +43,7 @@ class UserPreferenceSetByCommandProcessorTest extends TestCase
 
     public function testConstructorTakesFourParameters(): void
     {
-        $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor::class);
+        $reflection = new \ReflectionClass(\Perk11\Viktor89\UserSettings\UserPreferenceSetByCommandProcessor::class);
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
         $this->assertCount(4, $params);
@@ -55,7 +55,7 @@ class UserPreferenceSetByCommandProcessorTest extends TestCase
 
     public function testHasGetValueValidationErrorsMethod(): void
     {
-        $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor::class);
+        $reflection = new \ReflectionClass(\Perk11\Viktor89\UserSettings\UserPreferenceSetByCommandProcessor::class);
         $method = $reflection->getMethod('getValueValidationErrors');
         $this->assertSame('array', $method->getReturnType()->getName());
         $this->assertTrue($method->isProtected());
@@ -63,7 +63,7 @@ class UserPreferenceSetByCommandProcessorTest extends TestCase
 
     public function testHasProcessValueAsSettingMethod(): void
     {
-        $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor::class);
+        $reflection = new \ReflectionClass(\Perk11\Viktor89\UserSettings\UserPreferenceSetByCommandProcessor::class);
         $method = $reflection->getMethod('processValueAsSetting');
         $this->assertTrue($method->isProtected());
         $this->assertSame('bool', $method->getReturnType()->getName());
@@ -71,7 +71,7 @@ class UserPreferenceSetByCommandProcessorTest extends TestCase
 
     public function testHasTransformValueMethod(): void
     {
-        $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor::class);
+        $reflection = new \ReflectionClass(\Perk11\Viktor89\UserSettings\UserPreferenceSetByCommandProcessor::class);
         $method = $reflection->getMethod('transformValue');
         $this->assertTrue($method->isProtected());
     }

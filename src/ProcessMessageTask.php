@@ -54,13 +54,14 @@ use Perk11\Viktor89\JoinQuiz\JoinQuizProcessor;
 use Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger;
 use Perk11\Viktor89\PreResponseProcessor\HelloProcessor;
 use Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor;
-use Perk11\Viktor89\PreResponseProcessor\ListBasedPreferenceByCommandProcessor;
-use Perk11\Viktor89\PreResponseProcessor\NumericPreferenceInRangeByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor;
 use Perk11\Viktor89\PreResponseProcessor\ReactProcessor;
 use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
-use Perk11\Viktor89\PreResponseProcessor\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor;
+use Perk11\Viktor89\UserSettings\DynamicListBasedPreferenceByCommandProcessor;
+use Perk11\Viktor89\UserSettings\ListBasedPreferenceByCommandProcessor;
+use Perk11\Viktor89\UserSettings\NumericPreferenceInRangeByCommandProcessor;
+use Perk11\Viktor89\UserSettings\UserPreferenceSetByCommandProcessor;
 use Perk11\Viktor89\Quiz\QuestionRepository;
 use Perk11\Viktor89\Quiz\RandomQuizResponder;
 use Perk11\Viktor89\TalkersCommandProcessor;
@@ -332,9 +333,27 @@ class ProcessMessageTask implements Task
             true,
             $beforeMessageSentNotifier,
         );
+        $personaHelper = new PersonaHelper($this->telegramBotUsername);
+        $personaProcessor = new DynamicListBasedPreferenceByCommandProcessor(
+            $database,
+            ['/persona'],
+            PersonaHelper::PERSONA_PREFERENCE,
+            $this->telegramBotUsername,
+            static function () use ($database): array {
+                $options = [['value' => PersonaHelper::DEFAULT_PERSONA_NAME, 'label' => PersonaHelper::DEFAULT_PERSONA_NAME . ' (без персоны)']];
+                foreach ($database->findAllPersonas() as $persona) {
+                    $author = $persona->userName !== '' ? ' (от ' . $persona->userName . ')' : '';
+                    $options[] = ['value' => $persona->name, 'label' => $persona->name . $author];
+                }
+
+                return $options;
+            },
+            [PersonaHelper::DEFAULT_PERSONA_NAME],
+        );
+        $personaAwareSystemPromptReader = new PersonaAwareSystemPromptReader($database, $systemPromptProcessor);
         $assistantFactory = new AssistantFactory(
             $config['assistantModels'],
-            $systemPromptProcessor,
+            $personaAwareSystemPromptReader,
             $responseStartProcessor,
             $editFrequencyProcessor,
             $openAiCompletionStringParser,
@@ -599,6 +618,15 @@ class ProcessMessageTask implements Task
             $framesProcessor,
             $durationProcessor,
             $systemPromptProcessor,
+            new CommandBasedResponderTrigger(
+                ['/addpersona'],
+                new AddPersonaProcessor($database, $personaHelper),
+            ),
+            new CommandBasedResponderTrigger(
+                ['/delpersona'],
+                new DeletePersonaProcessor($database, $personaHelper),
+            ),
+            $personaProcessor,
             $responseStartProcessor,
             $editFrequencyProcessor,
             new CommandBasedResponderTrigger(

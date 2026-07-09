@@ -35,6 +35,9 @@ class PrintHelpProcessor implements MessageChainProcessor
         '/assistant' => 'Начать общение с LLM. Например: <code>/assistant Привет</code>. Чтобы продолжить общение, отвечайте на сообщения бота.',
         '/assistantmodel' => 'Выбор модели LLM.',
         '/systemprompt' => 'Указание для LLM о том что он должен делать. Например: <code>/systemprompt You are a heartless and mean robot</code>. Значение по умолчанию: <code>Always respond to the user in the language they use or request.</code>. Отправьте /systemprompt без параметров, чтобы сбросить на значение по умолчанию.',
+        '/persona' => 'Сохранённые системные промпты (персоны). Без параметров показывает кнопки для выбора персоны. <code>/persona Имя</code> применяет персону, а <code>/persona Default</code> отключает её. Промпт активной персоны добавляется перед значением /systemprompt. Персоны может использовать любой, но удалить может только создатель.',
+        '/addpersona' => 'Создать новую персону. Название — на первой строке, системный промпт — на следующих. Например:\n<code>/addpersona Пират\nТы пиратский капитан. Говори морским сленгом.</code>\nНе более 5 персон на пользователя.',
+        '/delpersona' => 'Удалить персону. Например: <code>/delpersona Пират</code>. Удалить может только тот, кто её создал.',
     ];
 
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
