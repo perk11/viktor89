@@ -108,13 +108,10 @@ jsonc, gitignored. Model-pick arrays are each `name → {url, …}`; commands li
 | `generatedImageMarkdownUploader` | SCP-uploads generated images to a public host (`scpTarget`, `publicUrlPrefix`, SSH key paths, `port`) |
 | `ollamaWebSearchApiKey`, `zAiWebSearchApiKey` | web search tools |
 
-## Command catalog (registered in `ProcessMessageTask`)
+## Commands
 
-- **Generation:** `/image`, `/imagine` (LLM-assisted), `/e`, `/edit` (img2img), `/image_all_models`, `/imagine_all_models`, `/remix`, `/restyle`, `/zoom`, `/upscale`, `/downscale`, `/rmbg`, `/video`, `/vid`, `/ve`, `/vo`, `/say`, `/vsay`, `/sing`, `/podcast`, `/aextract`.
-- **Transcription / files:** `/transcribe`, `/saveas`, `/file`, `/images` (`/saved`, image catalog PDF).
-- **Moderation / chat:** join-quiz captcha + auto-kick queue, `/talkers`, `/ratelimits`, `/quiz`, `/save` (poll).
-- **Preferences:** `/assistantmodel`, `/imagemodel`, `/editmodel`, `/singmodel`, `/videomodel`, `/img2videomodel`, `/vemodel`, `/upscalemodel`, `/saymodel`, `/imagesize`, `/style`, `/clown`, `/steps`, `/seed`, `/denoising_strength`, `/frames`, `/duration`, `/editfrequency`, `/system_prompt`, `/responsestart`, `/assistant`, `/preferences` (`/settings`).
-- **Meta:** `/start`, `/help`, `/status`, plus `WhoAreYouProcessor`/`HelloProcessor` phrase triggers.
+* Commands are registered in `ProcessMessageTask`
+* When adding commands, use CommandBasedResponderTrigger.
 
 ## Inference servers (`inference-servers/`)
 
