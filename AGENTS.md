@@ -14,14 +14,16 @@ Viktor89 is a personal PHP/Telegram bot for group chats and PMs. It supports doz
 
 ## Tech stack
 
-`longman/telegram-bot` (Telegram API), `amphp/amp` + `amphp/parallel` (async + worker pool), `orhanerday/open-ai` & `openai-php/client` (LLM APIs), `vlucas/phpdotenv`, `mcp/sdk` (MCP tool calling), `monolog/monolog`, `tecnickcom/tcpdf`, `patrickschur/language-detection`.
+`longman/telegram-bot` (Telegram API), `amphp/amp` + `amphp/parallel` (async + worker pool), `orhanerday/open-ai` & `openai-php/client` (LLM APIs), `vlucas/phpdotenv`, `mcp/sdk` (MCP tool calling), `monolog/monolog`, `tecnickcom/tcpdf`, `patrickschur/language-detection`, `symfony/dependency-injection` + `symfony/config` (autowired DI container, PHP config only).
 
 ## Directory layout
 
 ```
-viktor89.php            # Event loop: polling, worker dispatch, timers
+viktor89.php            # Event loop: polling, worker dispatch, timers; compiles the DI container once at startup
+config/services.php     # Symfony DI config: autowires the Perk11\Viktor89\ namespace
 src/                    # PHP application (Perk11\Viktor89\)
-  ProcessMessageTask.php  # DI wiring: builds ALL processors/assistants per message
+  Container/ContainerFactory.php  # Builds, prunes, compiles & caches the DI container
+  ProcessMessageTask.php  # Per-message wiring: fetches autowireable services from the container, builds the rest manually
   Engine.php              # Message dispatcher
   Database.php            # SQLite storage (data/), all persistence goes here
   InternalMessage.php     # Normalized message model for the whole pipeline
@@ -84,6 +86,16 @@ public function processMessageChain(MessageChain $chain, ProgressUpdateCallback 
 - `ProcessingResult(response, abort, reaction, messageToReactTo, callback)` — any combination of reply / reaction / side-effect callback.
 - Persist settings via `Database::readUserPreference`/`writeUserPreference`. Prefer `UserPreferenceSetByCommandProcessor`, `NumericPreferenceInRangeByCommandProcessor`, or `ListBasedPreferenceByCommandProcessor` for `/set`-style prefs.
 - **Avoid** `PreResponseProcessor` for new code (deprecated) — use `MessageChainProcessor` so the message chain/history is available.
+
+## Dependency injection (Symfony DI)
+
+Stateless singleton services are autowired by a Symfony DI container; everything that does not fit stays manually wired in `ProcessMessageTask::handle()`.
+
+- `config/services.php` registers the whole `Perk11\Viktor89\` namespace with `autowire()`/`autoconfigure()`/`public()` (no YAML — PHP config only).
+- `Container\ContainerFactory` loads it, **prunes** every class that cannot be cleanly autowired as a shared singleton (per-message state like `Channel`/callbacks, multiple instances with different config like `Automatic1111APiClient`/the `/set` preference processors, closures, exceptions, enums, unbindable scalar/array constructors, and classes that transitively depend on any of these), binds the global scalar args (bot id, username, API key, whisper URL, DB name), **compiles once** and dumps the container to `data/generated/Viktor89CompiledContainer_<hash>.php`.
+- `viktor89.php` calls `ContainerFactory::warmup()` once at startup; each worker calls `ContainerFactory::getContainer()` (loads the compiled file, fresh instance per message → fresh services, no per-message compile). The `<hash>` in the filename invalidates the cache when the bot token/username change.
+- Excluded examples kept manual: `ProcessingResultExecutor` (per-message closure), `AssistantFactory`, assistants, `Engine`, `Automatic1111APiClient`, the `*PreferenceByCommandProcessor`s, `ImageRepository`/`ImgTagExtractor` (need `Database->sqlite3Database`), anything taking a config array.
+- To use a container service in `handle()`: `$container->get(YourClass::class)`. A newly added class with only autowireable constructor deps (+ the bound scalars) is picked up automatically on the next `warmup()`; delete `data/generated/` to force a recompile.
 
 ## Assistants, tools & MCP
 

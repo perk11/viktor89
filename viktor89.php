@@ -7,6 +7,7 @@ use Longman\TelegramBot\Request;
 use Longman\TelegramBot\Telegram;
 use Longman\TelegramBot\TelegramLog;
 use Perk11\Viktor89\Database;
+use Perk11\Viktor89\Container\ContainerFactory;
 use Perk11\Viktor89\HistoryReader;
 
 use Perk11\Viktor89\InternalMessage;
@@ -43,6 +44,9 @@ if (!isset($_ENV['OPENAI_SERVER'])) {
 }
 
 $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
+
+// Compile the DI container once for all worker processes to load.
+ContainerFactory::warmup($telegram->getBotId(), $telegram->getApiKey(), $_ENV['TELEGRAM_BOT_USERNAME']);
 
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
 //$fallBackResponder = new \Perk11\Viktor89\Siepatch2Responder();

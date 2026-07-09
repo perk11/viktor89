@@ -15,6 +15,7 @@ use Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler;
 use Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantFactory;
+use Perk11\Viktor89\Container\ContainerFactory;
 use Perk11\Viktor89\Assistant\Tool\GetUrlContentsToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ImageGeneratorTelegramPhotoToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ImageUploader;
@@ -32,8 +33,6 @@ use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\ImageTransformProcessor;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\ImageGeneration\MultipleModelsImageGenerateProcessor;
-use Perk11\Viktor89\Util\Telegram\ReactionDeleter;
-use Perk11\Viktor89\Util\Telegram\ReactionReplacer;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\RemixProcessor;
 use Perk11\Viktor89\ImageGeneration\RestyleGenerator;
@@ -62,7 +61,6 @@ use Perk11\Viktor89\UserSettings\DynamicListBasedPreferenceByCommandProcessor;
 use Perk11\Viktor89\UserSettings\ListBasedPreferenceByCommandProcessor;
 use Perk11\Viktor89\UserSettings\NumericPreferenceInRangeByCommandProcessor;
 use Perk11\Viktor89\UserSettings\UserPreferenceSetByCommandProcessor;
-use Perk11\Viktor89\Quiz\QuestionRepository;
 use Perk11\Viktor89\Quiz\RandomQuizResponder;
 use Perk11\Viktor89\TalkersCommandProcessor;
 use Perk11\Viktor89\RateLimiting\RateLimit;
@@ -86,10 +84,8 @@ use Perk11\Viktor89\VoiceGeneration\SoundAndPromptToTargetAndResidualProcessor;
 use Perk11\Viktor89\VoiceGeneration\TtsApiClient;
 use Perk11\Viktor89\VoiceGeneration\TtsProcessor;
 use Perk11\Viktor89\VoiceGeneration\VoiceResponder;
-use Perk11\Viktor89\VoiceRecognition\InternalMessageTranscriber;
 use Perk11\Viktor89\VoiceRecognition\TranscribeProcessor;
 use Perk11\Viktor89\VoiceRecognition\VoiceProcessor;
-use Perk11\Viktor89\VoiceRecognition\VoiceRecogniser;
 
 class ProcessMessageTask implements Task
 {
@@ -158,16 +154,14 @@ class ProcessMessageTask implements Task
         $dotenv = Dotenv::createImmutable(__DIR__.'/..');
         $dotenv->load();
         $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
-        $database = new Database($this->telegramBotId, 'siepatch-non-instruct5');
-        $messageRepository = new \Perk11\Viktor89\Repository\MessageRepository($database);
-        $userPreferenceRepository = new \Perk11\Viktor89\Repository\UserPreferenceRepository($database);
-        $personaRepository = new \Perk11\Viktor89\Repository\PersonaRepository($database);
-        $rateLimitRepository = new \Perk11\Viktor89\Repository\RateLimitRepository($database);
-        $kickQueueRepository = new \Perk11\Viktor89\Repository\KickQueueRepository($database);
-        $fileCacheRepository = new \Perk11\Viktor89\Repository\FileCacheRepository($database);
-        $historyReader = new HistoryReader($messageRepository);
-        $cacheFileManager = new CacheFileManager($fileCacheRepository);
-        $telegramFileDownloader = new TelegramFileDownloader($cacheFileManager, $this->telegramApiKey);
+        $container = ContainerFactory::getContainer($this->telegramBotId, $this->telegramApiKey, $this->telegramBotUsername);
+        $database = $container->get(Database::class);
+        $messageRepository = $container->get(\Perk11\Viktor89\Repository\MessageRepository::class);
+        $userPreferenceRepository = $container->get(\Perk11\Viktor89\Repository\UserPreferenceRepository::class);
+        $personaRepository = $container->get(\Perk11\Viktor89\Repository\PersonaRepository::class);
+        $rateLimitRepository = $container->get(\Perk11\Viktor89\Repository\RateLimitRepository::class);
+        $historyReader = $container->get(HistoryReader::class);
+        $telegramFileDownloader = $container->get(TelegramFileDownloader::class);
         $denoisingStrengthProcessor = new NumericPreferenceInRangeByCommandProcessor(
             $userPreferenceRepository,
             ['/denoising_strength', '/denoisingstrength'],
@@ -212,7 +206,7 @@ class ProcessMessageTask implements Task
             'clown',
             $this->telegramBotUsername,
         );
-        $openAiCompletionStringParser = new OpenAiCompletionStringParser();
+        $openAiCompletionStringParser = $container->get(OpenAiCompletionStringParser::class);
         $configFilePath =__DIR__ . '/../config.json';
         $configString = file_get_contents($configFilePath);
         if ($configString === false) {
@@ -303,15 +297,7 @@ class ProcessMessageTask implements Task
             1.5,
             120,
         );
-        $voiceRecogniser = new VoiceRecogniser($config['whisperCppUrl']);
-        $internalMessageTranscriber = new InternalMessageTranscriber(
-            $telegramFileDownloader,
-            $voiceRecogniser,
-            $messageRepository,
-        );
-
-        $reactionReplacer = new ReactionReplacer(new ReactionDeleter($telegram->getBotId()));
-        $photoResponder = new PhotoResponder($messageRepository, $cacheFileManager, $reactionReplacer);
+        $photoResponder = $container->get(PhotoResponder::class);
         $generatedImageMarkdownUploaderConfig = $config['generatedImageMarkdownUploader'] ?? null;
         if (!is_array($generatedImageMarkdownUploaderConfig)) {
             throw new Exception('Missing generatedImageMarkdownUploader configuration');
@@ -333,13 +319,12 @@ class ProcessMessageTask implements Task
         $imageRepository = new ImageRepository($database->sqlite3Database);
         $imgTagExtractor = new ImgTagExtractor($imageRepository, $telegramFileDownloader);
 
-        $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $messageRepository);
+        $altTextProvider = $container->get(AltTextProvider::class);
         $processingResultExecutor = new ProcessingResultExecutor(
             $messageRepository,
             true,
             $beforeMessageSentNotifier,
         );
-        $personaHelper = new PersonaHelper($this->telegramBotUsername);
         $personaProcessor = new DynamicListBasedPreferenceByCommandProcessor(
             $userPreferenceRepository,
             ['/persona'],
@@ -366,12 +351,12 @@ class ProcessMessageTask implements Task
             $telegramFileDownloader,
             $altTextProvider,
             $processingResultExecutor,
-            new WebSearchToolFactory()->buildFromConfig($config),
+            $container->get(WebSearchToolFactory::class)->buildFromConfig($config),
             new ImageGeneratorTelegramPhotoToolCallExecutor($automatic1111APiClient, $editAutomatic1111APiClient, $photoResponder, $imgTagExtractor),
-            new ReactToolCallExecutor(),
-            new GetUrlContentsToolCallExecutor(),
+            $container->get(ReactToolCallExecutor::class),
+            $container->get(GetUrlContentsToolCallExecutor::class),
             new ListSavedImagesToolCallExecutor($imageRepository),
-            new ListChainImagesToolCallExecutor($telegram->getBotId()),
+            $container->get(ListChainImagesToolCallExecutor::class),
             $telegram->getBotId(),
             $draftUpdateCallback,
         );
@@ -420,8 +405,7 @@ class ProcessMessageTask implements Task
                                                                      ]));
         $responder->addAbortResponseHandler(new MaxLengthHandler(2000));
         $responder->addAbortResponseHandler(new MaxNewLinesHandler(40));
-        $responder->addAbortResponseHandler(new RepetitionAfterAuthorHandler());
-        $questionRepository = new QuestionRepository($database);
+        $responder->addAbortResponseHandler($container->get(RepetitionAfterAuthorHandler::class));
         $userSelectedAssistant = new UserSelectedAssistant($assistantFactory, $assistantModelProcessor);
         $videoModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $userPreferenceRepository,
@@ -465,7 +449,7 @@ class ProcessMessageTask implements Task
             $config['img2videoModels']
         );
         $upscaleClient = new UpscaleApiClient($stepsProcessor, $seedProcessor, $upscaleModelProcessor, $config['upscaleModels']);
-        $videoResponder = new VideoResponder($reactionReplacer);
+        $videoResponder = $container->get(VideoResponder::class);
         $videoImg2VidProcessor = new VideoImg2VidProcessor($telegramFileDownloader, $img2VideoClient, $videoResponder);
         $videoProcessor = new VideoProcessor($txt2VideoClient, $videoResponder, $videoImg2VidProcessor, $altTextProvider);
         $assistedVideoProcessor = new AssistedVideoProcessor(
@@ -493,8 +477,8 @@ class ProcessMessageTask implements Task
                 $rateLimitRepository, $this->telegramBotId,
                 $rateLimits,
             ),
-            new SaveQuizPollProcessor($questionRepository),
-            new JoinQuizProcessor($messageRepository, $kickQueueRepository),
+            $container->get(SaveQuizPollProcessor::class),
+            $container->get(JoinQuizProcessor::class),
         ];
 
         $zoomLevelPreference = new FixedValuePreferenceProvider(2);
@@ -516,7 +500,7 @@ class ProcessMessageTask implements Task
             $assistantFactory->getAssistantInstanceByName('vision-for-remix'),
         );
         $ttsApiClient = new TtsApiClient($config['voiceModels']);
-        $voiceResponder = new VoiceResponder();
+        $voiceResponder = $container->get(VoiceResponder::class);
         $imageGenerateProcessor = new CommandBasedResponderTrigger(
             ['/image'],
             new ImageGenerateProcessor(
@@ -593,9 +577,9 @@ class ProcessMessageTask implements Task
         $rmBgProcessor = new ImageTransformProcessor($telegramFileDownloader, $rmBgClient, $photoResponder);
         $soundAndPromptToTargetAndResidualApiClient = new SoundAndPromptToTargetAndResidualApiClient($config['soundAndPromptToTargetAndResidualModels']);
         $soundAndPromptToTargetAndResidualProcessor = new SoundAndPromptToTargetAndResidualProcessor($voiceResponder, $telegramFileDownloader, $soundAndPromptToTargetAndResidualApiClient);
-        $talkersCommandProcessor = new TalkersCommandProcessor($messageRepository);
+        $talkersCommandProcessor = $container->get(TalkersCommandProcessor::class);
         $messageChainProcessors = [
-            new VoiceProcessor($internalMessageTranscriber),
+            $container->get(VoiceProcessor::class),
             $clownProcessor,
             new ReactProcessor($clownProcessor, '🤡'),
             new BlockedChatProcessor([
@@ -626,18 +610,18 @@ class ProcessMessageTask implements Task
             $systemPromptProcessor,
             new CommandBasedResponderTrigger(
                 ['/addpersona'],
-                new AddPersonaProcessor($personaRepository, $personaHelper),
+                $container->get(AddPersonaProcessor::class),
             ),
             new CommandBasedResponderTrigger(
                 ['/delpersona'],
-                new DeletePersonaProcessor($personaRepository, $personaHelper),
+                $container->get(DeletePersonaProcessor::class),
             ),
             $personaProcessor,
             $responseStartProcessor,
             $editFrequencyProcessor,
             new CommandBasedResponderTrigger(
                 ['/quiz'],
-                new RandomQuizResponder($questionRepository)
+                $container->get(RandomQuizResponder::class)
             ),
             new CommandBasedResponderTrigger(
                 ['/image_all_models', '/image_allmodels'],
@@ -679,7 +663,7 @@ class ProcessMessageTask implements Task
             ),
             new CommandBasedResponderTrigger(
                 ['/downscale'],
-                new DownscaleProcessor($telegramFileDownloader, $photoResponder)
+                $container->get(DownscaleProcessor::class)
             ),
             new CommandBasedResponderTrigger(
                 ['/zoom'],
@@ -710,11 +694,11 @@ class ProcessMessageTask implements Task
             ),
             new CommandBasedResponderTrigger(
                 ['/start', '/help'],
-                new PrintHelpProcessor(),
+                $container->get(PrintHelpProcessor::class),
             ),
             new CommandBasedResponderTrigger(
                 ['/preferences', '/settings'],
-                new PrintUserPreferencesResponder($userPreferenceRepository),
+                $container->get(PrintUserPreferencesResponder::class),
             ),
             new CommandBasedResponderTrigger(
                 ['/say'],
@@ -753,7 +737,7 @@ class ProcessMessageTask implements Task
             ),
             new CommandBasedResponderTrigger(
                 ['/transcribe'],
-                new TranscribeProcessor($internalMessageTranscriber),
+                $container->get(TranscribeProcessor::class),
             ),
             new CommandBasedResponderTrigger(
                 ['/talkers'],
@@ -784,7 +768,7 @@ class ProcessMessageTask implements Task
             ),
             new CommandBasedResponderTrigger(
                 ['/file'],
-                new SendAsDocumentProcessor($cacheFileManager, $messageRepository),
+                $container->get(SendAsDocumentProcessor::class),
             ),
             new CommandBasedResponderTrigger(
                 ['/rmbg'],
@@ -799,8 +783,8 @@ class ProcessMessageTask implements Task
                 $userSelectedAssistant,
                 $telegram->getBotId(),
             ),
-            new WhoAreYouProcessor(),
-            new HelloProcessor(),
+            $container->get(WhoAreYouProcessor::class),
+            $container->get(HelloProcessor::class),
         ];
         $messageChainProcessorRunner = new MessageChainProcessorRunner($processingResultExecutor, $messageChainProcessors);
         $engine = new Engine($messageRepository,
