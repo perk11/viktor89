@@ -6,12 +6,14 @@ namespace Perk11\Viktor89\Test;
 
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\Repository\MessageRepository;
 use PHPUnit\Framework\TestCase;
 
 class DatabaseReasoningTest extends TestCase
 {
     private string $dbPath;
     private Database $database;
+    private MessageRepository $messageRepository;
 
     protected function setUp(): void
     {
@@ -21,6 +23,7 @@ class DatabaseReasoningTest extends TestCase
             unlink($fullPath);
         }
         $this->database = new Database(123, $this->dbPath);
+        $this->messageRepository = new MessageRepository($this->database);
     }
 
     protected function tearDown(): void
@@ -79,9 +82,9 @@ class DatabaseReasoningTest extends TestCase
         $message->date = time();
         $message->reasoning = 'This is the reasoning context.';
 
-        $this->database->logInternalMessage($message);
+        $this->messageRepository->logInternalMessage($message);
 
-        $loadedMessage = $this->database->findMessageByIdInChat(1, 100);
+        $loadedMessage = $this->messageRepository->findMessageByIdInChat(1, 100);
 
         $this->assertNotNull($loadedMessage);
         $this->assertSame('This is the reasoning context.', $loadedMessage->reasoning);
@@ -101,9 +104,9 @@ class DatabaseReasoningTest extends TestCase
         $message->reasoning = 'Thinking about life';
         $message->reasoningForDisplay = "<details>\n<summary>Thinking</summary>\nThinking about life</details>\n";
 
-        $this->database->logInternalMessage($message);
+        $this->messageRepository->logInternalMessage($message);
 
-        $loadedMessage = $this->database->findMessageByIdInChat(3, 100);
+        $loadedMessage = $this->messageRepository->findMessageByIdInChat(3, 100);
 
         $this->assertNotNull($loadedMessage);
         $this->assertSame('Thinking about life', $loadedMessage->reasoning);
@@ -122,9 +125,9 @@ class DatabaseReasoningTest extends TestCase
         $message->date = time();
         $message->reasoning = null;
 
-        $this->database->logInternalMessage($message);
+        $this->messageRepository->logInternalMessage($message);
 
-        $loadedMessage = $this->database->findMessageByIdInChat(2, 100);
+        $loadedMessage = $this->messageRepository->findMessageByIdInChat(2, 100);
 
         $this->assertNotNull($loadedMessage);
         $this->assertNull($loadedMessage->reasoning);

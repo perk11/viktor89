@@ -7,10 +7,10 @@ use Longman\TelegramBot\Entities\PollAnswer;
 use Longman\TelegramBot\Entities\PollOption;
 use Longman\TelegramBot\Request;
 use Longman\TelegramBot\Telegram;
-use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\Repository\KickQueueRepository;
 use Perk11\Viktor89\TelegramUserHelper;
 
 class PollResponseProcessor
@@ -24,14 +24,14 @@ class PollResponseProcessor
         'https://cloud.nw-sys.ru/index.php/s/QatfCjzHn7ae5t2/download',
     ];
 
-    public function __construct(private readonly Database $database)
+    public function __construct(private readonly KickQueueRepository $kickQueueRepository)
     {
     }
 
     public function process(PollAnswer $pollAnswer): ProcessingResult
     {
         echo "Received poll answer from user " . $pollAnswer->getUser()->getId() . "\n";
-        $kickQueueItem = $this->database->findKickQueueItemByPollId($pollAnswer->getPollId());
+        $kickQueueItem = $this->kickQueueRepository->findKickQueueItemByPollId($pollAnswer->getPollId());
         if ($kickQueueItem === null) {
             echo "This is not a join poll, not doing anything\n";
 
@@ -48,7 +48,7 @@ class PollResponseProcessor
 
             return new ProcessingResult(null, false);
         }
-        $this->database->nullKickTime($pollAnswer->getPollId());
+        $this->kickQueueRepository->nullKickTime($pollAnswer->getPollId());
         echo "Deleting messages " . json_encode($kickQueueItem->messagesToDelete, JSON_THROW_ON_ERROR) . "\n";
         $deleteMessagesResult = Request::execute('deleteMessages', [
             'chat_id' => $kickQueueItem->chatId,

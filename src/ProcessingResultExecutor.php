@@ -5,11 +5,12 @@ namespace Perk11\Viktor89;
 use LogicException;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Repository\MessageRepository;
 
 class ProcessingResultExecutor
 {
     public function __construct(
-        private Database $database,
+        private MessageRepository $messageRepository,
         private bool $repliesInPMs = true,
         /**
          * Invoked immediately before a response message is sent or edited.
@@ -36,7 +37,7 @@ class ProcessingResultExecutor
                 $telegramServerResponse = $result->response->send();
                 if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof Message) {
                     InternalMessage::extractPropertiesFromTelegramMessage($result->response, $telegramServerResponse->getResult());
-                    $this->database->logInternalMessage($result->response);
+                    $this->messageRepository->logInternalMessage($result->response);
                 } else {
                     echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
                 }
@@ -44,7 +45,7 @@ class ProcessingResultExecutor
                 echo "Editing message in chat {$result->response->chatId}\n";
                 $telegramServerResponse = $result->response->edit($result->response->messageText);
                 if ($telegramServerResponse->isOk()) {
-                    $this->database->logInternalMessage($result->response);
+                    $this->messageRepository->logInternalMessage($result->response);
                 } else {
                     echo "Failed to edit response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
                 }

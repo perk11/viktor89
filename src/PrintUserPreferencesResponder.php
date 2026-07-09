@@ -3,16 +3,17 @@
 namespace Perk11\Viktor89;
 
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+use Perk11\Viktor89\Repository\UserPreferenceRepository;
 
 class PrintUserPreferencesResponder implements MessageChainProcessor
 {
-    public function __construct(private readonly Database $database)
+    public function __construct(private readonly UserPreferenceRepository $userPreferenceRepository)
     {
     }
 
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
-        $preferences = $this->database->readPreferencesArray($messageChain->last()->userId);
+        $preferences = $this->userPreferenceRepository->readPreferencesArray($messageChain->last()->userId);
         $message = InternalMessage::asResponseTo($messageChain->last());
         $message->messageText = "Вот ваши настройки:\n\n";
         $message->parseMode = 'HTML';

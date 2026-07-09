@@ -5,19 +5,19 @@ namespace Perk11\Viktor89\UserSettings;
 use Exception;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
-use Perk11\Viktor89\Database;
 use Perk11\Viktor89\GetTriggeringCommandsInterface;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\Repository\UserPreferenceRepository;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 
 class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, UserPreferenceReaderInterface, GetTriggeringCommandsInterface
 {
     public function __construct(
-        private readonly Database $database,
+        private readonly UserPreferenceRepository $userPreferenceRepository,
         protected readonly array $triggeringCommands,
         protected readonly string $preferenceName,
         protected readonly string $botUserName,
@@ -79,7 +79,7 @@ class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, User
                 true,
             );
         }
-        $this->database->writeUserPreference($lastMessage->userId, $this->preferenceName, $preferenceValue);
+        $this->userPreferenceRepository->writeUserPreference($lastMessage->userId, $this->preferenceName, $preferenceValue);
 
         try {
             $response = Request::execute('setMessageReaction', [
@@ -104,7 +104,7 @@ class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, User
 
     public function getCurrentPreferenceValue(int $userId): ?string
     {
-        return $this->database->readUserPreference($userId, $this->preferenceName);
+        return $this->userPreferenceRepository->readUserPreference($userId, $this->preferenceName);
     }
 
     public function getTriggeringCommands(): array

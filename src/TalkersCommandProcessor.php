@@ -3,18 +3,19 @@
 namespace Perk11\Viktor89;
 
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Util\TelegramHtml;
 
 class TalkersCommandProcessor implements MessageChainProcessor, GetTriggeringCommandsInterface
 {
-    public function __construct(private readonly Database $database)
+    public function __construct(private readonly MessageRepository $messageRepository)
     {
     }
 
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $chatId = $messageChain->last()->chatId;
-        $topTalkersDataRecords = $this->database->findTopTalkersInChat($chatId);
+        $topTalkersDataRecords = $this->messageRepository->findTopTalkersInChat($chatId);
 
         $responseMessageToReturn = InternalMessage::asResponseTo($messageChain->last());
         $responseMessageToReturn->parseMode = 'HTML';

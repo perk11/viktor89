@@ -6,11 +6,12 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\Repository\PersonaRepository;
 
 class DeletePersonaProcessor implements MessageChainProcessor
 {
     public function __construct(
-        private readonly Database $database,
+        private readonly PersonaRepository $personaRepository,
         private readonly PersonaHelper $helper,
     ) {
     }
@@ -28,7 +29,7 @@ class DeletePersonaProcessor implements MessageChainProcessor
         }
 
         $name = $this->helper->extractName($argument);
-        $persona = $this->database->findPersonaByName($name);
+        $persona = $this->personaRepository->findPersonaByName($name);
         if ($persona === null) {
             return new ProcessingResult(
                 InternalMessage::asResponseTo($message, "Персона \"$name\" не найдена."),
@@ -42,7 +43,7 @@ class DeletePersonaProcessor implements MessageChainProcessor
             );
         }
 
-        $this->database->deletePersonaByName($name);
+        $this->personaRepository->deletePersonaByName($name);
 
         return $this->helper->reactOrRespond($message, "Персона \"$name\" удалена.");
     }

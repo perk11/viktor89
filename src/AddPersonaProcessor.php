@@ -6,13 +6,14 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\Repository\PersonaRepository;
 
 class AddPersonaProcessor implements MessageChainProcessor
 {
     private const COMMAND = '/addpersona';
 
     public function __construct(
-        private readonly Database $database,
+        private readonly PersonaRepository $personaRepository,
         private readonly PersonaHelper $helper,
         private readonly int $maxPersonasPerUser = 5,
     ) {
@@ -63,13 +64,13 @@ class AddPersonaProcessor implements MessageChainProcessor
                 true,
             );
         }
-        if ($this->database->findPersonaByName($name) !== null) {
+        if ($this->personaRepository->findPersonaByName($name) !== null) {
             return new ProcessingResult(
                 InternalMessage::asResponseTo($message, "Персона \"$name\" уже существует. Выберите другое название."),
                 true,
             );
         }
-        if ($this->database->countPersonasByUserId($message->userId) >= $this->maxPersonasPerUser) {
+        if ($this->personaRepository->countPersonasByUserId($message->userId) >= $this->maxPersonasPerUser) {
             return new ProcessingResult(
                 InternalMessage::asResponseTo(
                     $message,
@@ -79,7 +80,7 @@ class AddPersonaProcessor implements MessageChainProcessor
             );
         }
 
-        $this->database->addPersona($name, $systemPrompt, $message->userId, $message->userName);
+        $this->personaRepository->addPersona($name, $systemPrompt, $message->userId, $message->userName);
 
         return $this->helper->reactOrRespond($message, "Персона \"$name\" сохранена. Используйте /persona $name, чтобы применить её.");
     }

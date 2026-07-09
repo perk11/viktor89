@@ -2,10 +2,14 @@
 
 namespace Perk11\Viktor89;
 
+use Perk11\Viktor89\Repository\PersonaRepository;
+use Perk11\Viktor89\Repository\UserPreferenceRepository;
+
 class PersonaAwareSystemPromptReader implements UserPreferenceReaderInterface
 {
     public function __construct(
-        private readonly Database $database,
+        private readonly UserPreferenceRepository $userPreferenceRepository,
+        private readonly PersonaRepository $personaRepository,
         private readonly UserPreferenceReaderInterface $systemPromptProcessor,
     ) {
     }
@@ -28,7 +32,7 @@ class PersonaAwareSystemPromptReader implements UserPreferenceReaderInterface
 
     private function getActivePersonaPrompt(int $userId): string
     {
-        $personaName = $this->database->readUserPreference($userId, PersonaHelper::PERSONA_PREFERENCE);
+        $personaName = $this->userPreferenceRepository->readUserPreference($userId, PersonaHelper::PERSONA_PREFERENCE);
         if ($personaName === null || $personaName === '') {
             return '';
         }
@@ -36,6 +40,6 @@ class PersonaAwareSystemPromptReader implements UserPreferenceReaderInterface
             return '';
         }
 
-        return $this->database->findPersonaByName($personaName)?->systemPrompt ?? '';
+        return $this->personaRepository->findPersonaByName($personaName)?->systemPrompt ?? '';
     }
 }

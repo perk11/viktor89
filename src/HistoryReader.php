@@ -4,10 +4,11 @@ namespace Perk11\Viktor89;
 
 
 use Longman\TelegramBot\Entities\Message;
+use Perk11\Viktor89\Repository\MessageRepository;
 
 class HistoryReader
 {
-    public function __construct(private readonly Database $database)
+    public function __construct(private readonly MessageRepository $messageRepository)
     {
     }
 
@@ -17,11 +18,11 @@ class HistoryReader
     {
         $messages = [];
         if ($message->getReplyToMessage() !== null) {
-            $responseMessage = $this->database->findMessageByIdInChat($message->getReplyToMessage()->getMessageId(), $message->getChat()->getId());
+            $responseMessage = $this->messageRepository->findMessageByIdInChat($message->getReplyToMessage()->getMessageId(), $message->getChat()->getId());
             if ($responseMessage !== null) {
                 $messages[] = $responseMessage;
                 while (count($messages) < min($chainMessageToInclude, $totalMessageToInclude) && $responseMessage?->replyToMessageId !== null) {
-                    $responseMessage = $this->database->findMessageByIdInChat(
+                    $responseMessage = $this->messageRepository->findMessageByIdInChat(
                         $responseMessage->replyToMessageId,
                         $message->getChat()->getId()
                     );
@@ -39,7 +40,7 @@ class HistoryReader
             foreach ($messages as $replyMessage) {
                 $excludedIds[] = $replyMessage->id;
             }
-            $messagesFromHistory = $this->database->findNPreviousMessagesInChat(
+            $messagesFromHistory = $this->messageRepository->findNPreviousMessagesInChat(
                 $message->getChat()->getId(),
                 $message->getMessageId(),
                 $messagesFromHistoryNumber,

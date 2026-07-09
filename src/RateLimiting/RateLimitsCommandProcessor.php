@@ -2,16 +2,16 @@
 
 namespace Perk11\Viktor89\RateLimiting;
 
-use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\Repository\RateLimitRepository;
 
 class RateLimitsCommandProcessor implements MessageChainProcessor
 {
-    public function __construct(private readonly Database $database, private readonly array $chatRateLimits) {
+    public function __construct(private readonly RateLimitRepository $rateLimitRepository, private readonly array $chatRateLimits) {
 
     }
 
@@ -19,7 +19,7 @@ class RateLimitsCommandProcessor implements MessageChainProcessor
     {
         $userId = $messageChain->last()->userId;
 
-        $limits = $this->database->findRateLimitsByChat($this->chatRateLimits, $userId);
+        $limits = $this->rateLimitRepository->findRateLimitsByChat($this->chatRateLimits, $userId);
 
         $responseMessage = InternalMessage::asResponseTo($messageChain->last());
 

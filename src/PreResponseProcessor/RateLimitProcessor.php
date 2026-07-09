@@ -4,12 +4,12 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
-use Perk11\Viktor89\Database;
+use Perk11\Viktor89\Repository\RateLimitRepository;
 
 class RateLimitProcessor implements PreResponseProcessor
 {
     public function __construct(
-        private readonly Database $database,
+        private readonly RateLimitRepository $rateLimitRepository,
         private int $botUserId,
         private readonly array $rateLimitByChatId,
     ) {
@@ -41,7 +41,7 @@ class RateLimitProcessor implements PreResponseProcessor
                 }
             }
         $limit = $this->rateLimitByChatId[$message->getChat()->getId()];
-        $priorMessages = $this->database->countMessagesInChatFromBotToUserInLast24Hours(
+        $priorMessages = $this->rateLimitRepository->countMessagesInChatFromBotToUserInLast24Hours(
             $chatId,
             $userId,
         );

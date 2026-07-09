@@ -2,11 +2,12 @@
 
 namespace Perk11\Viktor89;
 
+use Perk11\Viktor89\Repository\FileCacheRepository;
 use RuntimeException;
 
 class CacheFileManager
 {
-    public function __construct(private readonly Database $database)
+    public function __construct(private readonly FileCacheRepository $fileCacheRepository)
     {
     }
 
@@ -39,7 +40,7 @@ class CacheFileManager
 
     public function readFileFromCache(string $fileId): ?string
     {
-        $cacheFileName = $this->database->readFileCacheNameById($fileId);
+        $cacheFileName = $this->fileCacheRepository->readFileCacheNameById($fileId);
         if ($cacheFileName === null) {
             echo "No Database record for cached file $fileId\n";
 
@@ -64,9 +65,9 @@ class CacheFileManager
     public function writeFileToCache(string $fileId, string $contents): void
     {
         $sha1 = sha1($contents);
-        $filePathWithSameSha = $this->database->readFileCacheNameBySha1($sha1);
+        $filePathWithSameSha = $this->fileCacheRepository->readFileCacheNameBySha1($sha1);
         if ($filePathWithSameSha !== null) {
-            $this->database->writeFileCache($fileId, $filePathWithSameSha, $sha1);
+            $this->fileCacheRepository->writeFileCache($fileId, $filePathWithSameSha, $sha1);
             return;
         }
         $this->createCacheDir();
@@ -78,6 +79,6 @@ class CacheFileManager
         if ($putResult === false) {
             throw new RuntimeException("Failed to write file $fileId to cache: ". error_get_last()['message']);
         }
-        $this->database->writeFileCache($fileId, $cacheFileName, $sha1);
+        $this->fileCacheRepository->writeFileCache($fileId, $cacheFileName, $sha1);
     }
 }

@@ -5,19 +5,19 @@ namespace Perk11\Viktor89\ImageGeneration;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\CacheFileManager;
-use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\Repository\MessageRepository;
 
 class SendAsDocumentProcessor implements MessageChainProcessor
 {
 
     public function __construct(
         private readonly CacheFileManager $cacheFileManager,
-        private readonly Database $database,
+        private readonly MessageRepository $messageRepository,
     )
     {
 
@@ -60,7 +60,7 @@ class SendAsDocumentProcessor implements MessageChainProcessor
 
         $sentMessageResult = Request::sendDocument($options);
         if ($sentMessageResult->isOk() && $sentMessageResult->getResult() instanceof Message) {
-            $this->database->logMessage($sentMessageResult->getResult());
+            $this->messageRepository->logMessage($sentMessageResult->getResult());
         } else {
             echo "Failed to send file: " . $sentMessageResult->getResult() . "\n";
             return new ProcessingResult(null, true, '🤔', $lastMessage);

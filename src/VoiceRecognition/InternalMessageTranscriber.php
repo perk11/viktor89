@@ -2,9 +2,9 @@
 namespace Perk11\Viktor89\VoiceRecognition;
 
 use Perk11\Viktor89\Assistant\AssistantInterface;
-use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\TelegramFileDownloader;
 
 class InternalMessageTranscriber
@@ -12,7 +12,7 @@ class InternalMessageTranscriber
     public function __construct(
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly VoiceRecogniser $voiceRecogniser,
-        private readonly Database $database,
+        private readonly MessageRepository $messageRepository,
     ) {
     }
     public function transcribe(InternalMessage $message, ProgressUpdateCallback $progressUpdateCallback): ?string
@@ -31,7 +31,7 @@ class InternalMessageTranscriber
         $recognizedText = $this->voiceRecogniser->recogniseByFileContents($file, $extension);
 
         $message->altText = "[$audio->type] $recognizedText";
-        $this->database->logInternalMessage($message);
+        $this->messageRepository->logInternalMessage($message);
         return $recognizedText === '' ? null : $recognizedText;
     }
 }

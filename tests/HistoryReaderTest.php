@@ -39,12 +39,12 @@ class HistoryReaderTest extends TestCase
         $this->assertSame('array', $returnType->getName());
     }
 
-    public function testConstructorTakesDatabase(): void
+    public function testConstructorTakesMessageRepository(): void
     {
         $reflection = new \ReflectionClass(\Perk11\Viktor89\HistoryReader::class);
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
         $this->assertCount(1, $params);
-        $this->assertSame(\Perk11\Viktor89\Database::class, $params[0]->getType()->getName());
+        $this->assertSame(\Perk11\Viktor89\Repository\MessageRepository::class, $params[0]->getType()->getName());
     }
 }

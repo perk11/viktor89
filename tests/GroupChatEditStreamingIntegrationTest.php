@@ -101,7 +101,7 @@ class GroupChatEditStreamingIntegrationTest extends TestCase
         $result = $assistant->processMessageChain($chain, $callback);
 
         $executor = new ProcessingResultExecutor(
-            new \Perk11\Viktor89\Test\Support\NullDatabase(),
+            new \Perk11\Viktor89\Test\Support\NullMessageRepository(),
             true,
             ProcessMessageTask::createBeforeMessageSentNotifier($workerChannel, 1, $callback),
         );

@@ -12,6 +12,7 @@ use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseSupportingGenerator;
+use Perk11\Viktor89\Repository\UserPreferenceRepository;
 use Perk11\Viktor89\UserSettings\UserPreferenceSetByCommandProcessor;
 use RuntimeException;
 
@@ -45,7 +46,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
 
     public function __construct(
         private readonly HistoryReader $historyReader,
-        private readonly Database $database,
+        private readonly UserPreferenceRepository $userPreferenceRepository,
         private readonly ProcessingResultExecutor $processingResultExecutor,
         private readonly UserPreferenceReaderInterface $responseStartProcessor,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
@@ -55,7 +56,7 @@ class SiepatchNonInstruct4 implements TelegramInternalMessageResponderInterface,
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_SERVER']);
         $this->personalityProcessor = new UserPreferenceSetByCommandProcessor(
-            $this->database,
+            $this->userPreferenceRepository,
             ['/personality'],
             'personality',
             $this->telegramBotUsername,

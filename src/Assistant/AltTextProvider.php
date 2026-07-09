@@ -2,9 +2,9 @@
 
 namespace Perk11\Viktor89\Assistant;
 
-use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\VoiceRecognition\InternalMessageTranscriber;
 use Perk11\Viktor89\VoiceRecognition\NothingToTranscribeException;
@@ -16,7 +16,7 @@ class AltTextProvider
     public function __construct(
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly InternalMessageTranscriber $internalMessageTranscriber,
-        private readonly Database $database,
+        private readonly MessageRepository $messageRepository,
     )
     {
 
@@ -48,7 +48,7 @@ class AltTextProvider
             $progressUpdateCallback(static::class,"Generating alt text for photo " . $internalMessage->photoFileId);
             $altText = '[image] ' . $this->assistantWithVision->getCompletionBasedOnContext($assistantContext)->content;
             $internalMessage->altText = $altText;
-            $this->database->logInternalMessage($internalMessage);
+            $this->messageRepository->logInternalMessage($internalMessage);
             return $altText;
         }
         try {

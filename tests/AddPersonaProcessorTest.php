@@ -12,6 +12,7 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\PersonaHelper;
 use Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger;
 use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\Repository\PersonaRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
@@ -20,6 +21,7 @@ class AddPersonaProcessorTest extends TestCase
 {
     private string $dbName = 'test_persona_add.db';
     private Database $database;
+    private PersonaRepository $personaRepository;
     private AddPersonaProcessor $processor;
 
     protected function setUp(): void
@@ -29,7 +31,8 @@ class AddPersonaProcessorTest extends TestCase
             unlink($fullPath);
         }
         $this->database = new Database(123, $this->dbName);
-        $this->processor = new AddPersonaProcessor($this->database, new PersonaHelper('testbot'), 2);
+        $this->personaRepository = new PersonaRepository($this->database);
+        $this->processor = new AddPersonaProcessor($this->personaRepository, new PersonaHelper('testbot'), 2);
     }
 
     protected function tearDown(): void
@@ -63,7 +66,7 @@ class AddPersonaProcessorTest extends TestCase
         $result = $this->runProcessor("pirate\nYou are a pirate captain.");
 
         $this->assertTrue($result->abortProcessing);
-        $persona = $this->database->findPersonaByName('pirate');
+        $persona = $this->personaRepository->findPersonaByName('pirate');
         $this->assertNotNull($persona);
         $this->assertSame('You are a pirate captain.', $persona->systemPrompt);
         $this->assertSame(111, $persona->userId);
@@ -74,7 +77,7 @@ class AddPersonaProcessorTest extends TestCase
     {
         $result = $this->runProcessor("Default\nprompt");
         $this->assertResponseContains($result, 'зарезервировано');
-        $this->assertNull($this->database->findPersonaByName('Default'));
+        $this->assertNull($this->personaRepository->findPersonaByName('Default'));
     }
 
     public function testRejectsReservedNameCaseInsensitive(): void
@@ -85,35 +88,35 @@ class AddPersonaProcessorTest extends TestCase
 
     public function testRejectsDuplicateName(): void
     {
-        $this->database->addPersona('pirate', 'old prompt', 999, 'Bob');
+        $this->personaRepository->addPersona('pirate', 'old prompt', 999, 'Bob');
 
         $result = $this->runProcessor("pirate\nnew prompt");
 
         $this->assertResponseContains($result, 'уже существует');
-        $this->assertSame('old prompt', $this->database->findPersonaByName('pirate')->systemPrompt);
+        $this->assertSame('old prompt', $this->personaRepository->findPersonaByName('pirate')->systemPrompt);
     }
 
     public function testEnforcesPerUserLimit(): void
     {
-        $this->database->addPersona('one', 'p1', 111, 'Alice');
-        $this->database->addPersona('two', 'p2', 111, 'Alice');
+        $this->personaRepository->addPersona('one', 'p1', 111, 'Alice');
+        $this->personaRepository->addPersona('two', 'p2', 111, 'Alice');
 
         $result = $this->runProcessor("three\nprompt three");
 
         $this->assertResponseContains($result, 'максимум');
-        $this->assertNull($this->database->findPersonaByName('three'));
-        $this->assertSame(2, $this->database->countPersonasByUserId(111));
+        $this->assertNull($this->personaRepository->findPersonaByName('three'));
+        $this->assertSame(2, $this->personaRepository->countPersonasByUserId(111));
     }
 
     public function testLimitIsPerUser(): void
     {
-        $this->database->addPersona('one', 'p1', 999, 'Bob');
-        $this->database->addPersona('two', 'p2', 999, 'Bob');
+        $this->personaRepository->addPersona('one', 'p1', 999, 'Bob');
+        $this->personaRepository->addPersona('two', 'p2', 999, 'Bob');
 
         $result = $this->runProcessor("mine\nprompt");
 
         $this->assertTrue($result->abortProcessing);
-        $this->assertNotNull($this->database->findPersonaByName('mine'));
+        $this->assertNotNull($this->personaRepository->findPersonaByName('mine'));
     }
 
     public function testRoutesViaCommandBasedResponderTrigger(): void
@@ -124,7 +127,7 @@ class AddPersonaProcessorTest extends TestCase
             $this->createMock(ProgressUpdateCallback::class)
         );
 
-        $this->assertNotNull($this->database->findPersonaByName('pirate'));
+        $this->assertNotNull($this->personaRepository->findPersonaByName('pirate'));
     }
 
     private function runProcessor(string $argument): ProcessingResult

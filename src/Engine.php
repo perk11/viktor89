@@ -6,6 +6,7 @@ namespace Perk11\Viktor89;
 use Longman\TelegramBot\Entities\Message;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
+use Perk11\Viktor89\Repository\MessageRepository;
 
 class Engine
 {
@@ -23,7 +24,7 @@ class Engine
     ];
 
     public function __construct(
-        private readonly Database $database,
+        private readonly MessageRepository $messageRepository,
         private readonly HistoryReader $historyReader,
         /** @var PreResponseProcessor[] $preResponseProcessors */
         private readonly array $preResponseProcessors,
@@ -37,7 +38,7 @@ class Engine
 
     public function handleMessage(Message $message): void
     {
-        $this->database->logMessage($message);
+        $this->messageRepository->logMessage($message);
 
         if (!in_array($message->getType(), $this->messageTypesSupportedByCommonCode, true)) {
             echo "Message of type {$message->getType()} received\n";
@@ -65,7 +66,7 @@ class Engine
 
                 $response = $internalMessage->send();
                 if ($response->isOk()) {
-                    $this->database->logMessage($response->getResult());
+                    $this->messageRepository->logMessage($response->getResult());
                 } else {
                     echo "Failed to send message: ";
                     print_r($response->getRawData());
@@ -128,7 +129,7 @@ class Engine
             $responseMessage->userId = $telegramServerResponse->getResult()->getFrom()->getId();
             $responseMessage->date = time();
             $responseMessage->type='text';
-            $this->database->logInternalMessage($responseMessage);
+            $this->messageRepository->logInternalMessage($responseMessage);
         } else {
             echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
         }

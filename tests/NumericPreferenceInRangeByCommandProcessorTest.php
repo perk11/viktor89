@@ -13,9 +13,9 @@ class NumericPreferenceInRangeByCommandProcessorTest extends TestCase
 {
     private function createProcessor(float $min, float $max): NumericPreferenceInRangeByCommandProcessor
     {
-        $db = $this->createMock(\Perk11\Viktor89\Database::class);
+        $repository = $this->createMock(\Perk11\Viktor89\Repository\UserPreferenceRepository::class);
         return new NumericPreferenceInRangeByCommandProcessor(
-            $db,
+            $repository,
             ['/test'],
             'test_preference',
             'testbot',

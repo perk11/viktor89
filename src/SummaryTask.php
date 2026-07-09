@@ -11,6 +11,9 @@ use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\IPC\TaskCompletedMessage;
 use Perk11\Viktor89\IPC\TaskUpdateMessage;
+use Perk11\Viktor89\Repository\ChatSummaryRepository;
+use Perk11\Viktor89\Repository\FileCacheRepository;
+use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 use Perk11\Viktor89\VoiceRecognition\InternalMessageTranscriber;
@@ -53,15 +56,16 @@ class SummaryTask implements Task
         $config = json_decode($configString, true, 512, JSON_THROW_ON_ERROR);
         $telegram = new Telegram($this->telegramApiKey, $this->telegramBotUsername);
         $database = new Database($this->telegramBotId, 'siepatch-non-instruct5');
-        $cacheFileManager = new CacheFileManager($database);
+        $messageRepository = new MessageRepository($database);
+        $cacheFileManager = new CacheFileManager(new FileCacheRepository($database));
         $telegramFileDownloader = new TelegramFileDownloader($cacheFileManager, $telegram->getApiKey());
         $voiceRecogniser = new VoiceRecogniser($config['whisperCppUrl']);
         $internalMessageTranscriber = new InternalMessageTranscriber(
             $telegramFileDownloader,
             $voiceRecogniser,
-            $database,
+            $messageRepository,
         );
-        $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $database);
+        $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $messageRepository);
         $assistantConfig =$config['assistantModels']['vision-for-alt-text'];
         $systemPromptProcessor = new FixedValuePreferenceProvider('');
         $nullProcessor = new FixedValuePreferenceProvider(null);
@@ -72,14 +76,14 @@ class SummaryTask implements Task
             $nullProcessor,
             $telegramFileDownloader,
             $altTextProvider,
-            new ProcessingResultExecutor($database),
+            new ProcessingResultExecutor($messageRepository),
             $telegram->getBotId(),
             $assistantConfig['url'],
             $assistantConfig['apiKey'] ?? '',
             true,
         );
 
-        $summaryProvider = new OpenAISummaryProvider($database, $altTextProvider);
+        $summaryProvider = new OpenAISummaryProvider($messageRepository, new ChatSummaryRepository($database), $altTextProvider);
         $summaryProvider->sendChatSummaryWithMessagesSinceLastOne($this->summarizedChatId);
     }
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
-use Perk11\Viktor89\Database;
+use Perk11\Viktor89\Repository\UserPreferenceRepository;
 use Perk11\Viktor89\UserSettings\DynamicListBasedPreferenceByCommandProcessor;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -19,7 +19,7 @@ class DynamicListBasedPreferenceByCommandProcessorTest extends TestCase
     protected function setUp(): void
     {
         $this->processor = new DynamicListBasedPreferenceByCommandProcessor(
-            $this->createMock(Database::class),
+            $this->createMock(UserPreferenceRepository::class),
             ['/persona'],
             'persona',
             'testbot',

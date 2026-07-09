@@ -9,6 +9,8 @@ use Dom\HTMLDocument;
 use GuzzleHttp\Client;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
+use Perk11\Viktor89\Repository\MessageRepository;
+use Perk11\Viktor89\Repository\PatchRepository;
 
 class PatchesMonitorTask implements Task
 {
@@ -24,6 +26,8 @@ class PatchesMonitorTask implements Task
     public function run(?Channel $channel = null, ?Cancellation $cancellation = null): bool
     {
         $database = new Database($this->telegramBotId, 'siepatch-non-instruct5');
+        $messageRepository = new MessageRepository($database);
+        $patchRepository = new PatchRepository($database);
 
         $client = new Client();
         $response = $client->request('GET', self::PATCHES_URL);
@@ -43,7 +47,7 @@ class PatchesMonitorTask implements Task
             $patchLinkStrings[] = $href;
             $formattedPatches[$href] = $patchLink->previousSibling->textContent . $patchLink->textContent . ' - ' . $href;
         }
-        $missingPatchLinks = $database->findMissingPatches($patchLinkStrings);
+        $missingPatchLinks = $patchRepository->findMissingPatches($patchLinkStrings);
         if (count($missingPatchLinks) === 0) {
             return true;
         }
@@ -64,8 +68,8 @@ class PatchesMonitorTask implements Task
                 $message->userName = $this->telegramBotUsername;
                 $message->date = time();
                 $message->type = 'text';
-                $database->logInternalMessage($message);
-                $database->insertPatch($missingPatchLink);
+                $messageRepository->logInternalMessage($message);
+                $patchRepository->insertPatch($missingPatchLink);
             } else {
                 echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
             }

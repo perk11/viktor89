@@ -13,9 +13,9 @@ class ListBasedPreferenceByCommandProcessorTest extends TestCase
 {
     private function createProcessor(array $acceptedValues): ListBasedPreferenceByCommandProcessor
     {
-        $db = $this->createMock(\Perk11\Viktor89\Database::class);
+        $repository = $this->createMock(\Perk11\Viktor89\Repository\UserPreferenceRepository::class);
         return new ListBasedPreferenceByCommandProcessor(
-            $db,
+            $repository,
             ['/test'],
             'test_preference',
             'testbot',

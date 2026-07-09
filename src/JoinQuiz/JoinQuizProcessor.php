@@ -5,17 +5,20 @@ namespace Perk11\Viktor89\JoinQuiz;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Entities\PollOption;
 use Longman\TelegramBot\Request;
-use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
+use Perk11\Viktor89\Repository\KickQueueRepository;
+use Perk11\Viktor89\Repository\MessageRepository;
 
 class JoinQuizProcessor implements PreResponseProcessor
 {
     private const SECONDS_UNTIL_KICK = 300;
     public const CORRECT_ANSWER_INDEX = 2;
 
-    public function __construct(private readonly Database $database)
-    {
+    public function __construct(
+        private readonly MessageRepository $messageRepository,
+        private readonly KickQueueRepository $kickQueueRepository,
+    ) {
     }
 
     public function process(Message $message): false|string|null
@@ -81,12 +84,12 @@ class JoinQuizProcessor implements PreResponseProcessor
             $questionMessage->messageText =  'Уважаемый(-ая) ' . $newChatMember->getFirstName() . ', добро пожаловать в наш чат! Чтобы стать полноценным членом нашего сообщества, пожалуйста, пройдите опрос и представтесь. В противном случае, вас удалят из чата.';
             $telegramServerResponse = $questionMessage->send();
             if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof Message) {
-                $this->database->logMessage($telegramServerResponse->getResult());
+                $this->messageRepository->logMessage($telegramServerResponse->getResult());
                 $messagesToDelete[] = $telegramServerResponse->getResult()->getMessageId();
             } else {
                 echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
             }
-            $this->database->insertKickQueueItem(
+            $this->kickQueueRepository->insertKickQueueItem(
                 new KickQueueItem(
                     $message->getChat()->getId(),
                     $member->getId(),

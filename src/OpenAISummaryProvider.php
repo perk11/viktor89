@@ -6,6 +6,8 @@ use Exception;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\IPC\EchoUpdateCallback;
+use Perk11\Viktor89\Repository\ChatSummaryRepository;
+use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Util\TelegramMarkdownV2;
 
 class OpenAISummaryProvider
@@ -14,7 +16,8 @@ class OpenAISummaryProvider
     private readonly OpenAi $openAiClient;
 
     public function __construct(
-        private readonly Database $database,
+        private readonly MessageRepository $messageRepository,
+        private readonly ChatSummaryRepository $chatSummaryRepository,
         private readonly AltTextProvider $altTextProvider,
     )
     {
@@ -33,7 +36,7 @@ class OpenAISummaryProvider
 
     public function sendChatSummaryWithMessagesSinceLastOne(int $chatId): bool
     {
-        $lastSummaryDate = $this->database->getLastChatSummaryDate($chatId);
+        $lastSummaryDate = $this->chatSummaryRepository->getLastChatSummaryDate($chatId);
         if ($lastSummaryDate === null) {
             $lastSummaryDate = 0;
         }
@@ -59,7 +62,7 @@ class OpenAISummaryProvider
 
     public function provideSummary(int $chatId, int $startTimestamp, int $maxMessages = 10000): ?string
     {
-        $allMessages = $this->database->findMessagesSentAfterTimestampInChat($chatId, $startTimestamp);
+        $allMessages = $this->messageRepository->findMessagesSentAfterTimestampInChat($chatId, $startTimestamp);
         if (count($allMessages) < 10) {
 //            echo count($allMessages) . " messages found in chat $chatId in last 24 hours, no summary to provide\n";
             return null;
@@ -137,7 +140,7 @@ class OpenAISummaryProvider
 //            sleep(30); //avoid gpt-4 rate limit
         }
         echo $summary;
-        $this->database->recordChatSummary($chatId, $summary);
+        $this->chatSummaryRepository->recordChatSummary($chatId, $summary);
 
         return $summary;
     }

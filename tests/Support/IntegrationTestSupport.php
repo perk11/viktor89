@@ -177,12 +177,12 @@ trait TelegramRecordingTrait
 }
 
 /**
- * Database substitute for integration tests: avoids both the SQLite side
- * effects of the real Database and the PHPUnit notices produced when mocking
- * a class with readonly / typed properties that are never initialised in a
- * test double.
+ * Message repository substitute for integration tests: avoids both the SQLite
+ * side effects of the real MessageRepository (which opens a SQLite connection in
+ * its constructor) and the PHPUnit notices produced when mocking a class with
+ * readonly / typed properties that are never initialised in a test double.
  */
-class NullDatabase extends Database
+class NullMessageRepository extends \Perk11\Viktor89\Repository\MessageRepository
 {
     public function __construct()
     {

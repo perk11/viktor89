@@ -102,7 +102,7 @@ class StatusProcessorIntegrationTest extends TestCase
             new EchoUpdateCallback(),
         );
 
-        (new ProcessingResultExecutor(new \Perk11\Viktor89\Test\Support\NullDatabase()))->execute($result);
+        (new ProcessingResultExecutor(new \Perk11\Viktor89\Test\Support\NullMessageRepository()))->execute($result);
 
         if ($registerTask) {
             $workerChannel->send(new TaskCompletedMessage(1));

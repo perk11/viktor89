@@ -5,6 +5,7 @@ namespace Perk11\Viktor89;
 use Exception;
 use Longman\TelegramBot\Entities\Message;
 use Orhanerday\OpenAi\OpenAi;
+use Perk11\Viktor89\Repository\MessageRepository;
 use SQLite3;
 
 class SiepatchNonInstruct5 implements TelegramResponderInterface
@@ -28,7 +29,7 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
 
     ];
 
-    public function __construct(private Database $database)
+    public function __construct(private MessageRepository $messageRepository)
     {
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_SERVER']);
@@ -189,11 +190,11 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
     {
         $messages = [];
         if ($message->getReplyToMessage() !== null) {
-            $responseMessage = $this->database->findMessageByIdInChat($message->getReplyToMessage()->getMessageId(), $message->getChat()->getId());
+            $responseMessage = $this->messageRepository->findMessageByIdInChat($message->getReplyToMessage()->getMessageId(), $message->getChat()->getId());
             if ($responseMessage !== null) {
                 $messages[] = $responseMessage;
                 while (count($messages) < self::CONTEXT_MESSAGES_COUNT - 2 && $responseMessage?->replyToMessageId !== null) {
-                    $responseMessage = $this->database->findMessageByIdInChat(
+                    $responseMessage = $this->messageRepository->findMessageByIdInChat(
                         $responseMessage->replyToMessageId,
                         $message->getChat()->getId()
                     );
@@ -207,7 +208,7 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
             foreach ($messages as $replyMessage) {
                 $excludedIds[] = $replyMessage->id;
             }
-            $messagesFromHistory = $this->database->findNPreviousMessagesInChat(
+            $messagesFromHistory = $this->messageRepository->findNPreviousMessagesInChat(
                 $message->getChat()->getId(),
                 $message->getMessageId(),
                 $messagesFromHistoryNumber,

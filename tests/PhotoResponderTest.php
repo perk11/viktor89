@@ -43,7 +43,7 @@ class PhotoResponderTest extends TestCase
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
         $this->assertCount(3, $params);
-        $this->assertSame(\Perk11\Viktor89\Database::class, $params[0]->getType()->getName());
+        $this->assertSame(\Perk11\Viktor89\Repository\MessageRepository::class, $params[0]->getType()->getName());
         $this->assertSame(\Perk11\Viktor89\CacheFileManager::class, $params[1]->getType()->getName());
         $this->assertSame(\Perk11\Viktor89\Util\Telegram\ReactionReplacer::class, $params[2]->getType()->getName());
     }

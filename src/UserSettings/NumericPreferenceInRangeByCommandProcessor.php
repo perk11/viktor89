@@ -2,19 +2,19 @@
 
 namespace Perk11\Viktor89\UserSettings;
 
-use Perk11\Viktor89\Database;
+use Perk11\Viktor89\Repository\UserPreferenceRepository;
 
 class NumericPreferenceInRangeByCommandProcessor extends UserPreferenceSetByCommandProcessor
 {
     public function __construct(
-        Database $database,
+        UserPreferenceRepository $userPreferenceRepository,
         array $triggeringCommands,
         string $preferenceName,
         string $botUserName,
         private readonly float $minValue,
         private readonly float $maxValue,
     ) {
-        parent::__construct($database, $triggeringCommands, $preferenceName, $botUserName);
+        parent::__construct($userPreferenceRepository, $triggeringCommands, $preferenceName, $botUserName);
     }
 
     private function getExpectedValueHelpMessage(): string

@@ -87,7 +87,7 @@ class MessageSendingIntegrationTest extends TestCase
 
         ob_start();
         try {
-            (new ProcessingResultExecutor(new \Perk11\Viktor89\Test\Support\NullDatabase()))->execute($result);
+            (new ProcessingResultExecutor(new \Perk11\Viktor89\Test\Support\NullMessageRepository()))->execute($result);
         } finally {
             ob_end_clean();
         }
@@ -145,7 +145,7 @@ class MessageSendingIntegrationTest extends TestCase
 
         ob_start();
         try {
-            (new ProcessingResultExecutor(new \Perk11\Viktor89\Test\Support\NullDatabase(), $repliesInPMs))->execute($result);
+            (new ProcessingResultExecutor(new \Perk11\Viktor89\Test\Support\NullMessageRepository(), $repliesInPMs))->execute($result);
         } finally {
             ob_end_clean();
         }

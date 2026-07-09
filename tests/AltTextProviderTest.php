@@ -52,6 +52,6 @@ class AltTextProviderTest extends TestCase
         $this->assertCount(3, $params);
         $this->assertSame(\Perk11\Viktor89\TelegramFileDownloader::class, $params[0]->getType()->getName());
         $this->assertSame(\Perk11\Viktor89\VoiceRecognition\InternalMessageTranscriber::class, $params[1]->getType()->getName());
-        $this->assertSame(\Perk11\Viktor89\Database::class, $params[2]->getType()->getName());
+        $this->assertSame(\Perk11\Viktor89\Repository\MessageRepository::class, $params[2]->getType()->getName());
     }
 }

@@ -32,12 +32,12 @@ class PrintUserPreferencesResponderTest extends TestCase
         $this->assertFalse($method->isAbstract());
     }
 
-    public function testConstructorTakesDatabase(): void
+    public function testConstructorTakesUserPreferenceRepository(): void
     {
         $reflection = new \ReflectionClass(\Perk11\Viktor89\PrintUserPreferencesResponder::class);
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
         $this->assertCount(1, $params);
-        $this->assertSame(\Perk11\Viktor89\Database::class, $params[0]->getType()->getName());
+        $this->assertSame(\Perk11\Viktor89\Repository\UserPreferenceRepository::class, $params[0]->getType()->getName());
     }
 }

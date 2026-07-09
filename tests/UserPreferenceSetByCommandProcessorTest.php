@@ -47,7 +47,7 @@ class UserPreferenceSetByCommandProcessorTest extends TestCase
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
         $this->assertCount(4, $params);
-        $this->assertSame(\Perk11\Viktor89\Database::class, $params[0]->getType()->getName());
+        $this->assertSame(\Perk11\Viktor89\Repository\UserPreferenceRepository::class, $params[0]->getType()->getName());
         $this->assertSame('triggeringCommands', $params[1]->getName());
         $this->assertSame('preferenceName', $params[2]->getName());
         $this->assertSame('botUserName', $params[3]->getName());

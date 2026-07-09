@@ -3,8 +3,8 @@
 namespace Perk11\Viktor89\UserSettings;
 
 use Longman\TelegramBot\Request;
-use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\Repository\UserPreferenceRepository;
 
 /**
  * Like ListBasedPreferenceByCommandProcessor, but the list of accepted values is
@@ -25,14 +25,14 @@ class DynamicListBasedPreferenceByCommandProcessor extends ListBasedPreferenceBy
      * @param string[] $resetValues Values (case-insensitive) that clear the preference
      */
     public function __construct(
-        Database $database,
+        UserPreferenceRepository $userPreferenceRepository,
         array $triggeringCommands,
         string $preferenceName,
         string $botUserName,
         private readonly \Closure $optionsCallback,
         private readonly array $resetValues = [],
     ) {
-        parent::__construct($database, $triggeringCommands, $preferenceName, $botUserName, []);
+        parent::__construct($userPreferenceRepository, $triggeringCommands, $preferenceName, $botUserName, []);
     }
 
     public function transformValue(string $value): mixed

@@ -20,6 +20,9 @@ use Perk11\Viktor89\PatchesMonitorTask;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\ProcessMessageTask;
+use Perk11\Viktor89\Repository\KickQueueRepository;
+use Perk11\Viktor89\Repository\MessageRepository;
+use Perk11\Viktor89\Repository\SystemVariableRepository;
 use Perk11\Viktor89\SummaryTask;
 use Revolt\EventLoop;
 
@@ -44,15 +47,17 @@ $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNA
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();
 //$fallBackResponder = new \Perk11\Viktor89\Siepatch2Responder();
 $database = new Database($telegram->getBotId(), 'siepatch-non-instruct5');
-$historyReader = new HistoryReader($database);
-$pollResponseProcessor = new PollResponseProcessor($database);
+$messageRepository = new MessageRepository($database);
+$historyReader = new HistoryReader($messageRepository);
+$pollResponseProcessor = new PollResponseProcessor(new KickQueueRepository($database));
 
 $workerPool = workerPool();
 echo "Connecting to Telegram...\n";
 $telegram->useGetUpdatesWithoutDatabase();
 $iterationId =0;
-$processingResultExecutor = new ProcessingResultExecutor($database);
-$lastSummaryTimestamp = $database->readSystemVariable(
+$processingResultExecutor = new ProcessingResultExecutor($messageRepository);
+$systemVariableRepository = new SystemVariableRepository($database);
+$lastSummaryTimestamp = $systemVariableRepository->readSystemVariable(
     OpenAISummaryProvider::LAST_SUMMARY_TIMESTAMP_SYSTEM_VARIABLE_NAME
 ) ?? 0;
 $finalMessageTracker = new FinalMessageTracker();
@@ -117,7 +122,7 @@ EventLoop::repeat(
                 '-4285233729',
             ];
             $lastSummaryTimestamp = time();
-            $database->writeSystemVariable(
+            $systemVariableRepository->writeSystemVariable(
                 OpenAISummaryProvider::LAST_SUMMARY_TIMESTAMP_SYSTEM_VARIABLE_NAME,
                 $lastSummaryTimestamp
             );
@@ -151,7 +156,8 @@ EventLoop::repeat(
     }
 });
 EventLoop::repeat(300, static function () use ($database, $processingResultExecutor) {
-    foreach ($database->findPendingKickQueueItems() as $item) {
+    $kickQueueRepository = new KickQueueRepository($database);
+    foreach ($kickQueueRepository->findPendingKickQueueItems() as $item) {
         echo "Found pending kick\n";
         $message = new InternalMessage();
         $message->chatId = $item->chatId;
@@ -187,7 +193,7 @@ EventLoop::repeat(300, static function () use ($database, $processingResultExecu
             'message_ids' => json_encode($item->messagesToDelete, JSON_THROW_ON_ERROR),
         ]);
         print_r($deleteMessagesResult);
-        $database->nullKickTime($item->pollId);
+        $kickQueueRepository->nullKickTime($item->pollId);
     }
 
 });

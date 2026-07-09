@@ -43,13 +43,13 @@ class RateLimitProcessorTest extends TestCase
         $this->assertCount(3, $types);
     }
 
-    public function testConstructorTakesDatabaseAndBotUserIdAndConfig(): void
+    public function testConstructorTakesRateLimitRepositoryAndBotUserIdAndConfig(): void
     {
         $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor::class);
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
         $this->assertCount(3, $params);
-        $this->assertSame('database', $params[0]->getName());
-        $this->assertSame(\Perk11\Viktor89\Database::class, $params[0]->getType()->getName());
+        $this->assertSame('rateLimitRepository', $params[0]->getName());
+        $this->assertSame(\Perk11\Viktor89\Repository\RateLimitRepository::class, $params[0]->getType()->getName());
     }
 }

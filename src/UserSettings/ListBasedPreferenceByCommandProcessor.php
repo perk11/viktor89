@@ -4,19 +4,19 @@ namespace Perk11\Viktor89\UserSettings;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
-use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\Repository\UserPreferenceRepository;
 
 class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandProcessor
 {
     public function __construct(
-        Database $database,
+        UserPreferenceRepository $userPreferenceRepository,
         array $triggeringCommands,
         string $preferenceName,
         string $botUserName,
         private readonly array $acceptedValuesList,
     ) {
-        parent::__construct($database, $triggeringCommands, $preferenceName, $botUserName);
+        parent::__construct($userPreferenceRepository, $triggeringCommands, $preferenceName, $botUserName);
     }
 
     protected function processValueAsSetting(InternalMessage $message, ?string $value): bool
