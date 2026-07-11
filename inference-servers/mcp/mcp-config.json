@@ -1,0 +1,195 @@
+{
+  "server": {
+    "name": "viktor89-inference",
+    "version": "1.0.0",
+    "instructions": "Translate MCP tool calls to the project's Python inference servers (FastAPI/Flask). Each tool calls one HTTP endpoint and returns the generated media base64-encoded. Image results are returned as MCP image content (base64 PNG), audio as MCP audio content (base64 OGG/Opus), video as an embedded blob resource (base64 MP4). A text note accompanying every result states that the media is a base64-encoded string and gives its MIME type."
+  },
+  "http": {
+    "timeoutSeconds": 600,
+    "connectTimeoutSeconds": 30
+  },
+  "endpoints": {
+    "txt2img": {
+      "method": "POST",
+      "path": "/sdapi/v1/txt2img",
+      "response": {
+        "media": "image",
+        "field": "images",
+        "mimeType": "image/png",
+        "infoField": "info",
+        "infoIsJsonString": true,
+        "captionField": "infotexts"
+      }
+    },
+    "img2img": {
+      "method": "POST",
+      "path": "/sdapi/v1/img2img",
+      "response": {
+        "media": "image",
+        "field": "images",
+        "mimeType": "image/png",
+        "infoField": "info",
+        "infoIsJsonString": true,
+        "captionField": "infotexts"
+      }
+    },
+    "txt2vid": {
+      "method": "POST",
+      "path": "/txt2vid",
+      "response": {
+        "media": "video",
+        "field": "videos",
+        "mimeType": "video/mp4",
+        "infoField": "info",
+        "infoIsJsonString": true,
+        "captionField": "infotexts"
+      }
+    },
+    "img2vid": {
+      "method": "POST",
+      "path": "/img2vid",
+      "response": {
+        "media": "video",
+        "field": "videos",
+        "mimeType": "video/mp4",
+        "infoField": "info",
+        "infoIsJsonString": true,
+        "captionField": "infotexts"
+      }
+    },
+    "txt2voice": {
+      "method": "POST",
+      "path": "/txt2voice",
+      "response": {
+        "media": "audio",
+        "field": "voice_data",
+        "mimeType": "audio/ogg",
+        "infoField": "info",
+        "infoIsJsonString": false,
+        "captionField": null
+      }
+    }
+  },
+  "models": [
+    {
+      "tool": "generate_image_flux2",
+      "endpoint": "txt2img",
+      "url": "http://localhost:8136",
+      "model": "flux2_dev_fp8",
+      "title": "Flux2 text-to-image",
+      "description": "Generate an image from a text prompt using Flux2 (image-generic-comfy).",
+      "defaults": { "width": 1024, "height": 1024, "steps": 20 },
+      "parameters": ["prompt", "negative_prompt", "seed", "steps", "width", "height", "model"],
+      "required": ["prompt"]
+    },
+    {
+      "tool": "generate_image_qwen",
+      "endpoint": "txt2img",
+      "url": "http://localhost:8136",
+      "model": "qwen_image_fp8_e4m3fn",
+      "title": "Qwen-Image text-to-image",
+      "description": "Generate an image from a text prompt using Qwen-Image (image-generic-comfy).",
+      "defaults": { "width": 1328, "height": 1328, "steps": 20 },
+      "parameters": ["prompt", "negative_prompt", "seed", "steps", "width", "height"],
+      "required": ["prompt"]
+    },
+    {
+      "tool": "generate_image_sd35",
+      "endpoint": "txt2img",
+      "url": "http://localhost:8150",
+      "title": "Stable Diffusion 3.5 text-to-image",
+      "description": "Generate an image from a text prompt using Stable Diffusion 3.5.",
+      "defaults": { "width": 1024, "height": 1024, "steps": 28 },
+      "parameters": ["prompt", "seed", "steps", "width", "height"],
+      "required": ["prompt"]
+    },
+    {
+      "tool": "edit_image_flux_kontext",
+      "endpoint": "img2img",
+      "url": "http://localhost:8136",
+      "model": "FLUX.1-Kontext-dev",
+      "title": "Flux Kontext image edit",
+      "description": "Edit a source image according to a prompt using FLUX.1-Kontext-dev. Pass the source image as init_image (base64).",
+      "defaults": { "width": 1024, "height": 1024, "steps": 20 },
+      "parameters": ["prompt", "init_image", "seed", "steps", "width", "height"],
+      "required": ["prompt", "init_image"]
+    },
+    {
+      "tool": "edit_image_qwen",
+      "endpoint": "img2img",
+      "url": "http://localhost:8136",
+      "model": "Qwen_Image_Edit-Q8_0",
+      "title": "Qwen-Image edit",
+      "description": "Edit a source image according to a prompt using Qwen-Image-Edit. Pass the source image as init_image (base64).",
+      "defaults": { "steps": 20 },
+      "parameters": ["prompt", "init_image", "seed", "steps"],
+      "required": ["prompt", "init_image"]
+    },
+    {
+      "tool": "generate_video_ltx2",
+      "endpoint": "txt2vid",
+      "url": "http://localhost:8207",
+      "model": "LTX-2-distilled",
+      "title": "LTX-2 text-to-video",
+      "description": "Generate a short video from a text prompt using LTX-2.",
+      "defaults": { "width": 768, "height": 512, "num_frames": 97, "steps": 20 },
+      "parameters": ["prompt", "negative_prompt", "seed", "steps", "width", "height", "num_frames", "cfg_scale", "enhance_prompt"],
+      "required": ["prompt"]
+    },
+    {
+      "tool": "generate_video_kandinsky5",
+      "endpoint": "txt2vid",
+      "url": "http://localhost:8198",
+      "model": "kandinsky5-lite",
+      "title": "Kandinsky 5 text-to-video",
+      "description": "Generate a short video from a text prompt using Kandinsky 5.",
+      "defaults": { "steps": 20 },
+      "parameters": ["prompt", "negative_prompt", "seed", "steps", "num_frames", "width", "height"],
+      "required": ["prompt"]
+    },
+    {
+      "tool": "image_to_video_ltx2",
+      "endpoint": "img2vid",
+      "url": "http://localhost:8207",
+      "model": "LTX-2-distill",
+      "title": "LTX-2 image-to-video",
+      "description": "Animate a source image into a video using LTX-2. Pass the source image as init_image (base64).",
+      "defaults": { "num_frames": 97, "steps": 20 },
+      "parameters": ["prompt", "init_image", "seed", "steps", "num_frames"],
+      "required": ["prompt", "init_image"]
+    },
+    {
+      "tool": "image_to_video_wan22",
+      "endpoint": "img2vid",
+      "url": "http://localhost:8128",
+      "model": "wan2.2_i2v_14B_Q8_0",
+      "title": "Wan2.2 image-to-video",
+      "description": "Animate a source image into a video using Wan2.2. Pass the source image as init_image (base64).",
+      "defaults": { "num_frames": 150, "steps": 20 },
+      "parameters": ["prompt", "init_image", "seed", "steps", "num_frames"],
+      "required": ["prompt", "init_image"]
+    },
+    {
+      "tool": "generate_voice_xtts",
+      "endpoint": "txt2voice",
+      "url": "http://localhost:8105",
+      "model": "xtts_v2",
+      "title": "XTTS v2 text-to-speech",
+      "description": "Synthesize speech from text using XTTS v2. Either choose a built-in speaker_id or clone a voice by passing source_voice (base64 audio) plus source_voice_format.",
+      "defaults": { "language": "en", "speed": 1 },
+      "parameters": ["prompt", "language", "speaker_id", "source_voice", "source_voice_format", "speed"],
+      "required": ["prompt", "language"]
+    },
+    {
+      "tool": "generate_voice_vibe",
+      "endpoint": "txt2voice",
+      "url": "http://localhost:8145",
+      "model": "VibeVoice",
+      "title": "VibeVoice text-to-speech",
+      "description": "Synthesize speech from text using VibeVoice by cloning a reference voice. Pass source_voice (base64 audio) plus source_voice_format; optionally a second reference voice as source_voice_2.",
+      "defaults": { "seed": 42 },
+      "parameters": ["prompt", "source_voice", "source_voice_format", "source_voice_2", "seed"],
+      "required": ["prompt", "source_voice", "source_voice_format"]
+    }
+  ]
+}
