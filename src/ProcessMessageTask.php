@@ -10,9 +10,6 @@ use Exception;
 use LanguageDetection\Language;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
-use Perk11\Viktor89\AbortStreamingResponse\MaxLengthHandler;
-use Perk11\Viktor89\AbortStreamingResponse\MaxNewLinesHandler;
-use Perk11\Viktor89\AbortStreamingResponse\RepetitionAfterAuthorHandler;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Container\ContainerFactory;
@@ -395,24 +392,6 @@ class ProcessMessageTask implements Task
             $editModelPreferenceReader,
             $editModelConfig,
         );
-//$fallBackResponder = new \Perk11\Viktor89\SiepatchNonInstruct5($messageRepository);
-//$fallBackResponder = new \Perk11\Viktor89\SiepatchInstruct6($messageRepository);
-        $responder = new SiepatchNonInstruct4(
-            $historyReader,
-            $userPreferenceRepository,
-            $processingResultExecutor,
-            $responseStartProcessor,
-            $openAiCompletionStringParser,
-            $this->telegramBotUsername,
-        );
-        $responder->addPreResponseProcessor(new AllowedChatProcessor([
-                                                                         '-1001804789551',
-                                                                         '-1002114209100',
-                                                                         '-1002398016894',
-                                                                     ]));
-        $responder->addAbortResponseHandler(new MaxLengthHandler(2000));
-        $responder->addAbortResponseHandler(new MaxNewLinesHandler(40));
-        $responder->addAbortResponseHandler($container->get(RepetitionAfterAuthorHandler::class));
         $userSelectedAssistant = new UserSelectedAssistant($assistantFactory, $assistantModelProcessor);
         $videoModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $userPreferenceRepository,
@@ -627,6 +606,10 @@ class ProcessMessageTask implements Task
             $responseStartProcessor,
             $editFrequencyProcessor,
             new CommandBasedResponderTrigger(
+                ['/personality'],
+                $personalityProcessor,
+            ),
+            new CommandBasedResponderTrigger(
                 ['/quiz'],
                 $container->get(RandomQuizResponder::class)
             ),
@@ -800,8 +783,9 @@ class ProcessMessageTask implements Task
                              $messageChainProcessorRunner,
                              $this->telegramBotUsername,
                              $this->telegramBotId,
-                             $responder,
+                             $userSelectedAssistant,
                              $progressUpdateCallback,
+                             $processingResultExecutor,
         );
         $engine->handleMessage($this->message);
     }

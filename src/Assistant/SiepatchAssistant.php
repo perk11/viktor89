@@ -15,7 +15,7 @@ use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 /**
  * Siepatch responder exposed as a selectable assistant model.
  *
- * Reproduces the behaviour of the legacy SiepatchNonInstruct4 fallback
+ * Reproduces the behaviour of the legacy Siepatch fallback
  * responder (raw completion in the "<bot>: [author] text" format with author
  * extraction, response regeneration and YouTube link replacement), but is
  * built by AssistantFactory from the assistantModels config and chosen by the
@@ -238,8 +238,8 @@ class SiepatchAssistant extends AbstractOpenAIAPICompletingAssistant
     /**
      * Extracts the author tag from the start of the response (the "[author] "
      * prefix the model produces) and turns the message into a Siepatch-style
-     * "answers as <author>" reply. Faithfully mirrors SiepatchNonInstruct4,
-     * including its handling of responses that contain no "]".
+     * "answers as <author>" reply. Faithfully mirrors the legacy Siepatch
+     * responder, including its handling of responses that contain no "]".
      */
     protected function applyAuthorExtraction(InternalMessage $message): void
     {

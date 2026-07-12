@@ -33,6 +33,7 @@ class Engine
         private readonly int $telegramBotId,
         private readonly TelegramInternalMessageResponderInterface|MessageChainProcessor $fallBackResponder,
         private readonly ProgressUpdateCallback $progressUpdateCallback,
+        private readonly ProcessingResultExecutor $processingResultExecutor,
     ) {
     }
 
@@ -112,11 +113,18 @@ class Engine
             }
         }
         if ($this->fallBackResponder instanceof MessageChainProcessor) {
-            $responseMessage = $this->fallBackResponder->processMessageChain($chain, $this->progressUpdateCallback)->response;
-        } else {
-            $responseMessage = $this->fallBackResponder->getResponseByMessage($message, $this->progressUpdateCallback);
+            // Route through ProcessingResultExecutor so streaming assistants that
+            // already sent/edited their message during generation are not sent a
+            // second time, and drafts/typing are stopped via the pre-send
+            // handshake — identical to how /assistant responses are dispatched.
+            $this->processingResultExecutor->execute(
+                $this->fallBackResponder->processMessageChain($chain, $this->progressUpdateCallback)
+            );
+
+            return;
         }
 
+        $responseMessage = $this->fallBackResponder->getResponseByMessage($message, $this->progressUpdateCallback);
         if ($responseMessage === null) {
             echo "Null response returned by fallback responder\n";
 

@@ -66,7 +66,7 @@ tests/                   # PHPUnit; flat namespace, mirrors src/
 2. Run every `PreResponseProcessor` (legacy, registered in `Engine`'s constructor). Return `false` → continue; `string` → reply with it; `null` → stop, no reply.
 3. Build a `MessageChain` from the message + reply history (`HistoryReader`). For a reply, prior messages are pulled from DB.
 4. `MessageChainProcessorRunner::run()` iterates registered `MessageChainProcessor`s. Each returns a `ProcessingResult` which `ProcessingResultExecutor` sends immediately (message send/edit, reaction, callback). If `abortProcessing` is true, the runner stops. **Multiple commands in one message are split** by the triggering-command regex and run separately (with a small delay to respect rate limits).
-5. If nothing handled it and the message isn't a command: only respond when `@botusername` is mentioned **or** it's a reply to the bot. Otherwise hand off to the `fallBackResponder` (`SiepatchNonInstruct4`, a non-instruct chat responder).
+5. If nothing handled it and the message isn't a command: only respond when `@botusername` is mentioned **or** it's a reply to the bot. Otherwise hand off to the `fallBackResponder` (`UserSelectedAssistant` — the same generic dispatcher the `/assistant` command uses, so a mention or reply responds with the user's currently selected assistant model; e.g. select `siepatch` via `/assistantmodel` to get the legacy Siepatch behaviour).
 
 ## Adding a command
 

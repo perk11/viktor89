@@ -60,7 +60,7 @@ class SiepatchAssistantTest extends TestCase
         $assistant = $this->buildAssistant();
         $options = $this->callProtected($assistant, 'getCompletionOptions', ['hello']);
 
-        // SiepatchNonInstruct4 prefixes the prompt with two newlines.
+        // The legacy Siepatch responder prefixes the prompt with two newlines.
         $this->assertSame("\n\n" . 'hello', $options['prompt']);
         $this->assertSame(0.6, $options['temperature']);
         $this->assertFalse($options['cache_prompt']);
@@ -175,7 +175,7 @@ class SiepatchAssistantTest extends TestCase
 
         $this->callProtected($assistant, 'applyAuthorExtraction', [$message]);
 
-        // Faithfully mirrors SiepatchNonInstruct4: userName keeps the leading '[',
+        // Faithfully mirrors the legacy Siepatch responder: userName keeps the leading '[',
         // rawMessageText is what actually gets sent, messageText has the author stripped.
         $this->assertSame('[Ivan', $message->userName);
         $this->assertSame('[отвечает [Ivan] hello world', $message->rawMessageText);
