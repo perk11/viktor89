@@ -3,3 +3,9 @@
 config.json
 spoiler_words.txt
 /data/
+train/outputs
+train/prepare-dataset
+train/unsloth_compiled_cache
+train/train-telegram7.py
+unusedmodels.jsonc
+.phpunit.cache
