@@ -17,11 +17,16 @@ use Perk11\Viktor89\Repository\UserPreferenceRepository;
  *
  * Values listed in $resetValues (compared case-insensitively), as well as
  * "reset", are stored as null — the same way resetting a preference works.
+ *
+ * The callback receives the chat id the command was issued in, so the option
+ * list can be filtered per chat (e.g. hide models restricted to other chats).
  */
 class DynamicListBasedPreferenceByCommandProcessor extends ListBasedPreferenceByCommandProcessor
 {
+    private ?int $currentChatId = null;
+
     /**
-     * @param \Closure(): array<int, array{value: string, label?: string}> $optionsCallback
+     * @param \Closure(int $chatId): array<int, array{value: string, label?: string}> $optionsCallback
      * @param string[] $resetValues Values (case-insensitive) that clear the preference
      */
     public function __construct(
@@ -50,6 +55,11 @@ class DynamicListBasedPreferenceByCommandProcessor extends ListBasedPreferenceBy
 
     protected function processValueAsSetting(InternalMessage $message, ?string $value): bool
     {
+        // Remember the chat so getValueValidationErrors() validates against the
+        // same per-chat option list. processValueAsSetting() always runs before
+        // validation in the parent flow.
+        $this->currentChatId = $message->chatId;
+
         if ($value !== '') {
             // A real value (including null from a reset value) -> proceed to validate and store.
             return true;
@@ -58,7 +68,7 @@ class DynamicListBasedPreferenceByCommandProcessor extends ListBasedPreferenceBy
         Request::sendMessage([
             'chat_id'      => $message->chatId,
             'text'         => 'Pick a value for ' . $this->preferenceName,
-            'reply_markup' => ['inline_keyboard' => $this->buildInlineKeyboard()],
+            'reply_markup' => ['inline_keyboard' => $this->buildInlineKeyboard($this->currentChatId)],
         ]);
 
         return false;
@@ -69,7 +79,7 @@ class DynamicListBasedPreferenceByCommandProcessor extends ListBasedPreferenceBy
         if ($value === null || $value === '') {
             return [];
         }
-        $values = array_column($this->getOptions(), 'value');
+        $values = array_column($this->getOptions($this->currentChatId ?? 0), 'value');
         if (!in_array($value, $values, true)) {
             return ["Эта настройка принимает следующие значения:\n\n" . implode("\n", $values)];
         }
@@ -80,10 +90,10 @@ class DynamicListBasedPreferenceByCommandProcessor extends ListBasedPreferenceBy
     /**
      * @return array<int, array{value: string, label: string}>
      */
-    private function getOptions(): array
+    private function getOptions(int $chatId): array
     {
         $options = [];
-        foreach (($this->optionsCallback)() as $option) {
+        foreach (($this->optionsCallback)($chatId) as $option) {
             $options[] = [
                 'value' => $option['value'],
                 'label' => $option['label'] ?? $option['value'],
@@ -96,10 +106,10 @@ class DynamicListBasedPreferenceByCommandProcessor extends ListBasedPreferenceBy
     /**
      * @return array<int, array<int, array{text: string, switch_inline_query_current_chat: string}>>
      */
-    private function buildInlineKeyboard(): array
+    private function buildInlineKeyboard(int $chatId): array
     {
         $buttons = [];
-        foreach ($this->getOptions() as $option) {
+        foreach ($this->getOptions($chatId) as $option) {
             $buttons[] = [
                 [
                     'text'                             => $option['label'],

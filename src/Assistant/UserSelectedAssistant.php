@@ -20,17 +20,24 @@ class UserSelectedAssistant implements MessageChainProcessor
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $lastMessage = $messageChain->last();
+        $chatId = $lastMessage->chatId;
 
+        $assistant = null;
         $modelName = $this->assistantPreference->getCurrentPreferenceValue($lastMessage->userId);
-        if ($modelName === null) {
-            $assistant = $this->assistantFactory->getDefaultAssistantInstance();
-        } else {
+        if ($modelName !== null) {
             try {
-                $assistant = $this->assistantFactory->getAssistantInstanceByName($modelName);
+                $candidate = $this->assistantFactory->getAssistantInstanceByName($modelName);
+                // Honour per-model allowedChatIds: a model selected in one chat
+                // must not be used in a chat it is restricted from.
+                if ($this->assistantFactory->isModelNameAllowedInChat($modelName, $chatId)) {
+                    $assistant = $candidate;
+                }
             } catch (UnknownAssistantException) {
-                $assistant = $this->assistantFactory->getDefaultAssistantInstance();
+                // Fall through to the default for this chat.
             }
         }
+
+        $assistant ??= $this->assistantFactory->getDefaultAssistantInstanceForChat($chatId);
 
         return $assistant->processMessageChain($messageChain, $progressUpdateCallback);
     }

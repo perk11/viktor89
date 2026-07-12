@@ -23,7 +23,7 @@ class DynamicListBasedPreferenceByCommandProcessorTest extends TestCase
             ['/persona'],
             'persona',
             'testbot',
-            static function (): array {
+            static function (int $chatId): array {
                 return [
                     ['value' => 'Default', 'label' => 'Default (без персоны)'],
                     ['value' => 'pirate', 'label' => 'pirate (от Bob)'],
@@ -105,6 +105,6 @@ class DynamicListBasedPreferenceByCommandProcessorTest extends TestCase
 
     private function invokeBuildKeyboard(): array
     {
-        return (new \ReflectionMethod($this->processor, 'buildInlineKeyboard'))->invoke($this->processor);
+        return (new \ReflectionMethod($this->processor, 'buildInlineKeyboard'))->invoke($this->processor, -1);
     }
 }

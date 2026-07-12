@@ -60,9 +60,61 @@ class AssistantFactory
         return $models;
     }
 
+    /**
+     * True unless the model is restricted via an `allowedChatIds` list that does
+     * not contain the given chat. Compared as strings so config values written
+     * as JSON strings ("-100123") match the integer chat ids used at runtime.
+     */
+    public static function isModelAllowedInChat(array $modelConfig, int $chatId): bool
+    {
+        $allowedChatIds = $modelConfig['allowedChatIds'] ?? null;
+        if ($allowedChatIds === null) {
+            return true;
+        }
+        foreach ($allowedChatIds as $allowedChatId) {
+            if ((string) $allowedChatId === (string) $chatId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function isModelNameAllowedInChat(string $name, int $chatId): bool
+    {
+        if (!array_key_exists($name, $this->assistantConfig)) {
+            return false;
+        }
+
+        return self::isModelAllowedInChat($this->assistantConfig[$name], $chatId);
+    }
+
+    /** @return string[] selectable model names permitted in $chatId */
+    public function getSupportedModelsForChat(int $chatId): array
+    {
+        $models = [];
+        foreach ($this->assistantConfig as $modelName => $assistantConfig) {
+            if ($assistantConfig['selectableByUser'] && self::isModelAllowedInChat($assistantConfig, $chatId)) {
+                $models[] = $modelName;
+            }
+        }
+
+        return $models;
+    }
+
     public function getDefaultAssistantInstance(): AssistantInterface
     {
         return $this->getAssistantInstanceByName($this->getSupportedModels()[0]);
+    }
+
+    public function getDefaultAssistantInstanceForChat(int $chatId): AssistantInterface
+    {
+        $models = $this->getSupportedModelsForChat($chatId);
+        if (count($models) === 0) {
+            return $this->getDefaultAssistantInstance();
+        }
+
+        return $this->getAssistantInstanceByName($models[0]);
     }
 
     public function getAssistantInstanceByName(string $name): AssistantInterface

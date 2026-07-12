@@ -13,7 +13,7 @@ class ProcessingResult
         public readonly bool $abortProcessing,
         public readonly ?string $reaction = null,
         public readonly ?InternalMessage $messageToReactTo = null,
-        callable $callback = null,
+        ?callable $callback = null,
     )
     {
         $this->callback = $callback;

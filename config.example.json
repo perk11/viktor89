@@ -13,6 +13,7 @@
       "url": "http://localhost:8079",
       "class": "Perk11\\Viktor89\\Assistant\\SiepatchAssistant",
       "selectableByUser": true,
+      "allowedChatIds": ["-1001804789551", "-1002114209100", "-1002398016894"],
       "abortResponseHandlers": {
         "\\Perk11\\Viktor89\\AbortStreamingResponse\\MaxLengthHandler": [
           2000

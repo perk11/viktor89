@@ -333,7 +333,7 @@ class ProcessMessageTask implements Task
             ['/persona'],
             PersonaHelper::PERSONA_PREFERENCE,
             $this->telegramBotUsername,
-            static function () use ($personaRepository): array {
+            static function (int $chatId) use ($personaRepository): array {
                 $options = [['value' => PersonaHelper::DEFAULT_PERSONA_NAME, 'label' => PersonaHelper::DEFAULT_PERSONA_NAME . ' (без персоны)']];
                 foreach ($personaRepository->findAllPersonas() as $persona) {
                     $author = $persona->userName !== '' ? ' (от ' . $persona->userName . ')' : '';
@@ -365,12 +365,19 @@ class ProcessMessageTask implements Task
             $personalityProcessor,
         );
         $altTextProvider->assistantWithVision = $assistantFactory->getAssistantInstanceByName('vision-for-alt-text');
-        $assistantModelProcessor = new ListBasedPreferenceByCommandProcessor(
+        $assistantModelProcessor = new DynamicListBasedPreferenceByCommandProcessor(
             $userPreferenceRepository,
             ['/assistantmodel'],
             'assistantmodel',
             $this->telegramBotUsername,
-            $assistantFactory->getSupportedModels(),
+            static function (int $chatId) use ($assistantFactory): array {
+                $options = [];
+                foreach ($assistantFactory->getSupportedModelsForChat($chatId) as $modelName) {
+                    $options[] = ['value' => $modelName, 'label' => $modelName];
+                }
+
+                return $options;
+            },
         );
 
         $sayModelProcessor = new ListBasedPreferenceByCommandProcessor(
