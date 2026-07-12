@@ -297,6 +297,12 @@ class ProcessMessageTask implements Task
             1.5,
             120,
         );
+        $personalityProcessor = new UserPreferenceSetByCommandProcessor(
+            $userPreferenceRepository,
+            ['/personality'],
+            'personality',
+            $this->telegramBotUsername,
+        );
         $photoResponder = $container->get(PhotoResponder::class);
         $generatedImageMarkdownUploaderConfig = $config['generatedImageMarkdownUploader'] ?? null;
         if (!is_array($generatedImageMarkdownUploaderConfig)) {
@@ -359,6 +365,7 @@ class ProcessMessageTask implements Task
             $container->get(ListChainImagesToolCallExecutor::class),
             $telegram->getBotId(),
             $draftUpdateCallback,
+            $personalityProcessor,
         );
         $altTextProvider->assistantWithVision = $assistantFactory->getAssistantInstanceByName('vision-for-alt-text');
         $assistantModelProcessor = new ListBasedPreferenceByCommandProcessor(

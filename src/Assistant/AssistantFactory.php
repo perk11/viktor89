@@ -42,6 +42,7 @@ class AssistantFactory
         private readonly MessageChainAwareToolCallExecutorInterface $listChainImagesTool,
         private readonly int $telegramBotId,
         private readonly DraftUpdateCallback $draftUpdateCallback,
+        private readonly UserPreferenceReaderInterface $personalityReader,
     )
     {
     }
@@ -87,7 +88,19 @@ class AssistantFactory
             $systemPromptProcessor = new PrependingSystemPromptProcessor($systemPromptProcessor, $requestedAssistantConfig['systemPrompt']);
         }
         //todo: use interface for this
-        if (is_subclass_of($requestedAssistantConfig['class'], AbstractOpenAIAPICompletingAssistant::class)) {
+        if (is_a($requestedAssistantConfig['class'], SiepatchAssistant::class, true)) {
+            $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
+                $systemPromptProcessor,
+                $this->responseStartProcessor,
+                $this->editFrequencyProcessor,
+                $this->telegramFileDownloader,
+                $this->altTextProvider,
+                $this->telegramBotId,
+                $requestedAssistantConfig['url'],
+                $this->openAiCompletionStringParser,
+                $this->personalityReader,
+            );
+        } elseif (is_subclass_of($requestedAssistantConfig['class'], AbstractOpenAIAPICompletingAssistant::class)) {
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
                 $systemPromptProcessor,
                 $this->responseStartProcessor,
