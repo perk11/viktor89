@@ -609,13 +609,13 @@ class ProcessMessageTask implements Task
                 ['/delpersona'],
                 $container->get(DeletePersonaProcessor::class),
             ),
-            $personaProcessor,
             $responseStartProcessor,
             $editFrequencyProcessor,
             new CommandBasedResponderTrigger(
                 ['/personality'],
                 $personalityProcessor,
             ),
+            $personaProcessor,
             new CommandBasedResponderTrigger(
                 ['/quiz'],
                 $container->get(RandomQuizResponder::class)
