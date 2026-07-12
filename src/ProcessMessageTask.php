@@ -327,6 +327,7 @@ class ProcessMessageTask implements Task
             $messageRepository,
             true,
             $beforeMessageSentNotifier,
+            $container->get(\Perk11\Viktor89\Repository\MessageMetadataRepository::class),
         );
         $personaProcessor = new DynamicListBasedPreferenceByCommandProcessor(
             $userPreferenceRepository,
@@ -763,6 +764,14 @@ class ProcessMessageTask implements Task
             new CommandBasedResponderTrigger(
                 ['/status'],
                 new StatusProcessor($channel),
+            ),
+            new CommandBasedResponderTrigger(
+                ['/metadata'],
+                new MetadataCommandProcessor(
+                    $container->get(\Perk11\Viktor89\Repository\MessageMetadataRepository::class),
+                    $personaRepository,
+                    $this->telegramBotUsername,
+                ),
             ),
             new CommandBasedResponderTrigger(
                 ['/file'],

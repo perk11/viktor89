@@ -221,6 +221,7 @@ class AssistantFactory
 
         if ($this->assistantInstanceByName[$name] instanceof AbstractOpenAIAPiAssistant) {
             $this->assistantInstanceByName[$name]->setDraftUpdateCallback($this->draftUpdateCallback);
+            $this->assistantInstanceByName[$name]->setModelName($name);
         }
 
         return $this->assistantInstanceByName[$name];

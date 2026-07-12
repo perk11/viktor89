@@ -5,6 +5,7 @@ namespace Perk11\Viktor89;
 use LogicException;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Repository\MessageMetadataRepository;
 use Perk11\Viktor89\Repository\MessageRepository;
 
 class ProcessingResultExecutor
@@ -19,6 +20,7 @@ class ProcessingResultExecutor
          * the actual message.
          */
         private readonly ?\Closure $beforeMessageSentNotifier = null,
+        private readonly ?MessageMetadataRepository $messageMetadataRepository = null,
     ) {
         
     }
@@ -38,6 +40,7 @@ class ProcessingResultExecutor
                 if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof Message) {
                     InternalMessage::extractPropertiesFromTelegramMessage($result->response, $telegramServerResponse->getResult());
                     $this->messageRepository->logInternalMessage($result->response);
+                    $this->persistMetadata($result->response);
                 } else {
                     echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
                 }
@@ -46,6 +49,7 @@ class ProcessingResultExecutor
                 $telegramServerResponse = $result->response->edit($result->response->messageText);
                 if ($telegramServerResponse->isOk()) {
                     $this->messageRepository->logInternalMessage($result->response);
+                    $this->persistMetadata($result->response);
                 } else {
                     echo "Failed to edit response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
                 }
@@ -71,5 +75,23 @@ class ProcessingResultExecutor
         if ($result->callback !== null) {
             call_user_func($result->callback);
         }
+    }
+
+    private function persistMetadata(InternalMessage $response): void
+    {
+        if ($this->messageMetadataRepository === null || $response->id === null) {
+            return;
+        }
+        if ($response->model === null && $response->systemPrompt === null && $response->personaId === null && $response->caption === null) {
+            return;
+        }
+        $this->messageMetadataRepository->upsert(new MessageMetadata(
+            $response->chatId,
+            $response->id,
+            $response->model,
+            $response->systemPrompt,
+            $response->personaId,
+            $response->caption,
+        ));
     }
 }

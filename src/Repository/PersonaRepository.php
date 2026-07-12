@@ -44,6 +44,18 @@ class PersonaRepository
 
         return Persona::fromSqliteAssoc($row);
     }
+    public function findPersonaById(int $id): ?Persona
+    {
+        $statement = $this->database->sqlite3Database->prepare('SELECT * FROM persona WHERE id = :id');
+        $statement->bindValue(':id', $id);
+        $result = $statement->execute();
+        $row = $result->fetchArray(SQLITE3_ASSOC);
+        if ($row === false) {
+            return null;
+        }
+
+        return Persona::fromSqliteAssoc($row);
+    }
 
     /** @return Persona[] */
     public function findAllPersonas(): array

@@ -29,12 +29,17 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
     protected readonly OpenAI $openAi;
     protected bool $suppressDraftUpdates = false;
     private ?string $progressUpdateStatus = null;
+    protected ?string $modelName = null;
 
     private ?DraftUpdateCallback $draftUpdateCallback = null;
 
     public function setDraftUpdateCallback(DraftUpdateCallback $draftUpdateCallback): void
     {
         $this->draftUpdateCallback = $draftUpdateCallback;
+    }
+    public function setModelName(string $modelName): void
+    {
+        $this->modelName = $modelName;
     }
     public function __construct(
         private readonly UserPreferenceReaderInterface $systemPromptProcessor,
@@ -94,6 +99,13 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $message->messageText = $responseStart . trim($completion->content);
             $message->toolCalls = $completion->toolCalls;
             $message->reasoning = $completion->reasoning;
+            $message->model = $this->modelName;
+            if ($this->systemPromptProcessor instanceof \Perk11\Viktor89\SystemPromptMetadataProviderInterface) {
+                $message->systemPrompt = $this->systemPromptProcessor->getBaseSystemPrompt($userId);
+                $message->personaId = $this->systemPromptProcessor->getActivePersonaId($userId);
+            } else {
+                $message->systemPrompt = $systemPrompt;
+            }
 
             if ($message->reasoning !== null) {
                 $isPrivateChat = $lastMessage->chatId > 0;

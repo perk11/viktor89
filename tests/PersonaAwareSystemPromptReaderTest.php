@@ -100,6 +100,43 @@ class PersonaAwareSystemPromptReaderTest extends TestCase
         $this->assertNull($this->createReader(null)->getCurrentPreferenceValue(111));
     }
 
+    public function testGetActivePersonaIdReturnsNullWhenNoPreference(): void
+    {
+        $this->assertNull($this->createReader(null)->getActivePersonaId(111));
+    }
+
+    public function testGetActivePersonaIdReturnsPersonaId(): void
+    {
+        $this->personaRepository->addPersona('pirate', 'You are a pirate.', 999, 'Bob');
+        $this->userPreferenceRepository->writeUserPreference(111, PersonaHelper::PERSONA_PREFERENCE, 'pirate');
+
+        $personaId = $this->createReader(null)->getActivePersonaId(111);
+        $this->assertNotNull($personaId);
+        $this->assertSame('pirate', $this->personaRepository->findPersonaById($personaId)->name);
+    }
+
+    public function testGetActivePersonaIdReturnsNullForDefaultPersona(): void
+    {
+        $this->userPreferenceRepository->writeUserPreference(111, PersonaHelper::PERSONA_PREFERENCE, 'Default');
+
+        $this->assertNull($this->createReader(null)->getActivePersonaId(111));
+    }
+
+    public function testGetBaseSystemPromptReturnsPromptWithoutPersona(): void
+    {
+        $this->personaRepository->addPersona('pirate', 'You are a pirate.', 999, 'Bob');
+        $this->userPreferenceRepository->writeUserPreference(111, PersonaHelper::PERSONA_PREFERENCE, 'pirate');
+
+        $reader = $this->createReader('Be concise.');
+
+        // The combined prompt includes both the base prompt and persona.
+        $this->assertStringContainsString('Be concise.', $reader->getCurrentPreferenceValue(111));
+        $this->assertStringContainsString('You are a pirate.', $reader->getCurrentPreferenceValue(111));
+
+        // But the base prompt excludes the persona entirely.
+        $this->assertSame('Be concise.', $reader->getBaseSystemPrompt(111));
+    }
+
     private function createReader(?string $systemPromptValue): PersonaAwareSystemPromptReader
     {
         $systemPromptProcessor = $this->createMock(UserPreferenceReaderInterface::class);

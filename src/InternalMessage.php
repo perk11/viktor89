@@ -74,6 +74,10 @@ class InternalMessage
 
     /** @var ToolCall[] */
     public array $toolCalls = [];
+    public ?string $model = null;
+    public ?string $systemPrompt = null;
+    public ?int $personaId = null;
+    public ?string $caption = null;
     public static function fromSqliteAssoc(array $result): self
     {
         $message = new self();

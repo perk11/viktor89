@@ -1,4 +1,10 @@
+-- synchronous=NORMAL is safe in WAL mode: the DB cannot corrupt (checkpoints
+-- still fsync); only the last un-checkpointed transactions may be lost on a hard
+-- power loss. FULL (the default) fsyncs every autocommit INSERT, costing ~4ms
+-- per logged message vs ~0.04ms with NORMAL. This DB mirrors Telegram, so
+-- losing the tail on power failure is acceptable.
 PRAGMA journal_mode = wal;
+PRAGMA synchronous = NORMAL;
 CREATE TABLE IF NOT EXISTS `message` (
     `chat_id`           bigint,                       -- 'Unique chat identifier',
     `id`                bigint UNSIGNED,              -- 'Unique message identifier',
@@ -120,3 +126,14 @@ CREATE TABLE IF NOT EXISTS `context_compaction`
     `created_at`         timestamp NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_context_compaction_chat_root ON context_compaction(chat_id, root_message_id);
+
+CREATE TABLE IF NOT EXISTS `message_metadata`
+(
+    `chat_id`       bigint NOT NULL,
+    `message_id`    bigint NOT NULL,
+    `model`         text DEFAULT NULL,
+    `system_prompt` text DEFAULT NULL,
+    `persona_id`    integer DEFAULT NULL,
+    `caption`       text DEFAULT NULL,
+    PRIMARY KEY (chat_id, message_id)
+);

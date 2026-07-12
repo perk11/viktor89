@@ -164,6 +164,10 @@ class InternalMessageTest extends TestCase
         $this->assertFalse($message->removeKeyboard);
         $this->assertFalse($message->forceReply);
         $this->assertSame('Default', $message->parseMode);
+        $this->assertNull($message->model);
+        $this->assertNull($message->systemPrompt);
+        $this->assertNull($message->personaId);
+        $this->assertNull($message->caption);
     }
 
     public function testEditRetriesOnRateLimitUntilItSucceeds(): void

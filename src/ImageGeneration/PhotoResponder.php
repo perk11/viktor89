@@ -6,6 +6,8 @@ use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\CacheFileManager;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\MessageMetadata;
+use Perk11\Viktor89\Repository\MessageMetadataRepository;
 use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Util\Telegram\ReactionReplacer;
 
@@ -16,6 +18,7 @@ class PhotoResponder
         private readonly MessageRepository $messageRepository,
         private readonly CacheFileManager $cacheFileManager,
         private readonly ReactionReplacer $reactionReplacer,
+        private readonly ?MessageMetadataRepository $messageMetadataRepository = null,
     )
     {
     }
@@ -25,7 +28,7 @@ class PhotoResponder
         if ($message instanceof Message) {
             $message = InternalMessage::fromTelegramMessage($message);
         }
-        $filePrefix = mb_substr(preg_replace('/[^a-zA-Z]/', '_', $caption), 0, 50);
+        $filePrefix = mb_substr(preg_replace('/[^a-zA-Z]/', '_', $caption ?? ''), 0, 50);
         while (str_contains($filePrefix, '__')) {
             $filePrefix = str_replace('__', '_', $filePrefix);
         }
@@ -67,6 +70,17 @@ class PhotoResponder
         }
         if ($sentMessageResult->isOk() && $sentMessageResult->getResult() instanceof Message) {
             $this->messageRepository->logMessage($sentMessageResult->getResult());
+            if ($this->messageMetadataRepository !== null && $caption !== null) {
+                $sentMessage = $sentMessageResult->getResult();
+                $this->messageMetadataRepository->upsert(new MessageMetadata(
+                    $message->chatId,
+                    $sentMessage->getMessageId(),
+                    null,
+                    null,
+                    null,
+                    $caption,
+                ));
+            }
             $photos = $sentMessageResult->getResult()->getPhoto();
             if (is_array($photos)) {
                 foreach ($photos as $photo) {

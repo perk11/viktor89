@@ -38,6 +38,7 @@ class PrintHelpProcessor implements MessageChainProcessor
         '/persona' => 'Сохранённые системные промпты (персоны). Без параметров показывает кнопки для выбора персоны. <code>/persona Имя</code> применяет персону, а <code>/persona Default</code> отключает её. Промпт активной персоны добавляется перед значением /systemprompt. Персоны может использовать любой, но удалить может только создатель.',
         '/addpersona' => 'Создать новую персону. Название — на первой строке, системный промпт — на следующих. Например:\n<code>/addpersona Пират\nТы пиратский капитан. Говори морским сленгом.</code>\nНе более 5 персон на пользователя.',
         '/delpersona' => 'Удалить персону. Например: <code>/delpersona Пират</code>. Удалить может только тот, кто её создал.',
+        '/metadata' => 'Показать метаданные ответа ИИ (модель, системный промпт, персона, подпись). Используйте в ответ на сообщение бота.',
     ];
 
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
