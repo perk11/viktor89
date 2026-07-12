@@ -65,6 +65,17 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         $systemPrompt .= $this->systemPromptProcessor->getCurrentPreferenceValue($userId) ??
             "Always respond to the user in the language they use or request.\n";
 
+        // Capture metadata now, before the (slow) completion call, so that
+        // changes to the user's preferences mid-generation do not corrupt it.
+        $metadataModel = $this->modelName;
+        if ($this->systemPromptProcessor instanceof \Perk11\Viktor89\SystemPromptMetadataProviderInterface) {
+            $metadataSystemPrompt = $this->systemPromptProcessor->getBaseSystemPrompt($userId);
+            $metadataPersonaId = $this->systemPromptProcessor->getActivePersonaId($userId);
+        } else {
+            $metadataSystemPrompt = $systemPrompt;
+            $metadataPersonaId = null;
+        }
+
         $userName = trim($messageChain->last()->userName);
         if ($userName !== "") {
             $systemPrompt = "User's name is \"$userName\".\n" . $systemPrompt;
@@ -99,13 +110,9 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $message->messageText = $responseStart . trim($completion->content);
             $message->toolCalls = $completion->toolCalls;
             $message->reasoning = $completion->reasoning;
-            $message->model = $this->modelName;
-            if ($this->systemPromptProcessor instanceof \Perk11\Viktor89\SystemPromptMetadataProviderInterface) {
-                $message->systemPrompt = $this->systemPromptProcessor->getBaseSystemPrompt($userId);
-                $message->personaId = $this->systemPromptProcessor->getActivePersonaId($userId);
-            } else {
-                $message->systemPrompt = $systemPrompt;
-            }
+            $message->model = $metadataModel;
+            $message->systemPrompt = $metadataSystemPrompt;
+            $message->personaId = $metadataPersonaId;
 
             if ($message->reasoning !== null) {
                 $isPrivateChat = $lastMessage->chatId > 0;

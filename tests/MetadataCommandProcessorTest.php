@@ -58,6 +58,16 @@ class MetadataCommandProcessorTest extends TestCase
         return new \Perk11\Viktor89\MessageChain([$replied, $command]);
     }
 
+    private function buildChainWithoutReply(): \Perk11\Viktor89\MessageChain
+    {
+        $command = new InternalMessage();
+        $command->id = 999;
+        $command->chatId = 100;
+        $command->messageText = '/metadata';
+
+        return new \Perk11\Viktor89\MessageChain([$command]);
+    }
+
     public function testImplementsMessageChainProcessor(): void
     {
         $this->assertTrue(
@@ -69,6 +79,16 @@ class MetadataCommandProcessorTest extends TestCase
     public function testGetTriggeringCommands(): void
     {
         $this->assertSame(['/metadata'], $this->processor->getTriggeringCommands());
+    }
+
+    public function testShowsExplanationWhenNotUsedAsReply(): void
+    {
+        $callback = $this->createStub(\Perk11\Viktor89\IPC\ProgressUpdateCallback::class);
+        $result = $this->processor->processMessageChain($this->buildChainWithoutReply(), $callback);
+
+        $this->assertTrue($result->abortProcessing);
+        $this->assertNotNull($result->response);
+        $this->assertStringContainsString('ответ', $result->response->messageText);
     }
 
     public function testShowsMessageWhenNoMetadata(): void

@@ -19,15 +19,20 @@ class MetadataCommandProcessor implements MessageChainProcessor, GetTriggeringCo
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $lastMessage = $messageChain->last();
-        $replyTarget = $messageChain->previous() ?? $lastMessage;
+
+        $response = InternalMessage::asResponseTo($lastMessage);
+        $response->parseMode = 'HTML';
+
+        $replyTarget = $messageChain->previous();
+        if ($replyTarget === null) {
+            $response->messageText = 'Используйте эту команду в ответ на сообщение, метаданные которого вы хотите посмотреть.';
+            return new ProcessingResult($response, true);
+        }
 
         $metadata = $this->messageMetadataRepository->findByMessageIdInChat(
             $replyTarget->id,
             $replyTarget->chatId,
         );
-
-        $response = InternalMessage::asResponseTo($lastMessage);
-        $response->parseMode = 'HTML';
 
         if ($metadata === null || !$metadata->hasAny()) {
             $response->messageText = 'Нет сохранённых метаданных для этого сообщения.';
