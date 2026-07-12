@@ -36,10 +36,10 @@ class MessageMetadataRepositoryTest extends TestCase
         $this->assertNull($this->repository->findByMessageIdInChat(1, 100));
     }
 
-    public function testUpsertAndFind(): void
+    public function testInsertAndFind(): void
     {
         $metadata = new MessageMetadata(100, 1, 'gpt-4o', 'Be helpful', 7, 'A cute cat');
-        $this->repository->upsert($metadata);
+        $this->repository->insert($metadata);
 
         $loaded = $this->repository->findByMessageIdInChat(1, 100);
         $this->assertNotNull($loaded);
@@ -52,14 +52,17 @@ class MessageMetadataRepositoryTest extends TestCase
         $this->assertTrue($loaded->hasAny());
     }
 
-    public function testUpsertOverwritesExisting(): void
+    public function testInsertingSameMessageTwiceFails(): void
     {
-        $this->repository->upsert(new MessageMetadata(100, 1, 'old-model'));
-        $this->repository->upsert(new MessageMetadata(100, 1, 'new-model'));
+        $this->assertTrue($this->repository->insert(new MessageMetadata(100, 1, 'old-model')));
 
+        // Second insert on the same (chat_id, message_id) primary key fails.
+        @$this->assertFalse($this->repository->insert(new MessageMetadata(100, 1, 'new-model')));
+
+        // The original value is preserved.
         $loaded = $this->repository->findByMessageIdInChat(1, 100);
         $this->assertNotNull($loaded);
-        $this->assertSame('new-model', $loaded->model);
+        $this->assertSame('old-model', $loaded->model);
     }
 
     public function testHasAnyIsFalseWhenAllNull(): void
@@ -70,8 +73,8 @@ class MessageMetadataRepositoryTest extends TestCase
 
     public function testMetadataIsScopedToChat(): void
     {
-        $this->repository->upsert(new MessageMetadata(100, 1, 'model-a'));
-        $this->repository->upsert(new MessageMetadata(200, 1, 'model-b'));
+        $this->repository->insert(new MessageMetadata(100, 1, 'model-a'));
+        $this->repository->insert(new MessageMetadata(200, 1, 'model-b'));
 
         $this->assertSame('model-a', $this->repository->findByMessageIdInChat(1, 100)->model);
         $this->assertSame('model-b', $this->repository->findByMessageIdInChat(1, 200)->model);

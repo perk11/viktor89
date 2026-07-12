@@ -85,7 +85,7 @@ class ProcessingResultExecutor
         if ($response->model === null && $response->systemPrompt === null && $response->personaId === null && $response->caption === null) {
             return;
         }
-        $this->messageMetadataRepository->upsert(new MessageMetadata(
+        $this->messageMetadataRepository->insert(new MessageMetadata(
             $response->chatId,
             $response->id,
             $response->model,

@@ -8,36 +8,33 @@ use SQLite3Stmt;
 
 class MessageMetadataRepository
 {
-    private SQLite3Stmt $upsertStatement;
+    private SQLite3Stmt $insertStatement;
     private SQLite3Stmt $selectStatement;
 
     public function __construct(private readonly Database $database)
     {
         $sqlite = $this->database->sqlite3Database;
-        $this->upsertStatement = $sqlite->prepare(
+        $this->insertStatement = $sqlite->prepare(
             'INSERT INTO message_metadata (chat_id, message_id, model, system_prompt, persona_id, caption)
-             VALUES (:chat_id, :message_id, :model, :system_prompt, :persona_id, :caption)
-             ON CONFLICT(chat_id, message_id) DO UPDATE SET
-                 model = :model,
-                 system_prompt = :system_prompt,
-                 persona_id = :persona_id,
-                 caption = :caption'
+             VALUES (:chat_id, :message_id, :model, :system_prompt, :persona_id, :caption)'
         );
         $this->selectStatement = $sqlite->prepare(
             'SELECT * FROM message_metadata WHERE chat_id = :chat_id AND message_id = :message_id'
         );
     }
 
-    public function upsert(MessageMetadata $metadata): void
+    public function insert(MessageMetadata $metadata): bool
     {
-        $this->upsertStatement->bindValue(':chat_id', $metadata->chatId);
-        $this->upsertStatement->bindValue(':message_id', $metadata->messageId);
-        $this->upsertStatement->bindValue(':model', $metadata->model);
-        $this->upsertStatement->bindValue(':system_prompt', $metadata->systemPrompt);
-        $this->upsertStatement->bindValue(':persona_id', $metadata->personaId, SQLITE3_INTEGER);
-        $this->upsertStatement->bindValue(':caption', $metadata->caption);
-        $this->upsertStatement->execute();
-        $this->upsertStatement->reset();
+        $this->insertStatement->bindValue(':chat_id', $metadata->chatId);
+        $this->insertStatement->bindValue(':message_id', $metadata->messageId);
+        $this->insertStatement->bindValue(':model', $metadata->model);
+        $this->insertStatement->bindValue(':system_prompt', $metadata->systemPrompt);
+        $this->insertStatement->bindValue(':persona_id', $metadata->personaId, SQLITE3_INTEGER);
+        $this->insertStatement->bindValue(':caption', $metadata->caption);
+        $success = $this->insertStatement->execute();
+        $this->insertStatement->reset();
+
+        return $success !== false;
     }
 
     public function findByMessageIdInChat(int $messageId, int $chatId): ?MessageMetadata

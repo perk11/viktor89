@@ -11,3 +11,4 @@ train/train-telegram7.py
 unusedmodels.jsonc
 .phpunit.cache
 .idea/
+__pycache__/

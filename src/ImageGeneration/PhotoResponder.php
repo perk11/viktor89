@@ -72,7 +72,7 @@ class PhotoResponder
             $this->messageRepository->logMessage($sentMessageResult->getResult());
             if ($this->messageMetadataRepository !== null && $caption !== null) {
                 $sentMessage = $sentMessageResult->getResult();
-                $this->messageMetadataRepository->upsert(new MessageMetadata(
+                $this->messageMetadataRepository->insert(new MessageMetadata(
                     $message->chatId,
                     $sentMessage->getMessageId(),
                     null,

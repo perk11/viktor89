@@ -103,7 +103,7 @@ class MetadataCommandProcessorTest extends TestCase
 
     public function testDisplaysModelSystemPromptCaptionWithoutPersona(): void
     {
-        $this->repository->upsert(new MessageMetadata(
+        $this->repository->insert(new MessageMetadata(
             100,
             5,
             'gpt-4o',
@@ -129,7 +129,7 @@ class MetadataCommandProcessorTest extends TestCase
         $this->personaRepository->addPersona('Pirate', 'You are a pirate.', 999, 'Bob');
         $personaId = $this->personaRepository->findPersonaByName('Pirate')->id;
 
-        $this->repository->upsert(new MessageMetadata(
+        $this->repository->insert(new MessageMetadata(
             100,
             5,
             'gpt-4o',
@@ -150,7 +150,7 @@ class MetadataCommandProcessorTest extends TestCase
 
     public function testShowsDeletedForMissingPersona(): void
     {
-        $this->repository->upsert(new MessageMetadata(
+        $this->repository->insert(new MessageMetadata(
             100,
             5,
             'gpt-4o',
@@ -167,7 +167,7 @@ class MetadataCommandProcessorTest extends TestCase
 
     public function testHtmlEscapesSystemPrompt(): void
     {
-        $this->repository->upsert(new MessageMetadata(
+        $this->repository->insert(new MessageMetadata(
             100,
             5,
             'gpt-4o',
