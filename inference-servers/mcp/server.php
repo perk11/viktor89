@@ -52,10 +52,8 @@ function parameterDefinitions(): array
         'prompt' => ['type' => 'string', 'description' => 'Text prompt describing what to generate.'],
         'negative_prompt' => ['type' => 'string', 'description' => 'Negative prompt: concepts to avoid in the output.'],
         'seed' => ['type' => 'integer', 'description' => 'Random seed. Omit or use 0 for a random seed.'],
-        'steps' => ['type' => 'integer', 'description' => 'Number of inference / sampling steps.'],
         'width' => ['type' => 'integer', 'description' => 'Output width in pixels.'],
         'height' => ['type' => 'integer', 'description' => 'Output height in pixels.'],
-        'model' => ['type' => 'string', 'description' => 'Model checkpoint name understood by the target server. Overrides the configured default.'],
         'cfg_scale' => ['type' => 'number', 'description' => 'Classifier-free guidance scale.'],
         'guidance_scale' => ['type' => 'number', 'description' => 'Guidance scale (alias of cfg_scale on some servers).'],
         'num_frames' => ['type' => 'integer', 'description' => 'Number of frames to generate (video).'],
@@ -138,6 +136,21 @@ function buildInputSchema(array $tool, string $endpointType): array
         $properties[$name] = $prop;
     }
 
+    foreach (['width', 'height'] as $dim) {
+        if (isset($properties[$dim]) && is_array($tool['sizeConstraints'][$dim] ?? null)) {
+            $c = $tool['sizeConstraints'][$dim];
+            if (isset($c['min'])) {
+                $properties[$dim]['minimum'] = $c['min'];
+            }
+            if (isset($c['max'])) {
+                $properties[$dim]['maximum'] = $c['max'];
+            }
+            if (isset($c['multipleOf'])) {
+                $properties[$dim]['multipleOf'] = $c['multipleOf'];
+            }
+        }
+    }
+
     $required = $tool['required'] ?? defaultRequiredParameters($endpointType);
 
     return [
@@ -145,6 +158,40 @@ function buildInputSchema(array $tool, string $endpointType): array
         'properties' => $properties,
         'required' => $required,
     ];
+}
+
+/**
+ * Validate user-supplied width/height against a tool's declared sizeConstraints.
+ * Returns null on success or an error message describing the first violation.
+ *
+ * @param array<string, mixed> $tool
+ * @param array<string, mixed> $args
+ */
+function validateSizeConstraints(array $tool, array $args): ?string
+{
+    $constraints = $tool['sizeConstraints'] ?? [];
+    if (!is_array($constraints) || $constraints === []) {
+        return null;
+    }
+
+    foreach (['width', 'height'] as $dim) {
+        if (!isset($args[$dim]) || !is_array($constraints[$dim] ?? null)) {
+            continue;
+        }
+        $val = (int) $args[$dim];
+        $c = $constraints[$dim];
+        if (isset($c['min']) && $val < (int) $c['min']) {
+            return ucfirst($dim) . " must be at least {$c['min']}px for this model.";
+        }
+        if (isset($c['max']) && $val > (int) $c['max']) {
+            return ucfirst($dim) . " must be at most {$c['max']}px for this model.";
+        }
+        if (isset($c['multipleOf']) && $val % (int) $c['multipleOf'] !== 0) {
+            return ucfirst($dim) . " must be a multiple of {$c['multipleOf']}px for this model.";
+        }
+    }
+
+    return null;
 }
 
 /**
@@ -181,10 +228,8 @@ function makeToolHandler(array $tool, array $endpoint, InferenceHttpClient $http
         ?string $prompt = null,
         ?string $negative_prompt = null,
         ?int $seed = null,
-        ?int $steps = null,
         ?int $width = null,
         ?int $height = null,
-        ?string $model = null,
         ?float $cfg_scale = null,
         ?float $guidance_scale = null,
         ?int $num_frames = null,
@@ -205,10 +250,8 @@ function makeToolHandler(array $tool, array $endpoint, InferenceHttpClient $http
             'prompt' => $prompt,
             'negative_prompt' => $negative_prompt,
             'seed' => $seed,
-            'steps' => $steps,
             'width' => $width,
             'height' => $height,
-            'model' => $model,
             'cfg_scale' => $cfg_scale,
             'guidance_scale' => $guidance_scale,
             'num_frames' => $num_frames,
@@ -239,6 +282,11 @@ function makeToolHandler(array $tool, array $endpoint, InferenceHttpClient $http
  */
 function executeInference(array $tool, array $endpoint, array $args, InferenceHttpClient $httpClient): CallToolResult
 {
+    $sizeError = validateSizeConstraints($tool, $args);
+    if ($sizeError !== null) {
+        return CallToolResult::error([new TextContent($sizeError)]);
+    }
+
     $body = $tool['defaults'] ?? [];
     if (isset($tool['model']) && is_string($tool['model'])) {
         $body['model'] = $tool['model'];

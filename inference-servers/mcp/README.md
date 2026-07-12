@@ -13,7 +13,7 @@ package already in `composer.json`.
 | File | Purpose |
 |---|---|
 | `server.php` | The MCP server. Loads the config, registers one tool per model, runs over stdio. |
-| `mcp-config.json` | Endpoint + model/tool definitions (see below). |
+| `mcp-config.example.json` | Endpoint + model/tool definitions (see below). Copy to `mcp-config.json` and edit. |
 
 ## Supported endpoints
 
@@ -23,7 +23,7 @@ The server speaks the same HTTP contract the rest of the project already uses (s
 
 | Endpoint type | HTTP path | Request body | Response body |
 |---|---|---|---|
-| `txt2img` | `POST /sdapi/v1/txt2img` | `{prompt, negative_prompt, seed, steps, width, height, model, ...}` | `{images: [base64], info: "<json string with infotexts>"}` |
+| `txt2img` | `POST /sdapi/v1/txt2img` | `{prompt, negative_prompt, seed, width, height, ...}` | `{images: [base64], info: "<json string with infotexts>"}` |
 | `img2img` | `POST /sdapi/v1/img2img` | same + `init_images: [base64]` | `{images: [base64], info}` |
 | `txt2vid` | `POST /txt2vid` | `{prompt, negative_prompt, seed, steps, num_frames, width, height, cfg_scale, ...}` | `{videos: [base64], info}` |
 | `img2vid` | `POST /img2vid` | same + `init_images: [base64]` | `{videos: [base64], info}` |
@@ -60,7 +60,13 @@ If the inference server returns an `error` field or a non-2xx status, the result
 `isError: true` and the error message as text (per the MCP spec, tool-level errors are reported in the
 result, not as a protocol error, so the model can self-correct).
 
-## Configuration (`mcp-config.json`)
+## Configuration (`mcp-config.example.json` → `mcp-config.json`)
+
+Copy the example and edit it for your setup (the real `mcp-config.json` is gitignored):
+
+```bash
+cp inference-servers/mcp/mcp-config.example.json inference-servers/mcp/mcp-config.json
+```
 
 The config has three sections:
 
@@ -74,13 +80,17 @@ The config has three sections:
 
 ```jsonc
 {
-  "tool": "generate_image_flux2",
+  "tool": "generate_image_flux2_dev_fp8",
   "endpoint": "txt2img",
   "url": "http://localhost:8136",
   "model": "flux2_dev_fp8",
   "description": "Generate an image from a text prompt using Flux2.",
   "defaults": { "width": 1024, "height": 1024, "steps": 20 },
-  "parameters": ["prompt", "negative_prompt", "seed", "steps", "width", "height"],
+  "sizeConstraints": {
+    "width":  { "min": 256, "max": 2048, "multipleOf": 16 },
+    "height": { "min": 256, "max": 2048, "multipleOf": 16 }
+  },
+  "parameters": ["prompt", "negative_prompt", "seed", "width", "height"],
   "required": ["prompt"]
 }
 ```
@@ -90,6 +100,18 @@ tool name exposed to clients. Parameter names reference a built-in registry in `
 (`parameterDefinitions()`); an entry's `parameters` list selects which subset the tool advertises. If
 `required` is omitted, sensible defaults are derived from the endpoint type (`prompt` for txt2img/txt2vid,
 `prompt`+`init_image` for img2img/img2vid, `prompt`+`language` for txt2voice).
+
+**`model` and `steps` are never user-configurable.** They are always taken from the tool's `defaults` /
+`model` fields so the configured checkpoint and sampling settings are used verbatim. A tool's
+`parameters` list must not include them (and the built-in registry no longer defines them).
+
+**Width / height validation.** Tools that expose `width`/`height` declare a `sizeConstraints` object with
+per-dimension `min`, `max`, and `multipleOf`. The constraints are injected into the tool's JSON Schema
+(as `minimum`, `maximum`, `multipleOf`, validated by the SDK's schema validator) and also checked in
+`executeInference()` before the HTTP request is made, so an out-of-range value is rejected with a clear
+error message rather than producing a broken image. Constraints are model-specific (e.g. SD 1.5:
+128–1024 multiple-of-8; LTX-2 video: 256–1280 multiple-of-64; Flux/wan2.2 image: up to 2048/2880
+multiple-of-16).
 
 ## Running
 

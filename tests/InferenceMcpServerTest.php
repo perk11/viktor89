@@ -17,7 +17,7 @@ use Psr\Log\NullLogger;
 class InferenceMcpServerTest extends TestCase
 {
     private const SERVER_PATH = __DIR__ . '/../inference-servers/mcp/server.php';
-    private const CONFIG_PATH = __DIR__ . '/../inference-servers/mcp/mcp-config.json';
+    private const CONFIG_PATH = __DIR__ . '/../inference-servers/mcp/mcp-config.example.json';
 
     private const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
@@ -67,11 +67,14 @@ class InferenceMcpServerTest extends TestCase
     public function testParameterDefinitionsContainsCoreParams(): void
     {
         $defs = parameterDefinitions();
-        foreach (['prompt', 'negative_prompt', 'seed', 'steps', 'width', 'height', 'model',
+        foreach (['prompt', 'negative_prompt', 'seed', 'width', 'height',
                      'cfg_scale', 'num_frames', 'frames', 'init_image', 'language', 'speaker_id',
                      'source_voice', 'source_voice_format', 'speed', 'loras'] as $name) {
             $this->assertArrayHasKey($name, $defs, "Missing parameter definition: $name");
         }
+        // 'model' and 'steps' are no longer user-configurable: always use the configured defaults.
+        $this->assertArrayNotHasKey('model', $defs);
+        $this->assertArrayNotHasKey('steps', $defs);
         $this->assertSame('integer', $defs['seed']['type']);
         $this->assertSame('number', $defs['speed']['type']);
         $this->assertSame('boolean', $defs['enhance_prompt']['type'] ?? null);
@@ -118,6 +121,109 @@ class InferenceMcpServerTest extends TestCase
         $this->assertSame(['wav', 'ogg', 'mp3'], $schema['properties']['source_voice_format']['enum']);
     }
 
+    public function testBuildInputSchemaAppliesSizeConstraints(): void
+    {
+        $tool = [
+            'parameters' => ['prompt', 'width', 'height'],
+            'sizeConstraints' => [
+                'width' => ['min' => 256, 'max' => 2048, 'multipleOf' => 16],
+                'height' => ['min' => 256, 'max' => 2048, 'multipleOf' => 16],
+            ],
+        ];
+        $schema = buildInputSchema($tool, 'txt2img');
+        $this->assertSame(256, $schema['properties']['width']['minimum']);
+        $this->assertSame(2048, $schema['properties']['width']['maximum']);
+        $this->assertSame(16, $schema['properties']['width']['multipleOf']);
+        $this->assertSame(256, $schema['properties']['height']['minimum']);
+    }
+
+    public function testBuildInputSchemaOmitsSizeConstraintsWhenAbsent(): void
+    {
+        $tool = ['parameters' => ['prompt', 'width', 'height']];
+        $schema = buildInputSchema($tool, 'txt2img');
+        $this->assertArrayNotHasKey('minimum', $schema['properties']['width']);
+        $this->assertArrayNotHasKey('maximum', $schema['properties']['height']);
+    }
+
+    public function testValidateSizeConstraintsReturnsNullWhenValid(): void
+    {
+        $tool = ['sizeConstraints' => [
+            'width' => ['min' => 256, 'max' => 2048, 'multipleOf' => 16],
+            'height' => ['min' => 256, 'max' => 2048, 'multipleOf' => 16],
+        ]];
+        $this->assertNull(validateSizeConstraints($tool, ['width' => 1024, 'height' => 1024]));
+    }
+
+    public function testValidateSizeConstraintsRejectsTooSmall(): void
+    {
+        $tool = ['sizeConstraints' => [
+            'width' => ['min' => 256, 'max' => 2048, 'multipleOf' => 16],
+            'height' => ['min' => 256, 'max' => 2048, 'multipleOf' => 16],
+        ]];
+        $err = validateSizeConstraints($tool, ['width' => 128, 'height' => 1024]);
+        $this->assertNotNull($err);
+        $this->assertStringContainsString('at least 256px', $err);
+    }
+
+    public function testValidateSizeConstraintsRejectsTooLarge(): void
+    {
+        $tool = ['sizeConstraints' => [
+            'width' => ['min' => 128, 'max' => 1024, 'multipleOf' => 8],
+            'height' => ['min' => 128, 'max' => 1024, 'multipleOf' => 8],
+        ]];
+        $err = validateSizeConstraints($tool, ['width' => 1024, 'height' => 2048]);
+        $this->assertNotNull($err);
+        $this->assertStringContainsString('at most 1024px', $err);
+    }
+
+    public function testValidateSizeConstraintsRejectsNonMultiple(): void
+    {
+        $tool = ['sizeConstraints' => [
+            'width' => ['min' => 64, 'max' => 1280, 'multipleOf' => 64],
+            'height' => ['min' => 64, 'max' => 1280, 'multipleOf' => 64],
+        ]];
+        $err = validateSizeConstraints($tool, ['width' => 768, 'height' => 500]);
+        $this->assertNotNull($err);
+        $this->assertStringContainsString('multiple of 64', $err);
+    }
+
+    public function testValidateSizeConstraintsSkipsWhenNoConstraints(): void
+    {
+        $this->assertNull(validateSizeConstraints([], ['width' => 99, 'height' => 99]));
+        $this->assertNull(validateSizeConstraints(['sizeConstraints' => []], ['width' => 99]));
+    }
+
+    public function testExecuteInferenceRejectsInvalidSizeBeforeRequest(): void
+    {
+        [$tool, $endpoint] = $this->toolAndEndpoint('generate_video_model_a', $this->ensureMockServer());
+        // LTX-2 requires multiples of 64; 500 is not a valid height.
+        $result = executeInference($tool, $endpoint, ['prompt' => 'x', 'width' => 768, 'height' => 500], $this->httpClient());
+        $this->assertTrue($result->isError);
+        $this->assertStringContainsString('multiple of 64', $result->content[0]->text);
+    }
+
+    public function testConfigAdvertisesNoStepsOrModelParameter(): void
+    {
+        $config = json_decode((string) file_get_contents(self::CONFIG_PATH), true, 512, JSON_THROW_ON_ERROR);
+        foreach ($config['models'] as $model) {
+            $params = $model['parameters'] ?? [];
+            $this->assertNotContains('steps', $params, "Tool {$model['tool']} advertises 'steps'");
+            $this->assertNotContains('model', $params, "Tool {$model['tool']} advertises 'model'");
+        }
+    }
+
+    public function testConfigImageModelsHaveSizeConstraints(): void
+    {
+        $config = json_decode((string) file_get_contents(self::CONFIG_PATH), true, 512, JSON_THROW_ON_ERROR);
+        foreach ($config['models'] as $model) {
+            $params = $model['parameters'] ?? [];
+            if (!in_array('width', $params, true) && !in_array('height', $params, true)) {
+                continue;
+            }
+            $this->assertArrayHasKey('sizeConstraints', $model, "Tool {$model['tool']} exposes width/height but has no sizeConstraints");
+        }
+    }
+
     public function testBuildToolDescriptionMentionsBase64AndMime(): void
     {
         $endpoint = ['response' => ['media' => 'image', 'mimeType' => 'image/png']];
@@ -162,7 +268,7 @@ class InferenceMcpServerTest extends TestCase
 
     public function testBuildSuccessResultForImageReturnsImageContentAndBase64Note(): void
     {
-        $tool = ['tool' => 'generate_image_flux2'];
+        $tool = ['tool' => 'generate_image_model_a'];
         $shape = ['media' => 'image', 'mimeType' => 'image/png'];
         $result = buildSuccessResult($tool, $shape, self::PNG_BASE64, 'a red cat');
         $this->assertFalse($result->isError);
@@ -187,12 +293,12 @@ class InferenceMcpServerTest extends TestCase
     public function testBuildSuccessResultForVideoReturnsEmbeddedBlob(): void
     {
         $shape = ['media' => 'video', 'mimeType' => 'video/mp4'];
-        $result = buildSuccessResult(['tool' => 'generate_video_ltx2'], $shape, 'AAAA', 'a vid');
+        $result = buildSuccessResult(['tool' => 'generate_video_model_a'], $shape, 'AAAA', 'a vid');
         $resource = $result->content[0];
         $this->assertSame('resource', $resource->type);
         $this->assertSame('video/mp4', $resource->resource->mimeType);
         $this->assertSame('AAAA', $resource->resource->blob);
-        $this->assertStringContainsString('resource://generate_video_ltx2/output', $resource->resource->uri);
+        $this->assertStringContainsString('resource://generate_video_model_a/output', $resource->resource->uri);
         $this->assertStringContainsString('base64-encoded video string', $result->content[1]->text);
     }
 
@@ -216,7 +322,7 @@ class InferenceMcpServerTest extends TestCase
 
     public function testExecuteInferenceImage(): void
     {
-        [$tool, $endpoint] = $this->toolAndEndpoint('generate_image_flux2', $this->ensureMockServer());
+        [$tool, $endpoint] = $this->toolAndEndpoint('generate_image_model_a', $this->ensureMockServer());
         $result = executeInference($tool, $endpoint, ['prompt' => 'a red cat'], $this->httpClient());
         $this->assertFalse($result->isError);
         $this->assertSame('image', $result->content[0]->type);
@@ -226,7 +332,7 @@ class InferenceMcpServerTest extends TestCase
 
     public function testExecuteInferenceVideo(): void
     {
-        [$tool, $endpoint] = $this->toolAndEndpoint('generate_video_ltx2', $this->ensureMockServer());
+        [$tool, $endpoint] = $this->toolAndEndpoint('generate_video_model_a', $this->ensureMockServer());
         $result = executeInference($tool, $endpoint, ['prompt' => 'a running cat'], $this->httpClient());
         $this->assertFalse($result->isError);
         $this->assertSame('resource', $result->content[0]->type);
@@ -235,7 +341,7 @@ class InferenceMcpServerTest extends TestCase
 
     public function testExecuteInferenceVoice(): void
     {
-        [$tool, $endpoint] = $this->toolAndEndpoint('generate_voice_xtts', $this->ensureMockServer());
+        [$tool, $endpoint] = $this->toolAndEndpoint('generate_voice_model_a', $this->ensureMockServer());
         $result = executeInference($tool, $endpoint, ['prompt' => 'hello', 'language' => 'en'], $this->httpClient());
         $this->assertFalse($result->isError);
         $this->assertSame('audio', $result->content[0]->type);
@@ -245,7 +351,7 @@ class InferenceMcpServerTest extends TestCase
 
     public function testExecuteInferenceErrorReturnsIsError(): void
     {
-        [$tool, $endpoint] = $this->toolAndEndpoint('generate_image_flux2', $this->ensureMockServer());
+        [$tool, $endpoint] = $this->toolAndEndpoint('generate_image_model_a', $this->ensureMockServer());
         $result = executeInference($tool, $endpoint, ['prompt' => 'FAIL'], $this->httpClient());
         $this->assertTrue($result->isError);
         $this->assertStringContainsString('mock failure requested', $result->content[0]->text);
@@ -254,7 +360,7 @@ class InferenceMcpServerTest extends TestCase
     public function testExecuteInferenceConnectionError(): void
     {
         // Point at a port with nothing listening.
-        [$tool, $endpoint] = $this->toolAndEndpoint('generate_image_flux2', 'http://127.0.0.1:' . $this->freePort());
+        [$tool, $endpoint] = $this->toolAndEndpoint('generate_image_model_a', 'http://127.0.0.1:' . $this->freePort());
         $result = executeInference($tool, $endpoint, ['prompt' => 'x'], $this->httpClient());
         $this->assertTrue($result->isError);
         $this->assertStringContainsString('HTTP request to', $result->content[0]->text);
@@ -262,7 +368,7 @@ class InferenceMcpServerTest extends TestCase
 
     public function testExecuteInferenceInitImageRemappedToInitImages(): void
     {
-        [$tool, $endpoint] = $this->toolAndEndpoint('edit_image_flux_kontext', $this->ensureMockServer());
+        [$tool, $endpoint] = $this->toolAndEndpoint('edit_image_model_a', $this->ensureMockServer());
         $result = executeInference(
             $tool,
             $endpoint,
@@ -293,11 +399,28 @@ class InferenceMcpServerTest extends TestCase
         $this->assertNotNull($init);
         $this->assertSame('viktor89-inference', $init['result']['serverInfo']['name']);
 
-        $list = $this->findById($responses, 2);
-        $this->assertNotNull($list);
-        $toolNames = array_column($list['result']['tools'], 'name');
-        $this->assertContains('generate_image_flux2', $toolNames);
-        $this->assertContains('generate_voice_xtts', $toolNames);
+        // The SDK paginates tools/list (50 per page); follow the cursor to collect all.
+        $toolNames = [];
+        $cursor = null;
+        $listId = 2;
+        do {
+            $params = $cursor !== null ? ['cursor' => $cursor] : new \stdClass();
+            $paged = $this->runStdio($config, [
+                ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize', 'params' => $this->initializeParams()],
+                ['jsonrpc' => '2.0', 'method' => 'notifications/initialized'],
+                ['jsonrpc' => '2.0', 'id' => $listId, 'method' => 'tools/list', 'params' => $params],
+            ]);
+            $page = $this->findById($paged, $listId);
+            $this->assertNotNull($page, "tools/list page with cursor={$cursor}");
+            foreach (array_column($page['result']['tools'], 'name') as $name) {
+                $toolNames[] = $name;
+            }
+            $cursor = $page['result']['nextCursor'] ?? null;
+            $listId++;
+        } while ($cursor !== null);
+
+        $this->assertContains('generate_image_model_a', $toolNames);
+        $this->assertContains('generate_voice_model_a', $toolNames);
     }
 
     public function testStdioTransportToolCallReturnsImage(): void
@@ -307,7 +430,7 @@ class InferenceMcpServerTest extends TestCase
             ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize', 'params' => $this->initializeParams()],
             ['jsonrpc' => '2.0', 'method' => 'notifications/initialized'],
             ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/call', 'params' => [
-                'name' => 'generate_image_flux2',
+                'name' => 'generate_image_model_a',
                 'arguments' => ['prompt' => 'a red cat'],
             ]],
         ]);
@@ -348,7 +471,7 @@ class InferenceMcpServerTest extends TestCase
         // 3) tools/call with the session id -> image content
         $callResp = createHttpResponse($config, $this->postRequest(
             ['jsonrpc' => '2.0', 'id' => 3, 'method' => 'tools/call', 'params' => [
-                'name' => 'generate_image_flux2',
+                'name' => 'generate_image_model_a',
                 'arguments' => ['prompt' => 'a red cat'],
             ]],
             $sessionId,

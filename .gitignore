@@ -1,6 +1,7 @@
 /vendor/
 .env
 config.json
+inference-servers/mcp/mcp-config.json
 spoiler_words.txt
 /data/
 train/outputs

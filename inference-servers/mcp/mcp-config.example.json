@@ -1,0 +1,189 @@
+{
+  "server": {
+    "name": "viktor89-inference",
+    "version": "1.0.0",
+    "instructions": "Translate MCP tool calls to the project's Python inference servers (FastAPI/Flask). Each tool calls one HTTP endpoint and returns the generated media base64-encoded. Image results are returned as MCP image content (base64 PNG), audio as MCP audio content (base64 OGG/Opus), video as an embedded blob resource (base64 MP4). A text note accompanying every result states that the media is a base64-encoded string and gives its MIME type."
+  },
+  "http": {
+    "timeoutSeconds": 600,
+    "connectTimeoutSeconds": 30
+  },
+  "endpoints": {
+    "txt2img": {
+      "method": "POST",
+      "path": "/sdapi/v1/txt2img",
+      "response": {
+        "media": "image",
+        "field": "images",
+        "mimeType": "image/png",
+        "infoField": "info",
+        "infoIsJsonString": true,
+        "captionField": "infotexts"
+      }
+    },
+    "img2img": {
+      "method": "POST",
+      "path": "/sdapi/v1/img2img",
+      "response": {
+        "media": "image",
+        "field": "images",
+        "mimeType": "image/png",
+        "infoField": "info",
+        "infoIsJsonString": true,
+        "captionField": "infotexts"
+      }
+    },
+    "txt2vid": {
+      "method": "POST",
+      "path": "/txt2vid",
+      "response": {
+        "media": "video",
+        "field": "videos",
+        "mimeType": "video/mp4",
+        "infoField": "info",
+        "infoIsJsonString": true,
+        "captionField": "infotexts"
+      }
+    },
+    "img2vid": {
+      "method": "POST",
+      "path": "/img2vid",
+      "response": {
+        "media": "video",
+        "field": "videos",
+        "mimeType": "video/mp4",
+        "infoField": "info",
+        "infoIsJsonString": true,
+        "captionField": "infotexts"
+      }
+    },
+    "txt2voice": {
+      "method": "POST",
+      "path": "/txt2voice",
+      "response": {
+        "media": "audio",
+        "field": "voice_data",
+        "mimeType": "audio/ogg",
+        "infoField": "info",
+        "infoIsJsonString": false,
+        "captionField": null
+      }
+    }
+  },
+  "models": [
+    {
+      "tool": "generate_image_model_a",
+      "endpoint": "txt2img",
+      "url": "http://localhost:8100",
+      "model": "diffusion-model-a",
+      "title": "Model A text-to-image",
+      "description": "Generate an image from a text prompt using Model A.",
+      "defaults": { "model": "diffusion-model-a", "steps": 20 },
+      "sizeConstraints": {
+        "width": { "min": 256, "max": 2048, "multipleOf": 16 },
+        "height": { "min": 256, "max": 2048, "multipleOf": 16 }
+      },
+      "parameters": ["prompt", "negative_prompt", "seed", "width", "height"],
+      "required": ["prompt"]
+    },
+    {
+      "tool": "generate_image_model_b",
+      "endpoint": "txt2img",
+      "url": "http://localhost:8101",
+      "title": "Model B text-to-image",
+      "description": "Generate an image from a text prompt using Model B. Width/height are not exposed: the server uses its own fixed resolution.",
+      "defaults": { "width": 1024, "height": 1024, "steps": 28 },
+      "parameters": ["prompt", "negative_prompt", "seed"],
+      "required": ["prompt"]
+    },
+    {
+      "tool": "edit_image_model_a",
+      "endpoint": "img2img",
+      "url": "http://localhost:8100",
+      "model": "edit-model-a",
+      "title": "Model A image edit",
+      "description": "Edit a source image according to a prompt using Model A. Pass the source image as init_image (base64). Supports user-controlled width/height.",
+      "defaults": { "model": "edit-model-a", "steps": 20 },
+      "sizeConstraints": {
+        "width": { "min": 256, "max": 2048, "multipleOf": 16 },
+        "height": { "min": 256, "max": 2048, "multipleOf": 16 }
+      },
+      "parameters": ["prompt", "init_image", "seed", "width", "height"],
+      "required": ["prompt", "init_image"]
+    },
+    {
+      "tool": "edit_image_model_b",
+      "endpoint": "img2img",
+      "url": "http://localhost:8101",
+      "model": "edit-model-b",
+      "title": "Model B image edit",
+      "description": "Edit a source image according to a prompt using Model B. Pass the source image as init_image (base64). The output resolution is derived from the input image.",
+      "defaults": { "model": "edit-model-b", "steps": 20 },
+      "parameters": ["prompt", "init_image", "seed"],
+      "required": ["prompt", "init_image"]
+    },
+    {
+      "tool": "generate_video_model_a",
+      "endpoint": "txt2vid",
+      "url": "http://localhost:8200",
+      "model": "video-model-a",
+      "title": "Model A text-to-video",
+      "description": "Generate a short video from a text prompt using Model A.",
+      "defaults": { "model": "video-model-a", "steps": 20 },
+      "sizeConstraints": {
+        "width": { "min": 256, "max": 1280, "multipleOf": 64 },
+        "height": { "min": 256, "max": 1280, "multipleOf": 64 }
+      },
+      "parameters": ["prompt", "negative_prompt", "seed", "width", "height", "num_frames", "cfg_scale", "enhance_prompt"],
+      "required": ["prompt"]
+    },
+    {
+      "tool": "generate_video_model_b",
+      "endpoint": "txt2vid",
+      "url": "http://localhost:8201",
+      "model": "video-model-b",
+      "title": "Model B text-to-video",
+      "description": "Generate a short video from a text prompt using Model B. Uses a fixed resolution; width/height are not user-configurable.",
+      "defaults": { "model": "video-model-b", "steps": 20 },
+      "sizeConstraints": {
+        "width": { "min": 256, "max": 1280, "multipleOf": 64 },
+        "height": { "min": 256, "max": 1280, "multipleOf": 64 }
+      },
+      "parameters": ["prompt", "negative_prompt", "seed", "num_frames", "enhance_prompt"],
+      "required": ["prompt"]
+    },
+    {
+      "tool": "image_to_video_model_a",
+      "endpoint": "img2vid",
+      "url": "http://localhost:8200",
+      "model": "video-model-a-i2v",
+      "title": "Model A image-to-video",
+      "description": "Animate a source image into a video using Model A. Pass the source image as init_image (base64).",
+      "defaults": { "num_frames": 97, "steps": 20 },
+      "parameters": ["prompt", "init_image", "seed", "num_frames"],
+      "required": ["prompt", "init_image"]
+    },
+    {
+      "tool": "generate_voice_model_a",
+      "endpoint": "txt2voice",
+      "url": "http://localhost:8300",
+      "model": "tts-model-a",
+      "title": "Model A text-to-speech",
+      "description": "Synthesize speech from text using Model A. Either choose a built-in speaker_id or clone a voice by passing source_voice (base64 audio) plus source_voice_format.",
+      "defaults": { "language": "en", "speed": 1 },
+      "parameters": ["prompt", "language", "speaker_id", "source_voice", "source_voice_format", "speed"],
+      "required": ["prompt", "language"]
+    },
+    {
+      "tool": "generate_voice_model_b",
+      "endpoint": "txt2voice",
+      "url": "http://localhost:8301",
+      "model": "tts-model-b",
+      "title": "Model B text-to-speech (voice cloning)",
+      "description": "Synthesize speech from text using Model B by cloning a reference voice. Pass source_voice (base64 audio) plus source_voice_format; optionally a second reference voice as source_voice_2.",
+      "defaults": { "seed": 42 },
+      "parameters": ["prompt", "source_voice", "source_voice_format", "source_voice_2", "seed"],
+      "required": ["prompt", "source_voice", "source_voice_format"]
+    }
+  ]
+}
