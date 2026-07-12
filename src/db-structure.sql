@@ -16,6 +16,10 @@ CREATE TABLE IF NOT EXISTS `message` (
 CREATE INDEX IF NOT EXISTS idx_chat_id_id ON message (chat_id, id);
 CREATE INDEX IF NOT EXISTS idx_date ON message (date);
 CREATE INDEX IF NOT EXISTS idx_user ON message (user_id);
+-- Filters every message.date range query by chat_id first (history-by-time,
+-- rate-limit bot->user join, daily summary, /talkers). Leading chat_id lets the
+-- planner range-seek a small window instead of scanning all rows in large chats.
+CREATE INDEX IF NOT EXISTS idx_message_chat_date ON message (chat_id, date);
 CREATE TABLE IF NOT EXISTS `user_preferences`
 (
     `user_id` bigint PRIMARY KEY,
