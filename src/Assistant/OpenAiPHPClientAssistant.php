@@ -100,15 +100,15 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         $client = $this->openAiClient;
         $model  = $this->model;
 
-        return static function (string $prompt) use ($client, $model): string {
-            $result = $client->chat()->create([
-                'model'     => $model,
-                'messages'  => [
-                    ['role' => 'system', 'content' => 'You are a helpful assistant that summarizes conversations concisely.'],
-                    ['role' => 'user',   'content' => $prompt],
-                ],
-                'max_tokens' => 600,
-            ]);
+           return static function (string $prompt) use ($client, $model): string {
+               $result = $client->chat()->create([
+                   'model'     => $model,
+                   'messages'  => [
+                       ['role' => 'system', 'content' => 'You are a helpful assistant that summarizes conversations concisely.'],
+                       ['role' => 'user',   'content' => $prompt],
+                   ],
+                   'max_tokens' => 1500,
+               ]);
 
             $content = $result->choices[0]->message->content ?? '';
             if (is_array($content)) {

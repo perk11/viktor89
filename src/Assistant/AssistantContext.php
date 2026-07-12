@@ -68,39 +68,82 @@ class AssistantContext
             ];
         }
 
-        foreach ($this->messages as $message) {
-            $role = $message->isUser ? 'user' : 'assistant';
-            $messageContentParts = [];
-            $messageHasToolCalls = !$message->isUser && count($message->toolCalls) > 0;
-            $messageHasReasoning = $message->reasoning !== null;
+       foreach ($this->messages as $message) {
+           $role = $message->isUser ? 'user' : 'assistant';
+           $messageContentParts = [];
+           $messageHasToolCalls = !$message->isUser && count($message->toolCalls) > 0;
+           $messageHasReasoning = $message->reasoning !== null;
 
-            $previousMessageKey = array_key_last($openAiMessages);
-            $previousMessage = $previousMessageKey !== null ? $openAiMessages[$previousMessageKey] : null;
+           $previousMessageKey = array_key_last($openAiMessages);
+           $previousMessage = $previousMessageKey !== null ? $openAiMessages[$previousMessageKey] : null;
 
-            if (
-                $previousMessage !== null
-                && $previousMessage['role'] === $role
-                && !isset($previousMessage['tool_calls'])
-                && !array_key_exists('reasoning_content', $previousMessage)
-                && !$messageHasReasoning
-            ) {
-                array_pop($openAiMessages);
+           // Merge consecutive messages with the same conversational role so
+           // the final array alternates user/assistant, which strict chat
+           // templates (Qwen, Llama, …) require. Two cases are handled:
+           //
+           //  1. Directly consecutive same-role messages (common in group
+           //     chats where multiple users post, or when the bot sends
+           //     consecutive replies). We pop the previous message and fold
+           //     its text content into this one.
+           //
+           //  2. assistant(tool_calls) → tool(result…) → assistant(text): the
+           //     trailing assistant would create a second consecutive assistant
+           //     message. We append its content directly to the originating
+           //     assistant message that carries the tool_calls, leaving the
+           //     tool-result messages in place.
+           //
+           // reasoning_content from the older message is stale historical
+           // context and is not carried forward.
+           if (
+               $previousMessage !== null
+               && $previousMessage['role'] === $role
+               && !isset($previousMessage['tool_calls'])
+               && !$messageHasToolCalls
+           ) {
+               // Case 1: pop and fold.
+               array_pop($openAiMessages);
+               $this->foldContentIntoParts($previousMessage, $messageContentParts);
+           } elseif (
+               $role === 'assistant'
+               && !$messageHasToolCalls
+               && $previousMessage !== null
+               && $previousMessage['role'] === 'tool'
+           ) {
+               // Case 2: walk back past tool messages to the originating
+               // assistant and append this message's content to it.
+               $toolMessageCount = 0;
+               for ($back = $previousMessageKey; $back >= 0; $back--) {
+                   if ($openAiMessages[$back]['role'] !== 'tool') {
+                       break;
+                   }
+                   $toolMessageCount++;
+               }
+               $assistantKey = $previousMessageKey - $toolMessageCount;
+               if (
+                   $assistantKey >= 0
+                   && ($openAiMessages[$assistantKey]['role'] ?? null) === 'assistant'
+               ) {
+                   $assistantMsg = &$openAiMessages[$assistantKey];
+                   $assistantContentParts = [];
+                   $this->foldContentIntoParts($assistantMsg, $assistantContentParts);
+                   $messageText = trim($message->text ?? '');
+                   if ($messageText !== '') {
+                       $assistantContentParts[] = ['type' => 'text', 'text' => $messageText];
+                   }
+                   if ($message->reasoning !== null) {
+                       $assistantMsg['reasoning_content'] = $message->reasoning;
+                   }
+                   $assistantMsg['content'] = count($assistantContentParts) === 1
+                       ? $assistantContentParts[0]['text']
+                       : $assistantContentParts;
+                   unset($assistantMsg);
+                   // This message has been folded into the earlier assistant
+                   // message; skip emitting it as a separate message.
+                   continue;
+               }
+           }
 
-                if (is_string($previousMessage['content'])) {
-                    if (trim($previousMessage['content']) !== '') {
-                        $messageContentParts[] = [
-                            'type' => 'text',
-                            'text' => $previousMessage['content'],
-                        ];
-                    }
-                } elseif (is_array($previousMessage['content'])) {
-                    foreach ($previousMessage['content'] as $previousMessageContentPart) {
-                        $messageContentParts[] = $previousMessageContentPart;
-                    }
-                }
-            }
-
-            $messageText = $message->text ?? '';
+           $messageText = $message->text ?? '';
             if (is_string($messageText) && trim($messageText) !== '') {
                 $messageContentParts[] = [
                     'type' => 'text',
@@ -192,6 +235,29 @@ class AssistantContext
         }
 
         return $openAiMessages;
+    }
+
+    /**
+     * Fold the content of an already-emitted OpenAI message into a content-parts
+     * array, so it can be merged with another message content.
+     *
+     * @param array{content: string|array} $message
+     * @param array<int, array{type: string, text?: string}> $contentParts
+     */
+    private function foldContentIntoParts(array $message, array &$contentParts): void
+    {
+        if (is_string($message['content'])) {
+            if (trim($message['content']) !== '') {
+                $contentParts[] = [
+                    'type' => 'text',
+                    'text' => $message['content'],
+                ];
+            }
+        } elseif (is_array($message['content'])) {
+            foreach ($message['content'] as $part) {
+                $contentParts[] = $part;
+            }
+        }
     }
 
 }
