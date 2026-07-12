@@ -99,9 +99,23 @@ class Engine
             return;
         }
 
-        $incomingMessageText = $message->getText();
-
-        if ($message->getType() !== 'command') {
+        $isPrivateChat = $message->getChat()->getType() === 'private';
+        if ($isPrivateChat) {
+            // In private chats the assistant answers every non-command message.
+            // Commands that no processor recognised are ignored so they are not
+            // forwarded to the model.
+            if ($message->getType() === 'command') {
+                return;
+            }
+            $recentMessages = $this->messageRepository->findNPreviousMessagesInChat(
+                $message->getChat()->getId(),
+                $message->getMessageId(),
+                100,
+                [],
+            );
+            $chain = new MessageChain(array_merge(array_reverse($recentMessages), [$lastMessage]));
+        } elseif ($message->getType() !== 'command') {
+            $incomingMessageText = $message->getText();
             if (!str_contains($incomingMessageText, '@' . $this->telegramBotUserName)) {
                 $replyToMessage = $message->getReplyToMessage();
                 if ($replyToMessage === null) {
