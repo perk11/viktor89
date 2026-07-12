@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Perk11\Viktor89\Assistant;
 
 use OpenAI\Exceptions\ErrorException;
+use Perk11\Viktor89\Assistant\Compaction\CompactionKey;
+use Perk11\Viktor89\Assistant\Compaction\CompactionSummary;
+use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
@@ -21,6 +24,7 @@ final class ContextCompactor
         private readonly LoggerInterface $logger,
         private readonly int $maxRecentCharacters = self::DEFAULT_MAX_RECENT_CHARACTERS,
         private readonly int $maxSummaryInputCharacters = self::DEFAULT_MAX_SUMMARY_INPUT_CHARACTERS,
+        private readonly ?CompactionSummaryStoreInterface $store = null,
     ) {
         if ($this->maxRecentCharacters < 1) {
             throw new \InvalidArgumentException('maxRecentCharacters must be at least 1.');
@@ -30,15 +34,73 @@ final class ContextCompactor
         }
     }
 
-    public function compact(AssistantContext $context): AssistantContext
-    {
-        [$messagesToSummarize, $recentMessages] = $this->partitionMessages($context->messages);
+   /**
+    * Drop messages already covered by a persisted compaction and prepend the
+    * stored summary instead, so a previously compacted conversation does not
+    * need to be re-summarized on every subsequent request.
+    *
+    * Returns the context unchanged when there is no stored compaction or when
+    * the boundary message id is unknown.
+    */
+    public function applyStoredCompaction(CompactionKey $key, AssistantContext $context): AssistantContext
+   {
+       if ($this->store === null) {
+           return $context;
+       }
+
+        $stored = $this->store->findLatestForChain($key->chatId, $key->rootMessageId);
+       if ($stored === null) {
+           return $context;
+       }
+
+        // Only fold in messages that arrived after the boundary.
+        $keptMessages = [];
+        foreach ($context->messages as $message) {
+            if ($message->messageId !== null && $message->messageId <= $stored->lastSummarizedMessageId) {
+                continue;
+            }
+            $keptMessages[] = $message;
+        }
+
+        // If nothing was dropped, the summary is already represented (or there
+        // was nothing to summarize) — leave the context as-is.
+        if (count($keptMessages) === count($context->messages)) {
+            return $context;
+        }
+
+        $newContext = new AssistantContext();
+        $newContext->systemPrompt = $context->systemPrompt;
+        $newContext->responseStart = $context->responseStart;
+        $newContext->messages[] = $this->createSummaryMessage($stored->summary);
+        array_push($newContext->messages, ...$keptMessages);
+
+       $this->logger->log(LogLevel::INFO, sprintf(
+           'Applied stored compaction for chat %d chain %d: dropped %d messages up to id %d.',
+           $key->chatId,
+           $key->rootMessageId,
+           count($context->messages) - count($keptMessages),
+           $stored->lastSummarizedMessageId,
+       ));
+
+       return $newContext;
+   }
+
+   /**
+    * @param CompactionKey|null $key When provided together with a store, the
+    *                                resulting compaction is persisted so it can
+    *                                be reused on later requests instead of
+    *                                re-summarizing.
+    */
+    public function compact(AssistantContext $context, ?CompactionKey $key = null): AssistantContext
+   {
+       [$messagesToSummarize, $recentMessages] = $this->partitionMessages($context->messages);
 
         if ($messagesToSummarize === []) {
             return $context;
         }
 
         $summary = $this->generateSummary($messagesToSummarize);
+        $boundaryMessageId = $this->lastMessageId($messagesToSummarize);
 
         $newContext = new AssistantContext();
         $newContext->systemPrompt = $context->systemPrompt;
@@ -53,6 +115,16 @@ final class ContextCompactor
             count($recentMessages),
             mb_strlen($summary, 'UTF-8'),
         ));
+
+        if ($this->store !== null && $key !== null && $boundaryMessageId !== null) {
+           $this->store->store(new CompactionSummary(
+               $key->chatId,
+               $key->rootMessageId,
+               $summary,
+               $boundaryMessageId,
+               time(),
+           ));
+       }
 
         return $newContext;
     }
@@ -151,6 +223,20 @@ final class ContextCompactor
             array_reverse($messagesToSummarizeReversed),
             array_reverse($recentMessagesReversed),
         ];
+    }
+
+    /**
+     * @param AssistantContextMessage[] $messages
+     */
+    private function lastMessageId(array $messages): ?int
+    {
+        for ($i = count($messages) - 1; $i >= 0; $i--) {
+            if ($messages[$i]->messageId !== null) {
+                return $messages[$i]->messageId;
+            }
+        }
+
+        return null;
     }
 
     private function generateSummary(array $messages): string

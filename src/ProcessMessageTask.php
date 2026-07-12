@@ -360,10 +360,11 @@ class ProcessMessageTask implements Task
             $container->get(GetUrlContentsToolCallExecutor::class),
             new ListSavedImagesToolCallExecutor($imageRepository),
             $container->get(ListChainImagesToolCallExecutor::class),
-            $telegram->getBotId(),
-            $draftUpdateCallback,
-            $personalityProcessor,
-        );
+           $telegram->getBotId(),
+           $draftUpdateCallback,
+           $personalityProcessor,
+           $container->get(\Perk11\Viktor89\Assistant\Compaction\SqliteCompactionSummaryStore::class),
+       );
         $altTextProvider->assistantWithVision = $assistantFactory->getAssistantInstanceByName('vision-for-alt-text');
         $assistantModelProcessor = new DynamicListBasedPreferenceByCommandProcessor(
             $userPreferenceRepository,

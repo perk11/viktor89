@@ -13,6 +13,9 @@ class AssistantContextMessage
     public ?string $photo = null;
     public ?string $reasoning = null;
 
+    // Database id of the message this represents, if it came from history.
+    public ?int $messageId = null;
+
     /** @var ToolCall[] */
     public array $toolCalls = [];
 }

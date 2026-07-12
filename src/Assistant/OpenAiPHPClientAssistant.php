@@ -7,6 +7,8 @@ use Monolog\Logger;
 use OpenAI;
 use OpenAI\Client;
 use OpenAI\Exceptions\ErrorException;
+use Perk11\Viktor89\Assistant\Compaction\CompactionKey;
+use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
@@ -42,6 +44,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         string $apiKey = '',
         bool $supportsImages,
         private readonly array $toolDefintions = [],
+        private readonly ?CompactionSummaryStoreInterface $compactionStore = null,
     ) {
         $openAiFactory = OpenAI::factory()
             ->withBaseUri(rtrim($url, '/'))
@@ -61,14 +64,34 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             $apiKey,
             $supportsImages,
         );
-        $this->contextCompactor = new ContextCompactor(
-            $this->createSummaryGenerator(),
-            new Logger('OpenAIPHPClientAssistant_' . $this->model),
-        );
+       $this->contextCompactor = new ContextCompactor(
+           $this->createSummaryGenerator(),
+           new Logger('OpenAIPHPClientAssistant_' . $this->model),
+           store: $this->compactionStore,
+       );
+   }
+
+   /**
+    * Builds the per-reply-chain key used to scope persisted compactions. The
+     * chain root (first message id) is stable across messages within a reply
+     * thread. Private chats are a single linear conversation, so they share a
+     * sentinel root of 0 regardless of which message started a window.
+     */
+    private function compactionKeyForChain(?MessageChain $messageChain): ?CompactionKey
+    {
+        if ($messageChain === null) {
+            return null;
+        }
+
+        $last = $messageChain->last();
+        $isPrivateChat = $last->chatId > 0;
+        $rootMessageId = $isPrivateChat ? 0 : (int) ($messageChain->first()->id ?? 0);
+
+        return new CompactionKey($last->chatId, $rootMessageId);
     }
 
-    /**
-     * Returns a callable that sends a simple chat completion to the same LLM
+   /**
+    * Returns a callable that sends a simple chat completion to the same LLM
      * and returns the response text.  Used by ContextCompactor to generate
      * summaries.
      */
@@ -102,13 +125,23 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         ?callable $streamFunction = null,
         ?MessageChain $messageChain = null,
         ?ProgressUpdateCallback $progressUpdateCallback = null
-    ): CompletionResponse {
-        $compactionCount = 0;
+   ): CompletionResponse {
+      $compactionCount = 0;
 
-        /** @var array<string, mixed> $requestOptions */
-        $requestOptions = [
-            'messages' => $assistantContext->toOpenAiMessagesArray(),
-        ];
+      // Apply any compaction persisted for this reply chain so messages
+      // already summarized are dropped instead of being re-summarized every
+      // request. A compaction is keyed by (chatId, rootMessageId) so
+      // independent threads within the same group chat stay separate. Private
+      // chats are a single conversation and use a sentinel root of 0.
+      $compactionKey = $this->compactionKeyForChain($messageChain);
+      if ($compactionKey !== null) {
+          $assistantContext = $this->contextCompactor->applyStoredCompaction($compactionKey, $assistantContext);
+      }
+
+      /** @var array<string, mixed> $requestOptions */
+       $requestOptions = [
+           'messages' => $assistantContext->toOpenAiMessagesArray(),
+       ];
         if ($this->model !== null) {
             $requestOptions['model'] = $this->model;
         }
@@ -389,10 +422,10 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             echo "Context length error caught, compacting...\n";
             echo "Error: " . $e->getMessage() . "\n";
 
-            $compactionCount++;
-            $assistantContext = $this->contextCompactor->compact($assistantContext);
+           $compactionCount++;
+           $assistantContext = $this->contextCompactor->compact($assistantContext, $compactionKey);
 
-            // Rebuild request options from the compacted context
+           // Rebuild request options from the compacted context
             $requestOptions = [
                 'messages' => $assistantContext->toOpenAiMessagesArray(),
             ];

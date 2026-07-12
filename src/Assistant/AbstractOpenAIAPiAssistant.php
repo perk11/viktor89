@@ -282,13 +282,14 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         $assistantContext = new AssistantContext();
         $assistantContext->systemPrompt = $systemPrompt;
         $assistantContext->responseStart = $responseStart;
-        foreach ($messageChain->getMessages() as $message) {
-            $assistantContextMessage = new AssistantContextMessage();
-            $assistantContextMessage->text = $message->messageText;
-            $assistantContextMessage->isUser = $message->userId !== $this->telegramBotUserId;
-            $assistantContextMessage->toolCalls = $message->toolCalls;
-            $assistantContextMessage->reasoning = $message->reasoning;
-            if ($message->photoFileId !== null) {
+       foreach ($messageChain->getMessages() as $message) {
+           $assistantContextMessage = new AssistantContextMessage();
+           $assistantContextMessage->text = $message->messageText;
+           $assistantContextMessage->isUser = $message->userId !== $this->telegramBotUserId;
+           $assistantContextMessage->toolCalls = $message->toolCalls;
+           $assistantContextMessage->reasoning = $message->reasoning;
+           $assistantContextMessage->messageId = $message->id;
+           if ($message->photoFileId !== null) {
                 if ($this->supportsImages) {
                     $assistantContextMessage->photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);
                 } else {

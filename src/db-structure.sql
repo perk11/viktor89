@@ -107,3 +107,13 @@ CREATE TABLE IF NOT EXISTS `persona`
     `username` text NOT NULL,
     `created_at` timestamp NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS `context_compaction`
+(
+    `chat_id`            bigint NOT NULL,
+    `root_message_id`    bigint NOT NULL DEFAULT 0,
+    `summary`            text NOT NULL,
+    `last_summarized_message_id` bigint NOT NULL,
+    `created_at`         timestamp NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_context_compaction_chat_root ON context_compaction(chat_id, root_message_id);

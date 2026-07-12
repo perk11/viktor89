@@ -10,6 +10,7 @@ use Monolog\Handler\ErrorLogHandler;
 use Monolog\Level;
 use Monolog\Logger;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
+use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
 use Perk11\Viktor89\Assistant\Tool\McpToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
@@ -40,12 +41,13 @@ class AssistantFactory
         private readonly ToolCallExecutorInterface $getUrlContentsTool,
         private readonly ToolCallExecutorInterface $listSavedImagesTool,
         private readonly MessageChainAwareToolCallExecutorInterface $listChainImagesTool,
-        private readonly int $telegramBotId,
-        private readonly DraftUpdateCallback $draftUpdateCallback,
-        private readonly UserPreferenceReaderInterface $personalityReader,
-    )
-    {
-    }
+       private readonly int $telegramBotId,
+       private readonly DraftUpdateCallback $draftUpdateCallback,
+       private readonly UserPreferenceReaderInterface $personalityReader,
+       private readonly ?CompactionSummaryStoreInterface $compactionStore = null,
+   )
+   {
+   }
 
     /** @return string[] */
     public function getSupportedModels(): array
@@ -164,25 +166,40 @@ class AssistantFactory
                 $this->openAiCompletionStringParser,
                 $requestedAssistantConfig['supportsImages'] ?? false,
             );
-        } elseif (is_a($requestedAssistantConfig['class'], OpenAiChatAssistant::class, true)
-               || is_a($requestedAssistantConfig['class'], OpenAiPHPClientAssistant::class, true)
-        ) {
-            $tools = $this->getTools($requestedAssistantConfig);
-            $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
-                $requestedAssistantConfig['model'] ?? null,
-                $systemPromptProcessor,
-                $this->responseStartProcessor,
-                $this->editFrequencyProcessor,
-                $this->telegramFileDownloader,
-                $this->altTextProvider,
-                $this->processingResultExecutor,
-                $this->telegramBotId,
-                $requestedAssistantConfig['url'],
-                $requestedAssistantConfig['api_key'] ?? '',
-                $requestedAssistantConfig['supportsImages'] ?? false,
-                $tools,
-            );
-        } elseif(is_a($requestedAssistantConfig['class'], PerplexicaAssistant::class, true)) {
+       } elseif (is_a($requestedAssistantConfig['class'], OpenAiPHPClientAssistant::class, true)) {
+           $tools = $this->getTools($requestedAssistantConfig);
+           $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
+               $requestedAssistantConfig['model'] ?? null,
+               $systemPromptProcessor,
+               $this->responseStartProcessor,
+               $this->editFrequencyProcessor,
+               $this->telegramFileDownloader,
+               $this->altTextProvider,
+               $this->processingResultExecutor,
+               $this->telegramBotId,
+               $requestedAssistantConfig['url'],
+               $requestedAssistantConfig['api_key'] ?? '',
+               $requestedAssistantConfig['supportsImages'] ?? false,
+               $tools,
+               $this->compactionStore,
+           );
+       } elseif (is_a($requestedAssistantConfig['class'], OpenAiChatAssistant::class, true)) {
+           $tools = $this->getTools($requestedAssistantConfig);
+           $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
+               $requestedAssistantConfig['model'] ?? null,
+               $systemPromptProcessor,
+               $this->responseStartProcessor,
+               $this->editFrequencyProcessor,
+               $this->telegramFileDownloader,
+               $this->altTextProvider,
+               $this->processingResultExecutor,
+               $this->telegramBotId,
+               $requestedAssistantConfig['url'],
+               $requestedAssistantConfig['api_key'] ?? '',
+               $requestedAssistantConfig['supportsImages'] ?? false,
+               $tools,
+           );
+       } elseif(is_a($requestedAssistantConfig['class'], PerplexicaAssistant::class, true)) {
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
                 $requestedAssistantConfig['url'],
             );
