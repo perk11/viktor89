@@ -14,7 +14,6 @@ CREATE TABLE IF NOT EXISTS `message` (
     `reasoning`         varchar DEFAULT NULL          -- AI reasoning context
 );
 CREATE INDEX IF NOT EXISTS idx_chat_id_id ON message (chat_id, id);
-CREATE INDEX IF NOT EXISTS idx_date ON message (date);
 CREATE INDEX IF NOT EXISTS idx_user ON message (user_id);
 -- Filters every message.date range query by chat_id first (history-by-time,
 -- rate-limit bot->user join, daily summary, /talkers). Leading chat_id lets the
