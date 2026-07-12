@@ -22,7 +22,7 @@ class NumericPreferenceInRangeByCommandProcessor extends UserPreferenceSetByComm
         return "Эта настройка принимает числа: " . $this->minValue . '-' . $this->maxValue;
     }
 
-    protected function getValueValidationErrors(?string $value): array
+    protected function getValueValidationErrors(?string $value, int $chatId): array
     {
         if ($value === null) {
             return [];

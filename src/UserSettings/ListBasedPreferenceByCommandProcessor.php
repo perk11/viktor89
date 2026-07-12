@@ -47,7 +47,7 @@ class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandPr
 
 
 
-    protected function getValueValidationErrors(?string $value): array
+    protected function getValueValidationErrors(?string $value, int $chatId): array
     {
         if ($value === null) {
             return [];

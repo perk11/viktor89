@@ -102,6 +102,6 @@ class NumericPreferenceInRangeByCommandProcessorTest extends TestCase
     private function getValidationErrors(NumericPreferenceInRangeByCommandProcessor $processor, ?string $value): array
     {
         $reflection = new \ReflectionMethod($processor, 'getValueValidationErrors');
-        return $reflection->invoke($processor, $value);
+        return $reflection->invoke($processor, $value, -1);
     }
 }

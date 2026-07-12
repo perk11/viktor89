@@ -100,7 +100,7 @@ class DynamicListBasedPreferenceByCommandProcessorTest extends TestCase
 
     private function invokeValidation(?string $value): array
     {
-        return (new \ReflectionMethod($this->processor, 'getValueValidationErrors'))->invoke($this->processor, $value);
+        return (new \ReflectionMethod($this->processor, 'getValueValidationErrors'))->invoke($this->processor, $value, -1);
     }
 
     private function invokeBuildKeyboard(): array

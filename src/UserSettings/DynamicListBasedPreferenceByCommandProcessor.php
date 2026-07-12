@@ -23,8 +23,6 @@ use Perk11\Viktor89\Repository\UserPreferenceRepository;
  */
 class DynamicListBasedPreferenceByCommandProcessor extends ListBasedPreferenceByCommandProcessor
 {
-    private ?int $currentChatId = null;
-
     /**
      * @param \Closure(int $chatId): array<int, array{value: string, label?: string}> $optionsCallback
      * @param string[] $resetValues Values (case-insensitive) that clear the preference
@@ -55,11 +53,6 @@ class DynamicListBasedPreferenceByCommandProcessor extends ListBasedPreferenceBy
 
     protected function processValueAsSetting(InternalMessage $message, ?string $value): bool
     {
-        // Remember the chat so getValueValidationErrors() validates against the
-        // same per-chat option list. processValueAsSetting() always runs before
-        // validation in the parent flow.
-        $this->currentChatId = $message->chatId;
-
         if ($value !== '') {
             // A real value (including null from a reset value) -> proceed to validate and store.
             return true;
@@ -68,18 +61,18 @@ class DynamicListBasedPreferenceByCommandProcessor extends ListBasedPreferenceBy
         Request::sendMessage([
             'chat_id'      => $message->chatId,
             'text'         => 'Pick a value for ' . $this->preferenceName,
-            'reply_markup' => ['inline_keyboard' => $this->buildInlineKeyboard($this->currentChatId)],
+            'reply_markup' => ['inline_keyboard' => $this->buildInlineKeyboard($message->chatId)],
         ]);
 
         return false;
     }
 
-    protected function getValueValidationErrors(?string $value): array
+    protected function getValueValidationErrors(?string $value, int $chatId): array
     {
         if ($value === null || $value === '') {
             return [];
         }
-        $values = array_column($this->getOptions($this->currentChatId ?? 0), 'value');
+        $values = array_column($this->getOptions($chatId), 'value');
         if (!in_array($value, $values, true)) {
             return ["Эта настройка принимает следующие значения:\n\n" . implode("\n", $values)];
         }

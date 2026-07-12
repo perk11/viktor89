@@ -25,7 +25,7 @@ class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, User
     {
     }
 
-    protected function getValueValidationErrors(?string $value): array
+    protected function getValueValidationErrors(?string $value, int $chatId): array
     {
         return [];
     }
@@ -66,7 +66,7 @@ class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, User
         if (!$this->processValueAsSetting($lastMessage, $preferenceValue)) {
             return new ProcessingResult(null, true);
         }
-        $validationErrors = $this->getValueValidationErrors($preferenceValue);
+        $validationErrors = $this->getValueValidationErrors($preferenceValue, $lastMessage->chatId);
         if (count($validationErrors) > 0) {
             return new ProcessingResult(
                 InternalMessage::asResponseTo(

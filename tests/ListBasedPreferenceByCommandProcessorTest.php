@@ -82,6 +82,6 @@ class ListBasedPreferenceByCommandProcessorTest extends TestCase
     private function getValidationErrors(ListBasedPreferenceByCommandProcessor $processor, ?string $value): array
     {
         $reflection = new \ReflectionMethod($processor, 'getValueValidationErrors');
-        return $reflection->invoke($processor, $value);
+        return $reflection->invoke($processor, $value, -1);
     }
 }
