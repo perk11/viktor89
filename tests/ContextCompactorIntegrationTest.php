@@ -255,7 +255,10 @@ class ContextCompactorIntegrationTest extends TestCase
         // Verify compaction structure: summary + N recent messages
         $this->assertGreaterThan(1, count($compacted->messages), 'Compacted context should have summary + recent messages');
         $this->assertStringContainsString('[Summary of earlier conversation:', $compacted->messages[0]->text ?? '');
-        $this->assertFalse($compacted->messages[0]->isUser);
+        // The summary is emitted as a user-role message so the compacted
+        // conversation starts with system → user (summary) → …, satisfying
+        // strict user/assistant alternation chat templates.
+        $this->assertTrue($compacted->messages[0]->isUser);
         $this->assertSame($ctx->systemPrompt, $compacted->systemPrompt);
 
         // Determine how many recent messages were kept (all except the summary)

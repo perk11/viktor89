@@ -79,12 +79,17 @@ class AssistantContext
 
            // Merge consecutive messages with the same conversational role so
            // the final array alternates user/assistant, which strict chat
-           // templates (Qwen, Llama, …) require. Two cases are handled:
+           // templates (Qwen, Llama, Gemma, …) require. Two cases are handled:
            //
            //  1. Directly consecutive same-role messages (common in group
            //     chats where multiple users post, or when the bot sends
-           //     consecutive replies). We pop the previous message and fold
-           //     its text content into this one.
+           //     consecutive replies — e.g. an image-generation turn logs the
+           //     photo as one assistant message and the text reply, carrying
+           //     the tool_calls, as another). We pop the previous message and
+           //     fold its content into this one. The previous message must not
+           //     carry tool_calls (otherwise its tool-result messages would be
+           //     orphaned), but the current one may — its tool_calls and the
+           //     resulting tool messages are emitted right after the merge.
            //
            //  2. assistant(tool_calls) → tool(result…) → assistant(text): the
            //     trailing assistant would create a second consecutive assistant
@@ -98,7 +103,6 @@ class AssistantContext
                $previousMessage !== null
                && $previousMessage['role'] === $role
                && !isset($previousMessage['tool_calls'])
-               && !$messageHasToolCalls
            ) {
                // Case 1: pop and fold.
                array_pop($openAiMessages);
@@ -235,6 +239,68 @@ class AssistantContext
         }
 
         return $openAiMessages;
+    }
+
+    /**
+     * Compact, human-readable description of the context's messages. Independent
+     * of toOpenAiMessagesArray(), so it works even when responseStart is set.
+     * Intended for diagnostic logging when an LLM request fails.
+     */
+    public function describeForLog(): string
+    {
+        $lines = [];
+        if ($this->systemPrompt !== null) {
+            $lines[] = 'system: ' . $this->preview($this->systemPrompt);
+        }
+        if ($this->responseStart !== null) {
+            $lines[] = 'responseStart: ' . $this->preview($this->responseStart);
+        }
+        foreach ($this->messages as $i => $message) {
+            $role = $message->isUser ? 'user' : 'assistant';
+            $parts = [];
+            if (trim($message->text ?? '') !== '') {
+                $parts[] = $this->preview($message->text);
+            }
+            if ($message->photo !== null) {
+                $parts[] = '[image]';
+            }
+            if (count($message->toolCalls) > 0) {
+                $names = array_map(static fn(ToolCall $tc) => $tc->name, $message->toolCalls);
+                $parts[] = '[tool_calls: ' . implode(', ', $names) . ']';
+            }
+            if ($message->reasoning !== null) {
+                $parts[] = '[reasoning]';
+            }
+            $lines[] = sprintf('#%d %s: %s', $i, $role, implode(' ', $parts));
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Role-only summary of an OpenAI-format messages array, e.g.
+     * "system → user → assistant → tool". Useful as a one-line diagnostic.
+     *
+     * @param array<int, array<string, mixed>> $openAiMessages
+     */
+    public static function summarizeRoleSequence(array $openAiMessages): string
+    {
+        $roles = [];
+        foreach ($openAiMessages as $message) {
+            $roles[] = $message['role'] ?? '?';
+        }
+
+        return implode(' → ', $roles);
+    }
+
+    private function preview(string $text): string
+    {
+        $collapsed = trim(preg_replace('/\s+/', ' ', $text) ?? '');
+        if (mb_strlen($collapsed) > 120) {
+            $collapsed = mb_substr($collapsed, 0, 120) . '…';
+        }
+
+        return $collapsed;
     }
 
     /**

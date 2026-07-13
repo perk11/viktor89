@@ -240,4 +240,126 @@ class AssistantContextTest extends TestCase
        $assistantContent = json_encode($array[2]['content']);
        $this->assertStringContainsString('Here are the search results for cats', $assistantContent);
    }
+
+   /**
+     * Reproduces the image-generation scenario that triggered
+     * "Jinja Exception: Conversation roles must alternate": the generated
+     * photo is logged as one assistant message and the text reply (carrying
+     * the tool_calls) as another. These two consecutive assistant messages
+     * must be merged so the roles keep alternating.
+     */
+   public function testConsecutiveAssistantWhereSecondHasToolCallsAreMerged(): void
+   {
+       $context = new AssistantContext();
+       $context->systemPrompt = 'System';
+
+       $userMsg = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+       $userMsg->isUser = true;
+       $userMsg->text = 'Draw a cat';
+       $context->messages[] = $userMsg;
+
+       // Assistant message for the separately-logged photo (no tool_calls).
+       $photoMsg = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+       $photoMsg->isUser = false;
+       $photoMsg->text = 'Here is the cat you asked for';
+       $context->messages[] = $photoMsg;
+
+       // Assistant text reply that carries the tool_calls.
+       $replyMsg = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+       $replyMsg->isUser = false;
+       $replyMsg->text = '';
+       $replyMsg->toolCalls = [
+           new \Perk11\Viktor89\Assistant\Tool\ToolCall(
+               'call_1',
+               'generate_image',
+               '{"prompt":"a cat"}',
+               '{"status":"image_generated"}',
+           ),
+       ];
+       $context->messages[] = $replyMsg;
+
+       $array = $context->toOpenAiMessagesArray();
+
+       // system, user, assistant(merged photo text + tool_calls), tool(result)
+       $roles = array_column($array, 'role');
+       $this->assertSame(['system', 'user', 'assistant', 'tool'], $roles);
+
+       $mergedContent = json_encode($array[2]['content']);
+       $this->assertStringContainsString('Here is the cat you asked for', $mergedContent);
+       $this->assertArrayHasKey('tool_calls', $array[2]);
+   }
+
+   /**
+     * A compaction summary is a user-role message. When the kept tail of the
+     * conversation also starts with a user message, the two must merge so the
+     * compacted request still alternates user/assistant strictly.
+     */
+   public function testCompactionSummaryMergesWithFollowingUserMessage(): void
+   {
+       $context = new AssistantContext();
+       $context->systemPrompt = 'System';
+
+       $summary = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+       $summary->isUser = true;
+       $summary->text = '[Summary of earlier conversation: user likes cats.]';
+       $context->messages[] = $summary;
+
+       $userMsg = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+       $userMsg->isUser = true;
+       $userMsg->text = 'Tell me more about cats';
+       $context->messages[] = $userMsg;
+
+       $assistantMsg = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+       $assistantMsg->isUser = false;
+       $assistantMsg->text = 'Cats are great';
+       $context->messages[] = $assistantMsg;
+
+       $array = $context->toOpenAiMessagesArray();
+
+       $roles = array_column($array, 'role');
+       $this->assertSame(['system', 'user', 'assistant'], $roles);
+
+       $mergedContent = json_encode($array[1]['content']);
+       $this->assertStringContainsString('user likes cats.', $mergedContent);
+       $this->assertStringContainsString('Tell me more about cats', $mergedContent);
+   }
+
+    public function testDescribeForLogIncludesRolesAndPreviews(): void
+    {
+        $context = new AssistantContext();
+        $context->systemPrompt = 'be helpful';
+        $context->responseStart = 'Sure,';
+
+        $u = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+        $u->isUser = true;
+        $u->text = 'Hello there';
+        $context->messages[] = $u;
+
+        $a = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+        $a->isUser = false;
+        $a->text = 'Hi!';
+        $a->toolCalls = [
+            new \Perk11\Viktor89\Assistant\Tool\ToolCall('call_1', 'search', '{}', 'r'),
+        ];
+        $context->messages[] = $a;
+
+        $log = $context->describeForLog();
+
+        $this->assertStringContainsString('system: be helpful', $log);
+        $this->assertStringContainsString('responseStart: Sure,', $log);
+        $this->assertStringContainsString('#0 user: Hello there', $log);
+        $this->assertStringContainsString('#1 assistant: Hi! [tool_calls: search]', $log);
+    }
+
+    public function testSummarizeRoleSequence(): void
+    {
+        $sequence = AssistantContext::summarizeRoleSequence([
+            ['role' => 'system', 'content' => 's'],
+            ['role' => 'user', 'content' => 'u'],
+            ['role' => 'assistant', 'content' => 'a'],
+            ['role' => 'tool', 'tool_call_id' => 'x', 'content' => 'r'],
+        ]);
+
+        $this->assertSame('system → user → assistant → tool', $sequence);
+    }
 }

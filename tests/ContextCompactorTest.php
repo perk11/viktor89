@@ -9,6 +9,8 @@ use OpenAI\Exceptions\ErrorException;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\ContextCompactor;
+use Perk11\Viktor89\Assistant\Compaction\CompactionKey;
+use Perk11\Viktor89\Assistant\Compaction\CompactionSummary;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -497,6 +499,103 @@ class ContextCompactorTest extends TestCase
        return '[Summary of earlier conversation: ' . $summary . ']';
    }
 
+   // ─── alternation (compactor is responsible for its output alternating) ───
+
+    /**
+     * Reproduces the "Conversation roles must alternate" failure: after
+     * compaction the kept tail contained two consecutive assistant messages
+     * that each carry tool_calls (multi-round tool calling in history). The
+     * AssistantContext converter cannot merge those on its own, so the compactor
+     * must combine them into a single assistant turn.
+     */
+    public function testCompactMergesConsecutiveAssistantToolCallTurns(): void
+    {
+        $compactor = new ContextCompactor(
+            fn(string $p): string => 'summary',
+            new NullLogger(),
+            200, // keep the tool-call turns + last user message as recent
+        );
+
+        $asst1 = new AssistantContextMessage();
+        $asst1->isUser = false;
+        $asst1->text   = '';
+        $asst1->toolCalls = [
+            new \Perk11\Viktor89\Assistant\Tool\ToolCall('c1', 'search', '{}', 'r1'),
+        ];
+
+        $asst2 = new AssistantContextMessage();
+        $asst2->isUser = false;
+        $asst2->text   = '';
+        $asst2->toolCalls = [
+            new \Perk11\Viktor89\Assistant\Tool\ToolCall('c2', 'search', '{}', 'r2'),
+        ];
+
+        $ctx = self::makeContext(
+            [
+                ['isUser' => true,  'text' => str_repeat('x', 300)], // summarized
+                ['isUser' => false, 'text' => str_repeat('y', 300)], // summarized
+            ],
+            'Sys',
+        );
+        $ctx->messages[] = $asst1;
+        $ctx->messages[] = $asst2;
+        $ctx->messages[] = self::makeMsg(true, 'thanks');
+
+        $result = $compactor->compact($ctx);
+        $arr    = $result->toOpenAiMessagesArray();
+
+        $roles = array_column($arr, 'role');
+        $this->assertSame(['system', 'user', 'assistant', 'tool', 'tool', 'user'], $roles);
+
+        // Both tool calls survive, folded into the single assistant message.
+        $this->assertCount(2, $result->messages[1]->toolCalls);
+    }
+
+    public function testApplyStoredCompactionMergesConsecutiveAssistantToolCallTurns(): void
+    {
+        $store = new CompactorTestInMemoryStore();
+        $compactor = new ContextCompactor(
+            fn(string $p): string => 'summary',
+            new NullLogger(),
+            store: $store,
+        );
+
+        $key = new CompactionKey(42, 10);
+        $store->store(new CompactionSummary(42, 10, 'prior summary', 1, time()));
+
+        $oldUser = self::makeMsg(true, 'old question');
+        $oldUser->messageId = 1; // dropped by the stored compaction boundary
+
+        $asst1 = new AssistantContextMessage();
+        $asst1->isUser = false;
+        $asst1->text   = '';
+        $asst1->messageId = 2;
+        $asst1->toolCalls = [
+            new \Perk11\Viktor89\Assistant\Tool\ToolCall('c1', 'search', '{}', 'r1'),
+        ];
+
+        $asst2 = new AssistantContextMessage();
+        $asst2->isUser = false;
+        $asst2->text   = '';
+        $asst2->messageId = 3;
+        $asst2->toolCalls = [
+            new \Perk11\Viktor89\Assistant\Tool\ToolCall('c2', 'search', '{}', 'r2'),
+        ];
+
+        $user = self::makeMsg(true, 'thanks');
+        $user->messageId = 4;
+
+        $ctx = new AssistantContext();
+        $ctx->systemPrompt = 'Sys';
+        $ctx->messages = [$oldUser, $asst1, $asst2, $user];
+
+        $result = $compactor->applyStoredCompaction($key, $ctx);
+        $arr    = $result->toOpenAiMessagesArray();
+
+        $roles = array_column($arr, 'role');
+        $this->assertSame(['system', 'user', 'assistant', 'tool', 'tool', 'user'], $roles);
+    }
+
    // ─── helpers ─────────────────────────────────────────────────────────────
 
     private static function makeMsg(bool $isUser, string $text): AssistantContextMessage
@@ -529,5 +628,26 @@ class ContextCompactorTest extends TestCase
             }
         }
         return $ctx;
+    }
+}
+
+final class CompactorTestInMemoryStore implements \Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface
+{
+    /** @var array<string, \Perk11\Viktor89\Assistant\Compaction\CompactionSummary> */
+    private array $summaries = [];
+
+    public function store(\Perk11\Viktor89\Assistant\Compaction\CompactionSummary $summary): void
+    {
+        $this->summaries[$summary->chatId . ':' . $summary->rootMessageId] = $summary;
+    }
+
+    public function findLatestForChain(int $chatId, int $rootMessageId): ?\Perk11\Viktor89\Assistant\Compaction\CompactionSummary
+    {
+        return $this->summaries[$chatId . ':' . $rootMessageId] ?? null;
+    }
+
+    public function clearForChain(int $chatId, int $rootMessageId): void
+    {
+        unset($this->summaries[$chatId . ':' . $rootMessageId]);
     }
 }

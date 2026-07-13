@@ -159,6 +159,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             if (json_last_error() !== JSON_ERROR_NONE) {
                 echo 'Failed to convert context to JSON: ' . json_last_error_msg();
             }
+            echo 'Context roles: ' . AssistantContext::summarizeRoleSequence($requestOptions['messages']) . "\n";
 
             while (true) {
                 $statusMessage = "Waiting for LLM response";
@@ -416,6 +417,8 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         }
         } catch (ErrorException $e) {
             if ($compactionCount >= self::MAX_COMPACTION_RETRIES || !ContextCompactor::isContextLengthError($e)) {
+                echo 'LLM request failed. Context roles: '
+                    . AssistantContext::summarizeRoleSequence($requestOptions['messages']) . "\n";
                 throw $e;
             }
 

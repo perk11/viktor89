@@ -73,6 +73,7 @@ final class ContextCompactor
         $newContext->responseStart = $context->responseStart;
         $newContext->messages[] = $this->createSummaryMessage($stored->summary);
         array_push($newContext->messages, ...$keptMessages);
+        $newContext->messages = $this->enforceAlternation($newContext->messages);
 
         $this->logger->log(LogLevel::INFO, sprintf(
             'Applied stored compaction for chat %d chain %d: dropped %d messages up to id %d.',
@@ -108,6 +109,7 @@ final class ContextCompactor
 
         $newContext->messages[] = $this->createSummaryMessage($summary);
         array_push($newContext->messages, ...$recentMessages);
+        $newContext->messages = $this->enforceAlternation($newContext->messages);
 
         $this->logger->log(LogLevel::INFO, sprintf(
             'Context compacted: %d messages summarized, %d recent messages kept, summary length %d chars.',
@@ -466,6 +468,66 @@ PROMPT;
         }
 
         return $summary;
+    }
+
+    /**
+     * Merge consecutive same-role messages that the AssistantContext converter
+     * cannot fix on its own, so the compacted context strictly alternates
+     * user/assistant (required by strict chat templates like Gemma/Llama/Qwen).
+     *
+     * The converter's inline merge already folds consecutive same-role messages,
+     * but it deliberately will not merge *into* a message that carries
+     * tool_calls (that would orphan its tool-result messages). So the one case
+     * that survives compaction is two consecutive assistant turns that each
+     * carry tool_calls (multi-round tool calling in history), which compaction
+     * surfaces by dropping the earlier context. Their tool_calls and results are
+     * combined into a single assistant turn here.
+     *
+     * @param AssistantContextMessage[] $messages
+     * @return AssistantContextMessage[]
+     */
+    private function enforceAlternation(array $messages): array
+    {
+        if ($messages === []) {
+            return $messages;
+        }
+
+        $normalized = [];
+        foreach ($messages as $message) {
+            $lastIndex = count($normalized) - 1;
+            if (
+                $lastIndex >= 0
+                && $normalized[$lastIndex]->isUser === $message->isUser
+                && count($normalized[$lastIndex]->toolCalls) > 0
+            ) {
+                $normalized[$lastIndex] = $this->mergeMessages($normalized[$lastIndex], $message);
+            } else {
+                $normalized[] = $message;
+            }
+        }
+
+        return $normalized;
+    }
+
+    private function mergeMessages(AssistantContextMessage $a, AssistantContextMessage $b): AssistantContextMessage
+    {
+        $textA = trim($a->text ?? '');
+        $textB = trim($b->text ?? '');
+        $mergedText = match (true) {
+            $textA === '' => $textB,
+            $textB === '' => $textA,
+            default       => $textA . "\n" . $textB,
+        };
+
+        $merged = new AssistantContextMessage();
+        $merged->isUser = $a->isUser;
+        $merged->messageId = $b->messageId ?? $a->messageId;
+        $merged->text = $mergedText;
+        $merged->reasoning = $b->reasoning ?? $a->reasoning;
+        $merged->photo = $b->photo ?? $a->photo;
+        $merged->toolCalls = array_merge($a->toolCalls, $b->toolCalls);
+
+        return $merged;
     }
 
     /**
