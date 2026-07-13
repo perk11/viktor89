@@ -573,6 +573,10 @@ class ProcessMessageTask implements Task
         $soundAndPromptToTargetAndResidualApiClient = new SoundAndPromptToTargetAndResidualApiClient($config['soundAndPromptToTargetAndResidualModels']);
         $soundAndPromptToTargetAndResidualProcessor = new SoundAndPromptToTargetAndResidualProcessor($voiceResponder, $telegramFileDownloader, $soundAndPromptToTargetAndResidualApiClient);
         $talkersCommandProcessor = $container->get(TalkersCommandProcessor::class);
+        $vibeCheckProcessor = new VibeCheckProcessor(
+            $messageRepository,
+            $assistantFactory->getAssistantInstanceByName('vibecheck'),
+        );
         $messageChainProcessors = [
             $container->get(VoiceProcessor::class),
             $clownProcessor,
@@ -742,6 +746,10 @@ class ProcessMessageTask implements Task
                 ['/talkers'],
                  $talkersCommandProcessor,
              ),
+            new CommandBasedResponderTrigger(
+                ['/vibecheck'],
+                $vibeCheckProcessor,
+            ),
             $videoEProcessor,
             $voProcessor,
             new CommandBasedResponderTrigger(
