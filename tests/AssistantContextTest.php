@@ -324,6 +324,47 @@ class AssistantContextTest extends TestCase
        $this->assertStringContainsString('Tell me more about cats', $mergedContent);
    }
 
+    /**
+     * A model without tool definitions must not be sent `tool`-role messages or
+     * `tool_calls` fields: strict chat templates (Gemma/Llama/Qwen) only know
+     * user/assistant and reject the tool role with "Conversation roles must
+     * alternate". Tool-call turns from history (e.g. a previous tool-capable
+     * model) are emitted as plain assistant text instead.
+     */
+    public function testToOpenAiMessagesArrayOmitsToolMessagesWhenDisabled(): void
+    {
+        $context = new AssistantContext();
+        $context->systemPrompt = 'System';
+
+        $u = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+        $u->isUser = true;
+        $u->text = 'search for cats';
+        $context->messages[] = $u;
+
+        $a = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+        $a->isUser = false;
+        $a->text = 'Let me look that up';
+        $a->toolCalls = [
+            new \Perk11\Viktor89\Assistant\Tool\ToolCall('call_1', 'search', '{}', 'cats are great'),
+        ];
+        $context->messages[] = $a;
+
+        $followUp = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+        $followUp->isUser = true;
+        $followUp->text = 'thanks';
+        $context->messages[] = $followUp;
+
+        // With tools (default): assistant carries tool_calls and a tool result follows.
+        $withTools = $context->toOpenAiMessagesArray(true);
+        $this->assertSame(['system', 'user', 'assistant', 'tool', 'user'], array_column($withTools, 'role'));
+        $this->assertArrayHasKey('tool_calls', $withTools[2]);
+
+        // Without tools: no tool role, no tool_calls field, strictly alternating.
+        $withoutTools = $context->toOpenAiMessagesArray(false);
+        $this->assertSame(['system', 'user', 'assistant', 'user'], array_column($withoutTools, 'role'));
+        $this->assertArrayNotHasKey('tool_calls', $withoutTools[2]);
+    }
+
     public function testDescribeForLogIncludesRolesAndPreviews(): void
     {
         $context = new AssistantContext();

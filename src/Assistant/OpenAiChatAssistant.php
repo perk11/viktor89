@@ -97,7 +97,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
     protected function getResponseParameters(AssistantContext $assistantContext): array
     {
         $parameters = [
-            'messages' => $assistantContext->toOpenAiMessagesArray(),
+            'messages' => $assistantContext->toOpenAiMessagesArray(false),
         ];
         if ($this->model !== null) {
             $parameters['model'] = $this->model;

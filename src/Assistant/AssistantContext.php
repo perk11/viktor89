@@ -55,7 +55,7 @@ class AssistantContext
 
         return $context;
     }
-    public function toOpenAiMessagesArray(): array
+    public function toOpenAiMessagesArray(bool $includeToolMessages = true): array
     {
         if ($this->responseStart !== null) {
             throw new Exception('responseStart specified, but it can not be converted to OpenAi array');
@@ -71,7 +71,7 @@ class AssistantContext
        foreach ($this->messages as $message) {
            $role = $message->isUser ? 'user' : 'assistant';
            $messageContentParts = [];
-           $messageHasToolCalls = !$message->isUser && count($message->toolCalls) > 0;
+           $messageHasToolCalls = $includeToolMessages && !$message->isUser && count($message->toolCalls) > 0;
            $messageHasReasoning = $message->reasoning !== null;
 
            $previousMessageKey = array_key_last($openAiMessages);

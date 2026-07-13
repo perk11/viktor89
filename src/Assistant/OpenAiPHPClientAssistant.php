@@ -139,8 +139,9 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
       }
 
       /** @var array<string, mixed> $requestOptions */
+      $supportsTools = count($this->toolDefintions) > 0;
        $requestOptions = [
-           'messages' => $assistantContext->toOpenAiMessagesArray(),
+           'messages' => $assistantContext->toOpenAiMessagesArray($supportsTools),
        ];
         if ($this->model !== null) {
             $requestOptions['model'] = $this->model;
@@ -430,7 +431,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
            // Rebuild request options from the compacted context
             $requestOptions = [
-                'messages' => $assistantContext->toOpenAiMessagesArray(),
+                'messages' => $assistantContext->toOpenAiMessagesArray($supportsTools),
             ];
             if ($this->model !== null) {
                 $requestOptions['model'] = $this->model;
