@@ -291,7 +291,7 @@ class ProcessMessageTask implements Task
             ['/editfrequency'],
             'edit-frequency',
             $this->telegramBotUsername,
-            1.5,
+            3,
             120,
         );
         $personalityProcessor = new UserPreferenceSetByCommandProcessor(
