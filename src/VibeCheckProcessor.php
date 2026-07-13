@@ -16,6 +16,7 @@ class VibeCheckProcessor implements MessageChainProcessor, GetTriggeringCommands
     private const MIN_MESSAGE_COUNT = 5;
     private const PER_MESSAGE_TEXT_LIMIT = 200;
     private const BAR_WIDTH = 10;
+    private const ENERGY_BAR_WIDTH = 10;
 
     /** @var string[] */
     private const AXES = ['chaos', 'wholesome', 'brainrot', 'thirst', 'drama'];
@@ -27,6 +28,26 @@ class VibeCheckProcessor implements MessageChainProcessor, GetTriggeringCommands
         'brainrot'  => 'Brainrot',
         'thirst'    => 'Thirst',
         'drama'     => 'Drama',
+    ];
+
+    /** @var array<string, string> */
+    private const TIER_EMOJI = [
+        'S' => '🏆',
+        'A' => '🥇',
+        'B' => '🥈',
+        'C' => '🥉',
+        'D' => '😬',
+        'F' => '💀',
+    ];
+
+    /** @var array<string, int> energy floor (inclusive) → tier */
+    private const TIER_ENERGY_FLOORS = [
+        'S' => 85,
+        'A' => 70,
+        'B' => 55,
+        'C' => 40,
+        'D' => 25,
+        'F' => 0,
     ];
 
     public function __construct(
@@ -60,7 +81,7 @@ class VibeCheckProcessor implements MessageChainProcessor, GetTriggeringCommands
             return new ProcessingResult($responseMessage, true);
         }
 
-        $progressUpdateCallback(static::class, 'Считаю вайб чата…');
+        $progressUpdateCallback(static::class, 'Замеряю вайб чата…');
 
         try {
             $completion = $this->assistant->getCompletionBasedOnContext($this->buildContext($transcript))->content;
@@ -115,17 +136,32 @@ class VibeCheckProcessor implements MessageChainProcessor, GetTriggeringCommands
     {
         $context = new AssistantContext();
         $context->systemPrompt = <<<'PROMPT'
-You analyze the current vibe of a group chat based on its recent messages.
-Respond with ONLY a minified JSON object and nothing else: no markdown, no code fences, no explanation.
+You are "VibeCheck", an analyst that reads a group chat's recent messages and grades its current vibe with flair and humor.
 
-Schema (every field required):
-{"chaos":0,"wholesome":0,"brainrot":0,"thirst":0,"drama":0,"verdict":""}
+Respond with ONLY a minified JSON object on a single line. No markdown, no code fences, no commentary before or after.
 
-Rules:
-- Each score is an integer from 0 to 10 describing how present that vibe is in the messages.
-- "verdict": one punchy, witty sentence (max 2 short sentences) summarizing the chat's energy right now.
-- Write "verdict" in the same language the chat mostly uses.
-- Output raw, valid JSON on a single line.
+Schema (emit every field except "haiku"):
+{"energy":0,"tier":"A","title":"","emoji":"","soundtrack":"","forecast":"","haiku":"","scores":{"chaos":0,"wholesome":0,"brainrot":0,"thirst":0,"drama":0},"verdict":""}
+
+Field rules:
+- "energy": integer 0-100 — the overall liveliness / intensity of the chat right now.
+- "tier": exactly one of "S","A","B","C","D","F" — how legendary the current vibe is. S = peak energy / all-timer chaos, F = dead air.
+- "title": a short, witty, creative name for the vibe (2-6 words), like a mood playlist title. Be original and specific to this chat. No inner quotes.
+- "emoji": 1 to 4 emojis that best capture the vibe. No spaces, no text, only emojis.
+- "soundtrack": a real song, artist, or musical genre that would be this chat's score right now. Keep it short (a few words).
+- "forecast": a single playful, horoscope-style sentence predicting where the chat is heading next.
+- "haiku": OPTIONAL. A 3-line haiku (5-7-5 syllables) about this chat, lines joined by the two characters \n. Omit or leave empty if unsure.
+- "scores": each axis is an integer 0-10:
+    chaos = unhinged / noisy / unhinged-energy,
+    wholesome = warm / friendly / supportive,
+    brainrot = memes / slang / shitposting,
+    thirst = simping / flirting / down-bad energy,
+    drama = conflict / gossip / beef.
+- "verdict": punchy, witty summary of the vibe. Max 2 short sentences. Attitude encouraged.
+
+Write every free-text field (title, soundtrack, forecast, haiku, verdict) in the language the chat mostly uses.
+
+Output raw, valid JSON on a single line. Nothing else.
 PROMPT;
 
         $message = new AssistantContextMessage();
@@ -138,32 +174,74 @@ PROMPT;
 
     private function renderReport(string $completion, int $analyzedCount): string
     {
-        $parsed = $this->parseScores($completion);
+        $report = $this->parseReport($completion);
 
-        $report = "🌡 <b>Vibe check</b> <i>(на основе {$analyzedCount} сообщений)</i>\n\n";
-
-        if ($parsed !== null) {
-            $report .= "<pre>";
-            foreach (self::AXES as $axis) {
-                $label = str_pad(self::AXIS_LABELS[$axis], 10);
-                $score = max(0, min(10, $parsed['scores'][$axis]));
-                $bar = str_repeat('█', $score) . str_repeat('░', self::BAR_WIDTH - $score);
-                $report .= $label . ' ' . $bar . ' ' . $score . "\n";
-            }
-            $report .= "</pre>\n\n";
-            $report .= TelegramHtml::escape($parsed['verdict']);
-        } else {
+        if ($report === null) {
             // Model didn't return parseable JSON; show its raw text as a fallback.
-            $report .= TelegramHtml::escape(trim($completion));
+            return "🔮 <b>VIBE CHECK</b> <i>(на основе {$analyzedCount} сообщений)</i>\n\n"
+                . TelegramHtml::escape(trim($completion));
         }
 
-        return $report;
+        $headerEmoji = $report['emoji'] !== '' ? $report['emoji'] : '🔮';
+
+        $lines = [];
+        $lines[] = "{$headerEmoji} <b>VIBE CHECK</b> <i>(на основе {$analyzedCount} сообщений)</i>";
+
+        if ($report['title'] !== '') {
+            $lines[] = '🏷 ' . TelegramHtml::escape($report['title']);
+        }
+
+        // Overall energy meter + vibe tier.
+        $energy = $report['energy'];
+        $filled = (int) round($energy / 10);
+        $energyBar = str_repeat('█', $filled) . str_repeat('░', self::ENERGY_BAR_WIDTH - $filled);
+        $tier = $report['tier'];
+        $tierEmoji = self::TIER_EMOJI[$tier] ?? '📋';
+        $lines[] = "⚡ Энергия: <code>{$energyBar}</code> {$energy}%";
+        $lines[] = "{$tierEmoji} Тир: <b>{$tier}</b>";
+
+        // Per-axis bars.
+        $lines[] = '<pre>';
+        foreach (self::AXES as $axis) {
+            $label = str_pad(self::AXIS_LABELS[$axis], 10);
+            $score = max(0, min(10, $report['scores'][$axis]));
+            $bar = str_repeat('█', $score) . str_repeat('░', self::BAR_WIDTH - $score);
+            $lines[] = $label . ' ' . $bar . ' ' . $score;
+        }
+        $lines[] = '</pre>';
+
+        if ($report['soundtrack'] !== '') {
+            $lines[] = '🎶 Саундтрек: ' . TelegramHtml::escape($report['soundtrack']);
+        }
+        if ($report['forecast'] !== '') {
+            $lines[] = '🔮 Прогноз: ' . TelegramHtml::escape($report['forecast']);
+        }
+
+        $lines[] = '';
+        $lines[] = '💬 ' . TelegramHtml::escape($report['verdict']);
+
+        if ($report['haiku'] !== '') {
+            $lines[] = '';
+            $lines[] = '🎴 <blockquote>' . TelegramHtml::escape($report['haiku']) . '</blockquote>';
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
-     * @return array{scores: array<string, int>, verdict: string}|null
+     * @return array{
+     *     energy: int,
+     *     tier: string,
+     *     title: string,
+     *     emoji: string,
+     *     soundtrack: string,
+     *     forecast: string,
+     *     haiku: string,
+     *     scores: array<string, int>,
+     *     verdict: string,
+     * }|null
      */
-    private function parseScores(string $completion): ?array
+    private function parseReport(string $completion): ?array
     {
         $completion = trim($completion);
         // Strip markdown code fences / surrounding prose if the model added them despite instructions.
@@ -181,12 +259,16 @@ PROMPT;
             return null;
         }
 
+        // Scores + verdict are required; everything else degrades gracefully.
+        // Accept axes either nested under "scores" (preferred schema) or flat
+        // at the top level, since smaller models sometimes flatten the object.
+        $scoreSource = array_key_exists('scores', $data) && is_array($data['scores']) ? $data['scores'] : $data;
         $scores = [];
         foreach (self::AXES as $axis) {
-            if (!array_key_exists($axis, $data) || !is_numeric($data[$axis])) {
+            if (!array_key_exists($axis, $scoreSource) || !is_numeric($scoreSource[$axis])) {
                 return null;
             }
-            $scores[$axis] = (int) $data[$axis];
+            $scores[$axis] = (int) $scoreSource[$axis];
         }
 
         $verdict = is_string($data['verdict'] ?? null) ? trim($data['verdict']) : '';
@@ -194,6 +276,64 @@ PROMPT;
             return null;
         }
 
-        return ['scores' => $scores, 'verdict' => $verdict];
+        $energy = array_key_exists('energy', $data) && is_numeric($data['energy'])
+            ? (int) $data['energy']
+            : (int) round(array_sum($scores) / count($scores) * 10);
+        $energy = max(0, min(100, $energy));
+
+        $tier = is_string($data['tier'] ?? null) ? strtoupper(trim($data['tier'])) : '';
+        if (!array_key_exists($tier, self::TIER_EMOJI)) {
+            $tier = $this->deriveTierFromEnergy($energy);
+        }
+
+        return [
+            'energy'     => $energy,
+            'tier'       => $tier,
+            'title'      => $this->clipString($data['title'] ?? '', 80),
+            'emoji'      => $this->clipEmoji($data['emoji'] ?? ''),
+            'soundtrack' => $this->clipString($data['soundtrack'] ?? '', 80),
+            'forecast'   => $this->clipString($data['forecast'] ?? '', 160),
+            'haiku'      => $this->clipString($data['haiku'] ?? '', 200),
+            'scores'     => $scores,
+            'verdict'    => $this->clipString($verdict, 300),
+        ];
+    }
+
+    private function deriveTierFromEnergy(int $energy): string
+    {
+        foreach (self::TIER_ENERGY_FLOORS as $tier => $floor) {
+            if ($energy >= $floor) {
+                return $tier;
+            }
+        }
+
+        return 'F';
+    }
+
+    private function clipString(mixed $value, int $limit): string
+    {
+        if (!is_string($value)) {
+            return '';
+        }
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        return mb_strlen($value) > $limit ? mb_strimwidth($value, 0, $limit, '…') : $value;
+    }
+
+    private function clipEmoji(mixed $value): string
+    {
+        if (!is_string($value)) {
+            return '';
+        }
+        // Keep only grapheme clusters that look like emoji/punctuation, drop spaces & prose.
+        $collapsed = preg_replace('/\s+/u', '', $value) ?? '';
+        if ($collapsed === '') {
+            return '';
+        }
+
+        return mb_substr($collapsed, 0, 12);
     }
 }

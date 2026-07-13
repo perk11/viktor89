@@ -22,9 +22,9 @@ final class ContextCompactor
     public function __construct(
         private readonly \Closure $summaryGenerator,
         private readonly LoggerInterface $logger,
+        private readonly CompactionSummaryStoreInterface $store,
         private readonly int $maxRecentCharacters = self::DEFAULT_MAX_RECENT_CHARACTERS,
         private readonly int $maxSummaryInputCharacters = self::DEFAULT_MAX_SUMMARY_INPUT_CHARACTERS,
-        private readonly ?CompactionSummaryStoreInterface $store = null,
     ) {
         if ($this->maxRecentCharacters < 1) {
             throw new \InvalidArgumentException('maxRecentCharacters must be at least 1.');
@@ -44,10 +44,6 @@ final class ContextCompactor
      */
     public function applyStoredCompaction(CompactionKey $key, AssistantContext $context): AssistantContext
     {
-        if ($this->store === null) {
-            return $context;
-        }
-
         $stored = $this->store->findLatestForChain($key->chatId, $key->rootMessageId);
         if ($stored === null) {
             return $context;
@@ -87,10 +83,9 @@ final class ContextCompactor
     }
 
     /**
-     * @param CompactionKey|null $key When provided together with a store, the
-     *                                resulting compaction is persisted so it can
-     *                                be reused on later requests instead of
-     *                                re-summarizing.
+     * @param CompactionKey|null $key When provided, the resulting compaction is
+     *                                persisted so it can be reused on later
+     *                                requests instead of re-summarizing.
      */
     public function compact(AssistantContext $context, ?CompactionKey $key = null): AssistantContext
     {
@@ -118,7 +113,7 @@ final class ContextCompactor
             mb_strlen($summary, 'UTF-8'),
         ));
 
-        if ($this->store !== null && $key !== null && $boundaryMessageId !== null) {
+        if ($key !== null && $boundaryMessageId !== null) {
             $this->store->store(new CompactionSummary(
                 $key->chatId,
                 $key->rootMessageId,

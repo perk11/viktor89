@@ -29,8 +29,8 @@ class ContextCompactorPersistenceTest extends TestCase
         $compactor = new ContextCompactor(
             fn(string $p): string => 'persisted summary',
             new NullLogger(),
-            5, // maxRecentCharacters — forces compaction of old messages
-            store: $store,
+            $store,
+            maxRecentCharacters: 5, // forces compaction of old messages
         );
 
         $ctx = $this->makeContextWithIds([
@@ -55,8 +55,8 @@ class ContextCompactorPersistenceTest extends TestCase
         $compactor = new ContextCompactor(
             fn(string $p): string => 'summary',
             new NullLogger(),
-            5,
-            store: $store,
+            $store,
+            maxRecentCharacters: 5,
         );
 
         $ctx = $this->makeContextWithIds([
@@ -76,8 +76,8 @@ class ContextCompactorPersistenceTest extends TestCase
         $compactor = new ContextCompactor(
             fn(string $p): string => 'should not be called',
             new NullLogger(),
-            5,
-            store: $store,
+            $store,
+            maxRecentCharacters: 5,
         );
 
         // Simulates a subsequent request: messages 1-3 are already summarized,
@@ -107,8 +107,8 @@ class ContextCompactorPersistenceTest extends TestCase
                 return str_contains($p, 'a1') ? 'chain A summary' : 'chain B summary';
             },
             new NullLogger(),
-            5,
-            store: $store,
+            $store,
+            maxRecentCharacters: 5,
         );
 
         // Two independent reply chains in the same chat with different roots.
@@ -133,22 +133,6 @@ class ContextCompactorPersistenceTest extends TestCase
         $this->assertSame(5, $summaryB->lastSummarizedMessageId);
     }
 
-    public function testApplyStoredCompactionReturnsUnchangedWhenNoStore(): void
-    {
-        $compactor = new ContextCompactor(
-            fn(string $p): string => 'summary',
-            new NullLogger(),
-            5,
-        );
-
-        $ctx = $this->makeContextWithIds([
-            ['isUser' => true, 'text' => 'hello', 'id' => 1],
-        ]);
-
-        $result = $compactor->applyStoredCompaction(new CompactionKey(self::CHAT_ID, self::ROOT_ID), $ctx);
-        $this->assertSame($ctx, $result);
-    }
-
     public function testApplyStoredCompactionReturnsUnchangedWhenNothingToDrop(): void
     {
         $store = new InMemoryCompactionStore();
@@ -158,8 +142,8 @@ class ContextCompactorPersistenceTest extends TestCase
         $compactor = new ContextCompactor(
             fn(string $p): string => 'summary',
             new NullLogger(),
-            5,
-            store: $store,
+            $store,
+            maxRecentCharacters: 5,
         );
 
         $ctx = $this->makeContextWithIds([

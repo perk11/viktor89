@@ -49,8 +49,9 @@ class VibeCheckProcessorTest extends TestCase
         $this->assertSame(AssistantInterface::class, $params[1]->getType()->getName());
     }
 
-    public function testRendersBarChartAndVerdictFromJsonCompletion(): void
+    public function testRendersBarChartAndVerdictFromFlatJsonCompletion(): void
     {
+        // Legacy flat schema (axes at top level) must still parse.
         $repo = $this->repoExpectingLimit(50);
         $assistant = $this->assistantReturning(
             '{"chaos":7,"wholesome":3,"brainrot":9,"thirst":2,"drama":4,"verdict":"Тут полный хаос и брейнрот, спасите."}',
@@ -63,7 +64,7 @@ class VibeCheckProcessorTest extends TestCase
         $this->assertSame(42, $result->response->replyToMessageId);
 
         $text = $result->response->messageText;
-        $this->assertStringContainsString('Vibe check', $text);
+        $this->assertStringContainsString('VIBE CHECK', $text);
         $this->assertStringContainsString('на основе 3 сообщений', $text);
         $this->assertStringContainsString('Chaos      ███████░░░ 7', $text);
         $this->assertStringContainsString('Wholesome  ███░░░░░░░ 3', $text);
@@ -71,6 +72,59 @@ class VibeCheckProcessorTest extends TestCase
         $this->assertStringContainsString('Thirst     ██░░░░░░░░ 2', $text);
         $this->assertStringContainsString('Drama      ████░░░░░░ 4', $text);
         $this->assertStringContainsString('Тут полный хаос и брейнрот, спасите.', $text);
+    }
+
+    public function testRendersAllCreativeFieldsFromFullJson(): void
+    {
+        $assistant = $this->assistantReturning(
+            '{"energy":82,"tier":"A","title":"Сертифицированные гоблины","emoji":"🎲🤡🔥",'
+            . '"soundtrack":"Psycho Killer — Talking Heads","forecast":"К ночи будет ещё хуже.",'
+            . '"haiku":"Чат не спит\\nклава в огне\\nкто-то опять прав",'
+            . '"scores":{"chaos":8,"wholesome":2,"brainrot":7,"thirst":1,"drama":5},'
+            . '"verdict":"Лёгкий хаос с примесью брейнрота."}',
+        );
+        $text = $this->runProcessor($this->repoStub(), $assistant, '')->response->messageText;
+
+        // Header carries the model-picked emoji stamp.
+        $this->assertStringContainsString('🎲🤡🔥 <b>VIBE CHECK</b>', $text);
+        // Title.
+        $this->assertStringContainsString('🏷 Сертифицированные гоблины', $text);
+        // Energy meter + tier row.
+        $this->assertStringContainsString('⚡ Энергия: <code>████████░░</code> 82%', $text);
+        $this->assertStringContainsString('🥇 Тир: <b>A</b>', $text);
+        // Axis bars come from the nested "scores" object.
+        $this->assertStringContainsString('Chaos      ████████░░ 8', $text);
+        $this->assertStringContainsString('Brainrot   ███████░░░ 7', $text);
+        // Bonus creative fields.
+        $this->assertStringContainsString('🎶 Саундтрек: Psycho Killer — Talking Heads', $text);
+        $this->assertStringContainsString('🔮 Прогноз: К ночи будет ещё хуже.', $text);
+        $this->assertStringContainsString('🎴 <blockquote>', $text);
+        $this->assertStringContainsString('💬 Лёгкий хаос с примесью брейнрота.', $text);
+    }
+
+    public function testDerivesEnergyAndTierWhenModelOmitsThem(): void
+    {
+        // No energy/tier in the payload: energy = avg(scores)*10 = 50, tier -> C.
+        $text = $this->runProcessor(
+            $this->repoStub(),
+            $this->assistantReturning('{"scores":{"chaos":5,"wholesome":5,"brainrot":5,"thirst":5,"drama":5},"verdict":"ok"}'),
+            '',
+        )->response->messageText;
+
+        $this->assertStringContainsString('⚡ Энергия: <code>█████░░░░░</code> 50%', $text);
+        $this->assertStringContainsString('🥉 Тир: <b>C</b>', $text);
+    }
+
+    public function testFallsBackToEnergyBasedTierWhenTierInvalid(): void
+    {
+        $text = $this->runProcessor(
+            $this->repoStub(),
+            $this->assistantReturning('{"energy":95,"tier":"Z","scores":{"chaos":1,"wholesome":1,"brainrot":1,"thirst":1,"drama":1},"verdict":"ok"}'),
+            '',
+        )->response->messageText;
+
+        $this->assertStringContainsString('🏆 Тир: <b>S</b>', $text);
+        $this->assertStringContainsString('95%', $text);
     }
 
     public function testAcceptsNumericArgumentAndPassesItAsLimit(): void

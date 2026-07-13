@@ -74,6 +74,27 @@
       "model": "gemma-4-31B-it-UD-Q6_K_XL",
       "class": "Perk11\\Viktor89\\Assistant\\OpenAiChatAssistant"
     },
+    "personalitycard": {
+      "url": "http://localhost:7070/",
+      "supportsResponseStart": false,
+      "selectableByUser": false,
+      "model": "gemma-4-31B-it-UD-Q6_K_XL",
+      "class": "Perk11\\Viktor89\\Assistant\\OpenAiChatAssistant"
+    },
+    "roast": {
+      "url": "http://localhost:7070/",
+      "supportsResponseStart": false,
+      "selectableByUser": false,
+      "model": "gemma-4-31B-it-UD-Q6_K_XL",
+      "class": "Perk11\\Viktor89\\Assistant\\OpenAiChatAssistant"
+    },
+    "compliment": {
+      "url": "http://localhost:7070/",
+      "supportsResponseStart": false,
+      "selectableByUser": false,
+      "model": "gemma-4-31B-it-UD-Q6_K_XL",
+      "class": "Perk11\\Viktor89\\Assistant\\OpenAiChatAssistant"
+    },
     "vision-for-restyle": {
       "url": "http://localhost:7070/",
       "supportsResponseStart": false,

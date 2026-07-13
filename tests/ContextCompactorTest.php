@@ -62,9 +62,8 @@ class ContextCompactorTest extends TestCase
 
     public function testFewerMessagesThanThresholdReturnsUnchanged(): void
     {
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             fn(string $p): string => 'summary',
-            new NullLogger(),
             100, // maxRecentCharacters – well above total serialized length
         );
         $ctx = self::makeContext([
@@ -79,9 +78,8 @@ class ContextCompactorTest extends TestCase
 
     public function testExactlyAtThresholdReturnsUnchanged(): void
     {
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             fn(string $p): string => 'summary',
-            new NullLogger(),
             100, // maxRecentCharacters – 10 x "User: x" = 80 chars total
         );
         $ctx = self::makeContext(array_fill(0, 10, ['isUser' => true, 'text' => 'x']));
@@ -91,9 +89,8 @@ class ContextCompactorTest extends TestCase
 
     public function testCompactionReducesMessageCount(): void
     {
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             fn(string $p): string => 'compacted summary',
-            new NullLogger(),
             135, // maxRecentCharacters – 10 x "User: Recent" (13) = 130; 11th would push to 143, old would push to 164
         );
         $ctx = self::makeContext(
@@ -110,9 +107,8 @@ class ContextCompactorTest extends TestCase
 
     public function testRecentMessagesPreservedVerbatim(): void
     {
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             fn(string $p): string => 'summary',
-            new NullLogger(),
             95, // maxRecentCharacters – keeps Msg 4-9 (90 chars), Msg 3 would push to 103
         );
         $messages = [];
@@ -129,9 +125,8 @@ class ContextCompactorTest extends TestCase
 
     public function testSystemPromptAndResponseStartPreserved(): void
     {
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             fn(string $p): string => 'summary',
-            new NullLogger(),
             5,
         );
         $ctx = self::makeContext(
@@ -149,9 +144,8 @@ class ContextCompactorTest extends TestCase
 
    public function testSummaryMessageIsUserMessage(): void
    {
-       $compactor = new ContextCompactor(
+       $compactor = $this->createCompactor(
            fn(string $p): string => 'summary',
-           new NullLogger(),
            3,
        );
        $ctx = self::makeContext(array_fill(0, 6, ['isUser' => false, 'text' => 'x']));
@@ -164,12 +158,11 @@ class ContextCompactorTest extends TestCase
     public function testSummaryGeneratorReceivesOldMessagesOnly(): void
     {
         $capturedPrompt = '';
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             function (string $p) use (&$capturedPrompt): string {
                 $capturedPrompt = $p;
                 return 'summary';
             },
-            new NullLogger(),
             45, // maxRecentCharacters – "Keep1-3" = 42 chars, "Old4" would push to 56
         );
         $ctx = self::makeContext([
@@ -190,12 +183,11 @@ class ContextCompactorTest extends TestCase
     public function testEmptyMessagesSkippedInSummaryPrompt(): void
     {
         $capturedPrompt = '';
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             function (string $p) use (&$capturedPrompt): string {
                 $capturedPrompt = $p;
                 return 'summary';
             },
-            new NullLogger(),
             3,
         );
         $ctx = self::makeContext([
@@ -220,9 +212,8 @@ class ContextCompactorTest extends TestCase
 
     public function testSummaryGeneratorReturnValueInsertedIntoContext(): void
     {
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             fn(string $p): string => 'CUSTOM_SUMMARY_TEXT',
-            new NullLogger(),
             3,
         );
         $ctx = self::makeContext(array_fill(0, 8, ['isUser' => true, 'text' => 'x']));
@@ -235,12 +226,11 @@ class ContextCompactorTest extends TestCase
     public function testToolCallWithoutTextIsIncludedInSummaryPrompt(): void
     {
         $capturedPrompt = '';
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             function (string $p) use (&$capturedPrompt): string {
                 $capturedPrompt = $p;
                 return 'summary';
             },
-            new NullLogger(),
             3,
         );
 
@@ -273,12 +263,11 @@ class ContextCompactorTest extends TestCase
     public function testToolCallIncludedAlongsideTextInSummaryPrompt(): void
     {
         $capturedPrompt = '';
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             function (string $p) use (&$capturedPrompt): string {
                 $capturedPrompt = $p;
                 return 'summary';
             },
-            new NullLogger(),
             3,
         );
 
@@ -309,12 +298,11 @@ class ContextCompactorTest extends TestCase
     public function testToolCallResultIncludedInSummaryPrompt(): void
     {
         $capturedPrompt = '';
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             function (string $p) use (&$capturedPrompt): string {
                 $capturedPrompt = $p;
                 return 'summary';
             },
-            new NullLogger(),
             3,
         );
 
@@ -348,9 +336,8 @@ class ContextCompactorTest extends TestCase
 
     public function testToolCallInRecentMessagePreservedAfterCompaction(): void
     {
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             fn(string $p): string => 'summary',
-            new NullLogger(),
             137, // maxRecentCharacters – Recent5(15)+Recent4(19)+Recent3(15)+toolMsg(88)=137; Old4(15) would exceed
         );
 
@@ -387,12 +374,11 @@ class ContextCompactorTest extends TestCase
     public function testMultipleToolCallsInOneMessageIncludedInSummaryPrompt(): void
     {
         $capturedPrompt = '';
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             function (string $p) use (&$capturedPrompt): string {
                 $capturedPrompt = $p;
                 return 'summary';
             },
-            new NullLogger(),
             3,
         );
 
@@ -426,12 +412,11 @@ class ContextCompactorTest extends TestCase
    public function testProgressiveSummaryFeedsExistingSummaryIntoPrompt(): void
    {
        $capturedPrompts = [];
-       $compactor = new ContextCompactor(
+       $compactor = $this->createCompactor(
            function (string $p) use (&$capturedPrompts): string {
                $capturedPrompts[] = $p;
                return 'updated summary';
            },
-           new NullLogger(),
            3, // maxRecentCharacters — forces compaction
        );
 
@@ -456,12 +441,11 @@ class ContextCompactorTest extends TestCase
    public function testLargeConversationChunkedIntoMultipleSummaryCalls(): void
    {
        $callCount = 0;
-       $compactor = new ContextCompactor(
+       $compactor = $this->createCompactor(
            function (string $p) use (&$callCount): string {
                $callCount++;
                return "chunk $callCount summary";
            },
-           new NullLogger(),
            5,    // maxRecentCharacters — keep only the last message as recent
            100,  // maxSummaryInputCharacters — force chunking of old messages
        );
@@ -481,12 +465,11 @@ class ContextCompactorTest extends TestCase
    public function testProgressiveSummaryPassesPriorChunkResultToNextChunk(): void
    {
        $capturedPrompts = [];
-       $compactor = new ContextCompactor(
+       $compactor = $this->createCompactor(
            function (string $p) use (&$capturedPrompts): string {
                $capturedPrompts[] = $p;
                return 'running summary';
            },
-           new NullLogger(),
            5,    // maxRecentCharacters
            100,  // maxSummaryInputCharacters — force multiple chunks
        );
@@ -519,9 +502,8 @@ class ContextCompactorTest extends TestCase
      */
     public function testCompactMergesConsecutiveAssistantToolCallTurns(): void
     {
-        $compactor = new ContextCompactor(
+        $compactor = $this->createCompactor(
             fn(string $p): string => 'summary',
-            new NullLogger(),
             200, // keep the tool-call turns + last user message as recent
         );
 
@@ -566,7 +548,7 @@ class ContextCompactorTest extends TestCase
         $compactor = new ContextCompactor(
             fn(string $p): string => 'summary',
             new NullLogger(),
-            store: $store,
+            $store,
         );
 
         $key = new CompactionKey(42, 10);
@@ -606,6 +588,33 @@ class ContextCompactorTest extends TestCase
     }
 
    // ─── helpers ─────────────────────────────────────────────────────────────
+
+    /**
+     * Build a ContextCompactor wired with a fresh in-memory store. Tests that
+     * only exercise compaction (no compaction key) never touch the store.
+     */
+    private function createCompactor(
+        \Closure $summaryGenerator,
+        int $maxRecentCharacters,
+        ?int $maxSummaryInputCharacters = null,
+    ): ContextCompactor {
+        if ($maxSummaryInputCharacters === null) {
+            return new ContextCompactor(
+                $summaryGenerator,
+                new NullLogger(),
+                new CompactorTestInMemoryStore(),
+                $maxRecentCharacters,
+            );
+        }
+
+        return new ContextCompactor(
+            $summaryGenerator,
+            new NullLogger(),
+            new CompactorTestInMemoryStore(),
+            $maxRecentCharacters,
+            $maxSummaryInputCharacters,
+        );
+    }
 
     private static function makeMsg(bool $isUser, string $text): AssistantContextMessage
     {

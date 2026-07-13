@@ -243,7 +243,7 @@ class ContextCompactorIntegrationTest extends TestCase
         }
 
         $summaryGenerator = $this->createSummaryGenerator($client);
-        $compactor = new ContextCompactor($summaryGenerator, new NullLogger(), self::MAX_RECENT_CHARACTERS);
+        $compactor = new ContextCompactor($summaryGenerator, new NullLogger(), $this->createStub(\Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface::class), maxRecentCharacters: self::MAX_RECENT_CHARACTERS);
 
         // Build a context that will definitely trigger compaction
         $ctx = $this->buildLargeContext(self::TOTAL_MESSAGES);
@@ -334,7 +334,7 @@ class ContextCompactorIntegrationTest extends TestCase
         }
 
         $summaryGenerator = $this->createSummaryGenerator($client);
-        $compactor = new ContextCompactor($summaryGenerator, new NullLogger(), 5);
+        $compactor = new ContextCompactor($summaryGenerator, new NullLogger(), $this->createStub(\Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface::class), maxRecentCharacters: 5);
 
         // Build context with specific topics so we can verify the summary captures them
         $ctx = $this->buildLargeContext(20, 'AI');

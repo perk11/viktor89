@@ -44,7 +44,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         string $apiKey = '',
         bool $supportsImages,
         private readonly array $toolDefintions = [],
-        private readonly ?CompactionSummaryStoreInterface $compactionStore = null,
+        private readonly CompactionSummaryStoreInterface $compactionStore,
     ) {
         $openAiFactory = OpenAI::factory()
             ->withBaseUri(rtrim($url, '/'))
@@ -67,7 +67,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
        $this->contextCompactor = new ContextCompactor(
            $this->createSummaryGenerator(),
            new Logger('OpenAIPHPClientAssistant_' . $this->model),
-           store: $this->compactionStore,
+           $this->compactionStore,
        );
    }
 

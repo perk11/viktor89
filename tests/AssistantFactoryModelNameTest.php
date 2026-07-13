@@ -6,6 +6,7 @@ namespace Perk11\Viktor89\Test;
 
 use Perk11\Viktor89\Assistant\AbstractOpenAIAPiAssistant;
 use Perk11\Viktor89\Assistant\AssistantFactory;
+use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
 use Perk11\Viktor89\Assistant\OpenAiChatAssistant;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
@@ -71,6 +72,7 @@ class AssistantFactoryModelNameTest extends TestCase
             123456789,
             $draftCallback,
             $stubReader,
+            $this->createStub(CompactionSummaryStoreInterface::class),
         );
     }
 }

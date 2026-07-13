@@ -145,6 +145,30 @@ VALUES (:message_id, :tool_call_id, :tool_name, :arguments, :result, :chat_id)'
         return $resultingMessages;
     }
 
+/**
+     * Newest-first list of the last $limit messages authored by $userId in $chatId. Tool calls are not loaded —
+     * only message_text is needed by the callers (roast/compliment/personality-card transcripts).
+     *
+     * @return InternalMessage[]
+     */
+    public function findLastMessagesByUserInChat(int $chatId, int $userId, int $limit): array
+    {
+        $statement = $this->database->sqlite3Database->prepare(
+            'SELECT * FROM message WHERE chat_id = :chat_id AND user_id = :user_id ORDER BY id DESC LIMIT :limit'
+        );
+        $statement->bindValue(':chat_id', $chatId, SQLITE3_INTEGER);
+        $statement->bindValue(':user_id', $userId, SQLITE3_INTEGER);
+        $statement->bindValue(':limit', $limit, SQLITE3_INTEGER);
+
+        $messages = [];
+        $result = $statement->execute();
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $messages[] = InternalMessage::fromSqliteAssoc($row);
+        }
+
+        return $messages;
+    }
+
     /** @return InternalMessage[] */
     public function findMessagesSentAfterTimestampInChat(int $chatId, int $startTimeStamp): array
     {

@@ -44,7 +44,7 @@ class AssistantFactory
        private readonly int $telegramBotId,
        private readonly DraftUpdateCallback $draftUpdateCallback,
        private readonly UserPreferenceReaderInterface $personalityReader,
-       private readonly ?CompactionSummaryStoreInterface $compactionStore = null,
+       private readonly CompactionSummaryStoreInterface $compactionStore,
    )
    {
    }

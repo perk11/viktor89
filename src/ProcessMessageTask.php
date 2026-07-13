@@ -13,6 +13,8 @@ use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Container\ContainerFactory;
+use Perk11\Viktor89\EmojiArt\EmojiArtProcessor;
+use Perk11\Viktor89\EmojiArt\EmojiPalette;
 use Perk11\Viktor89\Assistant\Tool\GetUrlContentsToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ImageGeneratorTelegramPhotoToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ImageUploader;
@@ -21,6 +23,7 @@ use Perk11\Viktor89\Assistant\Tool\ListChainImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ListSavedImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\WebSearchToolFactory;
+use Perk11\Viktor89\Assistant\UnknownAssistantException;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\DefaultingToFirstInConfigModelPreferenceReader;
 use Perk11\Viktor89\ImageGeneration\DownscaleProcessor;
@@ -54,6 +57,8 @@ use Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor;
 use Perk11\Viktor89\PreResponseProcessor\ReactProcessor;
 use Perk11\Viktor89\PreResponseProcessor\SaveQuizPollProcessor;
 use Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor;
+use Perk11\Viktor89\PersonalityCard\PersonalityCardProcessor;
+use Perk11\Viktor89\PersonalityCard\PersonalityCardRenderer;
 use Perk11\Viktor89\UserSettings\DynamicListBasedPreferenceByCommandProcessor;
 use Perk11\Viktor89\UserSettings\ListBasedPreferenceByCommandProcessor;
 use Perk11\Viktor89\UserSettings\NumericPreferenceInRangeByCommandProcessor;
@@ -138,6 +143,20 @@ class ProcessMessageTask implements Task
         }
 //        echo "Done handling\n";
         return true;
+    }
+
+    /**
+     * Dedicated "personalitycard" assistant if the operator configured one;
+     * otherwise reuse the existing "vibecheck" assistant so the feature works
+     * without any config.json change.
+     */
+    private function resolvePersonalityCardAssistant(AssistantFactory $assistantFactory): \Perk11\Viktor89\Assistant\AssistantInterface
+    {
+        try {
+            return $assistantFactory->getAssistantInstanceByName('personalitycard');
+        } catch (UnknownAssistantException) {
+            return $assistantFactory->getAssistantInstanceByName('vibecheck');
+        }
     }
 
     public function handle(
@@ -577,6 +596,14 @@ class ProcessMessageTask implements Task
             $messageRepository,
             $assistantFactory->getAssistantInstanceByName('vibecheck'),
         );
+        $roastProcessor = new RoastProcessor(
+            $messageRepository,
+            $assistantFactory->getAssistantInstanceByName('roast'),
+        );
+        $complimentProcessor = new ComplimentProcessor(
+            $messageRepository,
+            $assistantFactory->getAssistantInstanceByName('compliment'),
+        );
         $messageChainProcessors = [
             $container->get(VoiceProcessor::class),
             $clownProcessor,
@@ -617,6 +644,20 @@ class ProcessMessageTask implements Task
             ),
             $responseStartProcessor,
             $editFrequencyProcessor,
+            // Registered BEFORE /personality and /persona: CommandBasedResponderTrigger uses
+            // str_starts_with, so /personalitycard would otherwise be eaten by /personality
+            // (leaving "card" for the fallback assistant). Longest command first, like
+            // /imagemodel before /image elsewhere in this list.
+            new CommandBasedResponderTrigger(
+                ['/personalitycard', '/pcard'],
+                new PersonalityCardProcessor(
+                    $messageRepository,
+                    $this->resolvePersonalityCardAssistant($assistantFactory),
+                    $automatic1111APiClient,
+                    $photoResponder,
+                    new PersonalityCardRenderer(),
+                ),
+            ),
             new CommandBasedResponderTrigger(
                 ['/personality'],
                 $personalityProcessor,
@@ -749,6 +790,14 @@ class ProcessMessageTask implements Task
             new CommandBasedResponderTrigger(
                 ['/vibecheck'],
                 $vibeCheckProcessor,
+            ),
+            new CommandBasedResponderTrigger(
+                ['/roast'],
+                $roastProcessor,
+            ),
+            new CommandBasedResponderTrigger(
+                ['/compliment'],
+                $complimentProcessor,
             ),
             $videoEProcessor,
             $voProcessor,
