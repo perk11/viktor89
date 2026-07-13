@@ -46,6 +46,15 @@ class ContextCompactorTest extends TestCase
             '400 unrelated error'   => ['400 unrelated',               400, ['message' => 'invalid_api_key'],               false],
             '500 server error'      => ['500 is not context-length',    500, ['message' => 'internal error'],                false],
             '429 rate limit'        => ['429 is not context-length',    429, ['message' => 'rate limit'],                    false],
+
+            // Streamed requests can arrive as HTTP 200 with the error embedded
+            // in the SSE stream; the library keeps the 200 status on the
+            // ErrorException. Status must not gate detection (regression test
+            // for the streaming compaction failure).
+            '200 streamed exceed'   => ['200 streamed exceeds context', 200, ['message' => 'request (140832 tokens) exceeds the available context size (80128 tokens), try increasing it'], true],
+            '200 streamed limit'    => ['200 streamed context length',  200, ['message' => 'This model maximum context length is 8192 tokens'], true],
+            '200 streamed unrelated'=> ['200 streamed unrelated',       200, ['message' => 'invalid_api_key'],               false],
+            '500 context length'    => ['500 but really context-length',500, ['message' => 'context length exceeded'],       true],
         ];
     }
 

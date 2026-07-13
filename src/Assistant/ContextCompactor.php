@@ -139,9 +139,13 @@ final class ContextCompactor
             return true;
         }
 
-        if ($statusCode < 400 || $statusCode >= 500) {
-            return false;
-        }
+        // Do not bail out based on the status code: for streamed requests the
+        // server may answer HTTP 200 and embed the error inside the SSE stream,
+        // so ErrorException::getStatusCode() can be 200 (see the library's own
+        // caveat on getStatusCode). Some OpenAI-compatible servers also report
+        // context-length failures as 5xx. The message-based detection below is
+        // specific enough (it requires both a context/token term and an overflow
+        // term, or an exact phrase) to avoid false positives.
 
         $errorParts = [
             $exception->getErrorMessage(),
