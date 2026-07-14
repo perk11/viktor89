@@ -68,7 +68,8 @@ class PhotoResponder
             $options['photo'] = $encodedFile;
             $sentMessageResult = Request::sendPhoto($options);
         }
-        if ($sentMessageResult->isOk() && $sentMessageResult->getResult() instanceof Message) {
+        $sendOk = $sentMessageResult->isOk() && $sentMessageResult->getResult() instanceof Message;
+        if ($sendOk) {
             $this->messageRepository->logMessage($sentMessageResult->getResult());
             if ($this->messageMetadataRepository !== null && $caption !== null) {
                 $sentMessage = $sentMessageResult->getResult();
@@ -97,7 +98,20 @@ class PhotoResponder
         }
         echo "Deleting $imagePath\n";
         unlink($imagePath);
-        $this->reactionReplacer->deleteOrReplaceWith($message->chatId, $message->id, '😎');
+        if ($sendOk) {
+            $this->reactionReplacer->deleteOrReplaceWith($message->chatId, $message->id, '😎');
+        } else {
+            Request::execute('setMessageReaction', [
+                'chat_id'    => $message->chatId,
+                'message_id' => $message->id,
+                'reaction'   => [
+                    [
+                        'type'  => 'emoji',
+                        'emoji' => '🤔',
+                    ],
+                ],
+            ]);
+        }
     }
 
     private function needsSpoiler(string $caption): bool
