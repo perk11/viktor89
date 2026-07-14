@@ -167,21 +167,30 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                 }
             }
 
-            $lastActionTime = $currentTime;
-            $lastLength = mb_strlen($partialContent);
-
             if ($isDraft) {
-                $this->processDraftStream($message, $partialContent);
+                $performedUpdate = $this->processDraftStream($message, $partialContent);
             } else {
-                $this->processEditStream($message, $partialContent, $responseStart, $frequency, $editingAborted, $lastActionTime);
+                $performedUpdate = $this->processEditStream($message, $partialContent, $responseStart, $frequency, $editingAborted, $lastActionTime);
+            }
+
+            // Only advance the throttle when an edit/send actually happened.
+            // processEditStream bails out (no message created) while there is
+            // still too little content; advancing the throttle then would
+            // needlessly delay the next real chunk — which is exactly what
+            // left the streamed message uncreated for the entire duration of
+            // a slow tool call (the status update ran, advanced the throttle,
+            // and the tool-call notification that followed was dropped).
+            if ($performedUpdate) {
+                $lastActionTime = $currentTime;
+                $lastLength = mb_strlen($partialContent);
             }
         };
     }
 
-    private function processDraftStream(InternalMessage $message, string $partialContent): void
+    private function processDraftStream(InternalMessage $message, string $partialContent): bool
     {
         if ($this->draftUpdateCallback === null) {
-            return;
+            return false;
         }
 
         $text = $partialContent;
@@ -198,16 +207,18 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                 $message->messageThreadId,
             )
         );
+
+        return true;
     }
 
-    private function processEditStream(InternalMessage $message, string $partialContent, ?string $responseStart, float $frequency, bool &$editingAborted, float &$lastActionTime): void
+    private function processEditStream(InternalMessage $message, string $partialContent, ?string $responseStart, float $frequency, bool &$editingAborted, float &$lastActionTime): bool
     {
         $messageText = $responseStart . $partialContent . "\n```status\n" . $this->progressUpdateStatus ."...\n```";
 
         if ($message->id === null) {
             if (mb_strlen(trim($partialContent)) < 10) {
                 echo "Refusing to send a message for edit stream that is too short: " . mb_strlen(trim($partialContent)) . "\n";
-                return;
+                return false;
             }
             $message->messageText = $messageText;
             $sendResult = $message->send();
@@ -215,6 +226,8 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                 echo "Failed to send initial message for streaming: " . $sendResult->getErrorCode() . ' ' . $sendResult->getDescription() . "\n";
                 $editingAborted = true;
             }
+
+            return true;
         } else {
             if (mb_strlen($messageText) > 32768) {
                 $messageText = mb_substr($responseStart . $partialContent, 0, 32768);
@@ -233,7 +246,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                     )
                 );
 
-                return;
+                return true;
             }
             $editResult = $message->edit($messageText, false);
             if (!$editResult->isOk()) {
@@ -251,6 +264,8 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                     $lastActionTime
                 );
             }
+
+            return true;
         }
     }
 
