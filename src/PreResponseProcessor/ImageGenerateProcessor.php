@@ -21,7 +21,7 @@ use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 
-class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringCommandsInterface
+class ImageGenerateProcessor implements MessageChainProcessor
 {
     public function __construct(
         private readonly ImageByPromptGenerator&ImageByPromptAndImageGenerator $automatic1111APiClient,
@@ -132,10 +132,5 @@ class ImageGenerateProcessor implements MessageChainProcessor, GetTriggeringComm
         }
 
         return new ProcessingResult(null, true);
-    }
-
-    public function getTriggeringCommands(): array
-    {
-        return $this->triggeringCommands;
     }
 }
