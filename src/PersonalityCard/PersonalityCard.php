@@ -6,8 +6,9 @@ namespace Perk11\Viktor89\PersonalityCard;
 
 /**
  * A generated collectible stat card for one chat member. Carries the LLM-derived
- * stats/flavour plus the rarity/power derived from those stats, ready to be drawn
- * by PersonalityCardRenderer.
+ * stats + a signature ability + a special (ultimate) ability + weakness, plus the
+ * rarity/power/element derived from those stats, ready to be drawn by
+ * PersonalityCardRenderer. All visible text is Russian.
  */
 final class PersonalityCard
 {
@@ -18,7 +19,12 @@ final class PersonalityCard
         public readonly string $name,
         public readonly string $archetype,
         public readonly array $stats,
-        public readonly string $quote,
+        public readonly string $element,
+        public readonly string $ability,
+        public readonly string $abilityEffect,
+        public readonly string $specialAbility,
+        public readonly string $specialAbilityQuote,
+        public readonly string $weakness,
         public readonly string $portraitPrompt,
         public readonly string $rarity,
         public readonly int $power,

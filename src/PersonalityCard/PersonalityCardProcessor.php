@@ -9,7 +9,6 @@ use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\AssistantInterface;
-use Perk11\Viktor89\GetTriggeringCommandsInterface;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\InternalMessage;
@@ -22,21 +21,24 @@ use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 
 /**
- * `/personalitycard` (alias `/pcard`) — reply to a chat member (or run it bare
- * for yourself) to "drop" a collectible RPG stat card for that person. Reads the
- * target's recent messages, asks an LLM to grade Charisma / Chaos / Brainrot /
- * Wholesome / Menace and dream up an archetype + flavour, generates a fantasy
- * portrait for that archetype, then overlays a rarity frame + stat bars via GD.
+ * Reply to a chat member (or run it bare for yourself) to "drop" a
+ * collectible RPG stat card for that person. Reads the target's recent messages,
+ * asks an LLM to grade Остроумие / Хаос / Мудрость / Дерзость and dream up an
+ * archetype + a signature ability + a special (ultimate) ability + a weakness,
+ * generates a fantasy portrait themed to the card's element, then overlays a
+ * rarity frame + stat bars via GD. The card is always rendered in Russian and
+ * without emoji (DejaVu fonts have no emoji glyphs).
+ *
+ * The special-ability line is a verbatim quote lifted from the target's own
+ * messages, never a rephrasing — see pickSpecialAbilityQuote().
  */
-class PersonalityCardProcessor implements MessageChainProcessor, GetTriggeringCommandsInterface
+class PersonalityCardProcessor implements MessageChainProcessor
 {
-    private const DEFAULT_MESSAGE_COUNT = 60;
-    private const MAX_MESSAGE_COUNT = 200;
-    private const MIN_MESSAGE_COUNT = 5;
-    private const PER_MESSAGE_TEXT_LIMIT = 200;
+    private const int MESSAGE_COUNT = 500;
+    private const int PER_MESSAGE_TEXT_LIMIT = 200;
 
     /** @var string[] */
-    private const STATS = ['charisma', 'chaos', 'brainrot', 'wholesome', 'menace'];
+    private const STATS = ['wit', 'chaos', 'wisdom', 'menace'];
 
     public function __construct(
         private readonly MessageRepository $messageRepository,
@@ -44,39 +46,40 @@ class PersonalityCardProcessor implements MessageChainProcessor, GetTriggeringCo
         private readonly ImageByPromptGenerator $imageGenerator,
         private readonly PhotoResponder $photoResponder,
         private readonly PersonalityCardRenderer $renderer,
-        /** Defaults to a live Telegram reaction; injectable so the full flow is unit-testable. */
-        private readonly ?\Closure $react = null,
     ) {
-    }
-
-    public function getTriggeringCommands(): array
-    {
-        return ['/personalitycard', '/pcard'];
     }
 
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $command = $messageChain->last();
         $target = $this->resolveTarget($messageChain);
-        $messageCount = $this->parseMessageCount($command->messageText);
-        $fail = static fn (string $text): ProcessingResult => new ProcessingResult(
-            InternalMessage::asResponseTo($command, $text),
-            true,
-        );
-
+        $fail = static fn (): ProcessingResult => new ProcessingResult(null, true, '🤔', $command);
+        Request::execute('setMessageReaction', [
+            'chat_id'    => $command->chatId,
+            'message_id' => $command->id,
+            'reaction'   => [
+                [
+                    'type'  => 'emoji',
+                    'emoji' => '👀',
+                ],
+            ],
+        ]);
         $progressUpdateCallback(static::class, 'Собираю досье на ' . $this->displayName($target) . '…');
 
         $recentMessages = $this->messageRepository->findLastMessagesByUserInChat(
             $command->chatId,
             $target->userId,
-            $messageCount,
+            self::MESSAGE_COUNT,
         );
         // findLastMessagesByUserInChat returns newest-first; chronological reads better for the model.
         $recentMessages = array_reverse($recentMessages);
         $transcript = $this->buildTranscript($recentMessages);
 
         if ($transcript === '') {
-            return $fail('🤷 Этому человеку пока нечего показать — слишком мало сообщений для карточки.');
+            return new ProcessingResult(
+                InternalMessage::asResponseTo($command, '🤷 Этому человеку пока нечего показать — слишком мало сообщений для карточки.'),
+                true,
+            );
         }
 
         $progressUpdateCallback(static::class, 'Анализирую характер…');
@@ -87,15 +90,14 @@ class PersonalityCardProcessor implements MessageChainProcessor, GetTriggeringCo
         } catch (Exception $e) {
             echo "PersonalityCard: assistant completion failed: " . $e->getMessage() . "\n";
 
-            return $fail('🤔 Не получилось прочитать характер, попробуйте ещё раз.');
+            return $fail();
         }
 
-        $card = $this->buildCard($completion, $target);
+        $card = $this->buildCard($completion, $target, $transcript);
         if ($card === null) {
-            return $fail('🤔 Не получилось собрать карточку, попробуйте ещё раз.');
+            return $fail();
         }
 
-        $this->react($command, '👀');
         $progressUpdateCallback(
             static::class,
             'Рисую портрет: ' . $card->archetype . '…',
@@ -108,9 +110,8 @@ class PersonalityCardProcessor implements MessageChainProcessor, GetTriggeringCo
                 ->getFirstImageAsPng();
         } catch (Exception $e) {
             echo "PersonalityCard: image generation failed: " . $e->getMessage() . "\n";
-            $this->react($command, '🤔');
 
-            return $fail('🤔 Портрет не нарисовался, попробуйте ещё раз.');
+            return $fail();
         }
 
         $progressUpdateCallback(static::class, 'Собираю карточку…');
@@ -118,12 +119,10 @@ class PersonalityCardProcessor implements MessageChainProcessor, GetTriggeringCo
             $cardImage = $this->renderer->render($card, $portrait);
         } catch (Exception $e) {
             echo "PersonalityCard: render failed: " . $e->getMessage() . "\n";
-            $this->react($command, '🤔');
 
-            return $fail('🤔 Карточка не собралась, попробуйте ещё раз.');
+            return $fail();
         }
 
-        // PhotoResponder swaps the 👀 reaction to 😎 once the photo lands.
         $this->photoResponder->sendPhoto($command, $cardImage, false, $this->buildCaption($card));
 
         return new ProcessingResult(null, true);
@@ -147,16 +146,6 @@ class PersonalityCardProcessor implements MessageChainProcessor, GetTriggeringCo
         }
 
         return $command;
-    }
-
-    private function parseMessageCount(string $argument): int
-    {
-        $argument = trim($argument);
-        if ($argument === '' || !ctype_digit($argument)) {
-            return self::DEFAULT_MESSAGE_COUNT;
-        }
-
-        return max(self::MIN_MESSAGE_COUNT, min(self::MAX_MESSAGE_COUNT, (int) $argument));
     }
 
     /**
@@ -192,19 +181,24 @@ You will be given the person's display name and a transcript of ONLY their own r
 Respond with ONLY a minified JSON object on a single line. No markdown, no code fences, no commentary before or after.
 
 Schema (every field required):
-{"charisma":0,"chaos":0,"brainrot":0,"wholesome":0,"menace":0,"archetype":"","quote":"","portrait":""}
+{"wit":0,"chaos":0,"wisdom":0,"menace":0,"archetype":"","ability":"","abilityEffect":"","specialAbility":"","specialAbilityQuote":"","weakness":"","portrait":""}
 
 Field rules:
-- "charisma": integer 0-10 — charm, wit, social magnetism.
-- "chaos": integer 0-10 — unhinged / disruptive / unpredictable energy.
-- "brainrot": integer 0-10 — memes, slang, shitposting, terminally online vibes.
-- "wholesome": integer 0-10 — warmth, kindness, supportive energy.
-- "menace": integer 0-10 — trolling, provocation, lovable-trickster menace.
+- "wit": integer 0-10 — cleverness, comebacks, wordplay, comedic timing.
+- "chaos": integer 0-10 — unpredictability, disruption, derailing conversations, anarchy.
+- "wisdom": integer 0-10 — depth, insight, thoughtfulness, giving real perspective.
+- "menace": integer 0-10 — provocation, trolling, boldness, pushing buttons.
 - "archetype": a short, punchy RPG class or title (1-3 words) that fits this person. Be original and specific to them. No inner quotes.
-- "quote": a single flavour sentence in the style of a trading-card tagline that captures their essence. Max ~15 words. No inner quotes.
+- "ability": a signature-move name (1-3 words) that sounds like a gacha-card skill and fits their vibe. No inner quotes.
+- "abilityEffect": one punchy sentence describing what the signature ability does, in trading-card style. Max ~15 words. No inner quotes.
+- "specialAbility": a name (1-3 words) for their more powerful ULTIMATE / special ability, distinct from the regular ability. No inner quotes.
+- "specialAbilityQuote": a VERBATIM word-for-word excerpt copied EXACTLY from the person's own messages in the transcript — their most iconic, memorable or characteristic line. It MUST appear character-for-character somewhere in the transcript. Do NOT rephrase, paraphrase, summarise, translate or invent anything. Copy the exact original text. No quotation marks around it in the JSON value. Prefer a line under ~120 characters.
+- "weakness": a funny, specific fatal-flaw / kryptonite that trips this person up — what undoes them. Write 1-2 sentences (~15-25 words), make it vivid and personal. No inner quotes.
 - "portrait": a LITERAL English description of a FICTIONAL fantasy character avatar that embodies this person's archetype and vibe (NOT a real likeness — you do not know their appearance). Describe face, expression, outfit, props, mood. This text is fed straight to an image generator that only understands concrete visual nouns.
 
-Write "archetype" and "quote" in the language this person mostly writes in. "portrait" MUST be in English.
+Rate honestly and with variance: most people should land in the middle of each axis, not everything at 8-10. A single person's stats should differ from each other — nobody maxes everything, nobody is all zeroes.
+
+The card is ALWAYS in Russian. Write "archetype", "ability", "abilityEffect", "specialAbility" and "weakness" in Russian, regardless of the language this person writes in. "specialAbilityQuote" is copied verbatim from their messages, so it stays in whatever language/wording they actually used. "portrait" MUST be in English.
 
 Output raw, valid JSON on a single line. Nothing else.
 PROMPT;
@@ -217,7 +211,7 @@ PROMPT;
         return $context;
     }
 
-    private function buildCard(string $completion, InternalMessage $target): ?PersonalityCard
+    private function buildCard(string $completion, InternalMessage $target, string $transcript): ?PersonalityCard
     {
         $completion = trim($completion);
         // Tolerate models that wrap JSON in prose or code fences.
@@ -228,16 +222,19 @@ PROMPT;
         try {
             $data = json_decode($completion, true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
+            echo "Failed to parse JSON: {$completion}\n";
             return null;
         }
 
         if (!is_array($data)) {
+            echo "JSON is not array: {$completion}\n";
             return null;
         }
 
         $stats = [];
         foreach (self::STATS as $stat) {
             if (!array_key_exists($stat, $data) || !is_numeric($data[$stat])) {
+                echo "$stat is missing in JSON: {$completion}\n";
                 return null;
             }
             $stats[$stat] = max(0, min(10, (int) $data[$stat]));
@@ -246,18 +243,66 @@ PROMPT;
         $archetype = $this->clipString($data['archetype'] ?? '', 40);
         $power = array_sum($stats);
         $rarity = PersonalityCardRarity::fromPower($power);
+        $element = PersonalityCardElement::fromStats($stats);
 
         return new PersonalityCard(
             name: $this->displayName($target),
-            archetype: $archetype !== '' ? $archetype : 'Unknown Hero',
+            archetype: $archetype !== '' ? $archetype : 'Неизвестный Герой',
             stats: $stats,
-            quote: $this->clipString($data['quote'] ?? '', 160),
+            element: $element,
+            ability: $this->clipString($data['ability'] ?? '', 40),
+            abilityEffect: $this->clipString($data['abilityEffect'] ?? '', 160),
+            specialAbility: $this->clipString($data['specialAbility'] ?? '', 40),
+            specialAbilityQuote: $this->pickSpecialAbilityQuote($data['specialAbilityQuote'] ?? '', $transcript),
+            weakness: $this->clipString($data['weakness'] ?? '', 160),
             portraitPrompt: $this->clipString($data['portrait'] ?? '', 400),
             rarity: $rarity,
             power: $power,
             stars: PersonalityCardRarity::stars($rarity),
             cardNumber: $this->cardNumber($target),
         );
+    }
+
+    /**
+     * Guarantees the special-ability quote is the target's OWN verbatim words:
+     * accept the model's pick only if it appears (case-insensitively, ignoring
+     * whitespace differences) inside one of their transcript lines — and in that
+     * case display the exact text from the transcript. If the model paraphrased or
+     * invented the line, fall back to the longest substantial line they wrote.
+     */
+    private function pickSpecialAbilityQuote(string $quote, string $transcript): string
+    {
+        $lines = [];
+        foreach (explode("\n", $transcript) as $line) {
+            $line = $this->collapseSpaces($line);
+            if ($line !== '') {
+                $lines[] = $line;
+            }
+        }
+
+        $quote = $this->collapseSpaces($quote);
+        if ($quote !== '') {
+            foreach ($lines as $line) {
+                $pos = mb_stripos($line, $quote);
+                if ($pos !== false) {
+                    return $this->clipString(mb_substr($line, $pos, mb_strlen($quote)), 160);
+                }
+            }
+        }
+
+        usort($lines, static fn (string $a, string $b) => mb_strlen($b) <=> mb_strlen($a));
+        foreach ($lines as $line) {
+            if (mb_strlen($line) <= 140) {
+                return $this->clipString($line, 160);
+            }
+        }
+
+        return $this->clipString($lines[0] ?? '', 160);
+    }
+
+    private function collapseSpaces(string $text): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', $text) ?? '');
     }
 
     private function buildPortraitPrompt(PersonalityCard $card): string
@@ -268,6 +313,7 @@ PROMPT;
 
         return 'fantasy RPG character portrait, head and shoulders, centered composition, '
             . $description
+            . ', ' . PersonalityCardElement::portraitHint($card->element)
             . ', highly detailed face, expressive, dramatic cinematic lighting, '
             . 'digital painting, trading card game illustration, vibrant colours, '
             . 'plain dark background, sharp focus, no text, no signature, no border';
@@ -276,10 +322,11 @@ PROMPT;
     private function buildCaption(PersonalityCard $card): string
     {
         return sprintf(
-            "🎴 %s — %s\n%s  ·  ⚡ Power %d  ·  %s",
+            "%s — %s\n%s  ·  %s  ·  Мощь %d  ·  %s",
             $card->name,
             $card->archetype,
             str_repeat('★', max(1, $card->stars)) . ' ' . PersonalityCardRarity::label($card->rarity),
+            PersonalityCardElement::label($card->element),
             $card->power,
             $card->cardNumber,
         );
@@ -314,18 +361,5 @@ PROMPT;
         }
 
         return mb_strlen($value) > $limit ? mb_strimwidth($value, 0, $limit, '…') : $value;
-    }
-
-    private function react(InternalMessage $message, string $emoji): void
-    {
-        if ($this->react !== null) {
-            ($this->react)($message, $emoji);
-            return;
-        }
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $message->chatId,
-            'message_id' => $message->id,
-            'reaction'   => [['type' => 'emoji', 'emoji' => $emoji]],
-        ]);
     }
 }

@@ -36,7 +36,7 @@ class PersonalityCardRendererTest extends TestCase
             ability: 'Мемная Диверсия',
             abilityEffect: 'превращает любой тред в мемологему.',
             specialAbility: 'Цепная Реакция',
-            specialAbilityEffect: 'один мем порождает каскад из десятка ответов.',
+            specialAbilityQuote: 'один мем порождает каскад из десятка ответов.',
             weakness: 'серьёзные темы без подвоха ломают весь настрой и выбивают из колеи надолго.',
             portraitPrompt: 'a grinning jester',
             rarity: $rarity,
@@ -53,8 +53,8 @@ class PersonalityCardRendererTest extends TestCase
         $this->assertSame("\x89PNG\r\n\x1a\n", substr($png, 0, 8));
         $info = getimagesizefromstring($png);
         $this->assertNotFalse($info);
-        $this->assertSame(760, $info[0]);
-        $this->assertSame(1120, $info[1]);
+        $this->assertSame(880, $info[0]);
+        $this->assertSame(1180, $info[1]);
         $this->assertSame('image/png', $info['mime']);
     }
 
@@ -75,8 +75,8 @@ class PersonalityCardRendererTest extends TestCase
 
         $this->assertSame("\x89PNG\r\n\x1a\n", substr($png, 0, 8));
         $info = getimagesizefromstring($png);
-        $this->assertSame(760, $info[0]);
-        $this->assertSame(1120, $info[1]);
+        $this->assertSame(880, $info[0]);
+        $this->assertSame(1180, $info[1]);
     }
 
     public function testRendersDifferentPortraitAspectRatiosWithoutError(): void

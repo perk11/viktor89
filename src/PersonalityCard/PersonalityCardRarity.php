@@ -6,7 +6,7 @@ namespace Perk11\Viktor89\PersonalityCard;
 
 /**
  * Rarity tiers for personality cards, derived deterministically from a card's
- * total power (the sum of its 0..10 stats, so 0..50). Shared by the processor
+ * total power (the sum of its four 0..10 stats, so 0..40). Shared by the processor
  * (which derives the tier) and the renderer (which paints each tier's colour).
  */
 final class PersonalityCardRarity
@@ -19,10 +19,10 @@ final class PersonalityCardRarity
 
     /** power floor (inclusive) => rarity, scanned high to low */
     private const FLOORS = [
-        44 => self::MYTHIC,
-        36 => self::LEGENDARY,
-        28 => self::EPIC,
-        20 => self::RARE,
+        30 => self::MYTHIC,
+        24 => self::LEGENDARY,
+        18 => self::EPIC,
+        12 => self::RARE,
         0  => self::COMMON,
     ];
 
@@ -44,11 +44,11 @@ final class PersonalityCardRarity
     ];
 
     private const LABELS = [
-        self::COMMON    => 'Common',
-        self::RARE      => 'Rare',
-        self::EPIC      => 'Epic',
-        self::LEGENDARY => 'Legendary',
-        self::MYTHIC    => 'Mythic',
+        self::COMMON    => 'Обычный',
+        self::RARE      => 'Редкий',
+        self::EPIC      => 'Эпический',
+        self::LEGENDARY => 'Легендарный',
+        self::MYTHIC    => 'Мифический',
     ];
 
     public static function fromPower(int $power): string

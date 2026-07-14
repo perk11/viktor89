@@ -49,14 +49,12 @@ class PersonalityCardProcessorTest extends TestCase
     public function testConstructorDependencies(): void
     {
         $params = (new \ReflectionClass(PersonalityCardProcessor::class))->getConstructor()->getParameters();
-        $this->assertCount(6, $params);
+        $this->assertCount(5, $params);
         $this->assertSame(MessageRepository::class, $params[0]->getType()->getName());
         $this->assertSame(AssistantInterface::class, $params[1]->getType()->getName());
         $this->assertSame(ImageByPromptGenerator::class, $params[2]->getType()->getName());
         $this->assertSame(PhotoResponder::class, $params[3]->getType()->getName());
         $this->assertSame(PersonalityCardRenderer::class, $params[4]->getType()->getName());
-        $this->assertSame(\Closure::class, $params[5]->getType()->getName());
-        $this->assertTrue($params[5]->isOptional());
     }
 
     public function testReturnsQuietMessageWhenTargetHasNoTextHistory(): void
@@ -74,23 +72,27 @@ class PersonalityCardProcessorTest extends TestCase
         $this->assertStringContainsString('нечего показать', $result->response->messageText);
     }
 
-    public function testReturnsApologyWhenAssistantThrows(): void
+    public function testReturnsThinkingReactionWhenAssistantThrows(): void
     {
         $assistant = $this->createStub(AssistantInterface::class);
         $assistant->method('getCompletionBasedOnContext')->willThrowException(new \RuntimeException('boom'));
 
         $result = $this->runProcessor($this->repoWithMessages(), $assistant);
 
-        $this->assertStringContainsString('Не получилось прочитать', $result->response->messageText);
+        $this->assertTrue($result->abortProcessing);
+        $this->assertNull($result->response);
+        $this->assertSame('🤔', $result->reaction);
     }
 
-    public function testReturnsApologyWhenCompletionIsNotParseableJson(): void
+    public function testReturnsThinkingReactionWhenCompletionIsNotParseableJson(): void
     {
         $assistant = $this->assistantReturning('this is definitely not json');
 
         $result = $this->runProcessor($this->repoWithMessages(), $assistant);
 
-        $this->assertStringContainsString('Не получилось собрать карточку', $result->response->messageText);
+        $this->assertTrue($result->abortProcessing);
+        $this->assertNull($result->response);
+        $this->assertSame('🤔', $result->reaction);
     }
 
     public function testBareCommandTargetsTheSender(): void
@@ -153,7 +155,6 @@ class PersonalityCardProcessorTest extends TestCase
             $imageGenerator,
             $photoResponder,
             new PersonalityCardRenderer(),
-            static fn () => null,
         );
 
         $result = $processor->processMessageChain(
@@ -166,7 +167,7 @@ class PersonalityCardProcessorTest extends TestCase
         $this->assertNotNull($captured);
         $this->assertSame("\x89PNG\r\n\x1a\n", substr($captured, 0, 8));
         $info = getimagesizefromstring($captured);
-        $this->assertSame([760, 1120], [$info[0], $info[1]]);
+        $this->assertSame([880, 1180], [$info[0], $info[1]]);
     }
 
     public function testAcceptsNumericMessageCountArgument(): void
@@ -190,7 +191,6 @@ class PersonalityCardProcessorTest extends TestCase
             $this->createStub(ImageByPromptGenerator::class),
             $this->createStub(PhotoResponder::class),
             new PersonalityCardRenderer(),
-            static fn () => null, // no-op reaction handler keeps the full flow off the live Telegram API
         );
     }
 
@@ -223,7 +223,7 @@ class PersonalityCardProcessorTest extends TestCase
             . '"archetype":"Агент Хаоса","ability":"Мемная Диверсия",'
             . '"abilityEffect":"превращает любой тред в мемологему",'
             . '"specialAbility":"Цепная Реакция",'
-            . '"specialAbilityEffect":"один мем порождает каскад ответов",'
+            . '"specialAbilityQuote":"просто чиллю",'
             . '"weakness":"серьёзные темы без подвоха ломают весь настрой и выбивают из колеи",'
             . '"portrait":"a smirking rogue in a neon hoodie"}',
         );

@@ -10,27 +10,28 @@ use RuntimeException;
 /**
  * Renders a PersonalityCard onto a generated portrait as a collectible trading
  * card (PNG) using GD: rarity-coloured frame, name plate, archetype, stat bars,
- * flavour quote and a power/rarity footer.
+ * a signature ability + special ability + weakness block and a power/rarity/
+ * element footer. All visible text is Russian and emoji-free (DejaVu fonts carry
+ * no emoji glyphs); quoted effect text uses straight ASCII quotes.
  */
 final class PersonalityCardRenderer
 {
-    private const WIDTH = 760;
-    private const HEIGHT = 1120;
+    private const WIDTH = 880;
+    private const HEIGHT = 1180;
     private const MARGIN = 28;
 
-    private const PORTRAIT_W = 704;
+    private const PORTRAIT_W = 824;
     private const PORTRAIT_H = 600;
     private const FRAME_THICKNESS = 6;
 
-    private const BAR_MAX = 360;
+    private const BAR_MAX = 580;
 
     /** stat key => display label, in display order */
     private const STATS = [
-        'charisma'  => 'Charisma',
-        'chaos'     => 'Chaos',
-        'brainrot'  => 'Brainrot',
-        'wholesome' => 'Wholesome',
-        'menace'    => 'Menace',
+        'wit'    => 'Остроумие',
+        'chaos'  => 'Хаос',
+        'wisdom' => 'Мудрость',
+        'menace' => 'Дерзость',
     ];
 
     private const FONT_BOLD = 'DejaVuSans-Bold.ttf';
@@ -50,7 +51,6 @@ final class PersonalityCardRenderer
         $accentSoft = imagecolorallocate($canvas, (int) ($r * 0.45 + 20), (int) ($g * 0.45 + 18), (int) ($b * 0.45 + 26));
         $white = imagecolorallocate($canvas, 246, 246, 252);
         $muted = imagecolorallocate($canvas, 184, 188, 202);
-        $dim = imagecolorallocate($canvas, 110, 114, 132);
         $darkPanel = imagecolorallocate($canvas, (int) ($r * 0.32 + 8), (int) ($g * 0.32 + 8), (int) ($b * 0.32 + 14));
         $barBg = imagecolorallocate($canvas, 26, 28, 44);
 
@@ -65,30 +65,29 @@ final class PersonalityCardRenderer
 
         $px = self::MARGIN;
         $py = self::MARGIN;
-        $this->drawPortrait($canvas, $portrait, $px, $py, $accent, $accentSoft);
-        imagedestroy($portrait);
+        $this->drawPortrait($canvas, $portrait, $px, $py, $accent, $accentSoft, $darkPanel);
 
-        // Name plate, sitting just under the portrait frame.
-        $plateTop = $py + self::PORTRAIT_H + self::FRAME_THICKNESS;
-        $plateBottom = $plateTop + 66;
+        // Name plate, sitting just under the portrait frame with a little breathing room above it.
+        $plateTop = $py + self::PORTRAIT_H + self::FRAME_THICKNESS + 16;
+        $plateBottom = $plateTop + 58;
         imagefilledrectangle($canvas, $px, $plateTop, $px + self::PORTRAIT_W, $plateBottom, $darkPanel);
         imagerectangle($canvas, $px, $plateTop, $px + self::PORTRAIT_W, $plateBottom, $accentSoft);
 
         $name = $card->name !== '' ? $card->name : 'Unknown Hero';
         $nameSize = $this->fitSize($name, $fontSerif, 30, 20, self::PORTRAIT_W - 40);
-        $this->drawCentered($canvas, $name, $nameSize, $fontSerif, $white, $px, $px + self::PORTRAIT_W, $plateTop + 44);
+        $this->drawCentered($canvas, $name, $nameSize, $fontSerif, $white, $px, $px + self::PORTRAIT_W, $plateTop + 40);
 
         // Archetype subtitle.
-        $archY = $plateBottom + 26;
+        $archY = $plateBottom + 28;
         $this->drawCentered($canvas, $this->upper($card->archetype), 18, $fontBold, $accent, $px, $px + self::PORTRAIT_W, $archY);
 
         // Divider.
-        $dividerY = $archY + 22;
+        $dividerY = $archY + 10;
         imageline($canvas, $px + 36, $dividerY, $px + self::PORTRAIT_W - 36, $dividerY, $accentSoft);
 
         // Stat bars.
-        $rowTop = $dividerY + 22;
-        $rowHeight = 34;
+        $rowTop = $dividerY + 18;
+        $rowHeight = 28;
         $labelX = $px + 16;
         $barX = $px + 196;
         $valueRight = $px + self::PORTRAIT_W - 16;
@@ -111,27 +110,46 @@ final class PersonalityCardRenderer
             $i++;
         }
 
-        // Flavour quote.
-        $quoteTop = $rowTop + count(self::STATS) * $rowHeight + 18;
-        if (trim($card->quote) !== '') {
-            $quote = '“' . trim($card->quote) . '”';
-            $this->drawWrapped($canvas, $quote, 16, $fontRegular, $muted, $px + 16, $px + self::PORTRAIT_W - 16, $quoteTop, 20, 3);
+        // Signature ability + special (ultimate) ability + weakness, flowing top-to-bottom.
+        $y = $rowTop + count(self::STATS) * $rowHeight + 40;
+        $flavorLeft = $px + 16;
+        $flavorRight = $px + self::PORTRAIT_W - 16;
+        $flavorWidth = $flavorRight - $flavorLeft;
+        $headerSize = 15;
+        $bodySize = 14;
+        $bodyLineHeight = 17;
+        $blockGap = 28;
+
+        $y = $this->drawAbility($canvas, 'Способность: ', $card->ability, $card->abilityEffect, $fontBold, $fontRegular, $white, $muted, $flavorLeft, $flavorRight, $flavorWidth, $y, $headerSize, $bodySize, $bodyLineHeight, false) + $blockGap;
+        $y = $this->drawAbility($canvas, 'Особое умение: ', $card->specialAbility, $card->specialAbilityQuote, $fontBold, $fontRegular, $white, $muted, $flavorLeft, $flavorRight, $flavorWidth, $y, $headerSize, $bodySize, $bodyLineHeight, true) + $blockGap;
+
+        // Weakness: header line + indented body, filling whatever space remains above the footer (up to 3 lines).
+        if (trim($card->weakness) !== '') {
+            $this->drawLeft($canvas, 'Слабость', $headerSize, $fontBold, $white, $flavorLeft, $y);
+            $y += (int) ($headerSize + 8);
+            $footerY = self::HEIGHT - 34;
+            $remaining = max(0, $footerY - $y - 6);
+            $maxLines = max(1, min(3, (int) floor($remaining / $bodyLineHeight)));
+            $this->drawWrapped($canvas, trim($card->weakness), $bodySize, $fontRegular, $muted, $flavorLeft + 14, $flavorRight, $y, $bodyLineHeight, $maxLines);
         }
 
-        // Footer: stars · rarity · power · card number.
-        $footerY = self::HEIGHT - 34;
+        // Footer: stars · rarity · element · power · card number
+        $footerY = self::HEIGHT - 10;
         $footer = str_repeat('★', max(1, $card->stars))
             . '  ' . PersonalityCardRarity::label($card->rarity)
-            . '   ⚡ ' . $card->power
+            . '   ' . PersonalityCardElement::label($card->element)
+            . '   Мощь ' . $card->power
             . '   ' . $card->cardNumber;
         $this->drawCentered($canvas, $footer, 15, $fontBold, $accent, $px, $px + self::PORTRAIT_W, $footerY);
 
         return $this->toPng($canvas);
     }
 
-    private function drawPortrait(GdImage $canvas, GdImage $portrait, int $x, int $y, int $border, int $inner): void
+    private function drawPortrait(GdImage $canvas, GdImage $portrait, int $x, int $y, int $border, int $inner, int $backdrop): void
     {
-        // Solid rarity border, then the portrait inset by the border thickness.
+        // Solid rarity border, then an opaque backdrop filling the allocated space so
+        // the portrait can never leave transparent gaps (e.g. sources with alpha),
+        // then the portrait inset by the border thickness, cover-cropped to fill it.
         imagefilledrectangle(
             $canvas,
             $x - self::FRAME_THICKNESS,
@@ -140,6 +158,7 @@ final class PersonalityCardRenderer
             $y + self::PORTRAIT_H + self::FRAME_THICKNESS,
             $border,
         );
+        imagefilledrectangle($canvas, $x, $y, $x + self::PORTRAIT_W, $y + self::PORTRAIT_H, $backdrop);
         $this->placeCenterCropped($canvas, $portrait, $x, $y, self::PORTRAIT_W, self::PORTRAIT_H);
         imagerectangle($canvas, $x, $y, $x + self::PORTRAIT_W - 1, $y + self::PORTRAIT_H - 1, $inner);
     }
@@ -207,6 +226,29 @@ final class PersonalityCardRenderer
     {
         $width = $this->textWidth($text, $size, $font);
         imagettftext($canvas, $size, 0, $rightX - $width, $baselineY, $color, $font, $text);
+    }
+
+    /**
+     * Draws one ability block: a label + name header line (accent), then the
+     * effect (muted, indented, wrapped up to 2 lines). When $quoteEffect is true
+     * the effect is wrapped in straight ASCII quotes — used to present the special
+     * ability as a direct quote. Returns the next baseline Y so blocks can flow.
+     */
+    private function drawAbility(GdImage $canvas, string $label, string $name, string $effect, string $headerFont, string $bodyFont, int $headerColor, int $bodyColor, int $left, int $right, int $width, int $y, float $headerSize, float $bodySize, int $bodyLineHeight, bool $quoteEffect): int
+    {
+        if (trim($name) !== '') {
+            $this->drawLeft($canvas, $label . trim($name), $headerSize, $headerFont, $headerColor, $left, $y);
+        }
+        $y += (int) ($headerSize + 8);
+        if (trim($effect) !== '') {
+            $text = $quoteEffect ? '"' . trim($effect) . '"' : trim($effect);
+            $bodyLeft = $left + 14;
+            $used = min(2, count($this->wrap($text, $bodySize, $bodyFont, $width - 14)));
+            $this->drawWrapped($canvas, $text, $bodySize, $bodyFont, $bodyColor, $bodyLeft, $right, $y, $bodyLineHeight, 2);
+            $y += $used * $bodyLineHeight;
+        }
+
+        return $y;
     }
 
     /**
