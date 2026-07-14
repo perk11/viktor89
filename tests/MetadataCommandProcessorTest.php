@@ -76,9 +76,14 @@ class MetadataCommandProcessorTest extends TestCase
         );
     }
 
-    public function testGetTriggeringCommands(): void
+    public function testDoesNotDeclareItsOwnTriggeringCommands(): void
     {
-        $this->assertSame(['/metadata'], $this->processor->getTriggeringCommands());
+        // Command routing is delegated to a wrapping CommandBasedResponderTrigger;
+        // the processor itself must not implement GetTriggeringCommandsInterface.
+        $reflection = new \ReflectionClass(MetadataCommandProcessor::class);
+        $this->assertFalse(
+            $reflection->implementsInterface(\Perk11\Viktor89\GetTriggeringCommandsInterface::class),
+        );
     }
 
     public function testShowsExplanationWhenNotUsedAsReply(): void

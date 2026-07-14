@@ -25,19 +25,14 @@ class ImageGenerateProcessorTest extends TestCase
         );
     }
 
-    public function testImplementsGetTriggeringCommandsInterface(): void
+    public function testDoesNotDeclareItsOwnTriggeringCommands(): void
     {
+        // Command routing is delegated to a wrapping CommandBasedResponderTrigger;
+        // the processor itself must not implement GetTriggeringCommandsInterface.
         $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor::class);
-        $this->assertTrue(
+        $this->assertFalse(
             $reflection->implementsInterface(\Perk11\Viktor89\GetTriggeringCommandsInterface::class)
         );
-    }
-
-    public function testHasGetTriggeringCommandsMethod(): void
-    {
-        $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\ImageGenerateProcessor::class);
-        $method = $reflection->getMethod('getTriggeringCommands');
-        $this->assertSame('array', $method->getReturnType()->getName());
     }
 
     public function testHasProcessMessageChainMethod(): void

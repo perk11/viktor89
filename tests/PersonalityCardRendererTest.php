@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Perk11\Viktor89\Test;
 
 use Perk11\Viktor89\PersonalityCard\PersonalityCard;
+use Perk11\Viktor89\PersonalityCard\PersonalityCardElement;
 use Perk11\Viktor89\PersonalityCard\PersonalityCardRarity;
 use Perk11\Viktor89\PersonalityCard\PersonalityCardRenderer;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -30,11 +31,16 @@ class PersonalityCardRendererTest extends TestCase
         return new PersonalityCard(
             name: 'Тестер',
             archetype: 'Хаотичный Бард',
-            stats: ['charisma' => 9, 'chaos' => 10, 'brainrot' => 8, 'wholesome' => 3, 'menace' => 7],
-            quote: 'Где-то между гением и мемом.',
+            stats: ['wit' => 8, 'chaos' => 10, 'wisdom' => 3, 'menace' => 7],
+            element: PersonalityCardElement::AETHER,
+            ability: 'Мемная Диверсия',
+            abilityEffect: 'превращает любой тред в мемологему.',
+            specialAbility: 'Цепная Реакция',
+            specialAbilityEffect: 'один мем порождает каскад из десятка ответов.',
+            weakness: 'серьёзные темы без подвоха ломают весь настрой и выбивают из колеи надолго.',
             portraitPrompt: 'a grinning jester',
             rarity: $rarity,
-            power: 37,
+            power: 28,
             stars: PersonalityCardRarity::stars($rarity),
             cardNumber: '#0042',
         );

@@ -6,7 +6,6 @@ namespace Perk11\Viktor89\Test;
 
 use Perk11\Viktor89\Assistant\AssistantInterface;
 use Perk11\Viktor89\Assistant\CompletionResponse;
-use Perk11\Viktor89\GetTriggeringCommandsInterface;
 use Perk11\Viktor89\ImageGeneration\Automatic1111ImageApiResponse;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
@@ -31,17 +30,20 @@ class PersonalityCardProcessorTest extends TestCase
         $this->assertFalse($reflection->isAbstract());
     }
 
-    public function testImplementsProcessorAndTriggerInterfaces(): void
+    public function testImplementsMessageChainProcessor(): void
     {
         $reflection = new \ReflectionClass(PersonalityCardProcessor::class);
         $this->assertTrue($reflection->implementsInterface(MessageChainProcessor::class));
-        $this->assertTrue($reflection->implementsInterface(GetTriggeringCommandsInterface::class));
     }
 
-    public function testTriggeringCommands(): void
+    public function testDoesNotDeclareItsOwnTriggeringCommands(): void
     {
-        $processor = $this->buildProcessor();
-        $this->assertSame(['/personalitycard', '/pcard'], $processor->getTriggeringCommands());
+        // Command routing is delegated to a wrapping CommandBasedResponderTrigger;
+        // the processor itself must not implement GetTriggeringCommandsInterface.
+        $reflection = new \ReflectionClass(PersonalityCardProcessor::class);
+        $this->assertFalse(
+            $reflection->implementsInterface(\Perk11\Viktor89\GetTriggeringCommandsInterface::class),
+        );
     }
 
     public function testConstructorDependencies(): void
@@ -217,8 +219,13 @@ class PersonalityCardProcessorTest extends TestCase
     private function assistantReturningJson(): AssistantInterface
     {
         return $this->assistantReturning(
-            '{"charisma":6,"chaos":9,"brainrot":7,"wholesome":2,"menace":8,'
-            . '"archetype":"Агент Хаоса","quote":"главное — веселиться","portrait":"a smirking rogue in a neon hoodie"}',
+            '{"wit":7,"chaos":9,"wisdom":5,"menace":8,'
+            . '"archetype":"Агент Хаоса","ability":"Мемная Диверсия",'
+            . '"abilityEffect":"превращает любой тред в мемологему",'
+            . '"specialAbility":"Цепная Реакция",'
+            . '"specialAbilityEffect":"один мем порождает каскад ответов",'
+            . '"weakness":"серьёзные темы без подвоха ломают весь настрой и выбивают из колеи",'
+            . '"portrait":"a smirking rogue in a neon hoodie"}',
         );
     }
 

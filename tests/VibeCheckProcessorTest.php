@@ -6,7 +6,6 @@ namespace Perk11\Viktor89\Test;
 
 use Perk11\Viktor89\Assistant\AssistantInterface;
 use Perk11\Viktor89\Assistant\CompletionResponse;
-use Perk11\Viktor89\GetTriggeringCommandsInterface;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
@@ -27,17 +26,18 @@ class VibeCheckProcessorTest extends TestCase
         $this->assertFalse($reflection->isAbstract());
     }
 
-    public function testImplementsProcessorAndTriggerInterfaces(): void
+    public function testImplementsMessageChainProcessor(): void
     {
         $reflection = new \ReflectionClass(VibeCheckProcessor::class);
         $this->assertTrue($reflection->implementsInterface(MessageChainProcessor::class));
-        $this->assertTrue($reflection->implementsInterface(GetTriggeringCommandsInterface::class));
     }
 
-    public function testTriggeringCommandIsVibecheck(): void
+    public function testDoesNotDeclareItsOwnTriggeringCommands(): void
     {
-        $processor = new VibeCheckProcessor($this->createStub(MessageRepository::class), $this->createStub(AssistantInterface::class));
-        $this->assertSame(['/vibecheck'], $processor->getTriggeringCommands());
+        // Command routing is delegated to a wrapping CommandBasedResponderTrigger;
+        // the processor itself must not implement GetTriggeringCommandsInterface.
+        $reflection = new \ReflectionClass(VibeCheckProcessor::class);
+        $this->assertFalse($reflection->implementsInterface(\Perk11\Viktor89\GetTriggeringCommandsInterface::class));
     }
 
     public function testConstructorTakesMessageRepositoryAndAssistant(): void

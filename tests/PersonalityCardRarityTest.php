@@ -16,12 +16,12 @@ class PersonalityCardRarityTest extends TestCase
     {
         return [
             'bottom of common'   => [0, PersonalityCardRarity::COMMON],
-            'mid common'         => [15, PersonalityCardRarity::COMMON],
-            'first rare'         => [20, PersonalityCardRarity::RARE],
-            'first epic'         => [28, PersonalityCardRarity::EPIC],
-            'first legendary'    => [36, PersonalityCardRarity::LEGENDARY],
-            'first mythic'       => [44, PersonalityCardRarity::MYTHIC],
-            'max power'          => [50, PersonalityCardRarity::MYTHIC],
+            'mid common'          => [6, PersonalityCardRarity::COMMON],
+            'first rare'         => [12, PersonalityCardRarity::RARE],
+            'first epic'         => [18, PersonalityCardRarity::EPIC],
+            'first legendary'    => [24, PersonalityCardRarity::LEGENDARY],
+            'first mythic'       => [30, PersonalityCardRarity::MYTHIC],
+            'max power'          => [40, PersonalityCardRarity::MYTHIC],
             'negative clamps'    => [-10, PersonalityCardRarity::COMMON],
         ];
     }
@@ -58,7 +58,7 @@ class PersonalityCardRarityTest extends TestCase
     public function testUnknownRarityDegradesToCommon(): void
     {
         $this->assertSame(PersonalityCardRarity::COMMON, PersonalityCardRarity::fromPower(1));
-        $this->assertSame('Common', PersonalityCardRarity::label('nope'));
+        $this->assertSame('Обычный', PersonalityCardRarity::label('nope'));
         $this->assertSame(1, PersonalityCardRarity::stars('nope'));
         $this->assertSame([176, 184, 196], PersonalityCardRarity::color('nope'));
     }
