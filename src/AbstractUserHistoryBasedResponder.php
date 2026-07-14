@@ -15,7 +15,7 @@ use Perk11\Viktor89\Repository\MessageRepository;
  * read that user's recent messages from the DB and feed them to an LLM to
  * produce a short creative response (see RoastProcessor / ComplimentProcessor).
  */
-abstract class AbstractUserHistoryBasedResponder implements MessageChainProcessor, GetTriggeringCommandsInterface
+abstract class AbstractUserHistoryBasedResponder implements MessageChainProcessor
 {
     private const PER_MESSAGE_TEXT_LIMIT = 280;
     private const MAX_TRANSCRIPT_LENGTH = 32000;

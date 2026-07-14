@@ -5,7 +5,6 @@ namespace Perk11\Viktor89\PreResponseProcessor;
 use Exception;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Assistant\AltTextProvider;
-use Perk11\Viktor89\GetTriggeringCommandsInterface;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptAndImageGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;

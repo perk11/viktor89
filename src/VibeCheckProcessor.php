@@ -9,7 +9,7 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Util\TelegramHtml;
 
-class VibeCheckProcessor implements MessageChainProcessor, GetTriggeringCommandsInterface
+class VibeCheckProcessor implements MessageChainProcessor
 {
     private const DEFAULT_MESSAGE_COUNT = 50;
     private const MAX_MESSAGE_COUNT = 200;
@@ -94,11 +94,6 @@ class VibeCheckProcessor implements MessageChainProcessor, GetTriggeringCommands
         $responseMessage->messageText = $this->renderReport($completion, count($recentMessages));
 
         return new ProcessingResult($responseMessage, true);
-    }
-
-    public function getTriggeringCommands(): array
-    {
-        return ['/vibecheck'];
     }
 
     private function parseMessageCount(string $argument): int

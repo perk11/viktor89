@@ -7,7 +7,7 @@ use Perk11\Viktor89\Repository\MessageMetadataRepository;
 use Perk11\Viktor89\Repository\PersonaRepository;
 use Perk11\Viktor89\Util\TelegramHtml;
 
-class MetadataCommandProcessor implements MessageChainProcessor, GetTriggeringCommandsInterface
+class MetadataCommandProcessor implements MessageChainProcessor
 {
     public function __construct(
         private readonly MessageMetadataRepository $messageMetadataRepository,
@@ -66,10 +66,5 @@ class MetadataCommandProcessor implements MessageChainProcessor, GetTriggeringCo
         }
 
         return implode("\n", $lines);
-    }
-
-    public function getTriggeringCommands(): array
-    {
-        return ['/metadata'];
     }
 }

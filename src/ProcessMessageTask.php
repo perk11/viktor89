@@ -644,12 +644,8 @@ class ProcessMessageTask implements Task
             ),
             $responseStartProcessor,
             $editFrequencyProcessor,
-            // Registered BEFORE /personality and /persona: CommandBasedResponderTrigger uses
-            // str_starts_with, so /personalitycard would otherwise be eaten by /personality
-            // (leaving "card" for the fallback assistant). Longest command first, like
-            // /imagemodel before /image elsewhere in this list.
             new CommandBasedResponderTrigger(
-                ['/personalitycard', '/pcard'],
+                ['/card'],
                 new PersonalityCardProcessor(
                     $messageRepository,
                     $this->resolvePersonalityCardAssistant($assistantFactory),

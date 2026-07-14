@@ -6,7 +6,7 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Util\TelegramHtml;
 
-class TalkersCommandProcessor implements MessageChainProcessor, GetTriggeringCommandsInterface
+class TalkersCommandProcessor implements MessageChainProcessor
 {
     public function __construct(private readonly MessageRepository $messageRepository)
     {
@@ -78,11 +78,6 @@ class TalkersCommandProcessor implements MessageChainProcessor, GetTriggeringCom
 
         $responseMessageToReturn->messageText .= '</pre>';
         return new ProcessingResult($responseMessageToReturn, true);
-    }
-
-    public function getTriggeringCommands(): array
-    {
-        return ['/talkers'];
     }
 
     private function formatLeaderboardRowWithPadding(

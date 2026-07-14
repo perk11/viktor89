@@ -10,7 +10,7 @@ use Perk11\Viktor89\Repository\MessageRepository;
  * yourself when used without a reply). Reads the target's recent messages and
  * has an LLM deliver a short roast tuned to the requested heat level.
  */
-class RoastProcessor extends AbstractUserHistoryBasedResponder implements GetTriggeringCommandsInterface
+class RoastProcessor extends AbstractUserHistoryBasedResponder
 {
     private const DEFAULT_MESSAGE_LIMIT = 100;
 
@@ -43,11 +43,6 @@ class RoastProcessor extends AbstractUserHistoryBasedResponder implements GetTri
     public function __construct(MessageRepository $messageRepository, AssistantInterface $assistant)
     {
         parent::__construct($messageRepository, $assistant);
-    }
-
-    public function getTriggeringCommands(): array
-    {
-        return ['/roast'];
     }
 
     protected function getMessageLimit(): int

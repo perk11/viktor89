@@ -11,18 +11,13 @@ use Perk11\Viktor89\Repository\MessageRepository;
  * last 500 messages and has an LLM write a warm, specific tribute. No heat
  * setting.
  */
-class ComplimentProcessor extends AbstractUserHistoryBasedResponder implements GetTriggeringCommandsInterface
+class ComplimentProcessor extends AbstractUserHistoryBasedResponder
 {
     private const MESSAGE_LIMIT = 500;
 
     public function __construct(MessageRepository $messageRepository, AssistantInterface $assistant)
     {
         parent::__construct($messageRepository, $assistant);
-    }
-
-    public function getTriggeringCommands(): array
-    {
-        return ['/compliment'];
     }
 
     protected function getMessageLimit(): int
