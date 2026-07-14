@@ -180,7 +180,7 @@ class ProcessMessageTask implements Task
         $telegramFileDownloader = $container->get(TelegramFileDownloader::class);
         $denoisingStrengthProcessor = new NumericPreferenceInRangeByCommandProcessor(
             $userPreferenceRepository,
-            ['/denoising_strength', '/denoisingstrength'],
+            ['/denoisingstrength'],
             'denoising-strength',
             $this->telegramBotUsername,
             0,
@@ -295,13 +295,13 @@ class ProcessMessageTask implements Task
         );
         $systemPromptProcessor = new UserPreferenceSetByCommandProcessor(
             $userPreferenceRepository,
-            ['/system_prompt', '/systemprompt'],
+            ['/systemprompt'],
             'system_prompt',
             $this->telegramBotUsername,
         );
         $responseStartProcessor = new UserPreferenceSetByCommandProcessor(
             $userPreferenceRepository,
-            ['/responsestart', '/response-start'],
+            ['/responsestart',],
             'response-start',
             $this->telegramBotUsername,
         );
