@@ -26,6 +26,11 @@ final class PersonalityCardRenderer
 
     private const BAR_MAX = 580;
 
+    /** Alpha (0 opaque .. 127 transparent) of the dark scrim painted behind text for legibility over arbitrary backgrounds. */
+    private const TEXT_SCRIM_ALPHA = 40;
+    private const SCRIM_PAD_X = 6;
+    private const SCRIM_PAD_Y = 4;
+
     /** stat key => display label, in display order */
     private const STATS = [
         'wit'    => 'Остроумие',
@@ -45,6 +50,7 @@ final class PersonalityCardRenderer
         $fontSerif = self::font(self::FONT_SERIF);
 
         $canvas = imagecreatetruecolor(self::WIDTH, self::HEIGHT);
+        imagealphablending($canvas, false);
 
         [$r, $g, $b] = PersonalityCardRarity::color($card->rarity);
         $accent = imagecolorallocate($canvas, $r, $g, $b);
@@ -53,8 +59,9 @@ final class PersonalityCardRenderer
         $muted = imagecolorallocate($canvas, 184, 188, 202);
         $darkPanel = imagecolorallocate($canvas, (int) ($r * 0.32 + 8), (int) ($g * 0.32 + 8), (int) ($b * 0.32 + 14));
         $barBg = imagecolorallocate($canvas, 26, 28, 44);
+        $scrim = imagecolorallocatealpha($canvas, 12, 14, 28, self::TEXT_SCRIM_ALPHA);
 
-        $this->drawBackground($canvas);
+        $this->drawBackground($canvas, $card->rarity);
 
         $portrait = @imagecreatefromstring($portraitBytes);
         if (!$portrait instanceof GdImage) {
@@ -70,7 +77,7 @@ final class PersonalityCardRenderer
         // Name plate, sitting just under the portrait frame with a little breathing room above it.
         $plateTop = $py + self::PORTRAIT_H + self::FRAME_THICKNESS + 16;
         $plateBottom = $plateTop + 58;
-        imagefilledrectangle($canvas, $px, $plateTop, $px + self::PORTRAIT_W, $plateBottom, $darkPanel);
+        $this->paintScrim($canvas, $px, $plateTop, $px + self::PORTRAIT_W, $plateBottom, $scrim);
         imagerectangle($canvas, $px, $plateTop, $px + self::PORTRAIT_W, $plateBottom, $accentSoft);
 
         $name = $card->name !== '' ? $card->name : 'Unknown Hero';
@@ -79,7 +86,7 @@ final class PersonalityCardRenderer
 
         // Archetype subtitle.
         $archY = $plateBottom + 28;
-        $this->drawCentered($canvas, $this->upper($card->archetype), 18, $fontBold, $accent, $px, $px + self::PORTRAIT_W, $archY);
+        $this->drawCentered($canvas, $this->upper($card->archetype), 18, $fontBold, $accent, $px, $px + self::PORTRAIT_W, $archY, $scrim);
 
         // Divider.
         $dividerY = $archY + 10;
@@ -95,7 +102,7 @@ final class PersonalityCardRenderer
         foreach (self::STATS as $key => $label) {
             $value = isset($card->stats[$key]) ? max(0, min(10, (int) $card->stats[$key])) : 0;
             $baseline = $rowTop + $i * $rowHeight + 22;
-            $this->drawLeft($canvas, $label, 17, $fontBold, $white, $labelX, $baseline);
+            $this->drawLeft($canvas, $label, 17, $fontBold, $white, $labelX, $baseline, $scrim);
 
             $barY = $baseline - 22 + 9;
             imagefilledrectangle($canvas, $barX, $barY, $barX + self::BAR_MAX, $barY + 16, $barBg);
@@ -106,7 +113,7 @@ final class PersonalityCardRenderer
             imagerectangle($canvas, $barX, $barY, $barX + self::BAR_MAX, $barY + 16, $accentSoft);
 
             $valueText = (string) $value;
-            $this->drawRight($canvas, $valueText, 17, $fontBold, $white, $valueRight, $baseline);
+            $this->drawRight($canvas, $valueText, 17, $fontBold, $white, $valueRight, $baseline, $scrim);
             $i++;
         }
 
@@ -120,17 +127,17 @@ final class PersonalityCardRenderer
         $bodyLineHeight = 17;
         $blockGap = 28;
 
-        $y = $this->drawAbility($canvas, 'Способность: ', $card->ability, $card->abilityEffect, $fontBold, $fontRegular, $white, $muted, $flavorLeft, $flavorRight, $flavorWidth, $y, $headerSize, $bodySize, $bodyLineHeight, false) + $blockGap;
-        $y = $this->drawAbility($canvas, 'Особое умение: ', $card->specialAbility, $card->specialAbilityQuote, $fontBold, $fontRegular, $white, $muted, $flavorLeft, $flavorRight, $flavorWidth, $y, $headerSize, $bodySize, $bodyLineHeight, true) + $blockGap;
+        $y = $this->drawAbility($canvas, 'Способность: ', $card->ability, $card->abilityEffect, $fontBold, $fontRegular, $white, $muted, $flavorLeft, $flavorRight, $flavorWidth, $y, $headerSize, $bodySize, $bodyLineHeight, false, $scrim) + $blockGap;
+        $y = $this->drawAbility($canvas, 'Особое умение: ', $card->specialAbility, $card->specialAbilityQuote, $fontBold, $fontRegular, $white, $muted, $flavorLeft, $flavorRight, $flavorWidth, $y, $headerSize, $bodySize, $bodyLineHeight, true, $scrim) + $blockGap;
 
         // Weakness: header line + indented body, filling whatever space remains above the footer (up to 3 lines).
         if (trim($card->weakness) !== '') {
-            $this->drawLeft($canvas, 'Слабость', $headerSize, $fontBold, $white, $flavorLeft, $y);
+            $this->drawLeft($canvas, 'Слабость', $headerSize, $fontBold, $white, $flavorLeft, $y, $scrim);
             $y += (int) ($headerSize + 8);
             $footerY = self::HEIGHT - 34;
             $remaining = max(0, $footerY - $y - 6);
             $maxLines = max(1, min(3, (int) floor($remaining / $bodyLineHeight)));
-            $this->drawWrapped($canvas, trim($card->weakness), $bodySize, $fontRegular, $muted, $flavorLeft + 14, $flavorRight, $y, $bodyLineHeight, $maxLines);
+            $this->drawWrapped($canvas, trim($card->weakness), $bodySize, $fontRegular, $muted, $flavorLeft + 14, $flavorRight, $y, $bodyLineHeight, $maxLines, $scrim);
         }
 
         // Footer: stars · rarity · element · power · card number
@@ -140,7 +147,7 @@ final class PersonalityCardRenderer
             . '   ' . PersonalityCardElement::label($card->element)
             . '   Мощь ' . $card->power
             . '   ' . $card->cardNumber;
-        $this->drawCentered($canvas, $footer, 15, $fontBold, $accent, $px, $px + self::PORTRAIT_W, $footerY);
+        $this->drawCentered($canvas, $footer, 15, $fontBold, $accent, $px, $px + self::PORTRAIT_W, $footerY, $scrim);
 
         return $this->toPng($canvas);
     }
@@ -186,7 +193,25 @@ final class PersonalityCardRenderer
         imagecopyresampled($canvas, $src, $dx, $dy, $sx, $sy, $dw, $dh, $usedW, $usedH);
     }
 
-    private function drawBackground(GdImage $canvas): void
+    private function drawBackground(GdImage $canvas, string $rarity): void
+    {
+        $path = self::background($rarity);
+        if (is_file($path)) {
+            $bg = @imagecreatefromstring((string) file_get_contents($path));
+            if ($bg instanceof GdImage) {
+                // Background PNGs are 880x1180; cover-crop so an off-spec source still fills the card.
+                $this->placeCenterCropped($canvas, $bg, 0, 0, self::WIDTH, self::HEIGHT);
+                imagedestroy($bg);
+
+                return;
+            }
+        }
+
+        // No/​unparseable background file: fall back to the gradient + starfield so the card still ships.
+        $this->drawGradientBackground($canvas);
+    }
+
+    private function drawGradientBackground(GdImage $canvas): void
     {
         $top = [10, 12, 26];
         $bot = [30, 16, 46];
@@ -210,22 +235,67 @@ final class PersonalityCardRenderer
         mt_srand(); // restore
     }
 
-    private function drawCentered(GdImage $canvas, string $text, float $size, string $font, int $color, int $left, int $right, int $baselineY): void
+    private function drawCentered(GdImage $canvas, string $text, float $size, string $font, int $color, int $left, int $right, int $baselineY, ?int $scrim = null): void
     {
         $width = $this->textWidth($text, $size, $font);
-        $x = $left + (int) round(($right - $left - $width) / 2);
-        imagettftext($canvas, $size, 0, max($left, $x), $baselineY, $color, $font, $text);
-    }
-
-    private function drawLeft(GdImage $canvas, string $text, float $size, string $font, int $color, int $x, int $baselineY): void
-    {
+        $x = max($left, $left + (int) round(($right - $left - $width) / 2));
+        $this->scrimBehindText($canvas, $text, $size, $font, $x, $baselineY, $scrim);
         imagettftext($canvas, $size, 0, $x, $baselineY, $color, $font, $text);
     }
 
-    private function drawRight(GdImage $canvas, string $text, float $size, string $font, int $color, int $rightX, int $baselineY): void
+    private function drawLeft(GdImage $canvas, string $text, float $size, string $font, int $color, int $x, int $baselineY, ?int $scrim = null): void
     {
-        $width = $this->textWidth($text, $size, $font);
-        imagettftext($canvas, $size, 0, $rightX - $width, $baselineY, $color, $font, $text);
+        $this->scrimBehindText($canvas, $text, $size, $font, $x, $baselineY, $scrim);
+        imagettftext($canvas, $size, 0, $x, $baselineY, $color, $font, $text);
+    }
+
+    private function drawRight(GdImage $canvas, string $text, float $size, string $font, int $color, int $rightX, int $baselineY, ?int $scrim = null): void
+    {
+        $x = $rightX - $this->textWidth($text, $size, $font);
+        $this->scrimBehindText($canvas, $text, $size, $font, $x, $baselineY, $scrim);
+        imagettftext($canvas, $size, 0, $x, $baselineY, $color, $font, $text);
+    }
+
+    /**
+     * Pixel rect (x1,y1 = top-left, x2,y2 = bottom-right) that $text occupies
+     * when drawn at pen position ($x, $baselineY) with imagettftext at angle 0.
+     *
+     * @return array{int, int, int, int}
+     */
+    private function textRect(string $text, float $size, string $font, int $x, int $baselineY): array
+    {
+        $box = imagettfbbox($size, 0, $font, $text);
+        if ($box === false || $text === '') {
+            return [$x, $baselineY, $x, $baselineY];
+        }
+
+        return [
+            $x + min($box[0], $box[2], $box[4], $box[6]),
+            $baselineY + min($box[1], $box[3], $box[5], $box[7]),
+            $x + max($box[0], $box[2], $box[4], $box[6]),
+            $baselineY + max($box[1], $box[3], $box[5], $box[7]),
+        ];
+    }
+
+    private function paintScrim(GdImage $canvas, int $x1, int $y1, int $x2, int $y2, ?int $color): void
+    {
+        if ($color === null || $x2 <= $x1 || $y2 <= $y1) {
+            return;
+        }
+        // Blend only this fill so the translucent scrim mixes with the art below, then
+        // restore replace-mode (the default) so the background/portrait copies and text stay crisp.
+        $previous = imagealphablending($canvas, true);
+        imagefilledrectangle($canvas, $x1, $y1, $x2, $y2, $color);
+        imagealphablending($canvas, $previous);
+    }
+
+    private function scrimBehindText(GdImage $canvas, string $text, float $size, string $font, int $x, int $baselineY, ?int $color): void
+    {
+        if ($color === null) {
+            return;
+        }
+        [$x1, $y1, $x2, $y2] = $this->textRect($text, $size, $font, $x, $baselineY);
+        $this->paintScrim($canvas, $x1 - self::SCRIM_PAD_X, $y1 - self::SCRIM_PAD_Y, $x2 + self::SCRIM_PAD_X, $y2 + self::SCRIM_PAD_Y, $color);
     }
 
     /**
@@ -234,17 +304,17 @@ final class PersonalityCardRenderer
      * the effect is wrapped in straight ASCII quotes — used to present the special
      * ability as a direct quote. Returns the next baseline Y so blocks can flow.
      */
-    private function drawAbility(GdImage $canvas, string $label, string $name, string $effect, string $headerFont, string $bodyFont, int $headerColor, int $bodyColor, int $left, int $right, int $width, int $y, float $headerSize, float $bodySize, int $bodyLineHeight, bool $quoteEffect): int
+    private function drawAbility(GdImage $canvas, string $label, string $name, string $effect, string $headerFont, string $bodyFont, int $headerColor, int $bodyColor, int $left, int $right, int $width, int $y, float $headerSize, float $bodySize, int $bodyLineHeight, bool $quoteEffect, ?int $scrim = null): int
     {
         if (trim($name) !== '') {
-            $this->drawLeft($canvas, $label . trim($name), $headerSize, $headerFont, $headerColor, $left, $y);
+            $this->drawLeft($canvas, $label . trim($name), $headerSize, $headerFont, $headerColor, $left, $y, $scrim);
         }
         $y += (int) ($headerSize + 8);
         if (trim($effect) !== '') {
             $text = $quoteEffect ? '"' . trim($effect) . '"' : trim($effect);
             $bodyLeft = $left + 14;
             $used = min(2, count($this->wrap($text, $bodySize, $bodyFont, $width - 14)));
-            $this->drawWrapped($canvas, $text, $bodySize, $bodyFont, $bodyColor, $bodyLeft, $right, $y, $bodyLineHeight, 2);
+            $this->drawWrapped($canvas, $text, $bodySize, $bodyFont, $bodyColor, $bodyLeft, $right, $y, $bodyLineHeight, 2, $scrim);
             $y += $used * $bodyLineHeight;
         }
 
@@ -254,10 +324,29 @@ final class PersonalityCardRenderer
     /**
      * @param string[] $out
      */
-    private function drawWrapped(GdImage $canvas, string $text, float $size, string $font, int $color, int $left, int $right, int $baselineY, int $lineHeight, int $maxLines): void
+    private function drawWrapped(GdImage $canvas, string $text, float $size, string $font, int $color, int $left, int $right, int $baselineY, int $lineHeight, int $maxLines, ?int $scrim = null): void
     {
-        $maxWidth = $right - $left;
-        $lines = $this->wrap($text, $size, $font, $maxWidth);
+        $lines = $this->wrap($text, $size, $font, $right - $left);
+        if ($scrim !== null) {
+            // One scrim covering the whole wrapped block, so multi-line bodies read as a single panel.
+            $x1 = PHP_INT_MAX;
+            $y1 = PHP_INT_MAX;
+            $x2 = -PHP_INT_MAX;
+            $y2 = -PHP_INT_MAX;
+            $y = $baselineY;
+            foreach ($lines as $i => $line) {
+                if ($i >= $maxLines) {
+                    break;
+                }
+                [$lx1, $ly1, $lx2, $ly2] = $this->textRect($line, $size, $font, $left, $y);
+                $x1 = min($x1, $lx1);
+                $y1 = min($y1, $ly1);
+                $x2 = max($x2, $lx2);
+                $y2 = max($y2, $ly2);
+                $y += $lineHeight;
+            }
+            $this->paintScrim($canvas, $x1 - self::SCRIM_PAD_X, $y1 - self::SCRIM_PAD_Y, $x2 + self::SCRIM_PAD_X, $y2 + self::SCRIM_PAD_Y, $scrim);
+        }
         $y = $baselineY;
         foreach ($lines as $i => $line) {
             if ($i >= $maxLines) {
@@ -343,5 +432,13 @@ final class PersonalityCardRenderer
         }
 
         throw new RuntimeException("Personality card font not found: $basename");
+    }
+
+    /**
+     * Resolves a rarity to its 880x1180 background PNG path (no existence check).
+     */
+    private static function background(string $rarity): string
+    {
+        return __DIR__ . '/backgrounds/' . $rarity . '.png';
     }
 }
