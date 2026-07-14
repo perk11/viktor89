@@ -84,6 +84,31 @@ class DraftUpdater
         }
     }
 
+    /**
+     * Flush the worker's latest streamed draft once, then drop it.
+     *
+     * Called on TaskCompletedMessage. When the worker sent a final message,
+     * the MessageAboutToBeSentMessage→Ack handshake already ran removeDraft()
+     * before the worker's own send/edit, so workerDrafts[$workerId] is empty
+     * and this is a no-op.
+     *
+     * It only fires when the worker finishes without sending a final message
+     * (abort, reaction-only, exception): no handshake ran, so removeDraft()
+     * was never called. Flushing first matters for the edit-stream path, whose
+     * latest content can live only in a deferred throttled flush — edits get no
+     * refresh timer — and a bare removeDraft() would cancel that timer and
+     * leave the message frozen at stale content.
+     */
+    public function deliverAndRemoveDraft(int $workerId): void
+    {
+        if (!isset($this->workerDrafts[$workerId])) {
+            return;
+        }
+
+        $this->sendDraftForWorker($workerId);
+        $this->removeDraft($workerId);
+    }
+
     private function startDraftTimer(int $chatId): void
     {
         $this->draftTimers[$chatId] = EventLoop::repeat(

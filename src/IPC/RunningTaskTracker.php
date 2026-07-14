@@ -66,7 +66,7 @@ class RunningTaskTracker
                     /** @var TaskCompletedMessage $message */
                     unset($this->runningTasks[$message->workerId]);
                     $this->chatActionUpdater->removeAction($message->workerId);
-                    $this->draftUpdater->removeDraft($message->workerId);
+                    $this->draftUpdater->deliverAndRemoveDraft($message->workerId);
                     $this->finalMessageTracker->clearWorker($message->workerId);
                     break;
                 case RunningTasksQueryMessage::class:
