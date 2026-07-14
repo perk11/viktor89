@@ -71,8 +71,11 @@ class GroupChatEditStreamingIntegrationTest extends TestCase
         );
     }
 
-    /** @return list<string> */
-    private function runScenario(): array
+    /**
+     * @param \Closure|null $behavior defaults to the normal create-then-edit flow
+     * @return list<string>
+     */
+    private function runScenario(?\Closure $behavior = null): array
     {
         [$workerChannel, $mainChannel] = IntegrationTestDsl::createChannelPair();
 
@@ -93,7 +96,7 @@ class GroupChatEditStreamingIntegrationTest extends TestCase
             IntegrationTestDsl::stubPreferenceReader(null),
             new \Perk11\Viktor89\Test\Support\NullTelegramFileDownloader(),
             new \Perk11\Viktor89\Test\Support\NullAltTextProvider(),
-            $this->editStreamBehavior(),
+            $behavior ?? $this->editStreamBehavior(),
         );
         $chain = IntegrationTestDsl::buildIncomingMessageChain(-100300);
         $assistant->setDraftUpdateCallback(new ChannelDraftUpdateCallback($workerChannel, 1));
@@ -134,6 +137,44 @@ class GroupChatEditStreamingIntegrationTest extends TestCase
             $streamFunction($second); // edits the message (editMessageText)
 
             return $first . $second;
+        };
+    }
+
+    /**
+     * Regression test for a freeze: when the model's first output is a tool
+     * call (no streamed text yet), a status update (empty chunk) reaches the
+     * stream function while partialContent is still empty. processEditStream
+     * bails out ("too short"), but the throttle used to advance anyway, so the
+     * tool-call notification that immediately followed was throttled and the
+     * message was never created until a later iteration — leaving it frozen.
+     */
+    public function testStatusUpdateBeforeAnyContentDoesNotThrottleFirstRealChunk(): void
+    {
+        ob_start();
+        try {
+            $actions = async(fn () => $this->runScenario($this->statusUpdateBeforeContentBehavior()))->await();
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertContains(
+            'editMessageText',
+            $actions,
+            'The tool-call notification must create the message during streaming (so the final result is an edit, not a delayed new send)',
+        );
+    }
+
+    private function statusUpdateBeforeContentBehavior(): \Closure
+    {
+        return function ($streamFunction): string {
+            // Status update (empty chunk) arrives while there is no content yet —
+            // exactly the subscriber firing on the "Executing <tool>" progress
+            // update before any text has been streamed.
+            $streamFunction('');
+            // The tool-call notification follows immediately afterwards.
+            $streamFunction("\n>Executing `some_tool` with arguments `{}`\n\n");
+
+            return 'final answer';
         };
     }
 }

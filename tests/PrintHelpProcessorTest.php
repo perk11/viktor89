@@ -32,12 +32,22 @@ class PrintHelpProcessorTest extends TestCase
         $this->assertFalse($method->isAbstract());
     }
 
-    public function testHasCommandsConstant(): void
+    public function testHasSectionsConstant(): void
     {
         $reflection = new \ReflectionClass(\Perk11\Viktor89\PrintHelpProcessor::class);
-        $constant = $reflection->getConstant('COMMANDS');
-        $this->assertIsArray($constant);
-        $this->assertArrayHasKey('/image', $constant);
+        $sections = $reflection->getConstant('SECTIONS');
+        $this->assertIsArray($sections);
+        $this->assertNotEmpty($sections);
+
+        $documentedCommands = [];
+        foreach ($sections as $section) {
+            $this->assertArrayHasKey('title', $section);
+            $this->assertArrayHasKey('commands', $section);
+            foreach (array_keys($section['commands']) as $command) {
+                $documentedCommands[] = $command;
+            }
+        }
+        $this->assertContains('/image', $documentedCommands);
     }
 
     public function testConstructorTakesNoParameters(): void
