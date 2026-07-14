@@ -70,7 +70,7 @@ tests/                   # PHPUnit; flat namespace, mirrors src/
 
 ## Adding a command
 
-A command is a `MessageChainProcessor` registered in the `$messageChainProcessors` array in `src/ProcessMessageTask.php::handle()`. For slash commands, wrap it in `PreResponseProcessor\CommandBasedResponderTrigger(['/cmd'], $processor)`. Declare trigger commands via `GetTriggeringCommandsInterface::getTriggeringCommands()` so the runner can split chained commands.
+A command is a `MessageChainProcessor` registered in the `$messageChainProcessors` array in `src/ProcessMessageTask.php::handle()`. For slash commands, wrap it in `PreResponseProcessor\CommandBasedResponderTrigger(['/cmd'], $processor)`. Do not directly implement GetTriggeringCommandsInterface::getTriggeringCommands().
 
 ```php
 public function processMessageChain(MessageChain $chain, ProgressUpdateCallback $cb): ProcessingResult
