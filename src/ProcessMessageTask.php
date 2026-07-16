@@ -42,10 +42,9 @@ use Perk11\Viktor89\ImageGeneration\SendAsDocumentProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\ImageGeneration\ZoomApiClient;
 use Perk11\Viktor89\ImageGeneration\ZoomCommandProcessor;
-use Perk11\Viktor89\IPC\AckMessage;
+use Perk11\Viktor89\IPC\ChannelBeforeMessageSentNotifier;
 use Perk11\Viktor89\IPC\ChannelDraftUpdateCallback;
 use Perk11\Viktor89\IPC\EngineProgressUpdateCallback;
-use Perk11\Viktor89\IPC\MessageAboutToBeSentMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\IPC\StatusProcessor;
 use Perk11\Viktor89\IPC\TaskCompletedMessage;
@@ -100,40 +99,14 @@ class ProcessMessageTask implements Task
     ) {
     }
 
-    /**
-     * Builds the notifier passed to ProcessingResultExecutor. It tells the main
-     * process that the final message is about to be sent and blocks until the
-     * main process confirms that typing notifications and drafts have been
-     * stopped for the chat.
-     */
-    public static function createBeforeMessageSentNotifier(
-        Channel $channel,
-        int $workerId,
-        EngineProgressUpdateCallback $progressUpdateCallback,
-    ): \Closure {
-        return static function (int $chatId) use ($channel, $progressUpdateCallback, $workerId): void {
-            $progressUpdateCallback->wasCalled = true;
-            $channel->send(new MessageAboutToBeSentMessage($workerId, $chatId));
-            $ack = $channel->receive();
-            if (!$ack instanceof AckMessage) {
-                throw new \LogicException('Expected AckMessage, got ' . get_class($ack));
-            }
-        };
-    }
-
     public function run(Channel $channel, Cancellation $cancellation): bool
     {
         ini_set('memory_limit', -1);
 
         $progressUpdateCallback = new EngineProgressUpdateCallback($channel, $this->workerId);
         $draftUpdateCallback = new ChannelDraftUpdateCallback($channel, $this->workerId);
-        $beforeMessageSentNotifier = self::createBeforeMessageSentNotifier(
-            $channel,
-            $this->workerId,
-            $progressUpdateCallback
-        );
         try {
-            $this->handle($channel, $progressUpdateCallback, $draftUpdateCallback, $beforeMessageSentNotifier);
+            $this->handle($channel, $progressUpdateCallback, $draftUpdateCallback);
         } catch (Exception $e) {
             echo "Error " . $e->getMessage() . "\n". $e->getTraceAsString();
         } finally {
@@ -162,8 +135,7 @@ class ProcessMessageTask implements Task
     public function handle(
         Channel $channel,
         ProgressUpdateCallback $progressUpdateCallback,
-        ChannelDraftUpdateCallback $draftUpdateCallback,
-        \Closure $beforeMessageSentNotifier
+        ChannelDraftUpdateCallback $draftUpdateCallback
     ): void
     {
 
@@ -345,7 +317,7 @@ class ProcessMessageTask implements Task
         $processingResultExecutor = new ProcessingResultExecutor(
             $messageRepository,
             true,
-            $beforeMessageSentNotifier,
+            new ChannelBeforeMessageSentNotifier($channel, $this->workerId),
             $container->get(\Perk11\Viktor89\Repository\MessageMetadataRepository::class),
         );
         $personaProcessor = new DynamicListBasedPreferenceByCommandProcessor(

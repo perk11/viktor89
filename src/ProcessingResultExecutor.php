@@ -5,6 +5,7 @@ namespace Perk11\Viktor89;
 use LogicException;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\IPC\BeforeMessageSentNotifier;
 use Perk11\Viktor89\Repository\MessageMetadataRepository;
 use Perk11\Viktor89\Repository\MessageRepository;
 
@@ -14,15 +15,18 @@ class ProcessingResultExecutor
         private MessageRepository $messageRepository,
         private bool $repliesInPMs = true,
         /**
-         * Invoked immediately before a response message is sent or edited.
-         * In a worker this notifies the main process to stop sending typing
-         * notifications and drafts for the chat, so that none can appear after
-         * the actual message.
+         * Carries the worker's IPC channel. Before a response is sent or edited
+         * we tell the main process to stop sending typing notifications and
+         * drafts for the chat (blocking until it confirms), so that none can
+         * appear after the actual message.
+         *
+         * Pass a ChannelBeforeMessageSentNotifier in every worker
+         * ProcessMessageTask. Leave null only where there is no worker IPC
+         * (the main process, summary tasks) — there is nothing to stop there.
          */
-        private readonly ?\Closure $beforeMessageSentNotifier = null,
+        private readonly ?BeforeMessageSentNotifier $beforeMessageSentNotifier = null,
         private readonly ?MessageMetadataRepository $messageMetadataRepository = null,
     ) {
-        
     }
     public function execute(ProcessingResult $result): void
     {
@@ -31,7 +35,7 @@ class ProcessingResultExecutor
         }
         if ($result->response !== null) {
             if ($this->beforeMessageSentNotifier !== null) {
-                ($this->beforeMessageSentNotifier)($result->response->chatId);
+                $this->beforeMessageSentNotifier->notify($result->response->chatId);
             }
             if ($result->response->id === null) {
                 echo "Sending message in chat {$result->response->chatId}: {$result->response->messageText}\n";

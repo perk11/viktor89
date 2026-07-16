@@ -6,6 +6,7 @@ namespace Perk11\Viktor89\Test;
 
 use Perk11\Viktor89\Assistant\AbstractOpenAIAPiAssistant;
 use Perk11\Viktor89\Database;
+use Perk11\Viktor89\IPC\ChannelBeforeMessageSentNotifier;
 use Perk11\Viktor89\IPC\ChannelDraftUpdateCallback;
 use Perk11\Viktor89\IPC\ChatActionUpdater;
 use Perk11\Viktor89\IPC\DraftUpdater;
@@ -14,7 +15,6 @@ use Perk11\Viktor89\IPC\FinalMessageTracker;
 use Perk11\Viktor89\IPC\RunningTaskTracker;
 use Perk11\Viktor89\IPC\TaskCompletedMessage;
 use Perk11\Viktor89\ProcessingResultExecutor;
-use Perk11\Viktor89\ProcessMessageTask;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Perk11\Viktor89\Test\Support\IntegrationTestDsl;
@@ -106,7 +106,7 @@ class GroupChatEditStreamingIntegrationTest extends TestCase
         $executor = new ProcessingResultExecutor(
             new \Perk11\Viktor89\Test\Support\NullMessageRepository(),
             true,
-            ProcessMessageTask::createBeforeMessageSentNotifier($workerChannel, 1, $callback),
+            new ChannelBeforeMessageSentNotifier($workerChannel, 1),
         );
         $executor->execute($result);
 

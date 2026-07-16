@@ -24,11 +24,6 @@ class EchoUpdateCallback implements ProgressUpdateCallback
         $this->subscribers[] = $subscriber;
     }
 
-    public function notifyMessageAboutToBeSent(int $chatId): void
-    {
-        // No worker IPC channel available (used outside the worker flow).
-    }
-
     public function __invoke(string $processor, string $status, ?ChatAction $chatAction = null): void
     {
         $taskUpdateMessage = new TaskUpdateMessage($this->workerId, $processor, $status, $chatAction);

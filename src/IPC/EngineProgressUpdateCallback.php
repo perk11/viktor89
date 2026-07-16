@@ -21,16 +21,6 @@ class EngineProgressUpdateCallback implements ProgressUpdateCallback
         $this->subscribers[] = $subscriber;
     }
 
-    public function notifyMessageAboutToBeSent(int $chatId): void
-    {
-        $this->wasCalled = true;
-        $this->channel->send(new MessageAboutToBeSentMessage($this->workerId, $chatId));
-        $ack = $this->channel->receive();
-        if (!$ack instanceof AckMessage) {
-            throw new \LogicException('Expected AckMessage, got ' . get_class($ack));
-        }
-    }
-
     public function __invoke(string $processor, string $status, ?ChatAction $chatAction = null): void
     {
         $this->wasCalled = true;

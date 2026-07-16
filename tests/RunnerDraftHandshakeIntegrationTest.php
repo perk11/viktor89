@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
+use Perk11\Viktor89\IPC\ChannelBeforeMessageSentNotifier;
 use Perk11\Viktor89\IPC\ChannelDraftUpdateCallback;
 use Perk11\Viktor89\IPC\ChatActionUpdater;
 use Perk11\Viktor89\IPC\DraftUpdater;
@@ -25,19 +26,16 @@ use function Amp\delay;
 require_once __DIR__ . '/Support/IntegrationTestSupport.php';
 
 /**
- * Reproduces the "draft appears after the final message" bug as it manifests in
- * consumers (e.g. Jellybot) that build MessageChainProcessorRunner with a
- * ProcessingResultExecutor that has NO beforeMessageSentNotifier.
+ * The pre-send "stop drafts/typing" handshake is performed inside
+ * ProcessingResultExecutor::execute() via the BeforeMessageSentNotifier it is
+ * constructed with (which carries the worker's IPC channel). This keeps a
+ * streamed response from ever leaving a draft behind that lands after the final
+ * message — regardless of how the runner / processors are assembled.
  *
- * The assistant streams a draft (so the main process has a live draft + refresh
- * timer for the worker). The runner then executes the streamed result. Without a
- * handshake before that send, the main process is never told to stop the draft,
- * so the refresh timer (and any draft updates still in the IPC pipe) fire after
- * the final message — exactly the deterministic, every-time symptom.
- *
- * The fix is for the runner itself to perform the pre-send handshake via the
- * ProgressUpdateCallback (which always carries the worker channel), so that the
- * draft is stopped regardless of how the executor was constructed.
+ * Contract for any worker ProcessMessageTask: pass a
+ * ChannelBeforeMessageSentNotifier to the ProcessingResultExecutor. The two
+ * tests below pin both halves of that: with the notifier no draft follows the
+ * message; without it the original bug reproduces.
  */
 #[CoversClass(MessageChainProcessorRunner::class)]
 #[CoversClass(ProcessingResultExecutor::class)]
@@ -53,16 +51,15 @@ class RunnerDraftHandshakeIntegrationTest extends TestCase
         $this->installRecordingTelegramClient();
     }
 
-    public function testRunnerStopsDraftBeforeFinalMessageEvenWithoutExecutorNotifier(): void
+    public function testExecutorStopsDraftBeforeFinalMessageViaNotifier(): void
     {
         ob_start();
         try {
-            $actionsAfterMessage = async(fn () => $this->runScenario())->await();
+            $actionsAfterMessage = async(fn () => $this->runScenario(withNotifier: true))->await();
         } finally {
             ob_end_clean();
         }
 
-        $this->assertNotSame([], $this->recordedActions(), 'Some Telegram calls must have been recorded');
         $this->assertContains('sendRichMessageDraft', $this->recordedActions(), 'A draft must have been sent while streaming');
         $this->assertContains('sendRichMessage', $this->recordedActions(), 'A final message must have been sent');
         $this->assertNotContains('sendRichMessageDraft', $actionsAfterMessage, 'Draft must not be sent/refreshed after the final message');
@@ -70,8 +67,27 @@ class RunnerDraftHandshakeIntegrationTest extends TestCase
         $this->assertNotContains('sendChatAction', $actionsAfterMessage, 'Typing must not be sent after the final message');
     }
 
+    public function testExecutorWithoutNotifierLeaksDraftAfterMessage(): void
+    {
+        ob_start();
+        try {
+            $actionsAfterMessage = async(fn () => $this->runScenario(withNotifier: false))->await();
+        } finally {
+            ob_end_clean();
+        }
+
+        // Without the notifier, execute() cannot run the handshake, so the draft
+        // refresh timer (and any draft updates still in the IPC pipe) fire after
+        // the final message — the original, every-time symptom.
+        $this->assertContains(
+            'sendRichMessageDraft',
+            $actionsAfterMessage,
+            'A worker executor built without its ProgressUpdateCallback leaks a draft after the message',
+        );
+    }
+
     /** @return list<string> */
-    private function runScenario(): array
+    private function runScenario(bool $withNotifier): array
     {
         [$workerChannel, $mainChannel] = IntegrationTestDsl::createChannelPair();
 
@@ -95,9 +111,11 @@ class RunnerDraftHandshakeIntegrationTest extends TestCase
         $chain = IntegrationTestDsl::buildIncomingMessageChain(11111); // private chat -> drafts
         $assistant->setDraftUpdateCallback(new ChannelDraftUpdateCallback($workerChannel, 1));
 
-        // NOTE: executor built WITHOUT a beforeMessageSentNotifier — exactly how
-        // Jellybot (and any consumer that forgets the handshake) wires it.
-        $executor = new ProcessingResultExecutor(new \Perk11\Viktor89\Test\Support\NullMessageRepository(), true);
+        $executor = new ProcessingResultExecutor(
+            new \Perk11\Viktor89\Test\Support\NullMessageRepository(),
+            true,
+            $withNotifier ? new ChannelBeforeMessageSentNotifier($workerChannel, 1) : null,
+        );
         $runner = new MessageChainProcessorRunner($executor, [$assistant]);
         $runner->run($chain, $callback);
 

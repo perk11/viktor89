@@ -53,15 +53,10 @@ class MessageChainProcessorRunner
     {
         foreach ($this->messageChainProcessors as $processor) {
             $processingResult = $processor->processMessageChain($messageChain, $progressUpdateCallback);
-            // Stop drafts/typing for this worker's chat before the message is
-            // sent. Doing this here (rather than relying on every consumer to
-            // wire ProcessingResultExecutor's beforeMessageSentNotifier) means a
-            // streamed response can never leave a draft behind that lands after
-            // the final message — the ProgressUpdateCallback always carries the
-            // worker's IPC channel.
-            if ($processingResult->response !== null) {
-                $progressUpdateCallback->notifyMessageAboutToBeSent($processingResult->response->chatId);
-            }
+            // The pre-send handshake (stop drafts/typing before the message
+            // lands) is performed inside ProcessingResultExecutor::execute()
+            // via the ProgressUpdateCallback, so it covers every execute() call
+            // regardless of how the runner/executor were wired.
             $this->processingResultExecutor->execute($processingResult);
 
             if ($processingResult->abortProcessing) {

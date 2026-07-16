@@ -33,7 +33,8 @@ final class ContainerFactory
 
     /** Resolvable-but-unsafe-as-a-shared-singleton (kept manual in ProcessMessageTask). */
     private const SEMANTIC_EXCLUDE = [
-        // needs a per-message beforeMessageSentNotifier closure
+        // depends on ProgressUpdateCallback (an interface with several
+        // implementations) and is built per-message in ProcessMessageTask
         ProcessingResultExecutor::class,
         // depends on UserPreferenceReaderInterface, which has several implementations; the
         // container cannot pick the right one, and it is built manually per message anyway
