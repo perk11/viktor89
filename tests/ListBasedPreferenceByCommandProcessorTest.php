@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
+use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\UserSettings\ListBasedPreferenceByCommandProcessor;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -77,6 +78,43 @@ class ListBasedPreferenceByCommandProcessorTest extends TestCase
         $errors = $this->getValidationErrors($processor, 'option with spaces');
 
         $this->assertSame([], $errors);
+    }
+
+    public function testPickerParamsAreEphemeralInGroupChat(): void
+    {
+        $processor = $this->createProcessor(['option_a', 'option_b']);
+
+        $params = $this->invokeBuildPickerParams($processor, $this->buildMessage(-100123, 42));
+
+        $this->assertSame(-100123, $params['chat_id']);
+        $this->assertSame(42, $params['receiver_user_id']);
+        $this->assertSame('Pick a value for test_preference', $params['text']);
+        $this->assertArrayHasKey('inline_keyboard', $params['reply_markup']);
+    }
+
+    public function testPickerParamsAreNotEphemeralInPrivateChat(): void
+    {
+        $processor = $this->createProcessor(['option_a', 'option_b']);
+
+        $params = $this->invokeBuildPickerParams($processor, $this->buildMessage(12345, 42));
+
+        $this->assertArrayNotHasKey('receiver_user_id', $params);
+    }
+
+    private function buildMessage(int $chatId, int $userId): InternalMessage
+    {
+        $message = new InternalMessage();
+        $message->chatId = $chatId;
+        $message->userId = $userId;
+
+        return $message;
+    }
+
+    private function invokeBuildPickerParams(ListBasedPreferenceByCommandProcessor $processor, InternalMessage $message): array
+    {
+        $reflection = new \ReflectionMethod($processor, 'buildPickerMessageParams');
+
+        return $reflection->invoke($processor, $message, []);
     }
 
     private function getValidationErrors(ListBasedPreferenceByCommandProcessor $processor, ?string $value): array

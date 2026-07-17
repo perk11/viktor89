@@ -93,6 +93,39 @@ class DynamicListBasedPreferenceByCommandProcessorTest extends TestCase
         $this->assertSame('/persona Default', $keyboard[0][0]['switch_inline_query_current_chat']);
     }
 
+    public function testPickerParamsAreEphemeralInGroupChat(): void
+    {
+        $message = $this->buildMessage(-100123, 42);
+
+        $params = $this->invokeBuildPickerParams($message);
+
+        $this->assertSame(42, $params['receiver_user_id']);
+        $this->assertSame('Pick a value for persona', $params['text']);
+    }
+
+    public function testPickerParamsAreNotEphemeralInPrivateChat(): void
+    {
+        $message = $this->buildMessage(12345, 42);
+
+        $params = $this->invokeBuildPickerParams($message);
+
+        $this->assertArrayNotHasKey('receiver_user_id', $params);
+    }
+
+    private function buildMessage(int $chatId, int $userId): \Perk11\Viktor89\InternalMessage
+    {
+        $message = new \Perk11\Viktor89\InternalMessage();
+        $message->chatId = $chatId;
+        $message->userId = $userId;
+
+        return $message;
+    }
+
+    private function invokeBuildPickerParams(\Perk11\Viktor89\InternalMessage $message): array
+    {
+        return (new \ReflectionMethod($this->processor, 'buildPickerMessageParams'))->invoke($this->processor, $message, []);
+    }
+
     private function invokeTransform(string $value): mixed
     {
         return (new \ReflectionMethod($this->processor, 'transformValue'))->invoke($this->processor, $value);

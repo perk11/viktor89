@@ -2,7 +2,6 @@
 
 namespace Perk11\Viktor89\UserSettings;
 
-use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\Repository\UserPreferenceRepository;
 
@@ -58,11 +57,7 @@ class DynamicListBasedPreferenceByCommandProcessor extends ListBasedPreferenceBy
             return true;
         }
         // No argument -> show the picker buttons.
-        Request::sendMessage([
-            'chat_id'      => $message->chatId,
-            'text'         => 'Pick a value for ' . $this->preferenceName,
-            'reply_markup' => ['inline_keyboard' => $this->buildInlineKeyboard($message->chatId)],
-        ]);
+        $this->sendPickerMessage($message, $this->buildInlineKeyboard($message->chatId));
 
         return false;
     }
