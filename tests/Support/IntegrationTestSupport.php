@@ -105,6 +105,22 @@ trait TelegramRecordingTrait
             ]);
         }
 
+        if ($action === 'getMe') {
+            return self::jsonResponse([
+                'ok' => true,
+                'result' => ['id' => TELEGRAM_TEST_BOT_ID, 'is_bot' => true, 'first_name' => 'TestBot', 'username' => 'testbot'],
+            ]);
+        }
+
+        if ($action === 'getChatMember') {
+            // The bot is treated as an administrator by default so admin-gated
+            // ephemeral sends work in tests; override per-call to test the non-admin path.
+            return self::jsonResponse([
+                'ok' => true,
+                'result' => ['user' => ['id' => (int) ($form['user_id'] ?? 0), 'is_bot' => true], 'status' => 'administrator'],
+            ]);
+        }
+
         return self::jsonResponse(['ok' => true, 'result' => true]);
     }
 

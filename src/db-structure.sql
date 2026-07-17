@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS `message` (
     `message_text`      varchar,                           -- Message text,
     `photo_file_id`     varchar DEFAULT NULL,               -- id of telegram file that can be used to download photo
     `alt_text`          varchar DEFAULT NULL,          -- for non-text messages
-    `reasoning`         varchar DEFAULT NULL          -- AI reasoning context
+    `reasoning`         varchar DEFAULT NULL,          -- AI reasoning context
+    `receiver_user_id`  bigint DEFAULT NULL           -- for ephemeral messages: the user the message was visible to (NULL for normal messages)
 );
 CREATE INDEX IF NOT EXISTS idx_chat_id_id ON message (chat_id, id);
 CREATE INDEX IF NOT EXISTS idx_user ON message (user_id);
@@ -25,6 +26,14 @@ CREATE INDEX IF NOT EXISTS idx_user ON message (user_id);
 -- rate-limit bot->user join, daily summary, /talkers). Leading chat_id lets the
 -- planner range-seek a small window instead of scanning all rows in large chats.
 CREATE INDEX IF NOT EXISTS idx_message_chat_date ON message (chat_id, date);
+-- Cached bot admin status per chat, shared across worker processes so each chat's
+-- membership is queried via getChatMember at most once per BotAdminChecker TTL.
+CREATE TABLE IF NOT EXISTS `chat_admin_status`
+(
+    `chat_id`    bigint PRIMARY KEY,
+    `is_admin`   integer NOT NULL, -- 1 if the bot is admin/creator, else 0
+    `checked_at` integer NOT NULL  -- unix timestamp of the last getChatMember check
+);
 CREATE TABLE IF NOT EXISTS `user_preferences`
 (
     `user_id` bigint PRIMARY KEY,

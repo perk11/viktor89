@@ -13,6 +13,7 @@ use Longman\TelegramBot\Exception\TelegramException;
 use Longman\TelegramBot\Request;
 use Longman\TelegramBot\TelegramLog;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
+use Perk11\Viktor89\Util\Telegram\BotAdminChecker;
 use Perk11\Viktor89\Util\TelegramRichMarkdown;
 use Perk11\Viktor89\VoiceGeneration\MessageAudio;
 
@@ -50,6 +51,14 @@ class InternalMessage
     public ?string $rawMessageText = null;
 
     public int $chatId;
+
+    /**
+     * When set, send() delivers the message as a Telegram ephemeral message
+     * (visible only to this user) in group/supergroup chats; null in private
+     * chats or after a fallback to a regular message. Persisted as
+     * receiver_user_id so history can tell who an ephemeral message was for.
+     */
+    public ?int $receiverUserId = null;
 
     public ?string $photoFileId = null;
     public ?string $altText = null;
@@ -93,6 +102,7 @@ class InternalMessage
         $message->photoFileId = $result['photo_file_id'];
         $message->altText = $result['alt_text'] ?? null;
         $message->reasoning = $result['reasoning'] ?? null;
+        $message->receiverUserId = isset($result['receiver_user_id']) ? (int)$result['receiver_user_id'] : null;
         $message->isSaved = true;
 
         return $message;
@@ -205,6 +215,47 @@ class InternalMessage
 
     public function send(): ServerResponse
     {
+        // Capture before doSend(): extractPropertiesFromTelegramMessage() overwrites
+        // replyToMessageId from the (possibly reply-less) API response, but the
+        // salute reaction must target the public message we replied to.
+        $triggerMessageId = $this->replyToMessageId;
+        $response = $this->doSend();
+        if ($this->receiverUserId !== null && !$response->isOk()) {
+            echo "Ephemeral message failed ({$response->getDescription()}), retrying as a regular message\n";
+            $this->receiverUserId = null;
+            $response = $this->doSend();
+        }
+        if ($this->receiverUserId !== null && $response->isOk()) {
+            self::setEphemeralReaction($this->chatId, $triggerMessageId);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Ephemeral messages are invisible to other chat members, so we drop a salute
+     * (🫡) reaction on the public triggering message so others can tell the bot
+     * answered privately. No-op outside group/supergroup chats or without a
+     * message to react to. Failures are non-fatal (e.g. reacting to a service msg).
+     */
+    public static function setEphemeralReaction(int $chatId, ?int $messageIdToReactTo): void
+    {
+        if ($chatId >= 0 || $messageIdToReactTo === null) {
+            return;
+        }
+        try {
+            Request::execute('setMessageReaction', [
+                'chat_id'    => $chatId,
+                'message_id' => $messageIdToReactTo,
+                'reaction'   => [['type' => 'emoji', 'emoji' => '🫡']],
+            ]);
+        } catch (\Throwable $e) {
+            echo "Failed to set ephemeral salute reaction: {$e->getMessage()}\n";
+        }
+    }
+
+    private function doSend(): ServerResponse
+    {
         $options = [
             'chat_id' => $this->chatId,
         ];
@@ -220,6 +271,14 @@ class InternalMessage
                 'force_reply' => true,
                 'selective' => true,
             ];
+        }
+        // receiver_user_id (ephemeral delivery) is only valid in group/supergroup
+        // chats AND only accepted when the bot is a chat administrator; otherwise
+        // the message is already private (PM) or ephemeral would be rejected.
+        if ($this->receiverUserId !== null && $this->chatId < 0 && BotAdminChecker::isBotAdminInChat($this->chatId)) {
+            $options['receiver_user_id'] = $this->receiverUserId;
+        } else {
+            $this->receiverUserId = null;
         }
         if ($this->parseMode === 'RichMarkdown') {
             $options['rich_message'] = [

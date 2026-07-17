@@ -95,6 +95,7 @@ class InternalMessageTest extends TestCase
             'photo_file_id' => 'AgACAgIAAxkBAA',
             'alt_text' => 'A photo',
             'reasoning' => 'Some reasoning',
+            'receiver_user_id' => 777,
         ];
 
         $message = InternalMessage::fromSqliteAssoc($assoc);
@@ -111,6 +112,7 @@ class InternalMessageTest extends TestCase
         $this->assertSame('AgACAgIAAxkBAA', $message->photoFileId);
         $this->assertSame('A photo', $message->altText);
         $this->assertSame('Some reasoning', $message->reasoning);
+        $this->assertSame(777, $message->receiverUserId);
         $this->assertTrue($message->isSaved);
     }
 
@@ -129,12 +131,14 @@ class InternalMessageTest extends TestCase
             'photo_file_id' => null,
             'alt_text' => null,
             'reasoning' => null,
+            'receiver_user_id' => null,
         ];
 
         $message = InternalMessage::fromSqliteAssoc($assoc);
 
         $this->assertNull($message->altText);
         $this->assertNull($message->reasoning);
+        $this->assertNull($message->receiverUserId);
         $this->assertNull($message->messageThreadId);
         $this->assertNull($message->replyToMessageId);
     }
@@ -168,6 +172,131 @@ class InternalMessageTest extends TestCase
         $this->assertNull($message->systemPrompt);
         $this->assertNull($message->personaId);
         $this->assertNull($message->caption);
+        $this->assertNull($message->receiverUserId);
+    }
+
+    public function testSendDeliversEphemeralMessageInGroupChat(): void
+    {
+        $this->installRecordingTelegramClient();
+
+        $message = new InternalMessage();
+        $message->chatId = -100123;
+        $message->replyToMessageId = 7;
+        $message->messageText = 'private to you';
+        $message->receiverUserId = 456;
+
+        ob_start();
+        try {
+            $response = $message->send();
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertTrue($response->isOk());
+        $this->assertSame(456, $message->receiverUserId, 'receiverUserId retained after a successful ephemeral send');
+
+        $sends = $this->recordedActionsFiltered('sendMessage');
+        $this->assertCount(1, $sends, 'a successful ephemeral send must not fall back');
+        $this->assertSame(456, (int) $sends[0]['form']['receiver_user_id']);
+
+        $reactions = $this->recordedActionsFiltered('setMessageReaction');
+        $this->assertCount(1, $reactions, 'an ephemeral reply must be marked with a salute reaction');
+        $this->assertSame(7, (int) $reactions[0]['form']['message_id'], 'reaction targets the public triggering message');
+    }
+
+    public function testSendFallsBackToRegularMessageWhenEphemeralFails(): void
+    {
+        $this->installRecordingTelegramClient();
+        $this->telegramResponseOverride = static function (string $action, array $form): ?array {
+            if ($action === 'sendMessage' && isset($form['receiver_user_id'])) {
+                return ['ok' => false, 'error_code' => 400, 'description' => 'Bad Request: not allowed'];
+            }
+
+            return null;
+        };
+
+        $message = new InternalMessage();
+        $message->chatId = -100123;
+        $message->messageText = 'private to you';
+        $message->receiverUserId = 456;
+
+        ob_start();
+        try {
+            $response = $message->send();
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertTrue($response->isOk(), 'send() must fall back to a regular message');
+        $this->assertNull($message->receiverUserId, 'receiverUserId cleared after falling back');
+
+        $sends = $this->recordedActionsFiltered('sendMessage');
+        $this->assertNotEmpty(array_filter($sends, static fn(array $c): bool => isset($c['form']['receiver_user_id'])), 'an ephemeral attempt must be made first');
+        $this->assertArrayNotHasKey('receiver_user_id', end($sends)['form'], 'the final (fallback) send must be public');
+        $this->assertSame([], $this->recordedActionsFiltered('setMessageReaction'), 'no salute reaction on a non-ephemeral fallback');
+    }
+
+    public function testSendDoesNotUseEphemeralWhenBotIsNotAdmin(): void
+    {
+        $this->installRecordingTelegramClient();
+        // Bot is a regular member here, not an administrator.
+        $this->telegramResponseOverride = static function (string $action): ?array {
+            if ($action === 'getChatMember') {
+                return ['ok' => true, 'result' => ['user' => ['id' => TELEGRAM_TEST_BOT_ID], 'status' => 'member']];
+            }
+
+            return null;
+        };
+
+        $message = new InternalMessage();
+        $message->chatId = -100999;
+        $message->messageText = 'hi';
+        $message->receiverUserId = 456;
+
+        ob_start();
+        try {
+            $response = $message->send();
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertTrue($response->isOk());
+        $this->assertNull($message->receiverUserId, 'receiverUserId cleared because the bot is not an admin');
+        $sends = $this->recordedActionsFiltered('sendMessage');
+        $this->assertCount(1, $sends);
+        $this->assertArrayNotHasKey('receiver_user_id', $sends[0]['form'], 'no ephemeral attempt when the bot is not an admin');
+        $this->assertSame([], $this->recordedActionsFiltered('setMessageReaction'));
+    }
+
+    public function testSendDoesNotUseEphemeralInPrivateChat(): void
+    {
+        $this->installRecordingTelegramClient();
+
+        $message = new InternalMessage();
+        $message->chatId = 12345;
+        $message->messageText = 'hi';
+        $message->receiverUserId = 456;
+
+        ob_start();
+        try {
+            $message->send();
+        } finally {
+            ob_end_clean();
+        }
+
+        $sends = $this->recordedActionsFiltered('sendMessage');
+        $this->assertCount(1, $sends);
+        $this->assertArrayNotHasKey('receiver_user_id', $sends[0]['form']);
+        $this->assertSame([], $this->recordedActionsFiltered('setMessageReaction'));
+    }
+
+    /** @return list<array{action: string, chatId: int, form: array<string, mixed>, text: ?string, draftId: ?int}> */
+    private function recordedActionsFiltered(string $action): array
+    {
+        return array_values(array_filter(
+            $this->recordedCalls(),
+            static fn(array $call): bool => $call['action'] === $action,
+        ));
     }
 
     public function testEditRetriesOnRateLimitUntilItSucceeds(): void

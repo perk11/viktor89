@@ -22,6 +22,7 @@ class RateLimitsCommandProcessor implements MessageChainProcessor
         $limits = $this->rateLimitRepository->findRateLimitsByChat($this->chatRateLimits, $userId);
 
         $responseMessage = InternalMessage::asResponseTo($messageChain->last());
+        $responseMessage->receiverUserId = $userId;
 
         if (count($limits) === 0) {
             $responseMessage->messageText = 'На тебя не наложено ограничений.';

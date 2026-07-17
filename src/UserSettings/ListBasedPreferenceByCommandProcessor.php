@@ -6,6 +6,7 @@ use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\Repository\UserPreferenceRepository;
+use Perk11\Viktor89\Util\Telegram\BotAdminChecker;
 
 class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandProcessor
 {
@@ -54,6 +55,7 @@ class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandPr
         if (isset($params['receiver_user_id'])) {
             $response = Request::sendMessage($params);
             if ($response->isOk()) {
+                InternalMessage::setEphemeralReaction($message->chatId, $message->id);
                 return;
             }
             echo "Failed to send ephemeral picker for '{$this->preferenceName}' ({$response->getDescription()}), falling back to a regular message\n";
@@ -71,8 +73,8 @@ class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandPr
             'reply_markup' => ['inline_keyboard' => $inlineKeyboard],
         ];
         // receiver_user_id (ephemeral delivery) is only valid for group/supergroup
-        // chats; in a private chat the picker is already only visible to the user.
-        if ($message->chatId < 0) {
+        // chats and only accepted when the bot is a chat administrator.
+        if ($message->chatId < 0 && BotAdminChecker::isBotAdminInChat($message->chatId)) {
             $params['receiver_user_id'] = $message->userId;
         }
 

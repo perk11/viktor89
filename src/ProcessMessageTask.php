@@ -82,6 +82,7 @@ use Perk11\Viktor89\VoiceGeneration\SingApiClient;
 use Perk11\Viktor89\VoiceGeneration\SingProcessor;
 use Perk11\Viktor89\VoiceGeneration\SoundAndPromptToTargetAndResidualApiClient;
 use Perk11\Viktor89\VoiceGeneration\SoundAndPromptToTargetAndResidualProcessor;
+use Perk11\Viktor89\Util\Telegram\BotAdminChecker;
 use Perk11\Viktor89\VoiceGeneration\TtsApiClient;
 use Perk11\Viktor89\VoiceGeneration\TtsProcessor;
 use Perk11\Viktor89\VoiceGeneration\VoiceResponder;
@@ -144,6 +145,7 @@ class ProcessMessageTask implements Task
         $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNAME']);
         $container = ContainerFactory::getContainer($this->telegramBotId, $this->telegramBotUsername, $this->telegramApiKey);
         $database = $container->get(Database::class);
+        BotAdminChecker::setDatabase($database);
         $messageRepository = $container->get(\Perk11\Viktor89\Repository\MessageRepository::class);
         $userPreferenceRepository = $container->get(\Perk11\Viktor89\Repository\UserPreferenceRepository::class);
         $personaRepository = $container->get(\Perk11\Viktor89\Repository\PersonaRepository::class);

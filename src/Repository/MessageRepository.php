@@ -20,8 +20,8 @@ class MessageRepository
     {
         $sqlite = $this->database->sqlite3Database;
         $this->insertMessageStatement = $sqlite->prepare(
-            'INSERT INTO message (chat_id, id, type, message_thread_id, user_id, `date`, reply_to_message, username, message_text, photo_file_id, alt_text, reasoning)
-VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_message, :username, :message_text, :photo_file_id, :alt_text, :reasoning)
+            'INSERT INTO message (chat_id, id, type, message_thread_id, user_id, `date`, reply_to_message, username, message_text, photo_file_id, alt_text, reasoning, receiver_user_id)
+VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_message, :username, :message_text, :photo_file_id, :alt_text, :reasoning, :receiver_user_id)
 '
         );
         $this->updateMessageStatement = $sqlite->prepare('UPDATE message SET alt_text = :alt_text WHERE id = :id AND chat_id = :chat_id');
@@ -60,6 +60,7 @@ VALUES (:message_id, :tool_call_id, :tool_name, :arguments, :result, :chat_id)'
         $statement->bindValue(':alt_text', $message->altText);
         if (!$message->isSaved) {
             $statement->bindValue(':reasoning', $message->reasoning);
+            $statement->bindValue(':receiver_user_id', $message->receiverUserId);
         }
 
         $statement->execute();

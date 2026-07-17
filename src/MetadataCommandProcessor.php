@@ -22,6 +22,7 @@ class MetadataCommandProcessor implements MessageChainProcessor
 
         $response = InternalMessage::asResponseTo($lastMessage);
         $response->parseMode = 'HTML';
+        $response->receiverUserId = $lastMessage->userId;
 
         $replyTarget = $messageChain->previous();
         if ($replyTarget === null) {

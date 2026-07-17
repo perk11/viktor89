@@ -53,6 +53,7 @@ class MetadataCommandProcessorTest extends TestCase
         $command = new InternalMessage();
         $command->id = 999;
         $command->chatId = 100;
+        $command->userId = 1;
         $command->messageText = '/metadata';
 
         return new \Perk11\Viktor89\MessageChain([$replied, $command]);
@@ -63,6 +64,7 @@ class MetadataCommandProcessorTest extends TestCase
         $command = new InternalMessage();
         $command->id = 999;
         $command->chatId = 100;
+        $command->userId = 1;
         $command->messageText = '/metadata';
 
         return new \Perk11\Viktor89\MessageChain([$command]);

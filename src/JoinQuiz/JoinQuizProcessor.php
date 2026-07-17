@@ -9,6 +9,7 @@ use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 use Perk11\Viktor89\Repository\KickQueueRepository;
 use Perk11\Viktor89\Repository\MessageRepository;
+use Perk11\Viktor89\Util\Telegram\BotAdminChecker;
 
 class JoinQuizProcessor implements PreResponseProcessor
 {
@@ -29,19 +30,35 @@ class JoinQuizProcessor implements PreResponseProcessor
         echo "New member detected, sending quiz\n";
         print_r($message);
         $messagesToDelete = [];
-        $photoResponse = Request::sendPhoto([
-                               'chat_id'          => $message->getChat()->getId(),
-                               'reply_parameters' => [
-                                   'message_id' => $message->getMessageId(),
-                               ],
-                               'photo'            => Request::encodeFile(__DIR__ . '/quiz_photo_1.jpg'),
-                           ]);
+        $chatId = $message->getChat()->getId();
+        $photoParams = [
+            'chat_id'          => $chatId,
+            'reply_parameters' => ['message_id' => $message->getMessageId()],
+            'photo'            => Request::encodeFile(__DIR__ . '/quiz_photo_1.jpg'),
+        ];
+        // The captcha photo is only useful to the joining member, so send it
+        // ephemerally when the bot is an admin (sendPoll doesn't support
+        // receiver_user_id, so the poll itself stays public). Ephemeral messages
+        // self-destruct and are not queued for deletion; a public fallback is.
+        $photoEphemeral = BotAdminChecker::isBotAdminInChat($chatId);
+        if ($photoEphemeral) {
+            $photoParams['receiver_user_id'] = $message->getNewChatMembers()[0]->getId();
+        }
+        $photoResponse = Request::sendPhoto($photoParams);
+        if ($photoEphemeral && !$photoResponse->isOk()) {
+            echo "Ephemeral join-quiz photo failed ({$photoResponse->getDescription()}), retrying as a regular message\n";
+            unset($photoParams['receiver_user_id']);
+            $photoResponse = Request::sendPhoto($photoParams);
+            $photoEphemeral = false;
+        }
         if (!$photoResponse->isOk()) {
             echo "Failed to send photo!";
             print_r($photoResponse);
             return false;
         }
-        $messagesToDelete[] = $photoResponse->getResult()->getMessageId();
+        if (!$photoEphemeral) {
+            $messagesToDelete[] = $photoResponse->getResult()->getMessageId();
+        }
         foreach ($message->getNewChatMembers() as $member) {
             $pollData = [
                 'question'            => "Вопрос для " . $member->getFirstName(
@@ -82,10 +99,16 @@ class JoinQuizProcessor implements PreResponseProcessor
             $questionMessage->chatId = $message->getChat()->getId();
             $questionMessage->replyToMessageId = $message->getMessageId();
             $questionMessage->messageText =  'Уважаемый(-ая) ' . $newChatMember->getFirstName() . ', добро пожаловать в наш чат! Чтобы стать полноценным членом нашего сообщества, пожалуйста, пройдите опрос и представтесь. В противном случае, вас удалят из чата.';
+            // The welcome instructions are addressed to the new member only -> ephemeral.
+            $questionMessage->receiverUserId = $member->getId();
             $telegramServerResponse = $questionMessage->send();
             if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof Message) {
-                $this->messageRepository->logMessage($telegramServerResponse->getResult());
-                $messagesToDelete[] = $telegramServerResponse->getResult()->getMessageId();
+                $this->messageRepository->logInternalMessage($questionMessage);
+                // Ephemeral messages self-destruct, so only a public (fallback) send
+                // needs to be queued for explicit deletion later.
+                if ($questionMessage->receiverUserId === null) {
+                    $messagesToDelete[] = $questionMessage->id;
+                }
             } else {
                 echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
             }
