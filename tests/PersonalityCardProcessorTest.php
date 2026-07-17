@@ -100,7 +100,7 @@ class PersonalityCardProcessorTest extends TestCase
         $repo = $this->createMock(MessageRepository::class);
         $repo->expects($this->once())
             ->method('findLastMessagesByUserInChat')
-            ->with(-100, 7, 60) // chatId, the command sender's userId, default count
+            ->with(-100, 7, 500) // chatId, the command sender's userId; fixed MESSAGE_COUNT
             ->willReturn([$this->message('привет')]);
 
         $result = $this->runProcessor($repo, $this->assistantReturningJson());
@@ -170,12 +170,13 @@ class PersonalityCardProcessorTest extends TestCase
         $this->assertSame([880, 1180], [$info[0], $info[1]]);
     }
 
-    public function testAcceptsNumericMessageCountArgument(): void
+    public function testIgnoresNumericMessageCountArgument(): void
     {
+        // The processor reads a fixed MESSAGE_COUNT and no longer parses a count argument.
         $repo = $this->createMock(MessageRepository::class);
         $repo->expects($this->once())
             ->method('findLastMessagesByUserInChat')
-            ->with(-100, 7, 120)
+            ->with(-100, 7, 500)
             ->willReturn([$this->message('привет')]);
 
         $this->runProcessor($repo, $this->assistantReturningJson(), '120');
