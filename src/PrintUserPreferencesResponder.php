@@ -17,7 +17,6 @@ class PrintUserPreferencesResponder implements MessageChainProcessor
         $message = InternalMessage::asResponseTo($messageChain->last());
         $message->messageText = "Вот ваши настройки:\n\n";
         $message->parseMode = 'HTML';
-        $message->receiverUserId = $messageChain->last()->userId;
         foreach ($preferences as $preference => $value) {
             if ($value === null) {
                 continue;
