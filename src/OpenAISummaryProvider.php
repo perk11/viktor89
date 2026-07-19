@@ -46,14 +46,13 @@ class OpenAISummaryProvider
             return false;
         }
         $summary = preg_replace('/<think>.*?<\/think>/s', '', $summary);
-        // Split the summary into chunks of 4000 characters
-        $maxSize = 4000;
+        $maxSize = 64000;
         $chunks = mb_str_split($summary, $maxSize);
         foreach ($chunks as $chunk) {
             $message = new InternalMessage();
-            $message->parseMode = 'MarkdownV2';
+            $message->parseMode = 'RichMarkdown';
             $message->chatId = $chatId;
-            $message->messageText = "#summary\n" . $chunk;
+            $message->messageText = "#summary\n<details>\n<summary>Сводка чата за последние 24 часа</summary>\n" . $chunk . "\n</details>\n";
             $message->send();
         }
 
@@ -67,7 +66,7 @@ class OpenAISummaryProvider
 //            echo count($allMessages) . " messages found in chat $chatId in last 24 hours, no summary to provide\n";
             return null;
         }
-        $summary = "Анализ чата за последние 24 часа\nСообщений проанализировано: ";
+        $summary = "Сообщений проанализировано: ";
         if (count($allMessages) > $maxMessages) {
             $summary .= $maxMessages;
             $allMessages = array_slice($allMessages, 0, $maxMessages);
