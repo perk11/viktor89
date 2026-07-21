@@ -330,7 +330,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                 } else {
                     $assistantContextMessage->text = $this->altTextProvider->provide($message, $progressUpdateCallback);
                     if ($message->messageText !== '') {
-                        $assistantContextMessage->text .= "\n[caption]" . $message->messageText;
+                        $assistantContextMessage->text .= "\n[caption] " . $message->messageText;
                     }
                 }
             } elseif ($assistantContextMessage->text === '') {

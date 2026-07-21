@@ -61,7 +61,7 @@ class AbstractOpenAIAPiAssistantTest extends TestCase
 
         $context = $this->convert($assistant, $chain);
 
-        $this->assertSame("a red car\n[caption]look at this", $context->messages[0]->text);
+        $this->assertSame("a red car\n[caption] look at this", $context->messages[0]->text);
         $this->assertNull($context->messages[0]->photo);
     }
 
