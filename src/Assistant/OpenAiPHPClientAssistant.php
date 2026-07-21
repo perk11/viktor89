@@ -302,22 +302,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                 echo "Received non-empty content alongside tool call: " . $content . "\n";
             }
 
-            $requestOptions['messages'][] = [
-                'role' => 'assistant',
-                'content' => $content,
-                'reasoning' => $reasoning,
-                'tool_calls' => array_map(
-                    static fn(object $toolCall): array => [
-                        'id' => $toolCall->id,
-                        'type' => 'function',
-                        'function' => [
-                            'name' => $toolCall->function->name,
-                            'arguments' => $toolCall->function->arguments,
-                        ],
-                    ],
-                    $toolCalls
-                ),
-            ];
+            $requestOptions['messages'][] = self::buildAssistantToolCallMessage($content, $reasoning, $toolCalls);
 
             foreach ($toolCalls as $toolCall) {
                 $functionName = $toolCall->function->name;
@@ -527,6 +512,37 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         }
 
         return ['input' => $actionInput];
+    }
+
+    /**
+     * Reconstructs the assistant message exactly as the model emitted it so
+     * the conversation can be continued after a tool call. reasoning_content
+     * is only included when the model actually produced reasoning.
+     *
+     * @param list<object> $toolCalls
+     */
+    private static function buildAssistantToolCallMessage(string $content, string $reasoning, array $toolCalls): array
+    {
+        $assistantMessage = [
+            'role' => 'assistant',
+            'content' => $content,
+            'tool_calls' => array_map(
+                static fn(object $toolCall): array => [
+                    'id' => $toolCall->id,
+                    'type' => 'function',
+                    'function' => [
+                        'name' => $toolCall->function->name,
+                        'arguments' => $toolCall->function->arguments,
+                    ],
+                ],
+                $toolCalls
+            ),
+        ];
+        if ($reasoning !== '') {
+            $assistantMessage['reasoning_content'] = $reasoning;
+        }
+
+        return $assistantMessage;
     }
 
     private function isStringStartingToRepeat(string $str, int $charactersToCheck): bool
