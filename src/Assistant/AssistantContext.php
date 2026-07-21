@@ -134,12 +134,22 @@ class AssistantContext
                    if ($messageText !== '') {
                        $assistantContentParts[] = ['type' => 'text', 'text' => $messageText];
                    }
+                   // A sibling photo message (e.g. the image produced by an
+                   // image-generation tool call) lands here as a trailing
+                   // assistant turn after the tool result. Its image must be
+                   // folded in alongside its caption text, otherwise the model
+                   // that supports images loses the generated photo from its
+                   // own history.
+                   if ($message->photo !== null) {
+                       $photoPart = $this->buildPhotoContentPart($message->photo);
+                       if ($photoPart !== null) {
+                           $assistantContentParts[] = $photoPart;
+                       }
+                   }
                    if ($message->reasoning !== null) {
                        $assistantMsg['reasoning_content'] = $message->reasoning;
                    }
-                   $assistantMsg['content'] = count($assistantContentParts) === 1
-                       ? $assistantContentParts[0]['text']
-                       : $assistantContentParts;
+                   $assistantMsg['content'] = $this->collapseContentParts($assistantContentParts);
                    unset($assistantMsg);
                    // This message has been folded into the earlier assistant
                    // message; skip emitting it as a separate message.
@@ -156,37 +166,9 @@ class AssistantContext
             }
 
             if ($message->photo !== null) {
-                $extension = ContentTypeGuesser::guessFileExtension($message->photo);
-                $url = null;
-
-                switch ($extension) {
-                    case 'jpg':
-                        $url = 'data:image/jpeg;base64,' . base64_encode($message->photo);
-                        break;
-                    case 'png':
-                        $url = 'data:image/png;base64,' . base64_encode($message->photo);
-                        break;
-                    case 'webp':
-                        $gdImageFromWebpString = imagecreatefromstring($message->photo);
-                        if ($gdImageFromWebpString === false) {
-                            echo "Failed to create image from webp\n";
-                            $url = null;
-                        } else {
-                            ob_start();
-                            imagepng($gdImageFromWebpString);
-                            $pngImageBinaryString = ob_get_clean();
-                            imagedestroy($gdImageFromWebpString);
-                            $url = 'data:image/png;base64,' . base64_encode($pngImageBinaryString);
-                        }
-                        break;
-                }
-                if ($url !== null) {
-                    $messageContentParts[] = [
-                        'type'      => 'image_url',
-                        'image_url' => [
-                            'url' => $url,
-                        ],
-                    ];
+                $photoPart = $this->buildPhotoContentPart($message->photo);
+                if ($photoPart !== null) {
+                    $messageContentParts[] = $photoPart;
                 }
             }
 
@@ -194,13 +176,7 @@ class AssistantContext
                 continue;
             }
 
-            if (empty($messageContentParts)) {
-                $finalContent = '';
-            } elseif (count($messageContentParts) === 1 && $messageContentParts[0]['type'] === 'text') {
-                $finalContent = $messageContentParts[0]['text'];
-            } else {
-                $finalContent = $messageContentParts;
-            }
+            $finalContent = $this->collapseContentParts($messageContentParts);
 
             $openAiMessage = [
                 'role'    => $role,
@@ -324,6 +300,69 @@ class AssistantContext
                 $contentParts[] = $part;
             }
         }
+    }
+
+    /**
+     * Convert a raw photo blob into an OpenAI image_url content part (data URL),
+     * converting webp to png because chat APIs reject webp data URLs. Returns
+     * null when the blob cannot be encoded.
+     *
+     * @return array{type: string, image_url: array{url: string}}|null
+     */
+    private function buildPhotoContentPart(string $photo): ?array
+    {
+        $extension = ContentTypeGuesser::guessFileExtension($photo);
+        $url = null;
+
+        switch ($extension) {
+            case 'jpg':
+                $url = 'data:image/jpeg;base64,' . base64_encode($photo);
+                break;
+            case 'png':
+                $url = 'data:image/png;base64,' . base64_encode($photo);
+                break;
+            case 'webp':
+                $gdImageFromWebpString = imagecreatefromstring($photo);
+                if ($gdImageFromWebpString === false) {
+                    echo "Failed to create image from webp\n";
+                    $url = null;
+                } else {
+                    ob_start();
+                    imagepng($gdImageFromWebpString);
+                    $pngImageBinaryString = ob_get_clean();
+                    imagedestroy($gdImageFromWebpString);
+                    $url = 'data:image/png;base64,' . base64_encode($pngImageBinaryString);
+                }
+                break;
+        }
+
+        if ($url === null) {
+            return null;
+        }
+
+        return [
+            'type'      => 'image_url',
+            'image_url' => ['url' => $url],
+        ];
+    }
+
+    /**
+     * Collapse content parts into the most compact representation: empty string
+     * when there are none, a plain string for a single text part, or the parts
+     * array for mixed text/image content.
+     *
+     * @param array<int, array{type: string, text?: string}> $contentParts
+     */
+    private function collapseContentParts(array $contentParts): string|array
+    {
+        if (empty($contentParts)) {
+            return '';
+        }
+        if (count($contentParts) === 1 && $contentParts[0]['type'] === 'text') {
+            return $contentParts[0]['text'];
+        }
+
+        return $contentParts;
     }
 
 }

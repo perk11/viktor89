@@ -248,7 +248,7 @@ class AssistantContextTest extends TestCase
      * the tool_calls) as another. These two consecutive assistant messages
      * must be merged so the roles keep alternating.
      */
-   public function testConsecutiveAssistantWhereSecondHasToolCallsAreMerged(): void
+    public function testConsecutiveAssistantWhereSecondHasToolCallsAreMerged(): void
    {
        $context = new AssistantContext();
        $context->systemPrompt = 'System';
@@ -288,6 +288,71 @@ class AssistantContextTest extends TestCase
        $this->assertStringContainsString('Here is the cat you asked for', $mergedContent);
        $this->assertArrayHasKey('tool_calls', $array[2]);
    }
+
+    /**
+     * In a group chat the streaming reply (carrying the tool_calls) is logged
+     * before the photo that the tool call produced, so on the next turn the
+     * chain orders them as assistant(tool_calls) → tool → assistant(photo). The
+     * case-2 fold must carry the photo into the originating assistant message —
+     * otherwise a vision-capable model loses the generated image from history
+     * and only sees its caption text.
+     */
+    public function testAssistantPhotoAfterToolResultsIsFoldedWithItsImage(): void
+    {
+        $context = new AssistantContext();
+        $context->systemPrompt = 'System';
+
+        $userMsg = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+        $userMsg->isUser = true;
+        $userMsg->text = 'Draw a cat';
+        $context->messages[] = $userMsg;
+
+        $replyMsg = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+        $replyMsg->isUser = false;
+        $replyMsg->text = 'Here is the cat you asked for';
+        $replyMsg->toolCalls = [
+            new \Perk11\Viktor89\Assistant\Tool\ToolCall(
+                'call_1',
+                'generate_image',
+                '{"prompt":"a cat"}',
+                '{"status":"image_generated"}',
+            ),
+        ];
+        $context->messages[] = $replyMsg;
+
+        $photoMsg = new \Perk11\Viktor89\Assistant\AssistantContextMessage();
+        $photoMsg->isUser = false;
+        $photoMsg->text = 'Steps: 20, Seed: 1, Model: sdxl';
+        // Real PNG magic bytes so ContentTypeGuesser recognises it as png.
+        $photoMsg->photo = "\x89PNG\r\n\x1a\nfake-png-data";
+        $context->messages[] = $photoMsg;
+
+        $array = $context->toOpenAiMessagesArray();
+
+        // system, user, assistant(text + photo + tool_calls), tool(result) — the
+        // trailing photo message must NOT stand on its own (it would break role
+        // alternation) and must NOT lose its image.
+        $roles = array_column($array, 'role');
+        $this->assertSame(['system', 'user', 'assistant', 'tool'], $roles);
+
+        $assistantContent = $array[2]['content'];
+        $this->assertIsArray($assistantContent, 'Assistant content must be multi-part (text + image)');
+
+        $hasText = false;
+        $hasImage = false;
+        foreach ($assistantContent as $part) {
+            if ($part['type'] === 'text') {
+                $hasText = true;
+            }
+            if ($part['type'] === 'image_url') {
+                $hasImage = true;
+                $this->assertStringContainsString('base64', $part['image_url']['url']);
+            }
+        }
+        $this->assertTrue($hasText, 'Folded assistant message must still contain text');
+        $this->assertTrue($hasImage, 'Folded assistant message must contain the photo as an image_url part');
+        $this->assertStringContainsString('Steps: 20', json_encode($assistantContent));
+    }
 
    /**
      * A compaction summary is a user-role message. When the kept tail of the
