@@ -158,6 +158,19 @@ def get_txt2img_workflow_and_infotext_ideogram4(model, prompt, seed, steps, widt
     comfy_workflow_object["26"]["inputs"]['value'] = height
 
     return comfy_workflow_object, f'{prompt}\nSteps: 48, Seed: {seed}, Size: {width}x{height}, Model: ' + model
+def get_txt2img_workflow_and_infotext_ideogram4_fast(model, prompt, seed, steps, width, height):
+    # CFG-distilled fal/ideogram-v4-fast: single conditional transformer, no unconditional branch,  20-step schedule.
+    workflow_file_path = Path(__file__).with_name("ideogram4-fast-txt2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["42"]["inputs"]['prompt'] = prompt
+    comfy_workflow_object["23"]["inputs"]['noise_seed'] = seed
+
+    comfy_workflow_object["25"]["inputs"]['value'] = width
+    comfy_workflow_object["26"]["inputs"]['value'] = height
+
+    return comfy_workflow_object, f'{prompt}\nSteps: 20, Seed: {seed}, Size: {width}x{height}, Model: ' + model
 def get_txt2img_workflow_and_infotext_flux2_turbo(prompt, seed, width, height):
     workflow_file_path = Path(__file__).with_name("flux2-turbo-txt2img.json")
     with workflow_file_path.open('r') as workflow_file:
@@ -265,6 +278,8 @@ def generate_image():
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_wan22(model, prompt, negative_prompt, seed, steps, width, height)
         case 'ideogram4':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_ideogram4(model, prompt, seed, steps, width, height)
+        case 'ideogram4_fast':
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_ideogram4_fast(model, prompt, seed, steps, width, height)
         case 'flux2_dev_fp8':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_flux2(model, prompt, seed, steps, width, height)
         case 'flux2_dev_fp8-turbo-8-steps':
