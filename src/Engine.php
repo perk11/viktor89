@@ -99,14 +99,17 @@ class Engine
             return;
         }
 
+        // Any command that reached this point was not recognised by a processor,
+        // so it is ignored rather than forwarded to the model. (Real commands —
+        // including /assistant and its reply chains — are handled above by the
+        // chain processors.)
+        if ($message->getType() === 'command') {
+            return;
+        }
+
         $isPrivateChat = $message->getChat()->getType() === 'private';
         if ($isPrivateChat) {
             // In private chats the assistant answers every non-command message.
-            // Commands that no processor recognised are ignored so they are not
-            // forwarded to the model.
-            if ($message->getType() === 'command') {
-                return;
-            }
             $recentMessages = $this->messageRepository->findNPreviousMessagesInChat(
                 $message->getChat()->getId(),
                 $message->getMessageId(),
@@ -114,17 +117,13 @@ class Engine
                 [],
             );
             $chain = new MessageChain(array_merge(array_reverse($recentMessages), [$lastMessage]));
-        } elseif ($message->getType() !== 'command') {
-            $incomingMessageText = $message->getText();
-            if (!str_contains($incomingMessageText, '@' . $this->telegramBotUserName)) {
-                $replyToMessage = $message->getReplyToMessage();
-                if ($replyToMessage === null) {
-                    return;
-                }
-                if ($replyToMessage->getFrom()->getId() !== $this->telegramBotId) {
-                    return;
-                }
-            }
+        } elseif (
+            !str_contains($message->getText() ?? '', '@' . $this->telegramBotUserName)
+            && ($message->getReplyToMessage() === null
+                || $message->getReplyToMessage()?->getFrom()?->getId() !== $this->telegramBotId)
+        ) {
+            // Group chat: respond only when the bot is mentioned or replied to.
+            return;
         }
         if ($this->fallBackResponder instanceof MessageChainProcessor) {
             // Route through ProcessingResultExecutor so streaming assistants that

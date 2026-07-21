@@ -30,13 +30,16 @@ class EngineTest extends TestCase
 
     private function buildMessage(string $text, string $chatType, int $chatId, int $messageId = 50): Message
     {
-        return new Message([
-            'message_id' => $messageId,
-            'date' => time(),
-            'chat' => ['id' => $chatId, 'type' => $chatType],
-            'from' => ['id' => 222, 'first_name' => 'Alice', 'is_bot' => false],
-            'text' => $text,
-        ]);
+        return new Message(
+            [
+                'message_id' => $messageId,
+                'date' => time(),
+                'chat' => ['id' => $chatId, 'type' => $chatType],
+                'from' => ['id' => 222, 'first_name' => 'Alice', 'is_bot' => false],
+                'text' => $text,
+            ],
+            self::BOT_USERNAME,
+        );
     }
 
     private function buildEngine(
@@ -159,5 +162,97 @@ class EngineTest extends TestCase
         $this->assertNotNull($capturedChain);
         // No history is pulled for group chats; the chain is just the incoming message.
         $this->assertCount(1, $capturedChain->getMessages());
+    }
+
+    public function testGroupChatUnrecognisedCommandIsNotForwardedToAssistant(): void
+    {
+        // Regression: an unrecognised command in a group chat used to fall
+        // through to the fallback assistant. It must now be ignored, just like
+        // a private-chat command.
+        $message = $this->buildMessage('/totallyunknowncommand', 'supergroup', -100200, messageId: 50);
+
+        $fallBackResponder = $this->createMock(MessageChainProcessor::class);
+        $fallBackResponder->expects($this->never())->method('processMessageChain');
+
+        $this->buildEngine($message, $this->noopRepository(), $fallBackResponder)->handleMessage($message);
+    }
+
+    public function testGroupChatCommandDirectedAtBotIsNotForwardedToAssistant(): void
+    {
+        // A command suffixed with @bot still contains a mention substring, but
+        // it is an unrecognised command and must not trigger the assistant.
+        $message = $this->buildMessage(
+            '/totallyunknowncommand@' . self::BOT_USERNAME,
+            'supergroup',
+            -100200,
+            messageId: 50,
+        );
+
+        $fallBackResponder = $this->createMock(MessageChainProcessor::class);
+        $fallBackResponder->expects($this->never())->method('processMessageChain');
+
+        $this->buildEngine($message, $this->noopRepository(), $fallBackResponder)->handleMessage($message);
+    }
+
+    public function testGroupChatReplyToBotReachesAssistant(): void
+    {
+        // A non-command reply to one of the bot's messages keeps the
+        // conversation going (this also covers /assistant reply chains that
+        // were not handled by the dedicated processor).
+        $message = $this->buildMessageReplyingToBot('why though', 'supergroup', -100200, messageId: 50);
+
+        $fallBackResponder = $this->createMock(MessageChainProcessor::class);
+        $fallBackResponder->expects($this->once())->method('processMessageChain')
+            ->willReturn(new ProcessingResult(null, true));
+
+        $this->buildEngine($message, $this->noopRepository(), $fallBackResponder)->handleMessage($message);
+    }
+
+    public function testGroupChatReplyToOtherUserIsIgnored(): void
+    {
+        // Replying to a different user (not the bot) without a mention is ignored.
+        $message = new Message(
+            [
+                'message_id' => 50,
+                'date' => time(),
+                'chat' => ['id' => -100200, 'type' => 'supergroup'],
+                'from' => ['id' => 222, 'first_name' => 'Alice', 'is_bot' => false],
+                'text' => 'what did you mean',
+                'reply_to_message' => [
+                    'message_id' => 49,
+                    'date' => time(),
+                    'chat' => ['id' => -100200, 'type' => 'supergroup'],
+                    'from' => ['id' => 333, 'first_name' => 'Bob', 'is_bot' => false],
+                    'text' => 'something',
+                ],
+            ],
+            self::BOT_USERNAME,
+        );
+
+        $fallBackResponder = $this->createMock(MessageChainProcessor::class);
+        $fallBackResponder->expects($this->never())->method('processMessageChain');
+
+        $this->buildEngine($message, $this->noopRepository(), $fallBackResponder)->handleMessage($message);
+    }
+
+    private function buildMessageReplyingToBot(string $text, string $chatType, int $chatId, int $messageId = 50): Message
+    {
+        return new Message(
+            [
+                'message_id' => $messageId,
+                'date' => time(),
+                'chat' => ['id' => $chatId, 'type' => $chatType],
+                'from' => ['id' => 222, 'first_name' => 'Alice', 'is_bot' => false],
+                'text' => $text,
+                'reply_to_message' => [
+                    'message_id' => $messageId - 1,
+                    'date' => time(),
+                    'chat' => ['id' => $chatId, 'type' => $chatType],
+                    'from' => ['id' => self::BOT_ID, 'first_name' => 'Viktor89', 'is_bot' => true],
+                    'text' => 'previous bot message',
+                ],
+            ],
+            self::BOT_USERNAME,
+        );
     }
 }
