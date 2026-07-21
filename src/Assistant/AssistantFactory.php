@@ -247,7 +247,7 @@ class AssistantFactory
                 new ToolDefinition(
                     'image_gen_tool',
                     $this->imageFromTextGeneratorTool,
-                    'Generate an image from a text prompt and send it to user. Use img tag in the prompt to reference images. For saved images: <img>savedImageName</img>. For images in this conversation: <img>#0</img> where #0, #1 etc. are indices from list_chain_images. Use list_chain_images to see available conversation images and their indices. Max 3 images per prompt.',
+                    'Generate an image from a text prompt and send it to user. Use img tag in the prompt to reference images. For saved images: <img>savedImageName</img>..',
                     [
                         new ToolParameter('prompt', ['type' => 'string'], true),
                     ]

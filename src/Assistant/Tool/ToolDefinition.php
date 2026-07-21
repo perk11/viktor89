@@ -53,7 +53,7 @@ final class ToolDefinition implements JsonSerializable
             'name'       => $this->name,
             'parameters' => [
                 'type'       => 'object',
-                'properties' => $properties,
+                'properties' => $properties === [] ? new \stdClass() : $properties,
             ],
         ];
 

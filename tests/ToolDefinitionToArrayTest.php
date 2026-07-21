@@ -64,7 +64,11 @@ class ToolDefinitionToArrayTest extends TestCase
     public function testJsonSerializeMatchesToArray(): void
     {
         $executor = $this->createMockExecutor();
-        $definition = new ToolDefinition('test', $executor, 'desc');
+        // Use a definition with a parameter: an empty-properties tool serializes
+        // properties as "{}", which json_decode(..., true) turns back into [],
+        // so it cannot be structurally compared to the stdClass in toArray().
+        $param = new ToolParameter('prompt', ['type' => 'string'], true);
+        $definition = new ToolDefinition('test', $executor, 'desc', [$param]);
 
         $json = json_encode($definition);
         $decoded = json_decode($json, true);
@@ -80,7 +84,9 @@ class ToolDefinitionToArrayTest extends TestCase
 
         $array = $definition->toArray();
 
-        $this->assertSame([], $array['function']['parameters']['properties']);
+        // properties must serialize as a JSON object "{}", never an empty array "[]",
+        // so strict JSON-Schema validators (e.g. z.ai / glm) accept the tool schema.
+        $this->assertSame('{}', json_encode($array['function']['parameters']['properties']));
         $this->assertArrayNotHasKey('required', $array['function']['parameters']);
     }
 
