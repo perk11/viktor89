@@ -208,6 +208,98 @@ class EngineTest extends TestCase
         $this->buildEngine($message, $this->noopRepository(), $fallBackResponder)->handleMessage($message);
     }
 
+    public function testReplyEnrichmentTargetsRepliedMessageWhenSiblingIsPresent(): void
+    {
+        // User replies to the bot's generated photo (id 48). HistoryReader
+        // returns a chain whose last element is a sibling bot message (id 49,
+        // the text reply) that comes AFTER the replied-to photo. The fresh
+        // Telegram data must enrich the replied-to photo (id 48), not the last
+        // element, or the text reply is corrupted with the photo's data.
+        $message = new Message(
+            [
+                'message_id' => 50,
+                'date' => time(),
+                'chat' => ['id' => -100200, 'type' => 'supergroup'],
+                'from' => ['id' => 222, 'first_name' => 'Alice', 'is_bot' => false],
+                'text' => 'make it more serious',
+                'reply_to_message' => [
+                    'message_id' => 48,
+                    'date' => time(),
+                    'chat' => ['id' => -100200, 'type' => 'supergroup'],
+                    'from' => ['id' => self::BOT_ID, 'first_name' => 'Viktor89', 'is_bot' => true],
+                    'photo' => [
+                        ['file_id' => 'small', 'file_unique_id' => 'u1', 'width' => 10, 'height' => 10, 'file_size' => 100],
+                        ['file_id' => 'large', 'file_unique_id' => 'u2', 'width' => 100, 'height' => 100, 'file_size' => 1000],
+                    ],
+                ],
+            ],
+            self::BOT_USERNAME,
+        );
+
+        $trigger = new InternalMessage();
+        $trigger->id = 47;
+        $trigger->chatId = -100200;
+        $trigger->userId = 222;
+        $trigger->userName = 'Alice';
+        $trigger->messageText = 'draw a cat';
+        $trigger->type = 'text';
+
+        $photo = new InternalMessage();
+        $photo->id = 48;
+        $photo->chatId = -100200;
+        $photo->userId = self::BOT_ID;
+        $photo->userName = 'Viktor89';
+        $photo->messageText = '';
+        $photo->photoFileId = null;
+        $photo->type = 'photo';
+
+        $textReply = new InternalMessage();
+        $textReply->id = 49;
+        $textReply->chatId = -100200;
+        $textReply->userId = self::BOT_ID;
+        $textReply->userName = 'Viktor89';
+        $textReply->messageText = "Here's a cute cat";
+        $textReply->photoFileId = null;
+        $textReply->type = 'text';
+
+        $historyReader = $this->createStub(\Perk11\Viktor89\HistoryReader::class);
+        $historyReader->method('getPreviousMessages')->willReturn([$trigger, $photo, $textReply]);
+
+        $runner = $this->createStub(\Perk11\Viktor89\MessageChainProcessorRunner::class);
+        $runner->method('run')->willReturn(false);
+        $executor = $this->createStub(ProcessingResultExecutor::class);
+
+        $capturedChain = null;
+        $fallBackResponder = $this->createMock(MessageChainProcessor::class);
+        $fallBackResponder->expects($this->once())->method('processMessageChain')
+            ->willReturnCallback(function (MessageChain $chain) use (&$capturedChain): ProcessingResult {
+                $capturedChain = $chain;
+
+                return new ProcessingResult(null, true);
+            });
+
+        $engine = new Engine(
+            $this->noopRepository(),
+            $historyReader,
+            [],
+            $runner,
+            self::BOT_USERNAME,
+            self::BOT_ID,
+            $fallBackResponder,
+            $this->createStub(ProgressUpdateCallback::class),
+            $executor,
+        );
+        $engine->handleMessage($message);
+
+        $byId = [];
+        foreach ($capturedChain->getMessages() as $m) {
+            $byId[$m->id] = $m;
+        }
+        $this->assertSame('large', $byId[48]->photoFileId, 'replied-to photo is enriched with the largest file id');
+        $this->assertNull($byId[49]->photoFileId, 'sibling text reply must not be corrupted with the photo');
+        $this->assertSame("Here's a cute cat", $byId[49]->messageText);
+    }
+
     public function testGroupChatReplyToOtherUserIsIgnored(): void
     {
         // Replying to a different user (not the bot) without a mention is ignored.

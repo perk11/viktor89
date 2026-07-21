@@ -98,6 +98,57 @@ VALUES (:message_id, :tool_call_id, :tool_name, :arguments, :result, :chat_id)'
     }
 
     /**
+     * Bot-authored messages that reply to a message already in a reply chain but
+     * are not themselves part of it. A single assistant turn can emit several bot
+     * messages — e.g. an image-generation turn logs the generated photo and the
+     * text reply as two separate bot messages both replying to the user's
+     * trigger — and reply-chain traversal only follows each message's parent, so
+     * such siblings would otherwise be dropped from the chain.
+     *
+     * @param InternalMessage[] $chainMessages
+     * @return InternalMessage[] ordered by id ascending
+     */
+    public function findSiblingBotMessagesForChain(int $chatId, int $botUserId, array $chainMessages, int $currentMessageId): array
+    {
+        $parentIds = [];
+        $chainIds = [];
+        foreach ($chainMessages as $chainMessage) {
+            $chainIds[$chainMessage->id] = true;
+            if ($chainMessage->replyToMessageId !== null) {
+                $parentIds[$chainMessage->replyToMessageId] = true;
+            }
+        }
+        if (count($parentIds) === 0) {
+            return [];
+        }
+
+        $parentIdList = implode(',', array_keys($parentIds));
+        $excludedIdList = implode(',', array_keys($chainIds));
+        $statement = $this->database->sqlite3Database->prepare(
+            "SELECT * FROM message
+             WHERE chat_id = :chat_id
+               AND user_id = :user_id
+               AND reply_to_message IN ($parentIdList)
+               AND id < :current_message_id
+               AND id NOT IN ($excludedIdList)
+             ORDER BY id"
+        );
+        $statement->bindValue(':chat_id', $chatId, SQLITE3_INTEGER);
+        $statement->bindValue(':user_id', $botUserId, SQLITE3_INTEGER);
+        $statement->bindValue(':current_message_id', $currentMessageId, SQLITE3_INTEGER);
+        $result = $statement->execute();
+
+        $messages = [];
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $message = InternalMessage::fromSqliteAssoc($row);
+            $message->toolCalls = $this->findToolCallsByMessageId($message->id, $message->chatId);
+            $messages[] = $message;
+        }
+
+        return $messages;
+    }
+
+    /**
      * @return ToolCall[]
      */
     private function findToolCallsByMessageId(int $messageId, int $chatId): array

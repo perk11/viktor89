@@ -22,13 +22,15 @@ class HistoryReaderTest extends TestCase
         $reflection = new \ReflectionClass(\Perk11\Viktor89\HistoryReader::class);
         $method = $reflection->getMethod('getPreviousMessages');
         $params = $method->getParameters();
-        $this->assertCount(4, $params);
+        $this->assertCount(5, $params);
         $this->assertSame('message', $params[0]->getName());
         $this->assertSame(\Longman\TelegramBot\Entities\Message::class, $params[0]->getType()->getName());
         $this->assertSame('chainMessageToInclude', $params[1]->getName());
         $this->assertSame('int', $params[1]->getType()->getName());
         $this->assertSame('totalMessageToInclude', $params[2]->getName());
         $this->assertSame('maxMessageFromHistoryToInclude', $params[3]->getName());
+        $this->assertSame('botUserId', $params[4]->getName());
+        $this->assertSame('int', $params[4]->getType()->getName());
     }
 
     public function testGetPreviousMessagesReturnsArray(): void

@@ -82,12 +82,23 @@ class Engine
 
         $lastMessage = InternalMessage::fromTelegramMessage($message);
         if ($message->getReplyToMessage() !== null) {
-            $priorMessages = $this->historyReader->getPreviousMessages($message, 999, 999, 0);
+            $priorMessages = $this->historyReader->getPreviousMessages($message, 999, 999, 0, $this->telegramBotId);
             if (count($priorMessages) > 0) {
-                InternalMessage::extractPropertiesFromTelegramMessage(
-                    array_last($priorMessages),
-                    $message->getReplyToMessage()
-                );
+                // Enrich the exact message the user replied to with the fresh
+                // Telegram data from the update (it may carry a photo file id,
+                // alt text, etc. not persisted in the DB). Sibling bot messages
+                // pulled into the chain can sit after the replied-to message, so
+                // locate it by id rather than assuming it is the last element.
+                $replyTargetId = $message->getReplyToMessage()->getMessageId();
+                foreach ($priorMessages as $priorMessage) {
+                    if ($priorMessage->id === $replyTargetId) {
+                        InternalMessage::extractPropertiesFromTelegramMessage(
+                            $priorMessage,
+                            $message->getReplyToMessage()
+                        );
+                        break;
+                    }
+                }
             } else {
                 $priorMessages = [InternalMessage::fromTelegramMessage($message->getReplyToMessage())];
             }
