@@ -39,7 +39,7 @@ class InternalMessage
 
     // Message with bot mention removed.
     // Will be used for sending a message if $rawMessageText is null
-    // Can contains a photo caption
+    // Can contain a photo caption
     public string $messageText;
 
     public string $parseMode = 'Default';

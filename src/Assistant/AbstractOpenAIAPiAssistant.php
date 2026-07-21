@@ -328,7 +328,10 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                 if ($this->supportsImages) {
                     $assistantContextMessage->photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);
                 } else {
-                    $assistantContextMessage->text .= $this->altTextProvider->provide($message, $progressUpdateCallback);
+                    $assistantContextMessage->text = $this->altTextProvider->provide($message, $progressUpdateCallback);
+                    if ($message->messageText !== '') {
+                        $assistantContextMessage->text .= "\n[caption]" . $message->messageText;
+                    }
                 }
             } elseif ($assistantContextMessage->text === '') {
                 $altText = $this->altTextProvider->provide($message, $progressUpdateCallback);
