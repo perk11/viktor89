@@ -94,18 +94,21 @@ class DraftUpdater
      *
      * It only fires when the worker finishes without sending a final message
      * (abort, reaction-only, exception): no handshake ran, so removeDraft()
-     * was never called. Flushing first matters for the edit-stream path, whose
-     * latest content can live only in a deferred throttled flush — edits get no
-     * refresh timer — and a bare removeDraft() would cancel that timer and
-     * leave the message frozen at stale content.
+     * was never called. The latest streamed content has normally already been
+     * pushed by the last updateDraft(), so re-sending here would only be a
+     * redundant edit that Telegram rejects as "message is not modified". We
+     * therefore flush only when a throttled flush is still pending for the chat
+     * — the one case where the latest content otherwise lives only in that
+     * deferred flush (edits get no refresh timer) and a bare removeDraft()
+     * would cancel it and leave the message frozen at stale content.
      */
     public function deliverAndRemoveDraft(int $workerId): void
     {
-        if (!isset($this->workerDrafts[$workerId])) {
-            return;
+        $draft = $this->workerDrafts[$workerId] ?? null;
+        if ($draft !== null && isset($this->pendingFlushTimers[$draft->chatId])) {
+            $this->sendDraftForWorker($workerId);
         }
 
-        $this->sendDraftForWorker($workerId);
         $this->removeDraft($workerId);
     }
 
