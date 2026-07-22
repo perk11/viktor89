@@ -156,7 +156,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         retry_compaction:
         try {
             echo "Sending OpenAI request to " . $this->url ."...\n";
-            echo json_encode($requestOptions, JSON_UNESCAPED_UNICODE) . PHP_EOL ;
+            echo json_encode(self::summarizeBase64Images($requestOptions), JSON_UNESCAPED_UNICODE) . PHP_EOL ;
             if (json_last_error() !== JSON_ERROR_NONE) {
                 echo 'Failed to convert context to JSON: ' . json_last_error_msg();
             }
@@ -543,6 +543,33 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         }
 
         return $assistantMessage;
+    }
+
+    /**
+     * Return a copy of $requestOptions with base64 image data URLs replaced by
+     * a compact size note (e.g. "[base64 image, 54kb]") so logs stay readable
+     * instead of dumping megabytes of base64.
+     *
+     * @param array<string, mixed> $requestOptions
+     * @return array<string, mixed>
+     */
+    private static function summarizeBase64Images(array $requestOptions): array
+    {
+        array_walk_recursive(
+            $requestOptions,
+            static function (mixed &$value, mixed $key): void {
+                if (!is_string($value)) {
+                    return;
+                }
+                if (preg_match('/^data:image\/(?<format>[^;]+);base64,(?<data>.+)$/', $value, $m) !== 1) {
+                    return;
+                }
+                $sizeKb = (int) round(strlen($m['data']) / 1024);
+                $value = "[base64 image, {$sizeKb}kb]";
+            },
+        );
+
+        return $requestOptions;
     }
 
     private function isStringStartingToRepeat(string $str, int $charactersToCheck): bool
