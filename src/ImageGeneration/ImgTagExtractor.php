@@ -48,11 +48,7 @@ class ImgTagExtractor
                     return '<img><|image_' . (count($newPrompt->sourceImagesContents)) . '|></img>';
                 }
 
-                if ($modelName === 'OmniGen-v2') {
-                    return "image " . count($newPrompt->sourceImagesContents);
-                }
-
-                return '';
+                return "image " . count($newPrompt->sourceImagesContents);
             },
             $promptTobeProcessed->text,
         );
