@@ -17,7 +17,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ImgTagExtractor::class)]
 class ImgTagExtractorTest extends TestCase
 {
-    public function testReplacesImgTagWithImageNByDefault(): void
+    public function testReplacesImgTagWithImageNameAndDepictedReferenceByDefault(): void
     {
         $repo = $this->createStub(ImageRepository::class);
         $repo->method('retrieve')->willReturn('img-bytes');
@@ -25,11 +25,11 @@ class ImgTagExtractorTest extends TestCase
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('a photo of <img>mycat</img> in space'));
 
-        $this->assertSame('a photo of image 1 in space', $result->text);
+        $this->assertSame('a photo of mycat (as depicted in image 1) in space', $result->text);
         $this->assertSame(['img-bytes'], $result->sourceImagesContents);
     }
 
-    public function testUsesImageNWhenModelNameIsNull(): void
+    public function testUsesDefaultFormatWhenModelNameIsNull(): void
     {
         $repo = $this->createStub(ImageRepository::class);
         $repo->method('retrieve')->willReturn('img-bytes');
@@ -37,7 +37,7 @@ class ImgTagExtractorTest extends TestCase
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>cat</img>'), null);
 
-        $this->assertSame('image 1', $result->text);
+        $this->assertSame('cat (as depicted in image 1)', $result->text);
     }
 
     public function testNumbersMultipleImgTagsSequentially(): void
@@ -48,7 +48,7 @@ class ImgTagExtractorTest extends TestCase
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>a</img> and <img>b</img>'));
 
-        $this->assertSame('image 1 and image 2', $result->text);
+        $this->assertSame('a (as depicted in image 1) and b (as depicted in image 2)', $result->text);
         $this->assertSame(['img-bytes', 'img-bytes'], $result->sourceImagesContents);
     }
 
@@ -61,7 +61,7 @@ class ImgTagExtractorTest extends TestCase
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>a</img>', ['existing-img']));
 
         $this->assertSame(['existing-img', 'img-bytes'], $result->sourceImagesContents);
-        $this->assertSame('image 2', $result->text);
+        $this->assertSame('a (as depicted in image 2)', $result->text);
     }
 
     public function testOmniGenV1Format(): void
@@ -75,7 +75,7 @@ class ImgTagExtractorTest extends TestCase
         $this->assertSame('<img><|image_1|></img> and <img><|image_2|></img>', $result->text);
     }
 
-    public function testOmniGenV2UsesDefaultImageNFormat(): void
+    public function testOmniGenV2UsesDefaultFormat(): void
     {
         $repo = $this->createStub(ImageRepository::class);
         $repo->method('retrieve')->willReturn('img-bytes');
@@ -83,7 +83,7 @@ class ImgTagExtractorTest extends TestCase
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>a</img>'), 'OmniGen-v2');
 
-        $this->assertSame('image 1', $result->text);
+        $this->assertSame('a (as depicted in image 1)', $result->text);
     }
 
     public function testNoImgTagsLeavesTextUnchanged(): void
@@ -119,7 +119,7 @@ class ImgTagExtractorTest extends TestCase
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>  cat  </img>'));
 
-        $this->assertSame('image 1', $result->text);
+        $this->assertSame('cat (as depicted in image 1)', $result->text);
     }
 
     public function testResolvesChainImageReference(): void

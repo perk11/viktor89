@@ -48,7 +48,11 @@ class ImgTagExtractor
                     return '<img><|image_' . (count($newPrompt->sourceImagesContents)) . '|></img>';
                 }
 
-                return "image " . count($newPrompt->sourceImagesContents);
+                if (str_starts_with($reference, '#')) {
+                    return "image " . count($newPrompt->sourceImagesContents);
+                }
+
+                return "$reference (as depicted in image " . count($newPrompt->sourceImagesContents) .")";
             },
             $promptTobeProcessed->text,
         );
