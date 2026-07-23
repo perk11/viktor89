@@ -22,7 +22,7 @@ use Monolog\Logger;
  */
 class Viktor89Logger extends Logger
 {
-    public function __construct()
+    public function __construct(string $name='viktor89')
     {
         $handler = new ErrorLogHandler();
         // Drop the trailing %context% %extra% placeholders (always empty here,
@@ -31,6 +31,6 @@ class Viktor89Logger extends Logger
         $handler->setFormatter(new LineFormatter(
             "[%datetime%] %channel%.%level_name%: %message%\n",
         ));
-        parent::__construct('viktor89', [$handler]);
+        parent::__construct($name, [$handler]);
     }
 }
