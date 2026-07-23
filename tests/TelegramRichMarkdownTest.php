@@ -112,4 +112,31 @@ class TelegramRichMarkdownTest extends TestCase
         $expected = "line1\nline2";
         $this->assertSame($expected, TelegramRichMarkdown::removeImages($input));
     }
+
+    public function testRemoveImagesPreservesImgTagInsideCodeSpan(): void
+    {
+        // Tool-call notifications wrap arguments in an inline code span; the
+        // <img> tags there are literal and must survive unchanged.
+        $input = "\n>Executing `image_gen_tool` with arguments `{\"prompt\":\"<img>#0</img>\"}`\n\n";
+        $this->assertSame($input, TelegramRichMarkdown::removeImages($input));
+    }
+
+    public function testRemoveImagesPreservesMarkdownImageInsideCodeSpan(): void
+    {
+        $input = 'see `![a](https://example.com/x.png)` here';
+        $this->assertSame($input, TelegramRichMarkdown::removeImages($input));
+    }
+
+    public function testRemoveImagesPreservesImagesInsideFencedCodeBlock(): void
+    {
+        $input = "intro\n```\n<img src=\"url\">\n![a](b)\n```\noutro";
+        $this->assertSame($input, TelegramRichMarkdown::removeImages($input));
+    }
+
+    public function testRemoveImagesStripsImagesOutsideCodeButPreservesInside(): void
+    {
+        $input = '![a](https://a.com/1.png) `<img>x</img>` ![b](https://b.com/2.jpg)';
+        $expected = '`<invalid image: a>` `<img>x</img>` `<invalid image: b>`';
+        $this->assertSame($expected, TelegramRichMarkdown::removeImages($input));
+    }
 }

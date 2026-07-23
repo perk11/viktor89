@@ -21,14 +21,33 @@ class TelegramRichMarkdown
     private const string HTML_IMG_REGEX = '/<img\b[^>]*>/i';
 
     /**
-     * Replace all markdown images with a placeholder.
+     * Inline code spans and fenced code blocks. Their contents are literal
+     * text (e.g. tool-call arguments shown to the user, which legitimately
+     * contain <img> tags) and must never be transformed.
+     */
+    private const string CODE_SPAN_REGEX = '/(```.*?```|`[^`]*`)/s';
+
+    /**
+     * Replace image markup outside of code spans/blocks with a placeholder.
      * LLMs should never generate image markdown directly; images are only
      * inserted by tools (e.g. ImageGeneratorInlineToolCallExecutor) after
-     * generation is complete and go through a separate code path. The image
+     * generation is complete and go through a separate code path. Image
      * markdown/HTML is replaced with a code block so Telegram can never try to
-     * render it as an image.
+     * render it as an image. Markup inside code spans/blocks is left intact,
+     * since there it is literal text rather than renderable markup.
      */
     public static function removeImages(string $text): string
+    {
+        $segments = preg_split(self::CODE_SPAN_REGEX, $text, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $result = '';
+        foreach ($segments as $i => $segment) {
+            $result .= $i % 2 === 1 ? $segment : self::stripImages($segment);
+        }
+
+        return $result;
+    }
+
+    private static function stripImages(string $text): string
     {
         $text = preg_replace_callback(
             self::IMAGE_REGEX,
