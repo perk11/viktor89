@@ -111,12 +111,37 @@ class ProcessMessageTask implements Task
         AssistantContext::setLogger($this->logger);
         BotAdminChecker::setLogger($this->logger);
 
+        // amphp disables display_errors and pipes worker stdio, so a fatal would
+        // otherwise surface only as a bare "Channel source closed unexpectedly"
+        // on the main-process side. The shutdown handler captures uncatchable
+        // E_ERRORs (undefined function, parse errors, …); the Throwable catch
+        // below covers Engine Errors. emit() echoes + flushes because Monolog
+        // (error_log) is not reliably visible in the worker's journal output.
+        register_shutdown_function(function (): void {
+            $error = error_get_last();
+            if ($error === null || !in_array(
+                $error['type'],
+                [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR],
+                true,
+            )) {
+                return;
+            }
+            $this->emit(sprintf(
+                'Worker %d fatal error: [%d] %s in %s:%d',
+                $this->workerId,
+                $error['type'],
+                $error['message'],
+                $error['file'],
+                $error['line'],
+            ), LogLevel::CRITICAL);
+        });
+
         $progressUpdateCallback = new EngineProgressUpdateCallback($channel, $this->workerId);
         $draftUpdateCallback = new ChannelDraftUpdateCallback($channel, $this->workerId);
         try {
             $this->handle($channel, $progressUpdateCallback, $draftUpdateCallback);
-        } catch (Exception $e) {
-            $this->logger->log(LogLevel::ERROR, 'Error ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+        } catch (\Throwable $e) {
+            $this->emit("Worker {$this->workerId} error: {$e->getMessage()}\n" . $e->getTraceAsString(), LogLevel::ERROR);
         } finally {
             if ($progressUpdateCallback->wasCalled) {
                 $channel->send(new TaskCompletedMessage($this->workerId));
@@ -124,6 +149,16 @@ class ProcessMessageTask implements Task
         }
 
         return true;
+    }
+
+    private function emit(string $message, string $level): void
+    {
+        $this->logger->log($level, $message);
+        echo $message . "\n";
+        while (ob_get_level() > 0) {
+            ob_end_flush();
+        }
+        flush();
     }
 
     /**
