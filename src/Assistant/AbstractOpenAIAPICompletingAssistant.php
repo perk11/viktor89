@@ -101,7 +101,7 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
                 if ($streamFunction !== null) {
                     $streamFunction($content);
                 }
-                $this->logger?->log(LogLevel::DEBUG, $content);
+//                $this->logger?->log(LogLevel::DEBUG, $content);
                 $fullContent .= $content;
                     foreach ($this->abortResponseHandlers as $abortResponseHandler) {
                         $newResponse = $abortResponseHandler->getNewResponse($prompt, $fullContent);

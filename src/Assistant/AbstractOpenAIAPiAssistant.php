@@ -110,6 +110,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 
 
             $completion = $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain, $progressUpdateCallback);
+            $this->logger?->log(LogLevel::DEBUG, 'Streamed response: ' . trim($completion->content));
             $message->messageText = $responseStart . trim($completion->content);
             $message->toolCalls = $completion->toolCalls;
             $message->reasoning = $completion->reasoning;
@@ -147,7 +148,6 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $message, $isDraft, $responseStart, $editFrequency,
             &$partialContent, &$editingAborted, &$lastActionTime, &$lastLength
         ) {
-            $this->logger?->log(LogLevel::DEBUG, $chunk);
             $partialContent .= $chunk;
 
             if ($editingAborted || $this->suppressDraftUpdates) {
