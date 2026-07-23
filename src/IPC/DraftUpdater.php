@@ -42,6 +42,9 @@ class DraftUpdater
     /** @var array<int, string> chatId => EventLoop delay ID for a deferred (throttled) send */
     private array $pendingFlushTimers = [];
 
+    /** @var array<int, string> workerId => text of the last edit Telegram accepted */
+    private array $lastSentText = [];
+
     public function __construct(
         private readonly FinalMessageTracker $finalMessageTracker,
         private readonly float $refreshIntervalSeconds = 10,
@@ -70,6 +73,19 @@ class DraftUpdater
             $this->startDraftTimer($draft->chatId);
         }
 
+        // Skip pushing an edit whose text matches what Telegram already shows:
+        // Telegram rejects identical edits with 400 "message is not modified",
+        // which happens routinely while content is frozen (e.g. a slow tool
+        // call emitting only status updates) or when a throttled flush
+        // re-delivers coalesced content. Drafts still need periodic re-sends to
+        // stay alive, so only edits are deduplicated here.
+        if (
+            $draft->editMessageId !== null
+            && ($this->lastSentText[$workerId] ?? null) === $draft->text
+        ) {
+            return;
+        }
+
         $this->requestSend($draft->chatId);
     }
 
@@ -80,7 +96,7 @@ class DraftUpdater
             return;
         }
 
-        unset($this->workerDrafts[$workerId]);
+        unset($this->workerDrafts[$workerId], $this->lastSentText[$workerId]);
 
         if ($this->workerIdsForChat($draft->chatId) === []) {
             $this->cleanupChat($draft->chatId);
@@ -235,7 +251,9 @@ class DraftUpdater
             $this->logger?->log(LogLevel::DEBUG, "Editing message {$draft->editMessageId} in {$draft->chatId} ($workerId)");
             $message->id = $draft->editMessageId;
             $response = $message->edit($draft->text, false);
-            if (!$response->isOk()) {
+            if ($response->isOk()) {
+                $this->lastSentText[$workerId] = $draft->text;
+            } else {
                 $rawData = $response->getRawData();
                 $this->handleFailedSend(
                     $draft->chatId,
@@ -274,6 +292,16 @@ class DraftUpdater
         if ($errorCode === 429 && $retryAfter !== null) {
             $this->logger?->log(LogLevel::INFO, "Got retry after {$retryAfter} in chat {$chatId} ($workerId): {$description}");
             $this->pausedUntil[$chatId] = microtime(true) + $retryAfter;
+        } elseif ($errorCode === 400 && stripos($description, 'not modified') !== false) {
+            // Benign: Telegram already shows exactly this content (common while
+            // content is frozen, e.g. during a slow tool call). Record it as the
+            // last sent text so subsequent identical edits are skipped instead
+            // of re-triggering this error.
+            $draft = $this->workerDrafts[$workerId] ?? null;
+            if ($draft !== null) {
+                $this->lastSentText[$workerId] = $draft->text;
+            }
+            $this->logger?->log(LogLevel::DEBUG, "Got \"not modified\" error from Telegram in chat {$chatId} ($workerId)");
         } else {
             $this->logger?->log(LogLevel::ERROR, "Failed to send in chat {$chatId} ($workerId): {$errorCode} {$description}");
         }
