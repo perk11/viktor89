@@ -21,6 +21,8 @@ use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 use Perk11\Viktor89\VoiceGeneration\TtsApiClient;
 use Perk11\Viktor89\VoiceGeneration\TtsProcessor;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class VideoSayProcessor implements MessageChainProcessor
 {
@@ -36,6 +38,7 @@ class VideoSayProcessor implements MessageChainProcessor
         private readonly TtsApiClient $voiceClient,
         private readonly UserPreferenceReaderInterface $voiceModelPreference,
         private readonly array $modelConfig,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -88,7 +91,7 @@ class VideoSayProcessor implements MessageChainProcessor
                     $messageChain->previous()
                 );
             } catch (Exception $e) {
-                echo "Failed to download source image from Telegram: " . $e->getMessage() . "\n";
+                $this->logger->log(LogLevel::ERROR, 'Failed to download source image from Telegram: ' . $e->getMessage());
 
                 return new ProcessingResult(null, true, '🤔', $messageChain->last());
             }
@@ -141,7 +144,7 @@ class VideoSayProcessor implements MessageChainProcessor
                 $modelName,
             );
         } catch (Exception $e) {
-            echo "Failed to generate voice:\n" . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+            $this->logger->log(LogLevel::ERROR, "Failed to generate voice:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
 
             return new ProcessingResult(null, true, '🤔', $message);
         }

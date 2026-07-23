@@ -4,6 +4,7 @@ namespace Perk11\Viktor89;
 
 use Perk11\Viktor89\Assistant\AssistantInterface;
 use Perk11\Viktor89\Repository\MessageRepository;
+use Psr\Log\LoggerInterface;
 
 /**
  * `/roast [mild|medium|savage]` — reply to a message to roast its author (or
@@ -40,9 +41,9 @@ class RoastProcessor extends AbstractUserHistoryBasedResponder
         'merciless' => 'savage',
     ];
 
-    public function __construct(MessageRepository $messageRepository, AssistantInterface $assistant)
+    public function __construct(MessageRepository $messageRepository, AssistantInterface $assistant, LoggerInterface $logger)
     {
-        parent::__construct($messageRepository, $assistant);
+        parent::__construct($messageRepository, $assistant, $logger);
     }
 
     protected function getMessageLimit(): int

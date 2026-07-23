@@ -9,6 +9,8 @@ use Perk11\Viktor89\IPC\EchoUpdateCallback;
 use Perk11\Viktor89\Repository\ChatSummaryRepository;
 use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Util\TelegramMarkdownV2;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class OpenAISummaryProvider
 {
@@ -19,6 +21,7 @@ class OpenAISummaryProvider
         private readonly MessageRepository $messageRepository,
         private readonly ChatSummaryRepository $chatSummaryRepository,
         private readonly AltTextProvider $altTextProvider,
+        private readonly LoggerInterface $logger,
     )
     {
         $apiKey = $_ENV['SUMMARY_OPENAI_KEY'];
@@ -73,13 +76,13 @@ class OpenAISummaryProvider
         } else {
             $summary .= count($allMessages);
         }
-        echo "Generating summary of " . count($allMessages) . " messages found in chat $chatId in last 24 hours\n";
+        $this->logger->log(LogLevel::INFO, "Generating summary of " . count($allMessages) . " messages found in chat $chatId in last 24 hours");
 
         $offset = 0;
         $numberOfBatches = ceil(count($allMessages) / self::MESSAGES_ANALYZED_PER_BATCH);
         $batchSize = ceil(count($allMessages) / $numberOfBatches);
 
-        $updateCallback = new EchoUpdateCallback();
+        $updateCallback = new EchoUpdateCallback(logger: $this->logger);
         while ($offset < count($allMessages)) {
             $messages = array_slice($allMessages, $offset, $batchSize);
             $prompt = '';
@@ -98,7 +101,7 @@ class OpenAISummaryProvider
                     break;
                 }
             }
-            echo $offset - $startingOffset . " messages in this batch ($startingOffset-" . $offset-1 . "). Sending prompt of size " . mb_strlen($prompt) . " to OpenAI API...\n";
+            $this->logger->log(LogLevel::INFO, ($offset - $startingOffset) . " messages in this batch ($startingOffset-" . ($offset-1) . "). Sending prompt of size " . mb_strlen($prompt) . " to OpenAI API...");
             $systemPrompt = "Summarize messages sent in a group chat. Respond only in Russian. Mention all main discussion thread conclusions, one per line. Do not shy away from naming users by name when relevant. Do not add any formatting. Use past tense.";
             if ($offset >= count($allMessages) - 1) {
 //                $systemPrompt .= "After summarizing everything, finish by pointing the MVP of discussion and explain why they are the MVP.";
@@ -121,7 +124,7 @@ class OpenAISummaryProvider
 
             $parsedResult = json_decode($result, JSON_THROW_ON_ERROR);
             if (!array_key_exists('choices', $parsedResult)) {
-                echo "Unexpected response from OpenAI: $result \n";
+                $this->logger->log(LogLevel::ERROR, "Unexpected response from OpenAI: $result");
             }
 
             $response = $parsedResult['choices'][0]['message']['content'];
@@ -138,7 +141,7 @@ class OpenAISummaryProvider
             $summary .= "\n" . str_replace("\n", " ", $response);
 //            sleep(30); //avoid gpt-4 rate limit
         }
-        echo $summary;
+        $this->logger->log(LogLevel::DEBUG, $summary);
         $this->chatSummaryRepository->recordChatSummary($chatId, $summary);
 
         return $summary;

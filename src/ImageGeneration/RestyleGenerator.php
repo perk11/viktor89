@@ -6,6 +6,8 @@ use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\ContextCompletingAssistantInterface;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class RestyleGenerator implements ImageByImageGenerator
 {
@@ -14,6 +16,7 @@ class RestyleGenerator implements ImageByImageGenerator
         private readonly UserPreferenceReaderInterface $stylePreference,
         private readonly ImageRepository $imageRepository,
         private readonly ContextCompletingAssistantInterface $assistantWithVision,
+        private readonly LoggerInterface $logger,
     )
     {
     }
@@ -26,7 +29,7 @@ class RestyleGenerator implements ImageByImageGenerator
             $style = 'default_style';
         }
         if ($prompt === '') {
-            echo "User sent a blank prompt, guessing the prompt from the image...";
+            $this->logger->log(LogLevel::INFO, 'User sent a blank prompt, guessing the prompt from the image...');
             $assistantContext = new AssistantContext();
             $assistantContext->systemPrompt = 'Describe the image sent by the user so that it can be drawn in a different style. If there is a subject, only describe the subject. Your responses will be fed directly to an image generator, so do not output any formatting, just the description.';
             if ($style !== 'default_style') {
@@ -42,7 +45,7 @@ class RestyleGenerator implements ImageByImageGenerator
             $assistantContext->messages[] = $message;
 
             $prompt = $this->assistantWithVision->getCompletionBasedOnContext($assistantContext)->content;
-            echo "Generated restyle prompt: $prompt\n";
+            $this->logger->log(LogLevel::INFO, "Generated restyle prompt: $prompt");
         }
         $styleImageData = $this->imageRepository->retrieve($style);
         if ($styleImageData === null) {

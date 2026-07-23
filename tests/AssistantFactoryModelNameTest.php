@@ -49,7 +49,7 @@ class AssistantFactoryModelNameTest extends TestCase
     private function buildFactory(array $assistantConfig): AssistantFactory
     {
         $stubReader = $this->createStub(UserPreferenceReaderInterface::class);
-        $executor = new ProcessingResultExecutor(new NullMessageRepository());
+        $executor = new ProcessingResultExecutor(new NullMessageRepository(), logger: new \Psr\Log\NullLogger());
         $nullTool = $this->createStub(ToolCallExecutorInterface::class);
         $nullChainTool = $this->createStub(MessageChainAwareToolCallExecutorInterface::class);
         $draftCallback = $this->createStub(DraftUpdateCallback::class);
@@ -73,6 +73,7 @@ class AssistantFactoryModelNameTest extends TestCase
             $draftCallback,
             $stubReader,
             $this->createStub(CompactionSummaryStoreInterface::class),
+            new \Psr\Log\NullLogger(),
         );
     }
 }

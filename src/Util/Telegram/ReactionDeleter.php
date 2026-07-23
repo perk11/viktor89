@@ -3,11 +3,14 @@
 namespace Perk11\Viktor89\Util\Telegram;
 
 use Longman\TelegramBot\Request;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class ReactionDeleter
 {
     public function __construct(
         private readonly int $telegramBotId,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -18,11 +21,11 @@ class ReactionDeleter
             'message_id' => $messageId,
             'user_id'    => $this->telegramBotId,
         ]);
-        echo "Deleting message reaction result: $deleteResultString\n";
+        $this->logger->log(LogLevel::DEBUG, "Deleting message reaction result: $deleteResultString");
 
         $deleteResult = json_decode($deleteResultString, false);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            echo "Failed to parse result of deleting message reaction " . json_last_error_msg() . "\n";
+            $this->logger->log(LogLevel::ERROR, 'Failed to parse result of deleting message reaction ' . json_last_error_msg());
 
             return false;
         }

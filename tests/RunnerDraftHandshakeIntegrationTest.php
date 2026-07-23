@@ -92,9 +92,9 @@ class RunnerDraftHandshakeIntegrationTest extends TestCase
         [$workerChannel, $mainChannel] = IntegrationTestDsl::createChannelPair();
 
         $finalMessageTracker = new FinalMessageTracker();
-        $chatActionUpdater = new ChatActionUpdater($finalMessageTracker, self::TYPING_INTERVAL);
-        $draftUpdater = new DraftUpdater($finalMessageTracker, self::DRAFT_REFRESH, maxSendsPerWindow: 1000);
-        $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker);
+        $chatActionUpdater = new ChatActionUpdater($finalMessageTracker, self::TYPING_INTERVAL, logger: new \Psr\Log\NullLogger());
+        $draftUpdater = new DraftUpdater($finalMessageTracker, self::DRAFT_REFRESH, maxSendsPerWindow: 1000, logger: new \Psr\Log\NullLogger());
+        $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker, logger: new \Psr\Log\NullLogger());
 
         $execution = IntegrationTestDsl::makeExecution($mainChannel);
         async(static fn () => $runningTaskTracker->receive($execution));
@@ -115,8 +115,8 @@ class RunnerDraftHandshakeIntegrationTest extends TestCase
             new \Perk11\Viktor89\Test\Support\NullMessageRepository(),
             true,
             $withNotifier ? new ChannelBeforeMessageSentNotifier($workerChannel, 1) : null,
-        );
-        $runner = new MessageChainProcessorRunner($executor, [$assistant]);
+         logger: new \Psr\Log\NullLogger());
+        $runner = new MessageChainProcessorRunner($executor, [$assistant], logger: new \Psr\Log\NullLogger());
         $runner->run($chain, $callback);
 
         // Let any leaked refresh timer / queued draft fire after the message.

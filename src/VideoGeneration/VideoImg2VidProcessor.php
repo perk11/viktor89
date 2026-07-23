@@ -9,6 +9,8 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class VideoImg2VidProcessor
 {
@@ -16,6 +18,7 @@ class VideoImg2VidProcessor
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly Img2VideoClient $img2VideoClient,
         private readonly VideoResponder $videoResponder,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -52,7 +55,7 @@ class VideoImg2VidProcessor
                 $videoResponse->getCaption(),
             );
         } catch (Exception $e) {
-            echo "Failed to generate video:\n" . $e->getMessage(),
+            $this->logger->log(LogLevel::ERROR, "Failed to generate video:\n" . $e->getMessage());
             Request::execute('setMessageReaction', [
                 'chat_id'    => $messageWithCommand->chatId,
                 'message_id' => $messageWithCommand->id,

@@ -323,6 +323,7 @@ class StubStreamingAssistant extends AbstractOpenAIAPiAssistant
             $altTextProvider,
             TELEGRAM_TEST_BOT_ID,
             'http://localhost',
+            logger: new \Psr\Log\NullLogger(),
         );
         $this->behavior = $behavior;
     }

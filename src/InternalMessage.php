@@ -16,9 +16,23 @@ use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\Util\Telegram\BotAdminChecker;
 use Perk11\Viktor89\Util\TelegramRichMarkdown;
 use Perk11\Viktor89\VoiceGeneration\MessageAudio;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class InternalMessage
 {
+    /**
+     * Logger shared across all InternalMessage instances. InternalMessage is a
+     * plain value object created all over the codebase, so the logger is injected
+     * statically from the composition root instead of through a constructor.
+     */
+    private static ?LoggerInterface $logger = null;
+
+    public static function setLogger(?LoggerInterface $logger): void
+    {
+        self::$logger = $logger;
+    }
+
     /** Maximum number of times edit() will back off and retry on a Telegram 429. */
     private const int EDIT_RATE_LIMIT_MAX_RETRIES = 5;
 
@@ -221,7 +235,7 @@ class InternalMessage
         $triggerMessageId = $this->replyToMessageId;
         $response = $this->doSend();
         if ($this->receiverUserId !== null && !$response->isOk()) {
-            echo "Ephemeral message failed ({$response->getDescription()}), retrying as a regular message\n";
+            self::$logger?->log(LogLevel::WARNING, "Ephemeral message failed ({$response->getDescription()}), retrying as a regular message");
             $this->receiverUserId = null;
             $response = $this->doSend();
         }
@@ -250,7 +264,7 @@ class InternalMessage
                 'reaction'   => [['type' => 'emoji', 'emoji' => '🫡']],
             ]);
         } catch (\Throwable $e) {
-            echo "Failed to set ephemeral salute reaction: {$e->getMessage()}\n";
+            self::$logger?->log(LogLevel::ERROR, "Failed to set ephemeral salute reaction: {$e->getMessage()}");
         }
     }
 
@@ -306,8 +320,7 @@ class InternalMessage
             return $response;
         }
         if ($this->parseMode === 'MarkdownV2') {
-            print_r($response->getRawData());
-            echo "\nMessage failed to send in " . $options['parse_mode'] . " mode, trying again in Markdown mode\n";
+            self::$logger?->log(LogLevel::ERROR, 'Message failed to send in ' . $options['parse_mode'] . ' mode, trying again in Markdown mode: ' . print_r($response->getRawData(), true));
             $options['parse_mode'] = 'markdown';
 
             $response =  Request::sendMessage($options);
@@ -317,8 +330,7 @@ class InternalMessage
             }
         }
 
-        print_r($response->getRawData());
-        echo "\nMessage failed to send in ". $this->parseMode . " mode, trying again in Default mode\n";
+        self::$logger?->log(LogLevel::ERROR, 'Message failed to send in ' . $this->parseMode . ' mode, trying again in Default mode: ' . print_r($response->getRawData(), true));
 
         unset($options['parse_mode']);
         if ($this->parseMode === 'RichMarkdown') {
@@ -366,7 +378,7 @@ class InternalMessage
             && $attempts < self::EDIT_RATE_LIMIT_MAX_RETRIES
         ) {
             $retryAfter = $response->getRawData()['parameters']['retry_after'];
-            echo "Got retry after {$retryAfter} when editing message, retrying: {$response->getDescription()}\n";
+            self::$logger?->log(LogLevel::INFO, "Got retry after {$retryAfter} when editing message, retrying: {$response->getDescription()}");
             sleep(min($retryAfter, 120));
             $attempts++;
             $response = Request::editMessageText($options);

@@ -21,7 +21,7 @@ class NumericPreferenceInRangeByCommandProcessorTest extends TestCase
             'testbot',
             $min,
             $max
-        );
+        , logger: new \Psr\Log\NullLogger());
     }
 
     public function testAcceptsValueInRange(): void

@@ -32,7 +32,7 @@ class CommandBasedResponderTriggerTest extends TestCase
         $trigger = new CommandBasedResponderTrigger(
             ['/hello'],
             $responder,
-        );
+         logger: new \Psr\Log\NullLogger());
 
         $chain = new MessageChain([self::makeMessage('User', '/hello world')]);
         $result = $trigger->processMessageChain($chain, $callback);
@@ -54,7 +54,7 @@ class CommandBasedResponderTriggerTest extends TestCase
         $trigger = new CommandBasedResponderTrigger(
             ['/img', '/video'],
             $responder,
-        );
+         logger: new \Psr\Log\NullLogger());
 
         $chain = new MessageChain([self::makeMessage('User', '/img a cat')]);
         $trigger->processMessageChain($chain, $callback);
@@ -73,7 +73,7 @@ class CommandBasedResponderTriggerTest extends TestCase
         $trigger = new CommandBasedResponderTrigger(
             ['/hello'],
             $responder,
-        );
+         logger: new \Psr\Log\NullLogger());
 
         $chain = new MessageChain([self::makeMessage('User', 'Just a normal message')]);
         $result = $trigger->processMessageChain($chain, $callback);
@@ -93,7 +93,7 @@ class CommandBasedResponderTriggerTest extends TestCase
         $trigger = new CommandBasedResponderTrigger(
             ['/hello'],
             $responder,
-        );
+         logger: new \Psr\Log\NullLogger());
 
         $chain = new MessageChain([self::makeMessage('User', 'no command here')]);
         $trigger->processMessageChain($chain, $callback);
@@ -113,7 +113,7 @@ class CommandBasedResponderTriggerTest extends TestCase
         $trigger = new CommandBasedResponderTrigger(
             ['/hello'],
             $responder,
-        );
+         logger: new \Psr\Log\NullLogger());
 
         $chain = new MessageChain([self::makeMessage('User', '/hello')]);
         $result = $trigger->processMessageChain($chain, $callback);
@@ -130,7 +130,7 @@ class CommandBasedResponderTriggerTest extends TestCase
         $trigger = new CommandBasedResponderTrigger(
             ['/img', '/video', '/sing'],
             $responder,
-        );
+         logger: new \Psr\Log\NullLogger());
 
         $this->assertSame(['/img', '/video', '/sing'], $trigger->getTriggeringCommands());
     }
@@ -147,7 +147,8 @@ class CommandBasedResponderTriggerTest extends TestCase
         $trigger = new CommandBasedResponderTrigger(
             ['/img'],
             $responder,
-            12345, // alsoTriggerOnResponsesToThisUserIdIfCommandIsInChain
+            logger: new \Psr\Log\NullLogger(),
+            alsoTriggerOnResponsesToThisUserIdIfCommandIsInChain: 12345,
         );
 
         $botMessage = self::makeMessage('Bot', '/img a cat');
@@ -174,7 +175,8 @@ class CommandBasedResponderTriggerTest extends TestCase
         $trigger = new CommandBasedResponderTrigger(
             ['/img'],
             $responder,
-            12345, // alsoTriggerOnResponsesToThisUserIdIfCommandIsInChain
+            logger: new \Psr\Log\NullLogger(),
+            alsoTriggerOnResponsesToThisUserIdIfCommandIsInChain: 12345,
         );
 
         $botMessage = self::makeMessage('Bot', '/img a cat');
@@ -201,7 +203,7 @@ class CommandBasedResponderTriggerTest extends TestCase
         $trigger = new CommandBasedResponderTrigger(
             ['/status'],
             $responder,
-        );
+         logger: new \Psr\Log\NullLogger());
 
         $chain = new MessageChain([self::makeMessage('User', '/status')]);
         $trigger->processMessageChain($chain, $callback);

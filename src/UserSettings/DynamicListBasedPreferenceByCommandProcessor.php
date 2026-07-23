@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\UserSettings;
 
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\Repository\UserPreferenceRepository;
+use Psr\Log\LoggerInterface;
 
 /**
  * Like ListBasedPreferenceByCommandProcessor, but the list of accepted values is
@@ -33,8 +34,9 @@ class DynamicListBasedPreferenceByCommandProcessor extends ListBasedPreferenceBy
         string $botUserName,
         private readonly \Closure $optionsCallback,
         private readonly array $resetValues = [],
+        LoggerInterface $logger,
     ) {
-        parent::__construct($userPreferenceRepository, $triggeringCommands, $preferenceName, $botUserName, []);
+        parent::__construct($userPreferenceRepository, $triggeringCommands, $preferenceName, $botUserName, [], $logger);
     }
 
     public function transformValue(string $value): mixed

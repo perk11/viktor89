@@ -5,6 +5,8 @@ namespace Perk11\Viktor89;
 use Exception;
 use Longman\TelegramBot\Entities\Message;
 use Orhanerday\OpenAi\OpenAi;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class Siepatch2Responder implements TelegramResponderInterface
 {
@@ -12,7 +14,7 @@ class Siepatch2Responder implements TelegramResponderInterface
 
     private array $chatsByUser = [];
 
-    public function __construct()
+    public function __construct(private readonly LoggerInterface $logger)
     {
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_SERVER']);
@@ -45,10 +47,10 @@ class Siepatch2Responder implements TelegramResponderInterface
         try {
             $this->openAi->completion($opts, function ($curl_info, $data) use (&$fullContent) {
                 $parsedData = parse_completion_string($data);
-                echo $parsedData['content'];
+                $this->logger->log(LogLevel::DEBUG, $parsedData['content']);
                 $fullContent .= $parsedData['content'];
                 if (mb_strlen($fullContent) > 1024) {
-                    echo "Aborting due to max length reached\n";
+                    $this->logger->log(LogLevel::INFO, 'Aborting due to max length reached');
                     return 0;
                 }
 //                if (str_contains($fullContent, "\n<")) { //todo: check for >
@@ -69,11 +71,11 @@ class Siepatch2Responder implements TelegramResponderInterface
     {
         $incomingMessageText = $message->getText();
         if ($incomingMessageText === null) {
-            echo "Warning, empty message text!\n";
+            $this->logger->log(LogLevel::WARNING, 'Empty message text');
             return 'Твое сообщение было пустым';
         }
         $toAddToPrompt = "<bot>: $incomingMessageText\n<human>:";
-        echo $toAddToPrompt;
+        $this->logger->log(LogLevel::DEBUG, $toAddToPrompt);
         if (!array_key_exists($message->getFrom()->getId(), $this->chatsByUser) || str_starts_with($incomingMessageText, '@')) {
             $this->chatsByUser[$message->getFrom()->getId()] = "\n\n";
         }
@@ -89,7 +91,7 @@ class Siepatch2Responder implements TelegramResponderInterface
         $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
         $response = $this->checkForBadResponse($response, $message, $toAddToPrompt);
         $addToChat = "$response\n";
-        echo $addToChat;
+        $this->logger->log(LogLevel::DEBUG, $addToChat);
         $this->chatsByUser[$message->getFrom()->getId()] .= $addToChat;
 
         $response =  str_replace('[Виктор 89]', '[Nanak0n]', $response);

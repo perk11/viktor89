@@ -15,6 +15,8 @@ use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class AudioImgTxt2VidProcessor implements MessageChainProcessor
 {
@@ -23,6 +25,7 @@ class AudioImgTxt2VidProcessor implements MessageChainProcessor
         private readonly AudioImgTxt2VidClient $audioImgTxt2VidClient,
         private readonly ImgTagExtractor $imgTagExtractor,
         private readonly VideoResponder $videoResponder,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -92,7 +95,7 @@ class AudioImgTxt2VidProcessor implements MessageChainProcessor
         try {
             $audioContents = $this->telegramFileDownloader->downloadFile($audioFile->fileId);
         } catch (Exception $e) {
-            echo "Failed to download audio:\n" . $e->getMessage();
+            $this->logger->log(LogLevel::ERROR, 'Failed to download audio: ' . $e->getMessage());
 
             return new ProcessingResult(
                 InternalMessage::asResponseTo(
@@ -121,7 +124,7 @@ class AudioImgTxt2VidProcessor implements MessageChainProcessor
                 $videoResponse->getCaption(),
             );
         } catch (Exception $e) {
-            echo "Failed to generate video:\n" . $e->getMessage() . "\n";
+            $this->logger->log(LogLevel::ERROR, 'Failed to generate video: ' . $e->getMessage());
 
             return new ProcessingResult(null, true, '🤔', $lastMessage);
         }

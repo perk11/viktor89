@@ -12,6 +12,8 @@ use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class VideoProcessor implements MessageChainProcessor
 {
@@ -20,6 +22,7 @@ class VideoProcessor implements MessageChainProcessor
         private readonly VideoResponder $videoResponder,
         private readonly VideoImg2VidProcessor $videoImg2ImgProcessor,
         private readonly AltTextProvider $altTextProvider,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -64,7 +67,7 @@ class VideoProcessor implements MessageChainProcessor
                 $response->getCaption()
             );
         } catch (Exception $e) {
-            echo "Failed to generate video:\n" . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+            $this->logger->log(LogLevel::ERROR, "Failed to generate video:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
             Request::execute('setMessageReaction', [
                 'chat_id'    => $message->chatId,
                 'message_id' => $message->id,

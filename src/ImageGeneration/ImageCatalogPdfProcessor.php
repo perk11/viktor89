@@ -10,6 +10,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use TCPDF;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class ImageCatalogPdfProcessor implements MessageChainProcessor
 {
@@ -18,6 +20,7 @@ class ImageCatalogPdfProcessor implements MessageChainProcessor
 
     public function __construct(
         private readonly ImageRepository $imageRepository,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -105,7 +108,7 @@ class ImageCatalogPdfProcessor implements MessageChainProcessor
         if ($sentMessageResult->isOk() && $sentMessageResult->getResult() instanceof Message) {
             // logged by caller if needed
         } else {
-            echo "Failed to send PDF catalog: " . json_encode($sentMessageResult->getRawData()) . "\n";
+            $this->logger->log(LogLevel::ERROR, "Failed to send PDF catalog: " . json_encode($sentMessageResult->getRawData()));
         }
 
         return new ProcessingResult(null, true);

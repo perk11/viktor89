@@ -44,7 +44,7 @@ class VibeCheckProcessorTest extends TestCase
     {
         $reflection = new \ReflectionClass(VibeCheckProcessor::class);
         $params = $reflection->getConstructor()->getParameters();
-        $this->assertCount(2, $params);
+        $this->assertCount(3, $params);
         $this->assertSame(MessageRepository::class, $params[0]->getType()->getName());
         $this->assertSame(AssistantInterface::class, $params[1]->getType()->getName());
     }
@@ -198,7 +198,7 @@ class VibeCheckProcessorTest extends TestCase
         $trigger->userId = 7;
         $trigger->userName = 'Asker';
 
-        $processor = new VibeCheckProcessor($repo, $assistant);
+        $processor = new VibeCheckProcessor($repo, $assistant, logger: new \Psr\Log\NullLogger());
 
         return $processor->processMessageChain(new MessageChain([$trigger]), $this->createStub(ProgressUpdateCallback::class));
     }

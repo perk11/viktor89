@@ -49,7 +49,7 @@ class AltTextProviderTest extends TestCase
         $reflection = new \ReflectionClass(\Perk11\Viktor89\Assistant\AltTextProvider::class);
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
-        $this->assertCount(3, $params);
+        $this->assertCount(4, $params);
         $this->assertSame(\Perk11\Viktor89\TelegramFileDownloader::class, $params[0]->getType()->getName());
         $this->assertSame(\Perk11\Viktor89\VoiceRecognition\InternalMessageTranscriber::class, $params[1]->getType()->getName());
         $this->assertSame(\Perk11\Viktor89\Repository\MessageRepository::class, $params[2]->getType()->getName());

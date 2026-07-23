@@ -40,6 +40,6 @@ class VoiceResponderTest extends TestCase
     {
         $reflection = new \ReflectionClass(\Perk11\Viktor89\VoiceGeneration\VoiceResponder::class);
         $constructor = $reflection->getConstructor();
-        $this->assertNull($constructor);
+        $this->assertNotNull($constructor);
     }
 }

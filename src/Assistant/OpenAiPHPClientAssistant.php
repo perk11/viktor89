@@ -3,7 +3,6 @@
 namespace Perk11\Viktor89\Assistant;
 
 use GuzzleHttp\Client as GuzzleClient;
-use Monolog\Logger;
 use OpenAI;
 use OpenAI\Client;
 use OpenAI\Exceptions\ErrorException;
@@ -19,6 +18,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 /** Uses https://github.com/openai-php/client */
 class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
@@ -45,6 +46,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         bool $supportsImages,
         private readonly array $toolDefintions = [],
         private readonly CompactionSummaryStoreInterface $compactionStore,
+        ?LoggerInterface $logger = null,
     ) {
         $openAiFactory = OpenAI::factory()
             ->withBaseUri(rtrim($url, '/'))
@@ -63,10 +65,11 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             $this->url,
             $apiKey,
             $supportsImages,
+            $logger,
         );
        $this->contextCompactor = new ContextCompactor(
            $this->createSummaryGenerator(),
-           new Logger('OpenAIPHPClientAssistant_' . $this->model),
+           $this->logger,
            $this->compactionStore,
        );
    }
@@ -155,12 +158,12 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
         retry_compaction:
         try {
-            echo "Sending OpenAI request to " . $this->url ."...\n";
-            echo json_encode(self::summarizeBase64Images($requestOptions), JSON_UNESCAPED_UNICODE) . PHP_EOL ;
+            $this->logger?->log(LogLevel::INFO, 'Sending OpenAI request to ' . $this->url . '...');
+            $this->logger?->log(LogLevel::DEBUG, json_encode(self::summarizeBase64Images($requestOptions), JSON_UNESCAPED_UNICODE));
             if (json_last_error() !== JSON_ERROR_NONE) {
-                echo 'Failed to convert context to JSON: ' . json_last_error_msg();
+                $this->logger?->log(LogLevel::ERROR, 'Failed to convert context to JSON: ' . json_last_error_msg());
             }
-            echo 'Context roles: ' . AssistantContext::summarizeRoleSequence($requestOptions['messages']) . "\n";
+            $this->logger?->log(LogLevel::DEBUG, 'Context roles: ' . AssistantContext::summarizeRoleSequence($requestOptions['messages']));
 
             while (true) {
                 $statusMessage = "Waiting for LLM response";
@@ -170,7 +173,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                 if ($progressUpdateCallback !== null) {
                     $progressUpdateCallback(static::class, $statusMessage);
                 } else {
-                    echo $statusMessage . "\n";
+                    $this->logger?->log(LogLevel::INFO, $statusMessage);
                 }
                 $content = '';
                 /** @var array<int, object> $toolCallsByIndex */
@@ -225,7 +228,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                             }
                         }
                         if ($this->isStringStartingToRepeat($content, self::REPETITION_THRESHOLD_CHARACTERS)) {
-                            echo "\nRepetition detected, aborting response\n";
+                            $this->logger?->log(LogLevel::INFO, 'Repetition detected, aborting response');
                             $content .= "\n\n(Response was aborted due to repetition)";
                             // Close the stream by unsetting it and clearing references
                             $stream = null;
@@ -296,10 +299,10 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                 return new CompletionResponse($accumulatedContent, $allToolCalls, reasoning: $reasoning);
             }
 
-            echo "Received tool calls: " . json_encode($toolCalls, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
+            $this->logger?->log(LogLevel::DEBUG, 'Received tool calls: ' . json_encode($toolCalls, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
 
             if ($content !== '') {
-                echo "Received non-empty content alongside tool call: " . $content . "\n";
+                $this->logger?->log(LogLevel::DEBUG, 'Received non-empty content alongside tool call: ' . $content);
             }
 
             $requestOptions['messages'][] = self::buildAssistantToolCallMessage($content, $reasoning, $toolCalls);
@@ -315,7 +318,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                 }
 
                 if (!isset($this->toolDefintions[$functionName])) {
-                    echo "Unknown tool called: $functionName\n";
+                    $this->logger?->log(LogLevel::WARNING, "Unknown tool called: $functionName");
                     $toolResult = ['content' => 'Error: Unknown tool call: ' . $functionName];
                     if ($streamFunction !== null) {
                         $streamFunction($toolCallNotification);
@@ -325,7 +328,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     }
                 } else {
                     $functionArgs = json_decode($toolCall->function->arguments, true, 512, JSON_THROW_ON_ERROR);
-                    echo "Executing tool $functionName with args " . json_encode($functionArgs, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) . "\n";
+                    $this->logger?->log(LogLevel::DEBUG, "Executing tool $functionName with args " . json_encode($functionArgs, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
 
                     if ($progressUpdateCallback !== null) {
                         $progressUpdateCallback(static::class, "Executing $functionName");
@@ -341,7 +344,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         try {
                             $toolResult = $toolCallExecutor->executeToolCall($functionArgs);
                         } catch (\Throwable $e) {
-                            echo "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+                            $this->logger?->log(LogLevel::ERROR, "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString());
                             $toolResult = ['content' => 'tool call failed'];
                             $toolCallFailed = true;
                         }
@@ -349,7 +352,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         try {
                             $toolResult = $toolCallExecutor->executeToolCall($functionArgs, $messageChain);
                         } catch (\Throwable $e) {
-                            echo "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+                            $this->logger?->log(LogLevel::ERROR, "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString());
                             $toolResult = ['content' => 'tool call failed'];
                             $toolCallFailed = true;
                         }
@@ -385,7 +388,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                 }
 
                 $toolResultContent = json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-                echo "Tool call result: " . mb_substr($toolResultContent, 0, 1000) . "\n";
+                $this->logger?->log(LogLevel::DEBUG, 'Tool call result: ' . mb_substr($toolResultContent, 0, 1000));
 
                 $allToolCalls[] = new ToolCall(
                     $toolCall->id,
@@ -403,13 +406,13 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         }
         } catch (ErrorException $e) {
             if ($compactionCount >= self::MAX_COMPACTION_RETRIES || !ContextCompactor::isContextLengthError($e)) {
-                echo 'LLM request failed. Context roles: '
-                    . AssistantContext::summarizeRoleSequence($requestOptions['messages']) . "\n";
+                $this->logger?->log(LogLevel::ERROR, 'LLM request failed. Context roles: '
+                    . AssistantContext::summarizeRoleSequence($requestOptions['messages']));
                 throw $e;
             }
 
-            echo "Context length error caught, compacting...\n";
-            echo "Error: " . $e->getMessage() . "\n";
+            $this->logger?->log(LogLevel::INFO, 'Context length error caught, compacting...');
+            $this->logger?->log(LogLevel::ERROR, 'Error: ' . $e->getMessage());
 
            $compactionCount++;
            $assistantContext = $this->contextCompactor->compact($assistantContext, $compactionKey);
@@ -462,7 +465,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         $functionName = (string) $decodedCandidate['action'];
         $functionArguments = $this->normalizeActionInputToToolArguments($decodedCandidate['action_input'] ?? []);
 
-        echo "Removing Gemma 4 action from content: " . $functionName . "\n";
+        $this->logger?->log(LogLevel::DEBUG, "Removing Gemma 4 action from content: " . $functionName);
         $contentWithoutAction = trim(substr($trimmedContent, 0, $firstOpeningBracePosition));
 
         $syntheticToolCall = (object) [

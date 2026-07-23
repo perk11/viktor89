@@ -16,6 +16,7 @@ use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Psr\Log\LoggerInterface;
 
 class MultipleModelsImageGenerateProcessor implements MessageChainProcessor
 {
@@ -30,6 +31,7 @@ class MultipleModelsImageGenerateProcessor implements MessageChainProcessor
         private readonly AltTextProvider $altTextProvider,
         private readonly array $modelConfig,
         private readonly ?ContextCompletingAssistantInterface $visionAssistant,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -57,7 +59,7 @@ class MultipleModelsImageGenerateProcessor implements MessageChainProcessor
                 imageSizeProcessor:          $this->imageSizeProcessor,
             );
         if ($this->visionAssistant !== null) {
-            $apiClient = new AssistedImageGenerator($apiClient, $this->visionAssistant, $modelPreference, $this->modelConfig);
+            $apiClient = new AssistedImageGenerator($apiClient, $this->visionAssistant, $modelPreference, $this->modelConfig, $this->logger);
         }
 
         $imageGenerateProcessor = new ImageGenerateProcessor(
@@ -67,6 +69,7 @@ class MultipleModelsImageGenerateProcessor implements MessageChainProcessor
             $this->imgTagExtractor,
             $modelPreference,
             $this->altTextProvider,
+            $this->logger,
         );
 
         foreach ($this->getOrderedModelKeys() as $modelKeyGroup) {

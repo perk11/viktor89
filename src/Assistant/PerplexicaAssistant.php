@@ -8,13 +8,15 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class PerplexicaAssistant implements AssistantInterface
 {
 
     private Client $client;
 
-    public function __construct(string $url)
+    public function __construct(string $url, private readonly LoggerInterface $logger)
     {
         $this->client = new Client([
                                        'base_uri' => $url,
@@ -49,9 +51,8 @@ class PerplexicaAssistant implements AssistantInterface
         $data = json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
 
         $message = $data['message'];
-        echo "Response from Perplexica:\n$message\n";
-        echo "Sources:\n";
-        var_dump($data['sources']);
+        $this->logger->log(LogLevel::INFO, "Response from Perplexica:\n$message");
+        $this->logger->log(LogLevel::DEBUG, 'Sources: ' . print_r($data['sources'], true));
         if (isset($data['sources']) && count($data['sources']) > 0) {
             $message .= "\nSources:\n";
             foreach ($data['sources'] as $index => $source) {
@@ -100,7 +101,7 @@ class PerplexicaAssistant implements AssistantInterface
         $message->messageText = $completion->content;
         for ($i = 0; $i < 5; $i++) {
             if (trim($message->messageText) === '') {
-                echo "Bad response detected, trying again\n";
+                $this->logger->log(LogLevel::WARNING, 'Bad response detected, trying again');
                 $completion = $this->getCompletionBasedOnContext($assistantContext);
                 $message->messageText = $completion->content;
             } else {

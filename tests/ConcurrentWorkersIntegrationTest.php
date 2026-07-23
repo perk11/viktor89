@@ -183,9 +183,9 @@ class ConcurrentWorkersIntegrationTest extends TestCase
         [$workerChannel, $mainChannel] = IntegrationTestDsl::createChannelPair();
 
         $finalMessageTracker = new FinalMessageTracker();
-        $chatActionUpdater = new ChatActionUpdater($finalMessageTracker, self::INTERVAL);
-        $draftUpdater = new DraftUpdater($finalMessageTracker, self::INTERVAL);
-        $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker);
+        $chatActionUpdater = new ChatActionUpdater($finalMessageTracker, self::INTERVAL, logger: new \Psr\Log\NullLogger());
+        $draftUpdater = new DraftUpdater($finalMessageTracker, self::INTERVAL, logger: new \Psr\Log\NullLogger());
+        $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker, logger: new \Psr\Log\NullLogger());
 
         $execution = IntegrationTestDsl::makeExecution($mainChannel);
         async(static fn () => $runningTaskTracker->receive($execution));

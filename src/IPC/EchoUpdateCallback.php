@@ -3,6 +3,8 @@
 namespace Perk11\Viktor89\IPC;
 
 use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class EchoUpdateCallback implements ProgressUpdateCallback
 {
@@ -15,7 +17,7 @@ class EchoUpdateCallback implements ProgressUpdateCallback
      *                     flow (e.g. by the summary task), so this defaults
      *                     to 0 rather than being required.
      */
-    public function __construct(private readonly int $workerId = 0)
+    public function __construct(private readonly int $workerId = 0, private readonly ?LoggerInterface $logger = null)
     {
     }
 
@@ -30,6 +32,6 @@ class EchoUpdateCallback implements ProgressUpdateCallback
         foreach ($this->subscribers as $subscriber) {
             $subscriber($taskUpdateMessage);
         }
-        echo "Progress update received: $processor - $status\n";
+        $this->logger?->log(LogLevel::INFO, "Progress update received: $processor - $status");
     }
 }

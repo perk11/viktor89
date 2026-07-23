@@ -11,6 +11,8 @@ use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 /**
  * Siepatch responder exposed as a selectable assistant model.
@@ -58,6 +60,7 @@ class SiepatchAssistant extends AbstractOpenAIAPICompletingAssistant
         string $url,
         OpenAiCompletionStringParser $openAiCompletionStringParser,
         private readonly UserPreferenceReaderInterface $personalityReader,
+        LoggerInterface $logger,
     ) {
         parent::__construct(
             $systemPromptProcessor,
@@ -69,6 +72,7 @@ class SiepatchAssistant extends AbstractOpenAIAPICompletingAssistant
             $url,
             $openAiCompletionStringParser,
             false,
+            $logger,
         );
     }
 
@@ -95,7 +99,7 @@ class SiepatchAssistant extends AbstractOpenAIAPICompletingAssistant
         );
 
         $context = $this->generateContext($previousMessages, $incomingMessage, $personality, $responseStart, $continueMode);
-        echo $context;
+        $this->logger?->log(LogLevel::DEBUG, $context);
 
         $responseMessage->messageText = $responseStart . $this->complete($context);
 
@@ -217,7 +221,7 @@ class SiepatchAssistant extends AbstractOpenAIAPICompletingAssistant
         }
         $responseAfterAuthor = mb_substr($response, mb_strpos($response, '] ') + 2);
         if (str_contains($prompt, $responseAfterAuthor)) {
-            echo "Repeat response detected, restarting with fewer messages in context\n";
+            $this->logger?->log(LogLevel::INFO, 'Repeat response detected, restarting with fewer messages in context');
 
             return true;
         }
@@ -227,7 +231,7 @@ class SiepatchAssistant extends AbstractOpenAIAPICompletingAssistant
                 str_contains(mb_strtolower($responseAfterAuthor), 'не могу') ||
                 str_contains(mb_strtolower($responseAfterAuthor), 'не знаю'))
         ) {
-            echo "Invalid response detected, restarting with fewer messages in context\n";
+            $this->logger?->log(LogLevel::INFO, 'Invalid response detected, restarting with fewer messages in context');
 
             return true;
         }
@@ -288,7 +292,7 @@ class SiepatchAssistant extends AbstractOpenAIAPICompletingAssistant
         try {
             return $this->getCompletion($context, null);
         } catch (\Throwable $e) {
-            echo "Got error when accessing Siepatch OpenAI API: " . $e->getMessage() . "\n";
+            $this->logger?->log(LogLevel::ERROR, 'Got error when accessing Siepatch OpenAI API: ' . $e->getMessage());
 
             return self::ERROR_MESSAGE;
         }

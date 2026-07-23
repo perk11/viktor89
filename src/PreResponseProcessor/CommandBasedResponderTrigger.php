@@ -10,12 +10,15 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class CommandBasedResponderTrigger implements MessageChainProcessor, GetTriggeringCommandsInterface
 {
     public function __construct(
         private readonly array $triggeringCommands,
         private readonly MessageChainProcessor $responder,
+        private readonly LoggerInterface $logger,
         private readonly ?int $alsoTriggerOnResponsesToThisUserIdIfCommandIsInChain = null,
     ) {
     }
@@ -59,9 +62,7 @@ class CommandBasedResponderTrigger implements MessageChainProcessor, GetTriggeri
         try {
             return $this->responder->processMessageChain($messageChain, $progressUpdateCallback);
         } catch (Exception $e) {
-            echo "Got error when getting response to message chain from " . get_class($this->responder) .": \n";
-            echo $e->getMessage();
-            echo $e->getTraceAsString();
+            $this->logger->log(LogLevel::ERROR, "Got error when getting response to message chain from " . get_class($this->responder) . ": " . $e->getMessage() . "\n" . $e->getTraceAsString());
             return new ProcessingResult(null, true, '🤔', $messageChain->last());
         }
     }

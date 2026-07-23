@@ -4,13 +4,19 @@ namespace Perk11\Viktor89\VoiceGeneration;
 
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class VoiceResponder
 {
+    public function __construct(private readonly LoggerInterface $logger)
+    {
+    }
+
     public function sendVoice(InternalMessage $messageToReplyTo, string $voiceOggContents): void
     {
         $temporaryVoiceFile = tempnam(sys_get_temp_dir(), 'viktor89-voice-generator');
-        echo "Temporary voice recorded to $temporaryVoiceFile\n";
+        $this->logger->log(LogLevel::INFO, "Temporary voice recorded to $temporaryVoiceFile");
         file_put_contents($temporaryVoiceFile, $voiceOggContents);
         try {
             Request::sendVoice(
@@ -21,7 +27,7 @@ class VoiceResponder
                 ]
             );
         } finally {
-            echo "Deleting $temporaryVoiceFile\n";
+            $this->logger->log(LogLevel::INFO, "Deleting $temporaryVoiceFile");
             unlink($temporaryVoiceFile);
         }
     }

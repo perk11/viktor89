@@ -156,7 +156,7 @@ class MessageMetadataPersistenceIntegrationTest extends TestCase
                 true,
                 null,
                 $this->metadataRepository,
-            );
+             logger: new \Psr\Log\NullLogger());
             $executor->execute($result);
         } finally {
             ob_end_clean();
@@ -184,7 +184,7 @@ class MessageMetadataPersistenceIntegrationTest extends TestCase
 
         ob_start();
         try {
-            (new ProcessingResultExecutor(new NullMessageRepository()))->execute($result);
+            (new ProcessingResultExecutor(new NullMessageRepository(), logger: new \Psr\Log\NullLogger()))->execute($result);
         } finally {
             ob_end_clean();
         }
@@ -208,7 +208,7 @@ class MessageMetadataPersistenceIntegrationTest extends TestCase
                 true,
                 null,
                 $this->metadataRepository,
-            );
+             logger: new \Psr\Log\NullLogger());
             $executor->execute($result);
         } finally {
             ob_end_clean();

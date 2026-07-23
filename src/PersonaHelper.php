@@ -3,6 +3,8 @@
 namespace Perk11\Viktor89;
 
 use Longman\TelegramBot\Request;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class PersonaHelper
 {
@@ -14,6 +16,7 @@ class PersonaHelper
 
     public function __construct(
         private readonly string $botUserName,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -58,11 +61,11 @@ class PersonaHelper
                 ]],
                 'is_big' => true,
             ]);
-            echo "Reacting to message ($fallbackText) result: $response\n";
+            $this->logger->log(LogLevel::INFO, "Reacting to message ($fallbackText) result: $response");
 
             return new ProcessingResult(null, true);
         } catch (\Throwable $e) {
-            echo("Failed to react to message: " . $e->getMessage() . "\n");
+            $this->logger->log(LogLevel::ERROR, 'Failed to react to message: ' . $e->getMessage());
 
             return new ProcessingResult(InternalMessage::asResponseTo($message, $fallbackText), true);
         }

@@ -43,7 +43,7 @@ class MessageChainProcessorRunnerTest extends TestCase
             });
 
         $executor = $this->createMockExecutor();
-        $runner = new MessageChainProcessorRunner($executor, [$processor1, $processor2]);
+        $runner = new MessageChainProcessorRunner($executor, [$processor1, $processor2], logger: new \Psr\Log\NullLogger());
 
         $message = new InternalMessage();
         $message->messageText = 'hello';
@@ -68,7 +68,7 @@ class MessageChainProcessorRunnerTest extends TestCase
         $processor2->expects($this->never())->method('processMessageChain');
 
         $executor = $this->createMockExecutor();
-        $runner = new MessageChainProcessorRunner($executor, [$processor1, $processor2]);
+        $runner = new MessageChainProcessorRunner($executor, [$processor1, $processor2], logger: new \Psr\Log\NullLogger());
 
         $message = new InternalMessage();
         $message->messageText = 'hello';
@@ -90,7 +90,7 @@ class MessageChainProcessorRunnerTest extends TestCase
             });
 
         $executor = $this->createMockExecutor();
-        $runner = new MessageChainProcessorRunner($executor, [$processor]);
+        $runner = new MessageChainProcessorRunner($executor, [$processor], logger: new \Psr\Log\NullLogger());
 
         $message = new InternalMessage();
         $message->messageText = 'test';

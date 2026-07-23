@@ -6,9 +6,23 @@ use Exception;
 use JsonException;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\ImageGeneration\ContentTypeGuesser;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class AssistantContext
 {
+    /**
+     * Logger shared across all AssistantContext instances. AssistantContext is a
+     * plain value object created all over the codebase, so the logger is injected
+     * statically from the composition root instead of through a constructor.
+     */
+    private static ?LoggerInterface $logger = null;
+
+    public static function setLogger(?LoggerInterface $logger): void
+    {
+        self::$logger = $logger;
+    }
+
     public ?string $systemPrompt = null;
 
     public ?string $responseStart = null;
@@ -324,7 +338,7 @@ class AssistantContext
             case 'webp':
                 $gdImageFromWebpString = imagecreatefromstring($photo);
                 if ($gdImageFromWebpString === false) {
-                    echo "Failed to create image from webp\n";
+                    self::$logger?->log(LogLevel::ERROR, 'Failed to create image from webp');
                     $url = null;
                 } else {
                     ob_start();

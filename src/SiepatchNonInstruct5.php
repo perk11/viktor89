@@ -6,6 +6,8 @@ use Exception;
 use Longman\TelegramBot\Entities\Message;
 use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\Repository\MessageRepository;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 use SQLite3;
 
 class SiepatchNonInstruct5 implements TelegramResponderInterface
@@ -29,8 +31,10 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
 
     ];
 
-    public function __construct(private MessageRepository $messageRepository)
-    {
+    public function __construct(
+        private MessageRepository $messageRepository,
+        private readonly LoggerInterface $logger,
+    ) {
         $this->openAi = new OpenAi('');
         $this->openAi->setBaseURL($_ENV['OPENAI_SERVER']);
     }
@@ -62,22 +66,22 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
         try {
             $this->openAi->completion($opts, function ($curl_info, $data) use (&$fullContent, $prompt) {
                 $parsedData = parse_completion_string($data);
-                echo $parsedData['content'];
+                $this->logger->log(LogLevel::DEBUG, $parsedData['content']);
                 $fullContent .= $parsedData['content'];
                 if (mb_strlen($fullContent) > 2048) {
-                    echo "Max length reached, aborting response\n";
+                    $this->logger->log(LogLevel::INFO, 'Max length reached, aborting response');
                     return 0;
                 }
                 if (substr_count($fullContent, "\n") > 20) {
                     if ((mb_strlen($fullContent) - mb_strrpos($fullContent, "\n")) < 5) {
                         $fullContent = trim(mb_substr($fullContent, 0, mb_strrpos($fullContent, "\n")));
                     }
-                    echo "Max newLines reached, aborting response\n";
+                    $this->logger->log(LogLevel::INFO, 'Max newLines reached, aborting response');
                     return 0;
                 }
                 $indexOfAuthorEnd = strpos($fullContent, '] ');
                 if ($indexOfAuthorEnd !== false && (mb_strlen($fullContent) - $indexOfAuthorEnd) > 30 && $this->isStringStartingToRepeat($prompt . $fullContent , 20) ) {
-                    echo "Repetition detected, aborting response\n";
+                    $this->logger->log(LogLevel::INFO, 'Repetition detected, aborting response');
                     for ($repeatingStringLength = min(20, mb_strlen($fullContent) - $indexOfAuthorEnd); $repeatingStringLength >= 20; $repeatingStringLength--) {
                         if (!$this->isStringStartingToRepeat($prompt . $fullContent, $repeatingStringLength)) {
                             break;
@@ -111,7 +115,7 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
     {
         $incomingMessageText = $message->getText();
         if ($incomingMessageText === null) {
-            echo "Warning, empty message text!\n";
+            $this->logger->log(LogLevel::WARNING, 'Empty message text');
 
             return 'Твое сообщение было пустым';
         }
@@ -149,7 +153,7 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
             $incomingMessageConvertedToPrompt .= "{$personality}] ";
         }
         $prompt .= $incomingMessageConvertedToPrompt;
-        echo $prompt;
+        $this->logger->log(LogLevel::DEBUG, $prompt);
 
         $response = trim($this->getCompletion($prompt));
         for ($i =0; $i < 5; $i++) {
@@ -173,11 +177,11 @@ class SiepatchNonInstruct5 implements TelegramResponderInterface
     {
         $responseAfterAuthor = mb_substr($response, strpos($response, ']') + 1);
         if (str_contains($prompt, $responseAfterAuthor)) {
-            echo "Repeat response detected, restarting with just last message in context";
+            $this->logger->log(LogLevel::INFO, 'Repeat response detected, restarting with just last message in context');
             return true;
         }
         if (str_ends_with($response, ']') || str_contains(mb_strtolower($response), 'не умею') || str_contains(mb_strtolower($response), 'не могу')) {
-            echo "Invalid response detected, restarting with just last message in context";
+            $this->logger->log(LogLevel::INFO, 'Invalid response detected, restarting with just last message in context');
             return true;
         }
 

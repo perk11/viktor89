@@ -2,6 +2,9 @@
 
 namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
+use Perk11\Viktor89\Log\Viktor89Logger;
+use Psr\Log\LoggerInterface;
+
 /**
  * DI configuration loaded by PhpFileLoader.
  *
@@ -21,4 +24,7 @@ return function (ContainerConfigurator $containerConfigurator): void {
         ->public();
 
     $services->load('Perk11\\Viktor89\\', __DIR__ . '/../src/');
+
+    // Single autowired Psr\Log\LoggerInterface implementation for the whole bot.
+    $services->alias(LoggerInterface::class, Viktor89Logger::class);
 };

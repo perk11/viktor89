@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\UserSettings;
 
 use Perk11\Viktor89\Repository\UserPreferenceRepository;
+use Psr\Log\LoggerInterface;
 
 class NumericPreferenceInRangeByCommandProcessor extends UserPreferenceSetByCommandProcessor
 {
@@ -13,8 +14,9 @@ class NumericPreferenceInRangeByCommandProcessor extends UserPreferenceSetByComm
         string $botUserName,
         private readonly float $minValue,
         private readonly float $maxValue,
+        LoggerInterface $logger,
     ) {
-        parent::__construct($userPreferenceRepository, $triggeringCommands, $preferenceName, $botUserName);
+        parent::__construct($userPreferenceRepository, $triggeringCommands, $preferenceName, $botUserName, $logger);
     }
 
     private function getExpectedValueHelpMessage(): string

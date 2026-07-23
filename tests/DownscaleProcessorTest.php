@@ -37,7 +37,7 @@ class DownscaleProcessorTest extends TestCase
         $reflection = new \ReflectionClass(\Perk11\Viktor89\ImageGeneration\DownscaleProcessor::class);
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
-        $this->assertCount(2, $params);
+        $this->assertCount(3, $params);
         $this->assertSame(\Perk11\Viktor89\TelegramFileDownloader::class, $params[0]->getType()->getName());
         $this->assertSame(\Perk11\Viktor89\ImageGeneration\PhotoResponder::class, $params[1]->getType()->getName());
     }

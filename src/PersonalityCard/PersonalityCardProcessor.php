@@ -19,6 +19,8 @@ use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 /**
  * Reply to a chat member (or run it bare for yourself) to "drop" a
@@ -46,6 +48,7 @@ class PersonalityCardProcessor implements MessageChainProcessor
         private readonly ImageByPromptGenerator $imageGenerator,
         private readonly PhotoResponder $photoResponder,
         private readonly PersonalityCardRenderer $renderer,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -88,7 +91,7 @@ class PersonalityCardProcessor implements MessageChainProcessor
                 ->getCompletionBasedOnContext($this->buildContext($transcript, $target))
                 ->content;
         } catch (Exception $e) {
-            echo "PersonalityCard: assistant completion failed: " . $e->getMessage() . "\n";
+            $this->logger->log(LogLevel::ERROR, 'PersonalityCard: assistant completion failed: ' . $e->getMessage());
 
             return $fail();
         }
@@ -109,7 +112,7 @@ class PersonalityCardProcessor implements MessageChainProcessor
                 ->generateImageByPrompt($this->buildPortraitPrompt($card), $command->userId)
                 ->getFirstImageAsPng();
         } catch (Exception $e) {
-            echo "PersonalityCard: image generation failed: " . $e->getMessage() . "\n";
+            $this->logger->log(LogLevel::ERROR, 'PersonalityCard: image generation failed: ' . $e->getMessage());
 
             return $fail();
         }
@@ -118,7 +121,7 @@ class PersonalityCardProcessor implements MessageChainProcessor
         try {
             $cardImage = $this->renderer->render($card, $portrait);
         } catch (Exception $e) {
-            echo "PersonalityCard: render failed: " . $e->getMessage() . "\n";
+            $this->logger->log(LogLevel::ERROR, 'PersonalityCard: render failed: ' . $e->getMessage());
 
             return $fail();
         }
@@ -222,19 +225,19 @@ PROMPT;
         try {
             $data = json_decode($completion, true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
-            echo "Failed to parse JSON: {$completion}\n";
+            $this->logger->log(LogLevel::ERROR, "Failed to parse JSON: {$completion}");
             return null;
         }
 
         if (!is_array($data)) {
-            echo "JSON is not array: {$completion}\n";
+            $this->logger->log(LogLevel::ERROR, "JSON is not array: {$completion}");
             return null;
         }
 
         $stats = [];
         foreach (self::STATS as $stat) {
             if (!array_key_exists($stat, $data) || !is_numeric($data[$stat])) {
-                echo "$stat is missing in JSON: {$completion}\n";
+                $this->logger->log(LogLevel::ERROR, "$stat is missing in JSON: {$completion}");
                 return null;
             }
             $stats[$stat] = max(0, min(10, (int) $data[$stat]));

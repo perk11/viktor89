@@ -18,7 +18,7 @@ class WebSearchToolFactoryTest extends TestCase
     public function testIncludesBothProvidersWhenBothKeysPresent(): void
     {
         $zai = $this->createMock(ZaiWebSearchToolCallExecutor::class);
-        $factory = new WebSearchToolFactory(fn (string $key) => $zai);
+        $factory = new WebSearchToolFactory(fn (string $key) => $zai, logger: new \Psr\Log\NullLogger());
 
         $providers = $factory->buildProviderList([
             'ollamaWebSearchApiKey' => 'ollama-key',
@@ -33,7 +33,7 @@ class WebSearchToolFactoryTest extends TestCase
 
     public function testIncludesOnlyOllamaWhenZaiKeyAbsent(): void
     {
-        $factory = new WebSearchToolFactory();
+        $factory = new WebSearchToolFactory(logger: new \Psr\Log\NullLogger());
 
         $providers = $factory->buildProviderList([
             'ollamaWebSearchApiKey' => 'ollama-key',
@@ -46,7 +46,7 @@ class WebSearchToolFactoryTest extends TestCase
     public function testIncludesOnlyZaiWhenOllamaKeyAbsent(): void
     {
         $zai = $this->createMock(ZaiWebSearchToolCallExecutor::class);
-        $factory = new WebSearchToolFactory(fn (string $key) => $zai);
+        $factory = new WebSearchToolFactory(fn (string $key) => $zai, logger: new \Psr\Log\NullLogger());
 
         $providers = $factory->buildProviderList([
             'zAiWebSearchApiKey' => 'zai-key',
@@ -58,7 +58,7 @@ class WebSearchToolFactoryTest extends TestCase
 
     public function testThrowsWhenNoProviderConfigured(): void
     {
-        $factory = new WebSearchToolFactory();
+        $factory = new WebSearchToolFactory(logger: new \Psr\Log\NullLogger());
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('No web search provider configured');
@@ -67,7 +67,7 @@ class WebSearchToolFactoryTest extends TestCase
 
     public function testTreatsBlankKeysAsAbsent(): void
     {
-        $factory = new WebSearchToolFactory();
+        $factory = new WebSearchToolFactory(logger: new \Psr\Log\NullLogger());
 
         $this->expectException(\InvalidArgumentException::class);
         $factory->buildProviderList([
@@ -78,7 +78,7 @@ class WebSearchToolFactoryTest extends TestCase
 
     public function testTreatsNonStringKeysAsAbsent(): void
     {
-        $factory = new WebSearchToolFactory();
+        $factory = new WebSearchToolFactory(logger: new \Psr\Log\NullLogger());
 
         $this->expectException(\InvalidArgumentException::class);
         $factory->buildProviderList([
@@ -90,7 +90,7 @@ class WebSearchToolFactoryTest extends TestCase
     public function testBuildFromConfigReturnsGenericExecutor(): void
     {
         $zai = $this->createMock(ZaiWebSearchToolCallExecutor::class);
-        $factory = new WebSearchToolFactory(fn (string $key) => $zai);
+        $factory = new WebSearchToolFactory(fn (string $key) => $zai, logger: new \Psr\Log\NullLogger());
 
         $executor = $factory->buildFromConfig([
             'ollamaWebSearchApiKey' => 'ollama-key',
@@ -108,7 +108,7 @@ class WebSearchToolFactoryTest extends TestCase
         $factory = new WebSearchToolFactory(function (string $key) use ($zai, &$receivedKey): ZaiWebSearchToolCallExecutor {
             $receivedKey = $key;
             return $zai;
-        });
+        }, logger: new \Psr\Log\NullLogger());
 
         $factory->buildProviderList(['zAiWebSearchApiKey' => 'my-zai-key']);
 
@@ -123,7 +123,7 @@ class WebSearchToolFactoryTest extends TestCase
      */
     public function testDoesNotConnectToZaiWhenBuildingProviderList(): void
     {
-        $factory = new WebSearchToolFactory();
+        $factory = new WebSearchToolFactory(logger: new \Psr\Log\NullLogger());
 
         $providers = $factory->buildProviderList(['zAiWebSearchApiKey' => 'zai-key']);
 

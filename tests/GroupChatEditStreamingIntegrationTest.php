@@ -80,9 +80,9 @@ class GroupChatEditStreamingIntegrationTest extends TestCase
         [$workerChannel, $mainChannel] = IntegrationTestDsl::createChannelPair();
 
         $finalMessageTracker = new FinalMessageTracker();
-        $chatActionUpdater = new ChatActionUpdater($finalMessageTracker, self::TYPING_INTERVAL);
-        $draftUpdater = new DraftUpdater($finalMessageTracker, 999);
-        $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker);
+        $chatActionUpdater = new ChatActionUpdater($finalMessageTracker, self::TYPING_INTERVAL, logger: new \Psr\Log\NullLogger());
+        $draftUpdater = new DraftUpdater($finalMessageTracker, 999, logger: new \Psr\Log\NullLogger());
+        $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker, logger: new \Psr\Log\NullLogger());
 
         $execution = IntegrationTestDsl::makeExecution($mainChannel);
         $mainFuture = async(static fn () => $runningTaskTracker->receive($execution));
@@ -107,7 +107,7 @@ class GroupChatEditStreamingIntegrationTest extends TestCase
             new \Perk11\Viktor89\Test\Support\NullMessageRepository(),
             true,
             new ChannelBeforeMessageSentNotifier($workerChannel, 1),
-        );
+         logger: new \Psr\Log\NullLogger());
         $executor->execute($result);
 
         delay(0.3);

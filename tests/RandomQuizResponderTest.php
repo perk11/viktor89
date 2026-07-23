@@ -30,7 +30,7 @@ class RandomQuizResponderTest extends TestCase
         $reflection = new \ReflectionClass(\Perk11\Viktor89\Quiz\RandomQuizResponder::class);
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
-        $this->assertCount(1, $params);
+        $this->assertCount(2, $params);
         $this->assertSame(\Perk11\Viktor89\Quiz\QuestionRepository::class, $params[0]->getType()->getName());
     }
 

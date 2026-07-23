@@ -6,6 +6,8 @@ use Amp\Parallel\Worker\Execution;
 use Amp\Sync\ChannelException;
 use DateTimeImmutable;
 use LogicException;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class RunningTaskTracker
 {
@@ -15,6 +17,7 @@ class RunningTaskTracker
         private readonly ChatActionUpdater $chatActionUpdater,
         private readonly DraftUpdater $draftUpdater,
         private readonly FinalMessageTracker $finalMessageTracker,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -30,7 +33,7 @@ class RunningTaskTracker
             try {
                 $message = $channel->receive();
             } catch (ChannelException $exception) {
-                echo "Got ChannelException from worker $workerId: " . $exception->getMessage() . "\n";
+                $this->logger->log(LogLevel::ERROR, "Got ChannelException from worker $workerId: " . $exception->getMessage());
                 // The worker vanished without sending TaskCompletedMessage (fatal
                 // error, OOM kill, segfault, ...). Without this its draft refresh
                 // timer / deferred edit flush would keep firing on behalf of a dead
@@ -51,7 +54,7 @@ class RunningTaskTracker
             switch (get_class($message)) {
                 case TaskUpdateMessage::class:
                     /** @var TaskUpdateMessage $message */
-                    echo date('Y-m-d H:i:s') . " $message->workerId: Task update received from $message->processor: $message->status\n";
+                    $this->logger->log(LogLevel::DEBUG, "$message->workerId: Task update received from $message->processor: $message->status");
                     $existingTask = $this->runningTasks[$message->workerId] ?? null;
                     $chatAction = $message->chatAction ?? $existingTask?->chatAction;
                     $actionAddedTime = $message->chatAction ? new DateTimeImmutable() : $existingTask?->actionAddedTime;
@@ -72,7 +75,7 @@ class RunningTaskTracker
                     break;
                 case MessageAboutToBeSentMessage::class:
                     /** @var MessageAboutToBeSentMessage $message */
-                    echo date('Y-m-d H:i:s') . " $message->workerId: Final message about to be sent in chat $message->chatId, stopping notifications\n";
+                    $this->logger->log(LogLevel::INFO, "$message->workerId: Final message about to be sent in chat $message->chatId, stopping notifications");
                     $this->finalMessageTracker->markWorkerFinalizing($message->workerId);
                     $this->chatActionUpdater->removeAction($message->workerId);
                     $this->draftUpdater->removeDraft($message->workerId);
@@ -86,7 +89,7 @@ class RunningTaskTracker
                     $this->finalMessageTracker->clearWorker($message->workerId);
                     break;
                 case RunningTasksQueryMessage::class:
-                    echo date('Y-m-d H:i:s') . " Received tasks report request\n";
+                    $this->logger->log(LogLevel::DEBUG, 'Received tasks report request');
                     $channel->send(new RunningTasksReportMessage($this->runningTasks));
                     break;
                 default:

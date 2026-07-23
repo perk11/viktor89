@@ -11,6 +11,8 @@ use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class SoundAndPromptToTargetAndResidualProcessor implements MessageChainProcessor
 {
@@ -18,6 +20,7 @@ class SoundAndPromptToTargetAndResidualProcessor implements MessageChainProcesso
         private readonly VoiceResponder $voiceResponder,
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly SoundAndPromptToTargetAndResidualApiClient $andPromptToTargetAndResidualApiClient,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -78,7 +81,7 @@ class SoundAndPromptToTargetAndResidualProcessor implements MessageChainProcesso
             $this->voiceResponder->sendVoice($lastMessage, $result->residual);
             return new ProcessingResult(null , true, '😎', $lastMessage);
         } catch (\Exception $e) {
-            echo "Failed to run aextract:\n" . $e->getMessage() . "\n" . $e->getTraceAsString();
+            $this->logger->log(LogLevel::ERROR, "Failed to run aextract:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
             return new ProcessingResult(null , true, '🤔', $lastMessage);
         }
 

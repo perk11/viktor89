@@ -5,6 +5,8 @@ namespace Perk11\Viktor89\ImageGeneration;
 use GuzzleHttp\Client;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class ZoomApiClient implements ImageByImageGenerator
 {
@@ -14,11 +16,12 @@ class ZoomApiClient implements ImageByImageGenerator
         private readonly UserPreferenceReaderInterface $seedPreference,
         private readonly UserPreferenceReaderInterface $zoomLevelPreference,
         private readonly array $modelConfig,
+        private readonly LoggerInterface $logger,
     ){}
     public function processImage(string $imageContent, int $userId,  ?string $prompt = ''): Automatic1111ImageApiResponse
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
-        echo "Sending zoom request with params: ". json_encode($params, JSON_THROW_ON_ERROR) ."\n";
+        $this->logger->log(LogLevel::DEBUG, "Sending zoom request with params: " . json_encode($params, JSON_THROW_ON_ERROR));
         $params['init_images'] = [base64_encode($imageContent)];
         $response = $this->request('/sdapi/v1/img2img', $params);
 

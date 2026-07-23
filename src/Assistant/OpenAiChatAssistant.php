@@ -9,6 +9,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
 {
@@ -25,6 +27,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         string $apiKey = '',
         bool $supportsImages,
         array $toolDefintions = [],
+        ?LoggerInterface $logger = null,
     )
     {
         if (count($toolDefintions) > 0) {
@@ -39,21 +42,22 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
             $telegramBotId,
             $url,
             $apiKey,
-            $supportsImages
+            $supportsImages,
+            $logger
         );
     }
     public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null, ?ProgressUpdateCallback $progressUpdateCallback = null): CompletionResponse
     {
         $parameters = $this->getResponseParameters($assistantContext);
-        echo "Calling OpenAI chat API...\n";
-        echo mb_substr(json_encode($parameters, JSON_UNESCAPED_UNICODE) , 0, 4096). PHP_EOL ;
+        $this->logger?->log(LogLevel::INFO, 'Calling OpenAI chat API...');
+        $this->logger?->log(LogLevel::DEBUG, mb_substr(json_encode($parameters, JSON_UNESCAPED_UNICODE), 0, 4096));
         if (json_last_error() !== JSON_ERROR_NONE) {
-            echo 'Failed to convert context to JSON: ' . json_last_error_msg();
+            $this->logger?->log(LogLevel::ERROR, 'Failed to convert context to JSON: ' . json_last_error_msg());
         }
 
         $response = $this->openAi->chat($parameters);
 
-        echo $response;
+        $this->logger?->log(LogLevel::DEBUG, (string) $response);
         $parsedResult = json_decode($response, JSON_THROW_ON_ERROR);
         if (!is_array($parsedResult) || !array_key_exists('choices', $parsedResult)) {
             throw new Exception("Unexpected response from OpenAI: $response");

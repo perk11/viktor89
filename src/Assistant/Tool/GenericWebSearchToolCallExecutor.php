@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Assistant\Tool;
 
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
+
 /**
  * Delegates web searches to a list of underlying web search executors,
  * returning the result from the first one that succeeds.
@@ -20,7 +23,7 @@ class GenericWebSearchToolCallExecutor implements ToolCallExecutorInterface
     /**
      * @param ToolCallExecutorInterface[] $searchTools Web search executors to try, in order of preference.
      */
-    public function __construct(array $searchTools)
+    public function __construct(array $searchTools, private readonly ?LoggerInterface $logger = null)
     {
         if ($searchTools === []) {
             throw new \InvalidArgumentException('At least one search tool must be provided');
@@ -47,7 +50,7 @@ class GenericWebSearchToolCallExecutor implements ToolCallExecutorInterface
             try {
                 return $searchTool->executeToolCall($arguments);
             } catch (\Throwable $exception) {
-                echo "Search tool " . $searchTool::class . " failed: " . $exception->getMessage() . "\n";
+                $this->logger?->log(LogLevel::ERROR, "Search tool " . $searchTool::class . " failed: " . $exception->getMessage());
                 $exceptions[] = $exception;
             }
         }

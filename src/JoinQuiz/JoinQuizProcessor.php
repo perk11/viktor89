@@ -10,6 +10,8 @@ use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 use Perk11\Viktor89\Repository\KickQueueRepository;
 use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Util\Telegram\BotAdminChecker;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class JoinQuizProcessor implements PreResponseProcessor
 {
@@ -19,6 +21,7 @@ class JoinQuizProcessor implements PreResponseProcessor
     public function __construct(
         private readonly MessageRepository $messageRepository,
         private readonly KickQueueRepository $kickQueueRepository,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -27,8 +30,8 @@ class JoinQuizProcessor implements PreResponseProcessor
         if ($message->getType() !== 'new_chat_members') {
             return false;
         }
-        echo "New member detected, sending quiz\n";
-        print_r($message);
+        $this->logger->log(LogLevel::INFO, 'New member detected, sending quiz');
+        $this->logger->log(LogLevel::DEBUG, print_r($message, true));
         $messagesToDelete = [];
         $chatId = $message->getChat()->getId();
         $photoParams = [
@@ -46,14 +49,14 @@ class JoinQuizProcessor implements PreResponseProcessor
         }
         $photoResponse = Request::sendPhoto($photoParams);
         if ($photoEphemeral && !$photoResponse->isOk()) {
-            echo "Ephemeral join-quiz photo failed ({$photoResponse->getDescription()}), retrying as a regular message\n";
+            $this->logger->log(LogLevel::WARNING, "Ephemeral join-quiz photo failed ({$photoResponse->getDescription()}), retrying as a regular message");
             unset($photoParams['receiver_user_id']);
             $photoResponse = Request::sendPhoto($photoParams);
             $photoEphemeral = false;
         }
         if (!$photoResponse->isOk()) {
-            echo "Failed to send photo!";
-            print_r($photoResponse);
+            $this->logger->log(LogLevel::ERROR, 'Failed to send photo!');
+            $this->logger->log(LogLevel::DEBUG, print_r($photoResponse, true));
             return false;
         }
         if (!$photoEphemeral) {
@@ -85,13 +88,13 @@ class JoinQuizProcessor implements PreResponseProcessor
             ];
             $pollResponse = Request::sendPoll($pollData);
             if (!$pollResponse->isOk()) {
-                echo "Failed to send a join poll\n";
-                print_r($pollResponse);
+                $this->logger->log(LogLevel::ERROR, 'Failed to send a join poll');
+                $this->logger->log(LogLevel::DEBUG, print_r($pollResponse, true));
 
                 return false;
             }
             $messagesToDelete[] = $pollResponse->getResult()->getMessageId();
-            print_r($pollResponse);
+            $this->logger->log(LogLevel::DEBUG, print_r($pollResponse, true));
 
             sleep(1);
             $newChatMember = $message->getNewChatMembers()[0];
@@ -110,7 +113,7 @@ class JoinQuizProcessor implements PreResponseProcessor
                     $messagesToDelete[] = $questionMessage->id;
                 }
             } else {
-                echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
+                $this->logger->log(LogLevel::ERROR, 'Failed to send response: ' . print_r($telegramServerResponse->getRawData(), true));
             }
             $this->kickQueueRepository->insertKickQueueItem(
                 new KickQueueItem(

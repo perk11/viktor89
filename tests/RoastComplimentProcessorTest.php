@@ -47,7 +47,7 @@ class RoastComplimentProcessorTest extends TestCase
         $this->logMessage(2, -100, 600, 'Bob', 'crypto will moon tomorrow');
 
         $captured = $this->createCapturingAssistant($context);
-        $processor = new RoastProcessor($this->repository, $captured);
+        $processor = new RoastProcessor($this->repository, $captured, logger: new \Psr\Log\NullLogger());
 
         $repliedTo = $this->buildMessage(10, -100, 500, 'Alice', '');
         $command = $this->buildMessage(11, -100, 999, 'Caller', 'savage');
@@ -69,7 +69,7 @@ class RoastComplimentProcessorTest extends TestCase
         $this->logMessage(1, -100, 999, 'Caller', 'self authored this');
 
         $captured = $this->createCapturingAssistant($context);
-        $processor = new RoastProcessor($this->repository, $captured);
+        $processor = new RoastProcessor($this->repository, $captured, logger: new \Psr\Log\NullLogger());
 
         $command = $this->buildMessage(11, -100, 999, 'Caller', '');
         $processor->processMessageChain(new MessageChain([$command]), $this->mockCallback());
@@ -85,7 +85,7 @@ class RoastComplimentProcessorTest extends TestCase
         $this->logMessage(1, -100, 500, 'Alice', 'hello');
 
         $captured = $this->createCapturingAssistant($context);
-        $processor = new RoastProcessor($this->repository, $captured);
+        $processor = new RoastProcessor($this->repository, $captured, logger: new \Psr\Log\NullLogger());
 
         $repliedTo = $this->buildMessage(10, -100, 500, 'Alice', '');
         $command = $this->buildMessage(11, -100, 999, 'Caller', 'mild');
@@ -101,7 +101,7 @@ class RoastComplimentProcessorTest extends TestCase
         $this->logMessage(1, -100, 500, 'Alice', 'hello');
 
         $captured = $this->createCapturingAssistant($context);
-        $processor = new RoastProcessor($this->repository, $captured);
+        $processor = new RoastProcessor($this->repository, $captured, logger: new \Psr\Log\NullLogger());
 
         $repliedTo = $this->buildMessage(10, -100, 500, 'Alice', '');
         $command = $this->buildMessage(11, -100, 999, 'Caller', 'banana');
@@ -116,7 +116,7 @@ class RoastComplimentProcessorTest extends TestCase
         $assistant = $this->createMock(AssistantInterface::class);
         $assistant->expects($this->never())->method('getCompletionBasedOnContext');
 
-        $processor = new RoastProcessor($this->repository, $assistant);
+        $processor = new RoastProcessor($this->repository, $assistant, logger: new \Psr\Log\NullLogger());
 
         $command = $this->buildMessage(11, -100, 404, 'Ghost', '');
         $result = $processor->processMessageChain(new MessageChain([$command]), $this->mockCallback());
@@ -132,7 +132,7 @@ class RoastComplimentProcessorTest extends TestCase
         $assistant = $this->createMock(AssistantInterface::class);
         $assistant->method('getCompletionBasedOnContext')->willThrowException(new \Exception('boom'));
 
-        $processor = new RoastProcessor($this->repository, $assistant);
+        $processor = new RoastProcessor($this->repository, $assistant, logger: new \Psr\Log\NullLogger());
 
         $command = $this->buildMessage(11, -100, 500, 'Alice', '');
         $result = $processor->processMessageChain(new MessageChain([$command]), $this->mockCallback());
@@ -148,7 +148,7 @@ class RoastComplimentProcessorTest extends TestCase
         }
 
         $captured = $this->createCapturingAssistant($context);
-        $processor = new ComplimentProcessor($this->repository, $captured);
+        $processor = new ComplimentProcessor($this->repository, $captured, logger: new \Psr\Log\NullLogger());
 
         $command = $this->buildMessage(200, -100, 500, 'Alice', '');
         $processor->processMessageChain(new MessageChain([$command]), $this->mockCallback());
@@ -168,7 +168,7 @@ class RoastComplimentProcessorTest extends TestCase
         }
 
         $captured = $this->createCapturingAssistant($context);
-        $processor = new RoastProcessor($this->repository, $captured);
+        $processor = new RoastProcessor($this->repository, $captured, logger: new \Psr\Log\NullLogger());
 
         $command = $this->buildMessage(200, -100, 500, 'Alice', '');
         $processor->processMessageChain(new MessageChain([$command]), $this->mockCallback());

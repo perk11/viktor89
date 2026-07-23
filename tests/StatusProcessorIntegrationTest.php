@@ -79,9 +79,9 @@ class StatusProcessorIntegrationTest extends TestCase
         [$workerChannel, $mainChannel] = IntegrationTestDsl::createChannelPair();
 
         $finalMessageTracker = new FinalMessageTracker();
-        $chatActionUpdater = new ChatActionUpdater($finalMessageTracker, 999);
-        $draftUpdater = new DraftUpdater($finalMessageTracker, 999);
-        $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker);
+        $chatActionUpdater = new ChatActionUpdater($finalMessageTracker, 999, logger: new \Psr\Log\NullLogger());
+        $draftUpdater = new DraftUpdater($finalMessageTracker, 999, logger: new \Psr\Log\NullLogger());
+        $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker, logger: new \Psr\Log\NullLogger());
 
         $execution = IntegrationTestDsl::makeExecution($mainChannel);
         $mainFuture = async(static fn () => $runningTaskTracker->receive($execution));
@@ -99,10 +99,10 @@ class StatusProcessorIntegrationTest extends TestCase
         $statusProcessor = new StatusProcessor($workerChannel);
         $result = $statusProcessor->processMessageChain(
             IntegrationTestDsl::buildIncomingMessageChain(555, '/status'),
-            new EchoUpdateCallback(),
+            new EchoUpdateCallback(logger: new \Psr\Log\NullLogger()),
         );
 
-        (new ProcessingResultExecutor(new \Perk11\Viktor89\Test\Support\NullMessageRepository()))->execute($result);
+        (new ProcessingResultExecutor(new \Perk11\Viktor89\Test\Support\NullMessageRepository(), logger: new \Psr\Log\NullLogger()))->execute($result);
 
         if ($registerTask) {
             $workerChannel->send(new TaskCompletedMessage(1));

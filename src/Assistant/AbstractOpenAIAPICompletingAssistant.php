@@ -12,6 +12,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 use RuntimeException;
 
 abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAssistant implements AbortableStreamingResponseGenerator
@@ -29,9 +31,10 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
         string $url,
         private readonly OpenAiCompletionStringParser $openAiCompletionStringParser,
         bool $supportsImages,
+        LoggerInterface $logger,
     )
     {
-        parent::__construct($systemPromptProcessor, $responseStartProcessor, $editFrequencyProcessor, $telegramFileDownloader, $altTextProvider, $telegramBotId, $url, '', $supportsImages);
+        parent::__construct($systemPromptProcessor, $responseStartProcessor, $editFrequencyProcessor, $telegramFileDownloader, $altTextProvider, $telegramBotId, $url, '', $supportsImages, $logger);
     }
 
     public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void
@@ -42,7 +45,7 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
     public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null, ?ProgressUpdateCallback $progressUpdateCallback = null): CompletionResponse
     {
         $prompt = $this->convertContextToPrompt($assistantContext);
-        echo $prompt;
+        $this->logger?->log(LogLevel::DEBUG, $prompt);
 
         return new CompletionResponse($this->getCompletion($prompt, $streamFunction));
     }
@@ -81,7 +84,7 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
                     }
                     $jsonPart = null;
                 } catch (JSONException $e) {
-                    echo "\nIncomplete JSON received, postponing parsing until more is received\n";
+                    $this->logger?->log(LogLevel::DEBUG, 'Incomplete JSON received, postponing parsing until more is received');
                     $jsonPart = $dataToParse;
 
                     return strlen($data);
@@ -98,7 +101,7 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
                 if ($streamFunction !== null) {
                     $streamFunction($content);
                 }
-                echo $content;
+                $this->logger?->log(LogLevel::DEBUG, $content);
                 $fullContent .= $content;
                     foreach ($this->abortResponseHandlers as $abortResponseHandler) {
                         $newResponse = $abortResponseHandler->getNewResponse($prompt, $fullContent);

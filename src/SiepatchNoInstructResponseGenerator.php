@@ -5,10 +5,17 @@ namespace Perk11\Viktor89;
 use Exception;
 use Longman\TelegramBot\Entities\Message;
 use Orhanerday\OpenAi\OpenAi;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class SiepatchNoInstructResponseGenerator implements TelegramResponderInterface
 {
     private array $chatsByUser =  [];
+
+
+    public function __construct(private readonly LoggerInterface $logger)
+    {
+    }
 
 
     private function getCompletion(string $prompt): string
@@ -36,7 +43,7 @@ class SiepatchNoInstructResponseGenerator implements TelegramResponderInterface
         try {
             $openAi->completion($opts, function ($curl_info, $data) use (&$fullContent) {
                 $parsedData = parse_completion_string($data);
-                echo $parsedData['content'];
+                $this->logger->log(LogLevel::DEBUG, $parsedData['content']);
                 $fullContent .= $parsedData['content'];
                 if (str_contains($fullContent, "\n<")) { //todo: check for >
                     $fullContent = mb_substr($fullContent, 0, mb_strpos($fullContent, "\n<"));
@@ -57,7 +64,7 @@ class SiepatchNoInstructResponseGenerator implements TelegramResponderInterface
         $incomingMessageText = $message->getText();
         $toAddToPrompt = "<" . $message->getFrom()->getUsername() . '>: ' . $incomingMessageText . "\n<";
         $random = random_int(0, 5);
-        echo $random;
+        $this->logger->log(LogLevel::DEBUG, (string) $random);
         if ($random === 0) {
             $response = "Виктор 89>: ";
         } elseif ($random === 1) {
@@ -66,7 +73,7 @@ class SiepatchNoInstructResponseGenerator implements TelegramResponderInterface
             $response = '';
         }
         $toAddToPrompt .= $response;
-        echo $toAddToPrompt;
+        $this->logger->log(LogLevel::DEBUG, $toAddToPrompt);
         if (!array_key_exists($message->getFrom()->getId(), $this->chatsByUser)) {
             $this->chatsByUser[$message->getFrom()->getId()] = '';
         }
@@ -74,7 +81,7 @@ class SiepatchNoInstructResponseGenerator implements TelegramResponderInterface
 
         $response .= $this->getCompletion($this->chatsByUser[$message->getFrom()->getId()]);
         $addToChat = "$response\n";
-        echo $addToChat;
+        $this->logger->log(LogLevel::DEBUG, $addToChat);
         $this->chatsByUser[$message->getFrom()->getId()] .= $addToChat;
 
         return '<' . str_replace('Виктор 89>', 'Nanak0n>', $response);

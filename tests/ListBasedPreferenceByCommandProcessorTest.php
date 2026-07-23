@@ -21,7 +21,7 @@ class ListBasedPreferenceByCommandProcessorTest extends TestCase
             'test_preference',
             'testbot',
             $acceptedValues
-        );
+        , logger: new \Psr\Log\NullLogger());
     }
 
     public function testAcceptsValidValue(): void

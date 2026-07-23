@@ -21,7 +21,7 @@ class ImgTagExtractorTest extends TestCase
     {
         $repo = $this->createStub(ImageRepository::class);
         $repo->method('retrieve')->willReturn('img-bytes');
-        $extractor = new ImgTagExtractor($repo);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('a photo of <img>mycat</img> in space'));
 
@@ -33,7 +33,7 @@ class ImgTagExtractorTest extends TestCase
     {
         $repo = $this->createStub(ImageRepository::class);
         $repo->method('retrieve')->willReturn('img-bytes');
-        $extractor = new ImgTagExtractor($repo);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>cat</img>'), null);
 
@@ -44,7 +44,7 @@ class ImgTagExtractorTest extends TestCase
     {
         $repo = $this->createStub(ImageRepository::class);
         $repo->method('retrieve')->willReturn('img-bytes');
-        $extractor = new ImgTagExtractor($repo);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>a</img> and <img>b</img>'));
 
@@ -56,7 +56,7 @@ class ImgTagExtractorTest extends TestCase
     {
         $repo = $this->createStub(ImageRepository::class);
         $repo->method('retrieve')->willReturn('img-bytes');
-        $extractor = new ImgTagExtractor($repo);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>a</img>', ['existing-img']));
 
@@ -68,7 +68,7 @@ class ImgTagExtractorTest extends TestCase
     {
         $repo = $this->createStub(ImageRepository::class);
         $repo->method('retrieve')->willReturn('img-bytes');
-        $extractor = new ImgTagExtractor($repo);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>a</img> and <img>b</img>'), 'OmniGen-v1');
 
@@ -79,7 +79,7 @@ class ImgTagExtractorTest extends TestCase
     {
         $repo = $this->createStub(ImageRepository::class);
         $repo->method('retrieve')->willReturn('img-bytes');
-        $extractor = new ImgTagExtractor($repo);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>a</img>'), 'OmniGen-v2');
 
@@ -89,7 +89,7 @@ class ImgTagExtractorTest extends TestCase
     public function testNoImgTagsLeavesTextUnchanged(): void
     {
         $repo = $this->createStub(ImageRepository::class);
-        $extractor = new ImgTagExtractor($repo);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('just some text'));
 
@@ -101,7 +101,7 @@ class ImgTagExtractorTest extends TestCase
     {
         $repo = $this->createStub(ImageRepository::class);
         $repo->method('retrieve')->willReturn(null);
-        $extractor = new ImgTagExtractor($repo);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
 
         $this->expectException(SavedImageNotFoundException::class);
 
@@ -115,7 +115,7 @@ class ImgTagExtractorTest extends TestCase
             $this->assertSame('cat', $name);
             return 'img-bytes';
         });
-        $extractor = new ImgTagExtractor($repo);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>  cat  </img>'));
 
@@ -126,7 +126,7 @@ class ImgTagExtractorTest extends TestCase
     {
         $downloader = $this->createStub(TelegramFileDownloader::class);
         $downloader->method('downloadPhotoFromInternalMessage')->willReturn('chain-img-bytes');
-        $extractor = new ImgTagExtractor($this->createStub(ImageRepository::class), $downloader);
+        $extractor = new ImgTagExtractor($this->createStub(ImageRepository::class), $downloader, logger: new \Psr\Log\NullLogger());
 
         $photoMessage = new InternalMessage();
         $photoMessage->photoFileId = 'file-id-1';
@@ -149,7 +149,7 @@ class ImgTagExtractorTest extends TestCase
     {
         $downloader = $this->createStub(TelegramFileDownloader::class);
         $downloader->method('downloadPhotoFromInternalMessage')->willReturn('chain-img-bytes');
-        $extractor = new ImgTagExtractor($this->createStub(ImageRepository::class), $downloader);
+        $extractor = new ImgTagExtractor($this->createStub(ImageRepository::class), $downloader, logger: new \Psr\Log\NullLogger());
 
         $photoMessage = new InternalMessage();
         $photoMessage->photoFileId = 'file-id-1';
@@ -171,7 +171,7 @@ class ImgTagExtractorTest extends TestCase
     public function testThrowsWhenChainImageIndexNotFound(): void
     {
         $downloader = $this->createStub(TelegramFileDownloader::class);
-        $extractor = new ImgTagExtractor($this->createStub(ImageRepository::class), $downloader);
+        $extractor = new ImgTagExtractor($this->createStub(ImageRepository::class), $downloader, logger: new \Psr\Log\NullLogger());
 
         $commandMessage = new InternalMessage();
         $commandMessage->messageText = '/imagine <img>#5</img>';
@@ -188,7 +188,7 @@ class ImgTagExtractorTest extends TestCase
     {
         $repo = $this->createStub(ImageRepository::class);
         $repo->method('retrieve')->willReturn('img-bytes');
-        $extractor = new ImgTagExtractor($repo);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
 
         $original = new ImageGenerationPrompt('<img>a</img>');
         $extractor->extractImageTags($original);

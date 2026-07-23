@@ -20,7 +20,7 @@ class HelloProcessorTest extends TestCase
 
     public function testDoesNotTriggerForNonAllowedUsers(): void
     {
-        $processor = new HelloProcessor();
+        $processor = new HelloProcessor(logger: new \Psr\Log\NullLogger());
 
         $message = new InternalMessage();
         $message->userId = 999;
@@ -34,7 +34,7 @@ class HelloProcessorTest extends TestCase
 
     public function testTriggersForAllowedUserWithKnownPhrase(): void
     {
-        $processor = new HelloProcessor();
+        $processor = new HelloProcessor(logger: new \Psr\Log\NullLogger());
 
         $message = new InternalMessage();
         $message->userId = 5461833561;
@@ -48,7 +48,7 @@ class HelloProcessorTest extends TestCase
 
     public function testTriggersOnAllKnownPhrases(): void
     {
-        $processor = new HelloProcessor();
+        $processor = new HelloProcessor(logger: new \Psr\Log\NullLogger());
 
         $phrases = ['дарова', 'даровч', 'привет', 'хау'];
 
@@ -66,7 +66,7 @@ class HelloProcessorTest extends TestCase
 
     public function testDoesNotTriggerForAllowedUserWithUnknownPhrase(): void
     {
-        $processor = new HelloProcessor();
+        $processor = new HelloProcessor(logger: new \Psr\Log\NullLogger());
 
         $message = new InternalMessage();
         $message->userId = 5461833561;
@@ -80,7 +80,7 @@ class HelloProcessorTest extends TestCase
 
     public function testCaseInsensitiveMatching(): void
     {
-        $processor = new HelloProcessor();
+        $processor = new HelloProcessor(logger: new \Psr\Log\NullLogger());
 
         $message = new InternalMessage();
         $message->userId = 5461833561;

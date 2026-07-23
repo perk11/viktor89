@@ -11,6 +11,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\Repository\MessageRepository;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class SendAsDocumentProcessor implements MessageChainProcessor
 {
@@ -18,6 +20,7 @@ class SendAsDocumentProcessor implements MessageChainProcessor
     public function __construct(
         private readonly CacheFileManager $cacheFileManager,
         private readonly MessageRepository $messageRepository,
+        private readonly LoggerInterface $logger,
     )
     {
 
@@ -62,10 +65,10 @@ class SendAsDocumentProcessor implements MessageChainProcessor
         if ($sentMessageResult->isOk() && $sentMessageResult->getResult() instanceof Message) {
             $this->messageRepository->logMessage($sentMessageResult->getResult());
         } else {
-            echo "Failed to send file: " . $sentMessageResult->getResult() . "\n";
+            $this->logger->log(LogLevel::ERROR, 'Failed to send file: ' . $sentMessageResult->getResult());
             return new ProcessingResult(null, true, '🤔', $lastMessage);
         }
-        echo "Deleting $tmpFilePath\n";
+        $this->logger->log(LogLevel::INFO, "Deleting $tmpFilePath");
         unlink($tmpFilePath);
 
         return new ProcessingResult(null, true);

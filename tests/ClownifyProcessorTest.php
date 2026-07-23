@@ -37,7 +37,7 @@ class ClownifyProcessorTest extends TestCase
         $reflection = new \ReflectionClass(\Perk11\Viktor89\ImageGeneration\ClownifyProcessor::class);
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
-        $this->assertCount(3, $params);
+        $this->assertCount(4, $params);
         $this->assertSame(\Perk11\Viktor89\TelegramFileDownloader::class, $params[0]->getType()->getName());
         $this->assertSame(\Perk11\Viktor89\ImageGeneration\ClownifyApiClient::class, $params[1]->getType()->getName());
         $this->assertSame(\Perk11\Viktor89\ImageGeneration\PhotoResponder::class, $params[2]->getType()->getName());

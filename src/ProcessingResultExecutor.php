@@ -8,6 +8,8 @@ use Longman\TelegramBot\Request;
 use Perk11\Viktor89\IPC\BeforeMessageSentNotifier;
 use Perk11\Viktor89\Repository\MessageMetadataRepository;
 use Perk11\Viktor89\Repository\MessageRepository;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class ProcessingResultExecutor
 {
@@ -26,6 +28,7 @@ class ProcessingResultExecutor
          */
         private readonly ?BeforeMessageSentNotifier $beforeMessageSentNotifier = null,
         private readonly ?MessageMetadataRepository $messageMetadataRepository = null,
+        private readonly ?LoggerInterface $logger = null,
     ) {
     }
     public function execute(ProcessingResult $result): void
@@ -38,7 +41,7 @@ class ProcessingResultExecutor
                 $this->beforeMessageSentNotifier->notify($result->response->chatId);
             }
             if ($result->response->id === null) {
-                echo "Sending message in chat {$result->response->chatId}: {$result->response->messageText}\n";
+                $this->logger?->log(LogLevel::INFO, "Sending message in chat {$result->response->chatId}: {$result->response->messageText}");
 
                 $telegramServerResponse = $result->response->send();
                 if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof Message) {
@@ -46,16 +49,16 @@ class ProcessingResultExecutor
                     $this->messageRepository->logInternalMessage($result->response);
                     $this->persistMetadata($result->response);
                 } else {
-                    echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
+                    $this->logger?->log(LogLevel::ERROR, 'Failed to send response: ' . print_r($telegramServerResponse->getRawData(), true));
                 }
             } else {
-                echo "Editing message in chat {$result->response->chatId}\n";
+                $this->logger?->log(LogLevel::INFO, "Editing message in chat {$result->response->chatId}");
                 $telegramServerResponse = $result->response->edit($result->response->messageText);
                 if ($telegramServerResponse->isOk()) {
                     $this->messageRepository->logInternalMessage($result->response);
                     $this->persistMetadata($result->response);
                 } else {
-                    echo "Failed to edit response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
+                    $this->logger?->log(LogLevel::ERROR, 'Failed to edit response: ' . print_r($telegramServerResponse->getRawData(), true));
                 }
             }
         }
@@ -64,7 +67,7 @@ class ProcessingResultExecutor
             if ($result->messageToReactTo === null) {
                 throw new LogicException("Reaction property is set, but not messageToReactTo");
             }
-            echo "Reacting to message from {$result->messageToReactTo->userName} in chat {$result->messageToReactTo->chatId} \n";
+            $this->logger?->log(LogLevel::INFO, "Reacting to message from {$result->messageToReactTo->userName} in chat {$result->messageToReactTo->chatId}");
             Request::execute('setMessageReaction', [
                 'chat_id'    => $result->messageToReactTo->chatId,
                 'message_id' => $result->messageToReactTo->id,

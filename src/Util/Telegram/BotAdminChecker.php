@@ -5,6 +5,8 @@ namespace Perk11\Viktor89\Util\Telegram;
 use Longman\TelegramBot\Entities\User;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Database;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 /**
  * Tells whether the bot itself is an administrator in a chat, used to gate
@@ -27,6 +29,12 @@ class BotAdminChecker
     private static array $cache = [];
     private static ?int $botUserId = null;
     private static ?Database $database = null;
+    private static ?LoggerInterface $logger = null;
+
+    public static function setLogger(?LoggerInterface $logger): void
+    {
+        self::$logger = $logger;
+    }
 
     public static function setDatabase(?Database $database): void
     {
@@ -98,7 +106,7 @@ class BotAdminChecker
                 && $memberResult !== null
                 && in_array($memberResult->getStatus(), ['administrator', 'creator'], true);
         } catch (\Throwable $e) {
-            echo "Failed to check bot admin status in chat {$chatId}: {$e->getMessage()}\n";
+            self::$logger?->log(LogLevel::ERROR, "Failed to check bot admin status in chat {$chatId}: {$e->getMessage()}");
 
             return false;
         }

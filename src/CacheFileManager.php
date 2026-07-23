@@ -3,12 +3,16 @@
 namespace Perk11\Viktor89;
 
 use Perk11\Viktor89\Repository\FileCacheRepository;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 use RuntimeException;
 
 class CacheFileManager
 {
-    public function __construct(private readonly FileCacheRepository $fileCacheRepository)
-    {
+    public function __construct(
+        private readonly FileCacheRepository $fileCacheRepository,
+        private readonly LoggerInterface $logger,
+    ) {
     }
 
     private const string DOWNLOADED_FILES_CACHE_DIR = __DIR__ . '/../data/cache/downloaded-files';
@@ -42,13 +46,13 @@ class CacheFileManager
     {
         $cacheFileName = $this->fileCacheRepository->readFileCacheNameById($fileId);
         if ($cacheFileName === null) {
-            echo "No Database record for cached file $fileId\n";
+            $this->logger->log(LogLevel::INFO, "No Database record for cached file $fileId");
 
             return null;
         }
         $cacheFilePath = $this->getCacheFilePath($cacheFileName);
         if (!file_exists($cacheFilePath)) {
-            echo "A record with for cached file $fileId exists in the database, but $cacheFilePath does not exist\n";
+            $this->logger->log(LogLevel::WARNING, "A record for cached file $fileId exists in the database, but $cacheFilePath does not exist");
             return null;
         }
         $contents = file_get_contents($cacheFilePath);
@@ -57,7 +61,7 @@ class CacheFileManager
                 "Failed to read downloaded cache file: $cacheFilePath. " . error_get_last()['message']
             );
         }
-        echo "Reading file from cache: $cacheFilePath\n";
+        $this->logger->log(LogLevel::INFO, "Reading file from cache: $cacheFilePath");
 
         return $contents;
     }
@@ -73,7 +77,7 @@ class CacheFileManager
         $this->createCacheDir();
         $cacheFileName = $this->getCacheFileName($fileId);
         $cacheFilePath = $this->getCacheFilePath($cacheFileName);
-        echo "Writing " . strlen($contents) . " bytes to cache file $fileId\n";
+        $this->logger->log(LogLevel::INFO, "Writing " . strlen($contents) . " bytes to cache file $fileId");
         $putResult = file_put_contents($cacheFilePath, $contents);
 
         if ($putResult === false) {

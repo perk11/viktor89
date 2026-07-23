@@ -25,7 +25,7 @@ class DraftUpdaterTest extends TestCase
         $reflection = new \ReflectionClass(DraftUpdater::class);
         $params = $reflection->getConstructor()->getParameters();
 
-        $this->assertCount(4, $params);
+        $this->assertCount(5, $params);
         $this->assertSame('finalMessageTracker', $params[0]->getName());
         $this->assertSame(FinalMessageTracker::class, $params[0]->getType()->getName());
         $this->assertSame('refreshIntervalSeconds', $params[1]->getName());
@@ -69,7 +69,7 @@ class DraftUpdaterTest extends TestCase
         // actual message.
         $finalMessageTracker = new FinalMessageTracker();
         $finalMessageTracker->markWorkerFinalizing(7);
-        $updater = new DraftUpdater($finalMessageTracker);
+        $updater = new DraftUpdater($finalMessageTracker, logger: new \Psr\Log\NullLogger());
 
         // Should not throw and should not register any draft.
         $updater->updateDraft(7, new DraftState(-100, 1, 'late draft', 'Default'));
@@ -83,7 +83,7 @@ class DraftUpdaterTest extends TestCase
 
     public function testRemoveDraftForUnknownWorkerDoesNotThrow(): void
     {
-        $updater = new DraftUpdater(new FinalMessageTracker());
+        $updater = new DraftUpdater(new FinalMessageTracker(), logger: new \Psr\Log\NullLogger());
 
         $updater->removeDraft(999);
 

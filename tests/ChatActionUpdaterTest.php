@@ -23,7 +23,7 @@ class ChatActionUpdaterTest extends TestCase
         $constructor = $reflection->getConstructor();
         $this->assertNotNull($constructor);
         $params = $constructor->getParameters();
-        $this->assertCount(2, $params);
+        $this->assertCount(3, $params);
         $this->assertSame('finalMessageTracker', $params[0]->getName());
         $this->assertSame(\Perk11\Viktor89\IPC\FinalMessageTracker::class, $params[0]->getType()->getName());
         $this->assertSame('actionIntervalSeconds', $params[1]->getName());

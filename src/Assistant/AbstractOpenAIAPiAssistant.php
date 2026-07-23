@@ -2,6 +2,8 @@
 
 namespace Perk11\Viktor89\Assistant;
 use Orhanerday\OpenAi\OpenAi;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\DraftState;
 use Perk11\Viktor89\IPC\DraftUpdateCallback;
@@ -51,6 +53,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         string $url,
         string $apiKey = '',
         public bool $supportsImages = false,
+        protected readonly ?LoggerInterface $logger = null,
     )
     {
         $this->openAi = new OpenAi($apiKey);
@@ -123,8 +126,8 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 
             return new ProcessingResult($message, true);
         } catch (\Exception $e) {
-            echo "Failed to get completion based on context: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
-            echo "Assistant context that failed:\n" . $assistantContext->describeForLog() . "\n";
+            $this->logger?->log(LogLevel::ERROR, "Failed to get completion based on context: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            $this->logger?->log(LogLevel::ERROR, "Assistant context that failed:\n" . $assistantContext->describeForLog());
             return new ProcessingResult(null, true, '🤔', $lastMessage);
         }
     }
@@ -144,7 +147,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $message, $isDraft, $responseStart, $editFrequency,
             &$partialContent, &$editingAborted, &$lastActionTime, &$lastLength
         ) {
-            echo $chunk;
+            $this->logger?->log(LogLevel::DEBUG, $chunk);
             $partialContent .= $chunk;
 
             if ($editingAborted || $this->suppressDraftUpdates) {
@@ -217,13 +220,13 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 
         if ($message->id === null) {
             if (mb_strlen(trim($partialContent)) < 10) {
-                echo "Refusing to send a message for edit stream that is too short: " . mb_strlen(trim($partialContent)) . "\n";
+                $this->logger?->log(LogLevel::INFO, 'Refusing to send a message for edit stream that is too short: ' . mb_strlen(trim($partialContent)));
                 return false;
             }
             $message->messageText = $messageText;
             $sendResult = $message->send();
             if (!$sendResult->isOk()) {
-                echo "Failed to send initial message for streaming: " . $sendResult->getErrorCode() . ' ' . $sendResult->getDescription() . "\n";
+                $this->logger?->log(LogLevel::ERROR, 'Failed to send initial message for streaming: ' . $sendResult->getErrorCode() . ' ' . $sendResult->getDescription());
                 $editingAborted = true;
             }
 
@@ -250,7 +253,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             }
             $editResult = $message->edit($messageText, false);
             if (!$editResult->isOk()) {
-                var_dump($editResult);
+                $this->logger?->log(LogLevel::DEBUG, 'Edit result: ' . print_r($editResult, true));
                 $rawData = $editResult->getRawData();
                 $retryAfter = $rawData['parameters']['retry_after'] ?? null;
                 $this->handleRateLimitError(
@@ -280,10 +283,10 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         float &$lastActionTime
     ): void {
         if ($errorCode === 429 && $retryAfter !== null) {
-            echo "Got retry after {$retryAfter} when {$retryActionContext}.: {$errorCode} {$description}\n";
+            $this->logger?->log(LogLevel::INFO, "Got retry after {$retryAfter} when {$retryActionContext}.: {$errorCode} {$description}");
             $lastActionTime = microtime(true) + $retryAfter - $frequency;
         } else {
-            echo "Failed to {$failActionContext}: {$errorCode} {$description}\n";
+            $this->logger?->log(LogLevel::ERROR, "Failed to {$failActionContext}: {$errorCode} {$description}");
             $aborted = true;
         }
     }

@@ -10,6 +10,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class ClownifyProcessor implements MessageChainProcessor
 {
@@ -18,6 +20,7 @@ class ClownifyProcessor implements MessageChainProcessor
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly ClownifyApiClient $clownifyApiClient,
         private readonly PhotoResponder $photoResponder,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -34,7 +37,7 @@ class ClownifyProcessor implements MessageChainProcessor
         }
 
 
-        echo "Clownifying image...\n";
+        $this->logger->log(LogLevel::INFO, 'Clownifying image...');
         Request::execute('setMessageReaction', [
             'chat_id'    => $lastMessage->chatId,
             'message_id' => $lastMessage->id,
@@ -59,7 +62,7 @@ class ClownifyProcessor implements MessageChainProcessor
                 $transformedPhotoResponse->getCaption(),
             );
         } catch (Exception $e) {
-            echo "Failed to generate image:\n" . $e->getMessage(),
+            $this->logger->log(LogLevel::ERROR, "Failed to generate image:\n" . $e->getMessage());
             Request::execute('setMessageReaction', [
                 'chat_id'    => $lastMessage->chatId,
                 'message_id' => $lastMessage->id,

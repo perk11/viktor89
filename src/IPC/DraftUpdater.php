@@ -3,6 +3,8 @@
 namespace Perk11\Viktor89\IPC;
 
 use Perk11\Viktor89\InternalMessage;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 use Revolt\EventLoop;
 
 /**
@@ -45,6 +47,7 @@ class DraftUpdater
         private readonly float $refreshIntervalSeconds = 10,
         private readonly int $maxSendsPerWindow = 3,
         private readonly float $sendWindowSeconds = 1.0,
+        private readonly ?LoggerInterface $logger = null,
     ) {
     }
 
@@ -229,7 +232,7 @@ class DraftUpdater
         $message->messageThreadId = $draft->messageThreadId;
 
         if ($draft->editMessageId !== null) {
-            echo date('Y-m-d H:i:s') . " Editing message {$draft->editMessageId} in {$draft->chatId} ($workerId)\n";
+            $this->logger?->log(LogLevel::DEBUG, "Editing message {$draft->editMessageId} in {$draft->chatId} ($workerId)");
             $message->id = $draft->editMessageId;
             $response = $message->edit($draft->text, false);
             if (!$response->isOk()) {
@@ -246,12 +249,12 @@ class DraftUpdater
             return;
         }
 
-        echo date('Y-m-d H:i:s') . " Sending draft to {$draft->chatId} ($workerId)\n";
+        $this->logger?->log(LogLevel::DEBUG, "Sending draft to {$draft->chatId} ($workerId)");
         $message->draftId = $draft->draftId;
         $result = json_decode($message->sendAsDraft(), false);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            echo date('Y-m-d H:i:s') . " Failed to parse result of sending draft: " . json_last_error_msg() . "\n";
+            $this->logger?->log(LogLevel::ERROR, 'Failed to parse result of sending draft: ' . json_last_error_msg());
             return;
         }
 
@@ -269,10 +272,10 @@ class DraftUpdater
     private function handleFailedSend(int $chatId, int $workerId, int $errorCode, string $description, ?int $retryAfter): void
     {
         if ($errorCode === 429 && $retryAfter !== null) {
-            echo date('Y-m-d H:i:s') . " Got retry after {$retryAfter} in chat {$chatId} ($workerId): {$description}\n";
+            $this->logger?->log(LogLevel::INFO, "Got retry after {$retryAfter} in chat {$chatId} ($workerId): {$description}");
             $this->pausedUntil[$chatId] = microtime(true) + $retryAfter;
         } else {
-            echo date('Y-m-d H:i:s') . " Failed to send in chat {$chatId} ($workerId): {$errorCode} {$description}\n";
+            $this->logger?->log(LogLevel::ERROR, "Failed to send in chat {$chatId} ($workerId): {$errorCode} {$description}");
         }
     }
 }

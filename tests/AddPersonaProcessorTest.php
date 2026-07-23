@@ -32,7 +32,7 @@ class AddPersonaProcessorTest extends TestCase
         }
         $this->database = new Database(123, $this->dbName);
         $this->personaRepository = new PersonaRepository($this->database);
-        $this->processor = new AddPersonaProcessor($this->personaRepository, new PersonaHelper('testbot'), 2);
+        $this->processor = new AddPersonaProcessor($this->personaRepository, new PersonaHelper('testbot', logger: new \Psr\Log\NullLogger()), 2);
     }
 
     protected function tearDown(): void
@@ -121,7 +121,7 @@ class AddPersonaProcessorTest extends TestCase
 
     public function testRoutesViaCommandBasedResponderTrigger(): void
     {
-        $trigger = new CommandBasedResponderTrigger(['/addpersona'], $this->processor);
+        $trigger = new CommandBasedResponderTrigger(['/addpersona'], $this->processor, logger: new \Psr\Log\NullLogger());
         $trigger->processMessageChain(
             new MessageChain([self::makeMessage("/addpersona pirate\nYou are a pirate.", 111)]),
             $this->createMock(ProgressUpdateCallback::class)

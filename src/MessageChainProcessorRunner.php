@@ -4,6 +4,8 @@ namespace Perk11\Viktor89;
 
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\PreResponseProcessor\CommandBasedResponderTrigger;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class MessageChainProcessorRunner
 {
@@ -13,6 +15,7 @@ class MessageChainProcessorRunner
         private readonly ProcessingResultExecutor $processingResultExecutor,
         /** @var MessageChainProcessor[] $messageChainProcessors */
         private readonly array $messageChainProcessors,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -60,7 +63,7 @@ class MessageChainProcessorRunner
             $this->processingResultExecutor->execute($processingResult);
 
             if ($processingResult->abortProcessing) {
-                echo get_class($processor) . " has aborted checking for other message chain processors\n";
+                $this->logger->log(LogLevel::INFO, get_class($processor) . ' has aborted checking for other message chain processors');
 
                 return true;
             }

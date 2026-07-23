@@ -7,6 +7,8 @@ use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\Repository\UserPreferenceRepository;
 use Perk11\Viktor89\Util\Telegram\BotAdminChecker;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandProcessor
 {
@@ -16,8 +18,9 @@ class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandPr
         string $preferenceName,
         string $botUserName,
         private readonly array $acceptedValuesList,
+        LoggerInterface $logger,
     ) {
-        parent::__construct($userPreferenceRepository, $triggeringCommands, $preferenceName, $botUserName);
+        parent::__construct($userPreferenceRepository, $triggeringCommands, $preferenceName, $botUserName, $logger);
     }
 
     protected function processValueAsSetting(InternalMessage $message, ?string $value): bool
@@ -58,7 +61,7 @@ class ListBasedPreferenceByCommandProcessor extends UserPreferenceSetByCommandPr
                 InternalMessage::setEphemeralReaction($message->chatId, $message->id);
                 return;
             }
-            echo "Failed to send ephemeral picker for '{$this->preferenceName}' ({$response->getDescription()}), falling back to a regular message\n";
+            $this->logger->log(LogLevel::ERROR, "Failed to send ephemeral picker for '{$this->preferenceName}' ({$response->getDescription()}), falling back to a regular message");
             unset($params['receiver_user_id']);
         }
 

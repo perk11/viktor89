@@ -4,6 +4,7 @@ namespace Perk11\Viktor89;
 
 use Perk11\Viktor89\Assistant\AssistantInterface;
 use Perk11\Viktor89\Repository\MessageRepository;
+use Psr\Log\LoggerInterface;
 
 /**
  * `/compliment` — the opposite of `/roast`. Reply to a message to compliment
@@ -15,9 +16,9 @@ class ComplimentProcessor extends AbstractUserHistoryBasedResponder
 {
     private const MESSAGE_LIMIT = 500;
 
-    public function __construct(MessageRepository $messageRepository, AssistantInterface $assistant)
+    public function __construct(MessageRepository $messageRepository, AssistantInterface $assistant, LoggerInterface $logger)
     {
-        parent::__construct($messageRepository, $assistant);
+        parent::__construct($messageRepository, $assistant, $logger);
     }
 
     protected function getMessageLimit(): int

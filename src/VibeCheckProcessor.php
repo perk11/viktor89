@@ -8,6 +8,8 @@ use Perk11\Viktor89\Assistant\AssistantInterface;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Util\TelegramHtml;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class VibeCheckProcessor implements MessageChainProcessor
 {
@@ -53,6 +55,7 @@ class VibeCheckProcessor implements MessageChainProcessor
     public function __construct(
         private readonly MessageRepository $messageRepository,
         private readonly AssistantInterface $assistant,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -86,7 +89,7 @@ class VibeCheckProcessor implements MessageChainProcessor
         try {
             $completion = $this->assistant->getCompletionBasedOnContext($this->buildContext($transcript))->content;
         } catch (\Exception $e) {
-            echo "VibeCheck: assistant completion failed: " . $e->getMessage() . "\n";
+            $this->logger->log(LogLevel::ERROR, 'VibeCheck: assistant completion failed: ' . $e->getMessage());
             $responseMessage->messageText = '🤔 Не получилось оценить вайб, попробуйте ещё раз.';
             return new ProcessingResult($responseMessage, true);
         }

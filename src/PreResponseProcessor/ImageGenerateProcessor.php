@@ -19,6 +19,8 @@ use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class ImageGenerateProcessor implements MessageChainProcessor
 {
@@ -29,6 +31,7 @@ class ImageGenerateProcessor implements MessageChainProcessor
         private readonly ImgTagExtractor $imgTagExtractor,
         private readonly UserPreferenceReaderInterface $imageModelPreference,
         private readonly AltTextProvider $altTextProvider,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -62,7 +65,7 @@ class ImageGenerateProcessor implements MessageChainProcessor
                     $messageChain->previous()
                 );
             } catch (Exception $e) {
-                echo "Failed to download source image from Telegram: " . $e->getMessage() . "\n";
+                $this->logger->log(LogLevel::ERROR, "Failed to download source image from Telegram: " . $e->getMessage());
                 return new ProcessingResult(null, true, '🤔', $messageChain->previous());
             }
         }
@@ -117,7 +120,7 @@ class ImageGenerateProcessor implements MessageChainProcessor
                 $response->getCaption()
             );
         } catch (Exception $e) {
-            echo "Failed to generate image:\n" . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+            $this->logger->log(LogLevel::ERROR, "Failed to generate image:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
             Request::execute('setMessageReaction', [
                 'chat_id'    => $lastMessage->chatId,
                 'message_id' => $lastMessage->id,

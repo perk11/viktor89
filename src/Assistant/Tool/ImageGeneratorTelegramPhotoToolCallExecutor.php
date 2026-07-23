@@ -8,6 +8,8 @@ use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\MessageChain;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareToolCallExecutorInterface
 {
@@ -16,6 +18,7 @@ class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareTo
         private readonly ?ImageByPromptGenerator $editByPromptGenerator,
         private readonly PhotoResponder $photoResponder,
         private readonly ImgTagExtractor $imgTagExtractor,
+        private readonly LoggerInterface $logger,
     )
     {
     }
@@ -49,7 +52,7 @@ class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareTo
             $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId);
             $this->photoResponder->sendPhoto($lastMessage, $response->getFirstImageAsPng(), $response->sendAsFile, $response->getCaption());
         } catch (\Exception $e) {
-            echo $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+            $this->logger->log(LogLevel::ERROR, $e->getMessage() . "\n" . $e->getTraceAsString());
             return ['status' => 'failed'];
         }
 

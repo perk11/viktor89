@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Assistant\Tool;
 
+use Psr\Log\LoggerInterface;
+
 /**
  * Builds the web search tool chain from configuration, wiring up every
  * available web search provider (Ollama, Z.ai MCP) in order of preference.
@@ -23,14 +25,10 @@ final class WebSearchToolFactory
     /** @var callable(string): ZaiWebSearchToolCallExecutor */
     private $zaiFactory;
 
-    /**
-     * @param callable(string): ZaiWebSearchToolCallExecutor|null $zaiFactory
-     *        Builds a ZaiWebSearchToolCallExecutor from an API key. Defaults to
-     *        a plain `new ZaiWebSearchToolCallExecutor($apiKey)` (which does not
-     *        connect until the tool is used).
-     */
-    public function __construct(?callable $zaiFactory = null)
-    {
+    public function __construct(
+        ?callable $zaiFactory = null,
+        private readonly ?LoggerInterface $logger = null,
+    ) {
         $this->zaiFactory = $zaiFactory ?? fn (string $apiKey) => new ZaiWebSearchToolCallExecutor($apiKey);
     }
 
@@ -39,7 +37,7 @@ final class WebSearchToolFactory
      */
     public function buildFromConfig(array $config): GenericWebSearchToolCallExecutor
     {
-        return new GenericWebSearchToolCallExecutor($this->buildProviderList($config));
+        return new GenericWebSearchToolCallExecutor($this->buildProviderList($config), $this->logger);
     }
 
     /**

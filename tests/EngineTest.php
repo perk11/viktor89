@@ -64,7 +64,7 @@ class EngineTest extends TestCase
             $fallBackResponder,
             $this->createStub(ProgressUpdateCallback::class),
             $executor,
-        );
+         logger: new \Psr\Log\NullLogger());
     }
 
     private function noopRepository(): MessageRepository
@@ -288,7 +288,7 @@ class EngineTest extends TestCase
             $fallBackResponder,
             $this->createStub(ProgressUpdateCallback::class),
             $executor,
-        );
+         logger: new \Psr\Log\NullLogger());
         $engine->handleMessage($message);
 
         $byId = [];

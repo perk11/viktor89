@@ -9,15 +9,20 @@ use Dotenv\Dotenv;
 use Exception;
 use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\Assistant\AltTextProvider;
+use Perk11\Viktor89\Assistant\AssistantContext;
+use Perk11\Viktor89\Assistant\OpenAiChatAssistant;
 use Perk11\Viktor89\IPC\TaskCompletedMessage;
 use Perk11\Viktor89\IPC\TaskUpdateMessage;
 use Perk11\Viktor89\Repository\ChatSummaryRepository;
 use Perk11\Viktor89\Repository\FileCacheRepository;
 use Perk11\Viktor89\Repository\MessageRepository;
+use Perk11\Viktor89\Util\Telegram\BotAdminChecker;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 use Perk11\Viktor89\VoiceRecognition\InternalMessageTranscriber;
 use Perk11\Viktor89\VoiceRecognition\VoiceRecogniser;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class SummaryTask implements Task
 {
@@ -27,16 +32,20 @@ class SummaryTask implements Task
         private readonly int $telegramBotId,
         private readonly string $telegramApiKey,
         private readonly string $telegramBotUsername,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
     public function run(Channel $channel, Cancellation $cancellation): mixed
     {
+        InternalMessage::setLogger($this->logger);
+        AssistantContext::setLogger($this->logger);
+        BotAdminChecker::setLogger($this->logger);
         $channel->send(new TaskUpdateMessage($this->workerId, 'Summary', 'Generating summary', new ChatAction($this->summarizedChatId, ChatActionEnum::typing)));
         try {
             $this->handle();
         } catch (Exception $e) {
-            echo "Error " . $e->getMessage() . "\n" . $e->getTraceAsString();
+            $this->logger->log(LogLevel::ERROR, 'Summary task error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
         } finally {
             $channel->send(new TaskCompletedMessage($this->workerId));
         }
@@ -57,33 +66,35 @@ class SummaryTask implements Task
         $telegram = new Telegram($this->telegramApiKey, $this->telegramBotUsername);
         $database = new Database($this->telegramBotId, 'siepatch-non-instruct5');
         $messageRepository = new MessageRepository($database);
-        $cacheFileManager = new CacheFileManager(new FileCacheRepository($database));
-        $telegramFileDownloader = new TelegramFileDownloader($cacheFileManager, $telegram->getApiKey());
-        $voiceRecogniser = new VoiceRecogniser($config['whisperCppUrl']);
+        $cacheFileManager = new CacheFileManager(new FileCacheRepository($database), $this->logger);
+        $telegramFileDownloader = new TelegramFileDownloader($cacheFileManager, $telegram->getApiKey(), $this->logger);
+        $voiceRecogniser = new VoiceRecogniser($config['whisperCppUrl'], $this->logger);
         $internalMessageTranscriber = new InternalMessageTranscriber(
             $telegramFileDownloader,
             $voiceRecogniser,
             $messageRepository,
         );
-        $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $messageRepository);
+        $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $messageRepository, $this->logger);
         $assistantConfig =$config['assistantModels']['vision-for-alt-text'];
         $systemPromptProcessor = new FixedValuePreferenceProvider('');
         $nullProcessor = new FixedValuePreferenceProvider(null);
-        $altTextProvider->assistantWithVision = new \Perk11\Viktor89\Assistant\OpenAiChatAssistant(
+        $altTextProvider->assistantWithVision = new OpenAiChatAssistant(
             $assistantConfig['model'],
             $systemPromptProcessor,
             $systemPromptProcessor,
             $nullProcessor,
             $telegramFileDownloader,
             $altTextProvider,
-            new ProcessingResultExecutor($messageRepository),
+            new ProcessingResultExecutor($messageRepository, logger: $this->logger),
             $telegram->getBotId(),
             $assistantConfig['url'],
             $assistantConfig['apiKey'] ?? '',
             true,
+            [],
+            $this->logger,
         );
 
-        $summaryProvider = new OpenAISummaryProvider($messageRepository, new ChatSummaryRepository($database), $altTextProvider);
+        $summaryProvider = new OpenAISummaryProvider($messageRepository, new ChatSummaryRepository($database), $altTextProvider, $this->logger);
         $summaryProvider->sendChatSummaryWithMessagesSinceLastOne($this->summarizedChatId);
     }
 }

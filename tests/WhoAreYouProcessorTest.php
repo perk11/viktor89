@@ -36,7 +36,7 @@ class WhoAreYouProcessorTest extends TestCase
     {
         $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\WhoAreYouProcessor::class);
         $constructor = $reflection->getConstructor();
-        $this->assertNull($constructor);
+        $this->assertNotNull($constructor);
     }
 
     public function testHasViktor89StickersProperty(): void

@@ -8,6 +8,8 @@ use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\VoiceRecognition\InternalMessageTranscriber;
 use Perk11\Viktor89\VoiceRecognition\NothingToTranscribeException;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class AltTextProvider
 {
@@ -17,6 +19,7 @@ class AltTextProvider
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly InternalMessageTranscriber $internalMessageTranscriber,
         private readonly MessageRepository $messageRepository,
+        private readonly LoggerInterface $logger,
     )
     {
 
@@ -34,7 +37,7 @@ class AltTextProvider
             try {
                 $image = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($internalMessage);
             } catch (\Exception $e) {
-                echo "Failed to download image " . $internalMessage->photoFileId .': ' . $e->getMessage() . "\n";
+                $this->logger->log(LogLevel::ERROR, 'Failed to download image ' . $internalMessage->photoFileId . ': ' . $e->getMessage());
                 return null;
             }
             $assistantContext = new AssistantContext();

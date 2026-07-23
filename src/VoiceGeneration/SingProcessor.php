@@ -14,6 +14,8 @@ use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class SingProcessor implements MessageChainProcessor
 {
@@ -23,6 +25,7 @@ class SingProcessor implements MessageChainProcessor
         private readonly UserPreferenceReaderInterface $durationPreference,
         private readonly UserPreferenceReaderInterface $seedPreference,
         private readonly UserPreferenceReaderInterface $singModelPreference,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -79,7 +82,7 @@ class SingProcessor implements MessageChainProcessor
                 $response->voiceFileContents,
             );
         } catch (Exception $e) {
-            echo "Failed to generate a song:\n" . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+            $this->logger->log(LogLevel::ERROR, "Failed to generate a song:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
 
             return new ProcessingResult(null, true, '🤔', $message);
         }

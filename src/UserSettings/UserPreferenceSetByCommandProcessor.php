@@ -13,6 +13,8 @@ use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\Repository\UserPreferenceRepository;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, UserPreferenceReaderInterface, GetTriggeringCommandsInterface
 {
@@ -21,6 +23,7 @@ class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, User
         protected readonly array $triggeringCommands,
         protected readonly string $preferenceName,
         protected readonly string $botUserName,
+        protected readonly LoggerInterface $logger,
     )
     {
     }
@@ -91,9 +94,9 @@ class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, User
                 ]],
                 'is_big' => true,
             ]);
-            echo "Reacting to message result: $response\n";
+            $this->logger->log(LogLevel::INFO, "Reacting to message result: $response");
         } catch (Exception $e) {
-            echo("Failed to react to message: " . $e->getMessage() . "\n");
+            $this->logger->log(LogLevel::ERROR, 'Failed to react to message: ' . $e->getMessage());
 
             $messageText =  $preferenceValue === null ? "Настройка $this->preferenceName сброшена в состояние по умолчанию" : "Настройка $this->preferenceName установлена в $preferenceValue";
             return new ProcessingResult(InternalMessage::asResponseTo($lastMessage, $messageText), true);

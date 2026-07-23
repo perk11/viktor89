@@ -5,12 +5,15 @@ namespace Perk11\Viktor89\ImageGeneration;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\ContextCompletingAssistantInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class ImageRemixer
 {
     public function __construct(
         private readonly ContextCompletingAssistantInterface $assistantWithVision,
         private readonly Automatic1111APiClient $automatic1111APiClient,
+        private readonly LoggerInterface $logger,
     )
     {
 
@@ -27,7 +30,7 @@ class ImageRemixer
         $assistantContext->messages[] = $message;
 
         $prompt = $this->assistantWithVision->getCompletionBasedOnContext($assistantContext)->content;
-        echo "Remix prompt: $prompt\n";
+        $this->logger->log(LogLevel::INFO, "Remix prompt: $prompt");
 
         return $this->automatic1111APiClient->generateImageByPrompt($prompt, $userId);
     }

@@ -8,6 +8,8 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class HelloProcessor implements MessageChainProcessor
 {
@@ -34,6 +36,10 @@ class HelloProcessor implements MessageChainProcessor
         7010262656,
     ];
 
+    public function __construct(private readonly LoggerInterface $logger)
+    {
+    }
+
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         if (!in_array($messageChain->last()->userId, $this->triggerUsers, true)) {
@@ -45,7 +51,7 @@ class HelloProcessor implements MessageChainProcessor
         foreach ($this->triggerPhrases as $triggerPhrase) {
             if (str_contains($incomingMessageTextLower, $triggerPhrase)) {
                 return new ProcessingResult(null, true, callback: function () use ($lastMessage) {
-                    echo "Sending message with hello sticker\n";
+                    $this->logger->log(LogLevel::INFO, 'Sending message with hello sticker');
                     Request::sendSticker([
                                              'chat_id'          => $lastMessage->chatId,
                                              'reply_parameters' => [

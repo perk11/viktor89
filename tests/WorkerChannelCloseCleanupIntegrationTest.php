@@ -151,11 +151,11 @@ class WorkerChannelCloseCleanupIntegrationTest extends TestCase
         [$workerChannel, $mainChannel] = IntegrationTestDsl::createChannelPair();
 
         $finalMessageTracker = new FinalMessageTracker();
-        $chatActionUpdater = new ChatActionUpdater($finalMessageTracker, self::TYPING_INTERVAL);
+        $chatActionUpdater = new ChatActionUpdater($finalMessageTracker, self::TYPING_INTERVAL, logger: new \Psr\Log\NullLogger());
         // Throttling is exercised by DraftThrottleIntegrationTest; disable it here so
         // every refresh actually reaches Telegram and the post-close leak is visible.
-        $draftUpdater = new DraftUpdater($finalMessageTracker, self::REFRESH, maxSendsPerWindow: 1000);
-        $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker);
+        $draftUpdater = new DraftUpdater($finalMessageTracker, self::REFRESH, maxSendsPerWindow: 1000, logger: new \Psr\Log\NullLogger());
+        $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker, logger: new \Psr\Log\NullLogger());
 
         $execution = IntegrationTestDsl::makeExecution($mainChannel);
         async(static fn () => $runningTaskTracker->receive($execution));

@@ -48,7 +48,7 @@ class RateLimitProcessorTest extends TestCase
         $reflection = new \ReflectionClass(\Perk11\Viktor89\PreResponseProcessor\RateLimitProcessor::class);
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
-        $this->assertCount(3, $params);
+        $this->assertCount(4, $params);
         $this->assertSame('rateLimitRepository', $params[0]->getName());
         $this->assertSame(\Perk11\Viktor89\Repository\RateLimitRepository::class, $params[0]->getType()->getName());
     }

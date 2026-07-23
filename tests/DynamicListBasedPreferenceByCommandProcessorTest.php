@@ -30,7 +30,7 @@ class DynamicListBasedPreferenceByCommandProcessorTest extends TestCase
                 ];
             },
             [self::RESET_VALUE],
-        );
+         logger: new \Psr\Log\NullLogger());
     }
 
     public function testTransformValueMapsResetValueToNull(): void

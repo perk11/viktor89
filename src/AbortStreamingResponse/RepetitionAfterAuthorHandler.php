@@ -2,10 +2,15 @@
 
 namespace Perk11\Viktor89\AbortStreamingResponse;
 
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
+
 class RepetitionAfterAuthorHandler implements AbortStreamingResponseHandler
 {
-    public function __construct(private readonly int $charactersToCheckInitially = 20)
-    {
+    public function __construct(
+        private readonly LoggerInterface $logger,
+        private readonly int $charactersToCheckInitially = 20,
+    ) {
 
     }
     public function getNewResponse(string $prompt, string $currentResponse): string|false
@@ -20,7 +25,7 @@ class RepetitionAfterAuthorHandler implements AbortStreamingResponseHandler
         if (!$this->isStringStartingToRepeat($prompt . $currentResponse, $this->charactersToCheckInitially)) {
             return false;
         }
-        echo "Repetition detected, aborting response\n";
+        $this->logger->log(LogLevel::INFO, 'Repetition detected, aborting response');
         for (
             $repeatingStringLength = min(
                 $this->charactersToCheckInitially,

@@ -12,6 +12,8 @@ use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class ImageTransformProcessor implements MessageChainProcessor
 {
@@ -20,6 +22,7 @@ class ImageTransformProcessor implements MessageChainProcessor
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly ImageByImageGenerator $generator,
         private readonly PhotoResponder $photoResponder,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -36,7 +39,7 @@ class ImageTransformProcessor implements MessageChainProcessor
         }
 
 
-        echo "Transforming image...\n";
+        $this->logger->log(LogLevel::INFO, 'Transforming image...');
         Request::execute('setMessageReaction', [
             'chat_id'    => $lastMessage->chatId,
             'message_id' => $lastMessage->id,
@@ -70,7 +73,7 @@ class ImageTransformProcessor implements MessageChainProcessor
             $responseMessage = InternalMessage::asResponseTo($lastMessage, $e->getMessage());
             return new ProcessingResult($responseMessage, true);
         } catch  (Exception $e) {
-            echo "Failed to generate image:\n" . $e->getMessage(),
+            $this->logger->log(LogLevel::ERROR, "Failed to generate image:\n" . $e->getMessage());
             Request::execute('setMessageReaction', [
                 'chat_id'    => $lastMessage->chatId,
                 'message_id' => $lastMessage->id,

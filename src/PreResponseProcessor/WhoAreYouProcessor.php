@@ -8,6 +8,8 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class WhoAreYouProcessor implements MessageChainProcessor
 {
@@ -15,6 +17,10 @@ class WhoAreYouProcessor implements MessageChainProcessor
         'CAACAgIAAxkBAAIGvGZhcMm-j-Fa2u-jsOXYTBpNHPGpAAKxTQACaw0oSRHS0GD7_dE6NQQ',
         'CAACAgIAAxkBAAIGvWZhcNXDnZVd9vZ4Rydl7KyKeDcCAAJyWwACpg2ISv8GUoIYyRcrNQQ',
     ];
+
+    public function __construct(private readonly LoggerInterface $logger)
+    {
+    }
 
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
@@ -27,7 +33,7 @@ class WhoAreYouProcessor implements MessageChainProcessor
         ];
         foreach ($whoAreYouTriggerPhrases as $whoAreYouTriggerPhrase) {
             if (str_contains($incomingMessageTextLower, $whoAreYouTriggerPhrase)) {
-                echo "Sending message with viktor89 sticker\n";
+                $this->logger->log(LogLevel::INFO, 'Sending message with viktor89 sticker');
                 Request::sendSticker([
                                          'chat_id'          => $messageChain->last()->chatId,
                                          'reply_parameters' => [

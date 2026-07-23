@@ -11,6 +11,8 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class DialogResponder implements MessageChainProcessor
 {
@@ -19,6 +21,7 @@ class DialogResponder implements MessageChainProcessor
         private readonly TtsApiClient $ttsApiClient,
         private readonly VoiceResponder $voiceResponder,
         private readonly array $voicesConfig,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -44,11 +47,11 @@ class DialogResponder implements MessageChainProcessor
             return $this->getHelpTextResult("Неподдерживаемый собеседник \"$voice2\"!\n", $message);
         }
         if (!array_key_exists( 'Bio', $this->voicesConfig[$voice1])) {
-            echo "Error: No bio defined for voice $voice1\n";
+            $this->logger->log(LogLevel::ERROR, "No bio defined for voice $voice1");
             return new ProcessingResult(null, true, '🤔', $message);
         }
         if (!array_key_exists( 'Bio', $this->voicesConfig[$voice2])) {
-            echo "Error: No bio defined for voice $voice2\n";
+            $this->logger->log(LogLevel::ERROR, "No bio defined for voice $voice2");
             return new ProcessingResult(null, true, '🤔', $message);
         }
         $progressUpdateCallback(static::class, "Generating dialog between $voice1 and $voice2, prompt: $prompt");
@@ -76,7 +79,7 @@ Dialog Prompt: $prompt";
         ]);
 
         $dialogText = $this->assistant->getCompletionBasedOnContext($context)->content;
-        echo "Dialog: $dialogText\n";
+        $this->logger->log(LogLevel::INFO, "Dialog: $dialogText");
 
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,
@@ -91,12 +94,12 @@ Dialog Prompt: $prompt";
 
         $voice1FileContents = file_get_contents(TtsProcessor::VOICE_STORAGE_DIR . '/' . $voice1 . '.ogg');
         if ($voice1FileContents === false) {
-            echo "Error: Failed to read file for $voice1\n";
+            $this->logger->log(LogLevel::ERROR, "Failed to read file for $voice1");
             return new ProcessingResult(null, true, '🤔', $message);
         }
         $voice2FileContents = file_get_contents(TtsProcessor::VOICE_STORAGE_DIR . '/' . $voice2 . '.ogg');
         if ($voice2FileContents === false) {
-            echo "Error: Failed to read file for $voice2\n";
+            $this->logger->log(LogLevel::ERROR, "Failed to read file for $voice2");
             return new ProcessingResult(null, true, '🤔', $message);
         }
         $progressUpdateCallback(static::class, "Generating audio for dialog between $voice1 and $voice2, prompt: $prompt");

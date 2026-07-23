@@ -10,12 +10,16 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class RandomQuizResponder implements MessageChainProcessor
 {
 
-    public function __construct(private readonly QuestionRepository $questionRepository)
-    {
+    public function __construct(
+        private readonly QuestionRepository $questionRepository,
+        private readonly LoggerInterface $logger,
+    ) {
     }
 
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
@@ -23,7 +27,7 @@ class RandomQuizResponder implements MessageChainProcessor
         $lastMessage = $messageChain->last();
         $question = $this->questionRepository->findRandom();
         if ($question === null) {
-            echo "Failed to find a random question\n";
+            $this->logger->log(LogLevel::WARNING, 'Failed to find a random question');
 
             return new ProcessingResult(null, true);
         }

@@ -8,6 +8,8 @@ use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\AssistantInterface;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\Repository\MessageRepository;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 /**
  * Shared machinery for commands that pick a target user (the author of the
@@ -23,6 +25,7 @@ abstract class AbstractUserHistoryBasedResponder implements MessageChainProcesso
     public function __construct(
         protected readonly MessageRepository $messageRepository,
         protected readonly AssistantInterface $assistant,
+        protected readonly LoggerInterface $logger,
     ) {
     }
 
@@ -56,7 +59,7 @@ abstract class AbstractUserHistoryBasedResponder implements MessageChainProcesso
                 $this->buildContext($transcript, $displayName, $triggeringMessage->messageText),
             )->content;
         } catch (Exception $e) {
-            echo get_class($this) . ': assistant completion failed: ' . $e->getMessage() . "\n";
+            $this->logger->log(LogLevel::ERROR, get_class($this) . ': assistant completion failed: ' . $e->getMessage());
             $responseMessage->messageText = $this->getFailureMessage($displayName);
             return new ProcessingResult($responseMessage, true);
         }

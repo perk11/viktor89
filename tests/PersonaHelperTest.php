@@ -15,7 +15,7 @@ class PersonaHelperTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->helper = new PersonaHelper('testbot');
+        $this->helper = new PersonaHelper('testbot', logger: new \Psr\Log\NullLogger());
     }
 
     public function testNormalizeArgumentStripsBotMention(): void

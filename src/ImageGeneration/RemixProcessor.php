@@ -12,6 +12,8 @@ use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class RemixProcessor implements MessageChainProcessor
 {
@@ -19,6 +21,7 @@ class RemixProcessor implements MessageChainProcessor
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly PhotoResponder $photoResponder,
         private readonly ImageRemixer $imageRemixer,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -35,7 +38,7 @@ class RemixProcessor implements MessageChainProcessor
         }
 
 
-        echo "Remixing image...\n";
+        $this->logger->log(LogLevel::INFO, 'Remixing image...');
         Request::execute('setMessageReaction', [
             'chat_id'    => $lastMessage->chatId,
             'message_id' => $lastMessage->id,
@@ -66,7 +69,7 @@ class RemixProcessor implements MessageChainProcessor
                 $transformedPhotoResponse->getCaption(),
             );
         } catch (Exception $e) {
-            echo "Failed to generate image:\n" . $e->getMessage(),
+            $this->logger->log(LogLevel::ERROR, "Failed to generate image:\n" . $e->getMessage());
             Request::execute('setMessageReaction', [
                 'chat_id'    => $lastMessage->chatId,
                 'message_id' => $lastMessage->id,

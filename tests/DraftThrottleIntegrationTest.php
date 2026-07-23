@@ -181,9 +181,9 @@ class DraftThrottleIntegrationTest extends TestCase
         [$workerChannel, $mainChannel] = IntegrationTestDsl::createChannelPair();
 
         $finalMessageTracker = new FinalMessageTracker();
-        $draftUpdater = new DraftUpdater($finalMessageTracker, 0.1);
-        $chatActionUpdater = new ChatActionUpdater($finalMessageTracker, 999);
-        $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker);
+        $draftUpdater = new DraftUpdater($finalMessageTracker, 0.1, logger: new \Psr\Log\NullLogger());
+        $chatActionUpdater = new ChatActionUpdater($finalMessageTracker, 999, logger: new \Psr\Log\NullLogger());
+        $runningTaskTracker = new RunningTaskTracker($chatActionUpdater, $draftUpdater, $finalMessageTracker, logger: new \Psr\Log\NullLogger());
 
         $execution = IntegrationTestDsl::makeExecution($mainChannel);
         async(static fn () => $runningTaskTracker->receive($execution));

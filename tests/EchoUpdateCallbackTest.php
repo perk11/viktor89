@@ -31,7 +31,7 @@ class EchoUpdateCallbackTest extends TestCase
 
     public function testSubscribeAddsSubscriber(): void
     {
-        $callback = new \Perk11\Viktor89\IPC\EchoUpdateCallback();
+        $callback = new \Perk11\Viktor89\IPC\EchoUpdateCallback(logger: new \Psr\Log\NullLogger());
         $callback->subscribe(fn() => null);
         // No exception means subscription succeeded
         $this->assertTrue(true);
@@ -65,19 +65,18 @@ class EchoUpdateCallbackTest extends TestCase
      */
     public function testInvokeWithDefaultConstructorDoesNotThrow(): void
     {
-        $callback = new EchoUpdateCallback();
+        $callback = new EchoUpdateCallback(logger: new \Psr\Log\NullLogger());
 
-        $output = self::captureEcho(fn () => $callback('AltTextProvider', 'Generating alt text for photo 123'));
+        // Logging now goes through the injected logger (NullLogger here), so the
+        // only observable effect of invoking with defaults is that it must not throw.
+        $callback('AltTextProvider', 'Generating alt text for photo 123');
 
-        $this->assertStringContainsString(
-            'Progress update received: AltTextProvider - Generating alt text for photo 123',
-            $output,
-        );
+        $this->assertInstanceOf(EchoUpdateCallback::class, $callback);
     }
 
     public function testInvokeDeliversTaskUpdateMessageWithDefaultWorkerId(): void
     {
-        $callback = new EchoUpdateCallback();
+        $callback = new EchoUpdateCallback(logger: new \Psr\Log\NullLogger());
         $received = null;
         $callback->subscribe(function (TaskUpdateMessage $message) use (&$received): void {
             $received = $message;
@@ -95,7 +94,7 @@ class EchoUpdateCallbackTest extends TestCase
 
     public function testInvokeUsesProvidedWorkerId(): void
     {
-        $callback = new EchoUpdateCallback(7);
+        $callback = new EchoUpdateCallback(7, logger: new \Psr\Log\NullLogger());
         $received = null;
         $callback->subscribe(function (TaskUpdateMessage $message) use (&$received): void {
             $received = $message;
@@ -108,7 +107,7 @@ class EchoUpdateCallbackTest extends TestCase
 
     public function testInvokeForwardsChatActionToMessage(): void
     {
-        $callback = new EchoUpdateCallback();
+        $callback = new EchoUpdateCallback(logger: new \Psr\Log\NullLogger());
         $received = null;
         $callback->subscribe(function (TaskUpdateMessage $message) use (&$received): void {
             $received = $message;
@@ -123,7 +122,7 @@ class EchoUpdateCallbackTest extends TestCase
 
     public function testInvokeNotifiesAllSubscribersInOrder(): void
     {
-        $callback = new EchoUpdateCallback();
+        $callback = new EchoUpdateCallback(logger: new \Psr\Log\NullLogger());
         $order = [];
         $callback->subscribe(function () use (&$order): void {
             $order[] = 'first';
@@ -142,7 +141,7 @@ class EchoUpdateCallbackTest extends TestCase
         $reflection = new \ReflectionClass(EchoUpdateCallback::class);
         $params = $reflection->getConstructor()->getParameters();
 
-        $this->assertCount(1, $params);
+        $this->assertCount(2, $params);
         $this->assertSame('workerId', $params[0]->getName());
         $this->assertSame('int', $params[0]->getType()->getName());
         $this->assertTrue($params[0]->isDefaultValueAvailable());

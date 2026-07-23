@@ -10,6 +10,8 @@ use Perk11\Viktor89\ImageGeneration\Automatic1111ImageApiResponse;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptAndImageGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAndImageGenerator
 {
@@ -19,6 +21,7 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
         private readonly ContextCompletingAssistantInterface $assistant,
         private readonly UserPreferenceReaderInterface $imageModelPreference,
         private readonly array $modelConfig,
+        private readonly LoggerInterface $logger,
     ) {
     }
     public function generateImageByImagePrompt(ImageGenerationPrompt $imageGenerationPrompt, int $userId): Automatic1111ImageApiResponse
@@ -32,7 +35,7 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
     public function generateImageByPrompt(string $prompt, int $userId): Automatic1111ImageApiResponse
     {
         $improvedPrompt = $this->processPrompt($prompt, $userId);
-        echo "Improved prompt from assistant: $improvedPrompt\n";
+        $this->logger->log(LogLevel::INFO, "Improved prompt from assistant: $improvedPrompt");
 
         return $this->automatic1111APiClient->generateImageByPrompt($improvedPrompt, $userId);
     }
@@ -74,7 +77,7 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
         $context->messages[] = $userMessage;
         $improvedPrompt->text = $this->assistant->getCompletionBasedOnContext($context)->content;
 
-        echo "Edit prompt from assistant: " . $improvedPrompt->text . "\n";
+        $this->logger->log(LogLevel::INFO, "Edit prompt from assistant: " . $improvedPrompt->text);
 
         return $this->automatic1111APiClient->generateImageByPromptAndImages(
             $improvedPrompt,

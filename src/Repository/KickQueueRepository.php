@@ -4,11 +4,15 @@ namespace Perk11\Viktor89\Repository;
 
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\JoinQuiz\KickQueueItem;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class KickQueueRepository
 {
-    public function __construct(private readonly Database $database)
-    {
+    public function __construct(
+        private readonly Database $database,
+        private readonly LoggerInterface $logger,
+    ) {
     }
 
     /** @return KickQueueItem[] */
@@ -69,9 +73,7 @@ class KickQueueRepository
         $statement->bindValue(':kick_time', $kickQueueItem->kickTime);
         $statement->bindValue(':messages_to_delete', implode(',', $kickQueueItem->messagesToDelete));
         if ($statement->execute() === false) {
-            echo "Failed to insert into kick queue\n";
-            echo $this->database->sqlite3Database->lastErrorMsg();
-            echo "\n";
+            $this->logger->log(LogLevel::ERROR, 'Failed to insert into kick queue: ' . $this->database->sqlite3Database->lastErrorMsg());
         }
     }
 
@@ -83,9 +85,7 @@ class KickQueueRepository
 
         $statement->bindValue(':poll_id', $pollId);
         if ($statement->execute() === false) {
-            echo "Failed to execute null kick time update\n";
-            echo $this->database->sqlite3Database->lastErrorMsg();
-            echo "\n";
+            $this->logger->log(LogLevel::ERROR, 'Failed to execute null kick time update: ' . $this->database->sqlite3Database->lastErrorMsg());
         }
     }
 }

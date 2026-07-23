@@ -31,7 +31,7 @@ class DeletePersonaProcessorTest extends TestCase
         }
         $this->database = new Database(123, $this->dbName);
         $this->personaRepository = new PersonaRepository($this->database);
-        $this->processor = new DeletePersonaProcessor($this->personaRepository, new PersonaHelper('testbot'));
+        $this->processor = new DeletePersonaProcessor($this->personaRepository, new PersonaHelper('testbot', logger: new \Psr\Log\NullLogger()));
     }
 
     protected function tearDown(): void

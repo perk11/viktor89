@@ -10,6 +10,8 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 use function imagecreatefromstring;
 use function imagedestroy;
@@ -21,6 +23,7 @@ class DownscaleProcessor implements MessageChainProcessor
     public function __construct(
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly PhotoResponder $photoResponder,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -63,7 +66,7 @@ class DownscaleProcessor implements MessageChainProcessor
                 false,
             );
         } catch (Exception $e) {
-            echo "Failed to generate image:\n" . $e->getMessage(),
+            $this->logger->log(LogLevel::ERROR, "Failed to generate image:\n" . $e->getMessage());
             Request::execute('setMessageReaction', [
                 'chat_id'    => $lastMessage->chatId,
                 'message_id' => $lastMessage->id,

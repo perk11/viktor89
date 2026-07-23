@@ -49,7 +49,7 @@ class PersonalityCardProcessorTest extends TestCase
     public function testConstructorDependencies(): void
     {
         $params = (new \ReflectionClass(PersonalityCardProcessor::class))->getConstructor()->getParameters();
-        $this->assertCount(5, $params);
+        $this->assertCount(6, $params);
         $this->assertSame(MessageRepository::class, $params[0]->getType()->getName());
         $this->assertSame(AssistantInterface::class, $params[1]->getType()->getName());
         $this->assertSame(ImageByPromptGenerator::class, $params[2]->getType()->getName());
@@ -155,7 +155,7 @@ class PersonalityCardProcessorTest extends TestCase
             $imageGenerator,
             $photoResponder,
             new PersonalityCardRenderer(),
-        );
+         logger: new \Psr\Log\NullLogger());
 
         $result = $processor->processMessageChain(
             new MessageChain([$this->command('')]),
@@ -192,7 +192,7 @@ class PersonalityCardProcessorTest extends TestCase
             $this->createStub(ImageByPromptGenerator::class),
             $this->createStub(PhotoResponder::class),
             new PersonalityCardRenderer(),
-        );
+         logger: new \Psr\Log\NullLogger());
     }
 
     private function runProcessor(

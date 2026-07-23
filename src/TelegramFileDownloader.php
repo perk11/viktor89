@@ -7,13 +7,16 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class TelegramFileDownloader
 {
     private readonly Client $guzzle;
     public function __construct(
         private readonly CacheFileManager $cacheFileManager,
-        private readonly string $telegramBotApiKey
+        private readonly string $telegramBotApiKey,
+        private readonly LoggerInterface $logger,
     )
     {
         $this->guzzle = new Client();
@@ -26,7 +29,7 @@ class TelegramFileDownloader
             throw new Exception('Message does not contain voice');
         }
         $fileId = $voice->getFileId();
-        echo "Downloading voice with fileId $fileId\n";
+        $this->logger->log(LogLevel::INFO, "Downloading voice with fileId $fileId");
 
         return $this->downloadFile($fileId);
     }
@@ -37,7 +40,7 @@ class TelegramFileDownloader
             throw new Exception('Message does not contain video note');
         }
         $fileId = $voice->getFileId();
-        echo "Downloading video note with fileId $fileId\n";
+        $this->logger->log(LogLevel::INFO, "Downloading video note with fileId $fileId");
 
         return $this->downloadFile($fileId);
     }
@@ -53,7 +56,7 @@ class TelegramFileDownloader
         if ($cachedFileContents !== null) {
             return $cachedFileContents;
         }
-        echo "Downloading file: $fileId\n";
+        $this->logger->log(LogLevel::INFO, "Downloading file: $fileId");
         $fileRequest = Request::getFile([
                                             'file_id' => $fileId,
                                         ]);

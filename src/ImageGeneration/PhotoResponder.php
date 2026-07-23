@@ -10,6 +10,8 @@ use Perk11\Viktor89\MessageMetadata;
 use Perk11\Viktor89\Repository\MessageMetadataRepository;
 use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Util\Telegram\ReactionReplacer;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class PhotoResponder
 {
@@ -19,6 +21,7 @@ class PhotoResponder
         private readonly CacheFileManager $cacheFileManager,
         private readonly ReactionReplacer $reactionReplacer,
         private readonly ?MessageMetadataRepository $messageMetadataRepository = null,
+        private readonly ?LoggerInterface $logger = null,
     )
     {
     }
@@ -42,7 +45,7 @@ class PhotoResponder
         } else {
             file_put_contents($imagePath, $photoContents);
         }
-        echo "Temporary image recorded to $imagePath\n";
+        $this->logger?->log(LogLevel::INFO, "Temporary image recorded to $imagePath");
 
         $options = [
             'chat_id'          => $message->chatId,
@@ -60,11 +63,11 @@ class PhotoResponder
 
         $encodedFile = Request::encodeFile($imagePath);
         if ($sendAsWebp) {
-            echo "Sending document response\n";
+            $this->logger?->log(LogLevel::INFO, 'Sending document response');
             $options['document'] = $encodedFile;
             $sentMessageResult = Request::sendDocument($options);
         } else {
-            echo "Sending photo response\n";
+            $this->logger?->log(LogLevel::INFO, 'Sending photo response');
             $options['photo'] = $encodedFile;
             $sentMessageResult = Request::sendPhoto($options);
         }
@@ -91,12 +94,12 @@ class PhotoResponder
             } elseif ($sentMessageResult->getResult()->getSticker() !== null) {
                 $this->cacheFileManager->writeFileToCache($sentMessageResult->getResult()->getSticker()->getFileId(), $photoContents);
             } else {
-                echo "Unexpected, Telegram server response doesn't contain a photo or a document, not caching the result\n";
+                $this->logger?->log(LogLevel::WARNING, "Unexpected, Telegram server response doesn't contain a photo or a document, not caching the result");
             }
         } else {
-            echo "Failed to send message: " . $sentMessageResult->getResult() . "\n";
+            $this->logger?->log(LogLevel::ERROR, 'Failed to send message: ' . $sentMessageResult->getResult());
         }
-        echo "Deleting $imagePath\n";
+        $this->logger?->log(LogLevel::INFO, "Deleting $imagePath");
         unlink($imagePath);
         if ($sendOk) {
             $this->reactionReplacer->deleteOrReplaceWith($message->chatId, $message->id, '😎');
@@ -118,7 +121,7 @@ class PhotoResponder
     {
         $spoilerWords = file(__DIR__ . '/../../spoiler_words.txt');
         if ($spoilerWords === false) {
-            echo "Failed to read spoiler words list\n";
+            $this->logger?->log(LogLevel::ERROR, 'Failed to read spoiler words list');
 
             return false;
         }

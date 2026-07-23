@@ -5,12 +5,15 @@ namespace Perk11\Viktor89\ImageGeneration;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\PreResponseProcessor\SavedImageNotFoundException;
 use Perk11\Viktor89\TelegramFileDownloader;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class ImgTagExtractor
 {
     public function __construct(
         private readonly ImageRepository $imageRepository,
         private readonly ?TelegramFileDownloader $telegramFileDownloader = null,
+        private readonly ?LoggerInterface $logger = null,
     ) {
     }
 
@@ -58,7 +61,7 @@ class ImgTagExtractor
         );
 
         if ($promptTobeProcessed->text !== $newPrompt->text) {
-            echo "Prompt changed to $newPrompt->text\n";
+            $this->logger?->log(LogLevel::INFO, "Prompt changed to $newPrompt->text");
         }
         return $newPrompt;
     }
@@ -80,7 +83,7 @@ class ImgTagExtractor
                     try {
                         return $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);
                     } catch (\Exception $e) {
-                        echo "Failed to download chain image $imageIndex: " . $e->getMessage() . "\n";
+                        $this->logger?->log(LogLevel::ERROR, "Failed to download chain image $imageIndex: " . $e->getMessage());
                         return null;
                     }
                 }

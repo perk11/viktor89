@@ -7,6 +7,8 @@ use Longman\TelegramBot\Entities\Message;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\PreResponseProcessor\PreResponseProcessor;
 use Perk11\Viktor89\Repository\MessageRepository;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class Engine
 {
@@ -34,6 +36,7 @@ class Engine
         private readonly TelegramInternalMessageResponderInterface|MessageChainProcessor $fallBackResponder,
         private readonly ProgressUpdateCallback $progressUpdateCallback,
         private readonly ProcessingResultExecutor $processingResultExecutor,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -42,12 +45,12 @@ class Engine
         $this->messageRepository->logMessage($message);
 
         if (!in_array($message->getType(), $this->messageTypesSupportedByCommonCode, true)) {
-            echo "Message of type {$message->getType()} received\n";
+            $this->logger->log(LogLevel::INFO, "Message of type {$message->getType()} received");
             return;
         }
 
         if ($message->getFrom() === null) {
-            echo "Message without a sender received\n";
+            $this->logger->log(LogLevel::INFO, 'Message without a sender received');
 
             return;
         }
@@ -55,7 +58,7 @@ class Engine
             $replacedMessage = $preResponseProcessor->process($message);
             if ($replacedMessage !== false) {
                 if ($replacedMessage === null) {
-                    echo get_class($preResponseProcessor) . " processor handled the message and returned null\n";
+                    $this->logger->log(LogLevel::INFO, get_class($preResponseProcessor) . ' processor handled the message and returned null');
 
                     return;
                 }
@@ -69,11 +72,9 @@ class Engine
                 if ($response->isOk()) {
                     $this->messageRepository->logMessage($response->getResult());
                 } else {
-                    echo "Failed to send message: ";
-                    print_r($response->getRawData());
-                    echo "\n";
+                    $this->logger->log(LogLevel::ERROR, 'Failed to send message: ' . print_r($response->getRawData(), true));
                 }
-                echo get_class($preResponseProcessor) . " processor handled the message and returned response\n";
+                $this->logger->log(LogLevel::INFO, get_class($preResponseProcessor) . ' processor handled the message and returned response');
 
                 return;
             }
@@ -150,7 +151,7 @@ class Engine
 
         $responseMessage = $this->fallBackResponder->getResponseByMessage($message, $this->progressUpdateCallback);
         if ($responseMessage === null) {
-            echo "Null response returned by fallback responder\n";
+            $this->logger->log(LogLevel::INFO, 'Null response returned by fallback responder');
 
             return;
         }
@@ -163,7 +164,7 @@ class Engine
             $responseMessage->type='text';
             $this->messageRepository->logInternalMessage($responseMessage);
         } else {
-            echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
+            $this->logger->log(LogLevel::ERROR, 'Failed to send response: ' . print_r($telegramServerResponse->getRawData(), true));
         }
     }
 }

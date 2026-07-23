@@ -3,6 +3,8 @@
 namespace Perk11\Viktor89\IPC;
 
 use Longman\TelegramBot\Request;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Revolt\EventLoop;
 
@@ -17,6 +19,7 @@ class ChatActionUpdater
     public function __construct(
         private readonly FinalMessageTracker $finalMessageTracker,
         private readonly float $actionIntervalSeconds = 4,
+        private readonly ?LoggerInterface $logger = null,
     ) {
     }
 
@@ -112,7 +115,7 @@ class ChatActionUpdater
             return;
         }
 
-        echo date('Y-m-d H:i:s') . " Sending chat action to $targetChatIdentifier ($responsibleWorkerIdentifier): " . $chatActionToSend->action->name . "\n";
+        $this->logger?->log(LogLevel::DEBUG, "Sending chat action to $targetChatIdentifier ($responsibleWorkerIdentifier): " . $chatActionToSend->action->name);
 
         $telegramApiRequestResult = Request::sendChatAction([
                                                                 'chat_id' => $targetChatIdentifier,
@@ -120,7 +123,7 @@ class ChatActionUpdater
                                                             ]);
 
         if (!$telegramApiRequestResult->isOk()) {
-            echo date('Y-m-d H:i:s') . " Failed to send chat action to $targetChatIdentifier ($responsibleWorkerIdentifier): " . $telegramApiRequestResult->getDescription() . "\n";
+            $this->logger?->log(LogLevel::ERROR, "Failed to send chat action to $targetChatIdentifier ($responsibleWorkerIdentifier): " . $telegramApiRequestResult->getDescription());
         }
     }
 }

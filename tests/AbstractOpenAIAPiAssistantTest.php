@@ -179,6 +179,7 @@ class ConvertContextTestAssistant extends AbstractOpenAIAPiAssistant
             $telegramBotUserId,
             'http://localhost',
             supportsImages: $supportsImages,
+            logger: new \Psr\Log\NullLogger(),
         );
     }
 

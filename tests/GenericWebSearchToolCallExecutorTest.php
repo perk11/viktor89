@@ -21,7 +21,7 @@ class GenericWebSearchToolCallExecutorTest extends TestCase
         $second = $this->createMock(ToolCallExecutorInterface::class);
         $second->expects($this->never())->method('executeToolCall');
 
-        $executor = new GenericWebSearchToolCallExecutor([$first, $second]);
+        $executor = new GenericWebSearchToolCallExecutor([$first, $second], logger: new \Psr\Log\NullLogger());
 
         $this->assertSame(
             ['results' => [['title' => 'first']]],
@@ -39,7 +39,7 @@ class GenericWebSearchToolCallExecutorTest extends TestCase
         $second->expects($this->once())->method('executeToolCall')
             ->willReturn(['results' => [['title' => 'second']]]);
 
-        $executor = new GenericWebSearchToolCallExecutor([$first, $second]);
+        $executor = new GenericWebSearchToolCallExecutor([$first, $second], logger: new \Psr\Log\NullLogger());
 
         $this->assertSame(
             ['results' => [['title' => 'second']]],
@@ -61,7 +61,7 @@ class GenericWebSearchToolCallExecutorTest extends TestCase
         $third->expects($this->once())->method('executeToolCall')
             ->willReturn(['results' => [['title' => 'third']]]);
 
-        $executor = new GenericWebSearchToolCallExecutor([$first, $second, $third]);
+        $executor = new GenericWebSearchToolCallExecutor([$first, $second, $third], logger: new \Psr\Log\NullLogger());
 
         $this->assertSame(
             ['results' => [['title' => 'third']]],
@@ -79,7 +79,7 @@ class GenericWebSearchToolCallExecutorTest extends TestCase
         $second->method('executeToolCall')
             ->willThrowException(new \RuntimeException('two failed'));
 
-        $executor = new GenericWebSearchToolCallExecutor([$first, $second]);
+        $executor = new GenericWebSearchToolCallExecutor([$first, $second], logger: new \Psr\Log\NullLogger());
 
         try {
             $executor->executeToolCall(['query' => 'x']);
@@ -96,7 +96,7 @@ class GenericWebSearchToolCallExecutorTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('At least one search tool must be provided');
-        new GenericWebSearchToolCallExecutor([]);
+        new GenericWebSearchToolCallExecutor([], logger: new \Psr\Log\NullLogger());
     }
 
     public function testRejectsNonToolExecutorEntries(): void
@@ -104,7 +104,7 @@ class GenericWebSearchToolCallExecutorTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('must implement');
         /** @phpstan-ignore-next-line intentionally invalid input */
-        new GenericWebSearchToolCallExecutor(['not-a-tool']);
+        new GenericWebSearchToolCallExecutor(['not-a-tool'], logger: new \Psr\Log\NullLogger());
     }
 
     public function testPassesArgumentsThroughToUnderlyingTool(): void
@@ -114,7 +114,7 @@ class GenericWebSearchToolCallExecutorTest extends TestCase
             ->with(['query' => 'search term', 'max_results' => 7])
             ->willReturn(['results' => []]);
 
-        $executor = new GenericWebSearchToolCallExecutor([$first]);
+        $executor = new GenericWebSearchToolCallExecutor([$first], logger: new \Psr\Log\NullLogger());
 
         $executor->executeToolCall(['query' => 'search term', 'max_results' => 7]);
     }
@@ -122,7 +122,7 @@ class GenericWebSearchToolCallExecutorTest extends TestCase
     public function testImplementsToolCallExecutorInterface(): void
     {
         $first = $this->createMock(ToolCallExecutorInterface::class);
-        $executor = new GenericWebSearchToolCallExecutor([$first]);
+        $executor = new GenericWebSearchToolCallExecutor([$first], logger: new \Psr\Log\NullLogger());
 
         $this->assertInstanceOf(ToolCallExecutorInterface::class, $executor);
     }

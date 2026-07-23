@@ -6,17 +6,20 @@ use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\Util\Telegram\ReactionReplacer;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class VideoResponder
 {
     public function __construct(
         private readonly ReactionReplacer $reactionReplacer,
+        private readonly LoggerInterface $logger,
     ) {
     }
     public function sendVideo(InternalMessage $message, string $videoContents, ?string $caption = null): void
     {
         $videoPath = tempnam(sys_get_temp_dir(), 'viktor89-video-generator');
-        echo "Temporary video recorded to $videoPath\n";
+        $this->logger->log(LogLevel::INFO, "Temporary video recorded to $videoPath");
         file_put_contents($videoPath, $videoContents);
         $options = [
             'chat_id'          => $message->chatId,
@@ -29,7 +32,7 @@ class VideoResponder
             $options['caption'] = mb_substr($caption, 0, 1024);
         }
         Request::sendVideo($options);
-        echo "Deleting $videoPath\n";
+        $this->logger->log(LogLevel::INFO, "Deleting $videoPath");
         unlink($videoPath);
         $this->reactionReplacer->deleteOrReplaceWith($message->chatId, $message->id, '😎');
     }

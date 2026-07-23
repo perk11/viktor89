@@ -9,8 +9,12 @@ use Dom\HTMLDocument;
 use GuzzleHttp\Client;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
+use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Repository\PatchRepository;
+use Perk11\Viktor89\Util\Telegram\BotAdminChecker;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class PatchesMonitorTask implements Task
 {
@@ -18,6 +22,7 @@ class PatchesMonitorTask implements Task
         private readonly int $telegramBotId,
         private readonly string $telegramApiKey,
         private readonly string $telegramBotUsername,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -25,6 +30,9 @@ class PatchesMonitorTask implements Task
 
     public function run(?Channel $channel = null, ?Cancellation $cancellation = null): bool
     {
+        InternalMessage::setLogger($this->logger);
+        AssistantContext::setLogger($this->logger);
+        BotAdminChecker::setLogger($this->logger);
         $database = new Database($this->telegramBotId, 'siepatch-non-instruct5');
         $messageRepository = new MessageRepository($database);
         $patchRepository = new PatchRepository($database);
@@ -32,7 +40,7 @@ class PatchesMonitorTask implements Task
         $client = new Client();
         $response = $client->request('GET', self::PATCHES_URL);
         if ($response->getStatusCode() !== 200) {
-            echo "Failed to get last added patches list: " . $response->getReasonPhrase() . $response->getBody() . "\n";
+            $this->logger->log(LogLevel::ERROR, 'Failed to get last added patches list: ' . $response->getReasonPhrase() . $response->getBody());
 
             return false;
         }
@@ -55,7 +63,7 @@ class PatchesMonitorTask implements Task
 
 
         foreach ($missingPatchLinks as $missingPatchLink) {
-            echo "Found new patch! " . $formattedPatches[$missingPatchLink];
+            $this->logger->log(LogLevel::INFO, 'Found new patch! ' . $formattedPatches[$missingPatchLink]);
 
             $message = new InternalMessage();
             $message->messageText = "Новый патч в базе! \n" . $formattedPatches[$missingPatchLink];
@@ -71,7 +79,7 @@ class PatchesMonitorTask implements Task
                 $messageRepository->logInternalMessage($message);
                 $patchRepository->insertPatch($missingPatchLink);
             } else {
-                echo "Failed to send response: " . print_r($telegramServerResponse->getRawData(), true) . "\n";
+                $this->logger->log(LogLevel::ERROR, 'Failed to send response: ' . print_r($telegramServerResponse->getRawData(), true));
             }
             sleep(1);
         }

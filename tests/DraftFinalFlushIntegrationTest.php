@@ -34,7 +34,7 @@ class DraftFinalFlushIntegrationTest extends TestCase
 
     public function testDoesNotReEditWhenContentAlreadyDelivered(): void
     {
-        $updater = new DraftUpdater(new FinalMessageTracker());
+        $updater = new DraftUpdater(new FinalMessageTracker(), logger: new \Psr\Log\NullLogger());
 
         ob_start();
         try {
@@ -53,7 +53,7 @@ class DraftFinalFlushIntegrationTest extends TestCase
     {
         // maxSendsPerWindow = 1 so the second update is deferred (a flush is
         // scheduled) instead of sent immediately.
-        $updater = new DraftUpdater(new FinalMessageTracker(), maxSendsPerWindow: 1);
+        $updater = new DraftUpdater(new FinalMessageTracker(), maxSendsPerWindow: 1, logger: new \Psr\Log\NullLogger());
 
         ob_start();
         try {

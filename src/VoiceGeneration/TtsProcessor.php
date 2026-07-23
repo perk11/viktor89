@@ -14,6 +14,8 @@ use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class TtsProcessor implements MessageChainProcessor
 {
@@ -25,6 +27,7 @@ class TtsProcessor implements MessageChainProcessor
         private readonly UserPreferenceReaderInterface $voiceModelPreference,
         private readonly array $modelConfig,
         private readonly Language $languageDetection, //TODO construct only with the languages supported by the model
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -79,7 +82,7 @@ class TtsProcessor implements MessageChainProcessor
                 $response->voiceFileContents,
             );
         } catch (Exception $e) {
-            echo "Failed to generate voice:\n" . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+            $this->logger->log(LogLevel::ERROR, "Failed to generate voice:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
 
             return new ProcessingResult(null, true, '🤔', $message);
         }

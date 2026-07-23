@@ -255,7 +255,7 @@ class SiepatchAssistantTest extends TestCase
             'http://localhost:8079',
             new OpenAiCompletionStringParser(),
             $this->reader(null),
-        );
+         logger: new \Psr\Log\NullLogger());
     }
 
     private function reader(?string $value): UserPreferenceReaderInterface

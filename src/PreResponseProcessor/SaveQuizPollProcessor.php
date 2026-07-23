@@ -7,11 +7,15 @@ use Longman\TelegramBot\Entities\Message;
 use Perk11\Viktor89\Quiz\Question;
 use Perk11\Viktor89\Quiz\QuestionAnswer;
 use Perk11\Viktor89\Quiz\QuestionRepository;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class SaveQuizPollProcessor implements PreResponseProcessor
 {
-    public function __construct(private readonly QuestionRepository $questionRepository)
-    {
+    public function __construct(
+        private readonly QuestionRepository $questionRepository,
+        private readonly LoggerInterface $logger,
+    ) {
     }
 
     public function process(Message $message): false|string|null
@@ -19,10 +23,10 @@ class SaveQuizPollProcessor implements PreResponseProcessor
         if ($message->getType() !== 'poll') {
             return false;
         }
-        echo "New poll received\n";
+        $this->logger->log(LogLevel::INFO, 'New poll received');
         $poll = $message->getPoll();
         if ($poll->getCorrectOptionId() === null) {
-            echo "Poll does not have a correct answer, not doing anything\n";
+            $this->logger->log(LogLevel::INFO, 'Poll does not have a correct answer, not doing anything');
             if ($message->getChat()->isPrivateChat()) {
                 return 'Для того чтобы прислать свой вопрос, пожалуйста пришлите мне опрос виде quiz. Опрос который вы прислали не содержит правильного ответа.';
             }

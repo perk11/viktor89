@@ -41,7 +41,7 @@ class ReactionDeleterTest extends TestCase
         $reflection = new \ReflectionClass(\Perk11\Viktor89\Util\Telegram\ReactionDeleter::class);
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
-        $this->assertCount(1, $params);
+        $this->assertCount(2, $params);
         $this->assertSame('telegramBotId', $params[0]->getName());
         $this->assertSame('int', $params[0]->getType()->getName());
     }

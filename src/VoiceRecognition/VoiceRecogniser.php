@@ -3,13 +3,16 @@
 namespace Perk11\Viktor89\VoiceRecognition;
 
 use CURLFile;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class VoiceRecogniser
 {
 
     private array $hallucinations;
     public function __construct(
-        private readonly string $whisperCppUri
+        private readonly string $whisperCppUri,
+        private readonly LoggerInterface $logger,
     ) {
         $this->hallucinations = file(__DIR__ . '/hallucinations-ru.txt', FILE_IGNORE_NEW_LINES);
     }
@@ -21,10 +24,10 @@ class VoiceRecogniser
 
         $tmpPathWithExtension = $tmpFilePath . '.' . $extension;
         rename($tmpFilePath, $tmpPathWithExtension);
-        echo "Temporary audio recorded to $tmpPathWithExtension\n";
+        $this->logger->log(LogLevel::INFO, "Temporary audio recorded to $tmpPathWithExtension");
 
         file_put_contents($tmpPathWithExtension, $fileContents);
-        echo "Recognizing voice...\n";
+        $this->logger->log(LogLevel::INFO, 'Recognizing voice...');
         try {
             $result = $this->recogniseVoiceByFilePath($tmpPathWithExtension);
         } finally {
@@ -55,25 +58,25 @@ class VoiceRecogniser
         $response = curl_exec($ch);
 
         if (curl_errno($ch)) {
-            echo 'Curl error: ' . curl_error($ch) . "\n";
+            $this->logger->log(LogLevel::ERROR, 'Curl error: ' . curl_error($ch));
         } else {
-            echo 'Response: ' . $response . "\n";
+            $this->logger->log(LogLevel::DEBUG, 'Response: ' . $response);
         }
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
         if ($httpCode !== 200) {
-            echo "Got error from whisper.cpp\n";
+            $this->logger->log(LogLevel::ERROR, 'Got error from whisper.cpp');
 
             return null;
         }
         $decodedResponse = json_decode($response, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            echo "Error parsing JSON from whisper.cpp\n";
+            $this->logger->log(LogLevel::ERROR, 'Error parsing JSON from whisper.cpp');
             return null;
         }
         if (!isset($decodedResponse['text'])) {
-            echo "Response from whisper.cpp does not contain \"text\" property";
+            $this->logger->log(LogLevel::ERROR, 'Response from whisper.cpp does not contain "text" property');
             return null;
         }
 

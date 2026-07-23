@@ -6,6 +6,8 @@ use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\MessageChain;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallExecutorInterface
 {
@@ -14,6 +16,7 @@ class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallE
         private readonly ?ImageByPromptGenerator $editByPromptGenerator,
         private readonly ImageUploader $generatedImageMarkdownUploader,
         private readonly ImgTagExtractor $imgTagExtractor,
+        private readonly LoggerInterface $logger,
     )
     {
     }
@@ -47,7 +50,7 @@ class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallE
             $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId);
             $uploadedImage = $this->generatedImageMarkdownUploader->uploadPng($response->getFirstImageAsPng());
         } catch (\Exception $e) {
-            echo $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+            $this->logger->log(LogLevel::ERROR, $e->getMessage() . "\n" . $e->getTraceAsString());
             return [
                 'status' => 'failed',
                 'content' => 'Image generation failed.',

@@ -93,7 +93,7 @@ class PhotoResponderMetadataTest extends TestCase
                 }
             },
             $this->metadataRepository,
-        );
+         logger: new \Psr\Log\NullLogger());
 
         $message = new InternalMessage();
         $message->id = 1;
@@ -140,7 +140,7 @@ class PhotoResponderMetadataTest extends TestCase
                 }
             },
             $this->metadataRepository,
-        );
+         logger: new \Psr\Log\NullLogger());
 
         $message = new InternalMessage();
         $message->id = 2;

@@ -22,6 +22,7 @@ use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Psr\Log\LoggerInterface;
 
 class AssistantFactory
 {
@@ -45,6 +46,7 @@ class AssistantFactory
        private readonly DraftUpdateCallback $draftUpdateCallback,
        private readonly UserPreferenceReaderInterface $personalityReader,
        private readonly CompactionSummaryStoreInterface $compactionStore,
+       private readonly LoggerInterface $logger,
    )
    {
    }
@@ -153,6 +155,7 @@ class AssistantFactory
                 $requestedAssistantConfig['url'],
                 $this->openAiCompletionStringParser,
                 $this->personalityReader,
+                $this->logger,
             );
         } elseif (is_subclass_of($requestedAssistantConfig['class'], AbstractOpenAIAPICompletingAssistant::class)) {
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
@@ -165,6 +168,7 @@ class AssistantFactory
                 $requestedAssistantConfig['url'],
                 $this->openAiCompletionStringParser,
                 $requestedAssistantConfig['supportsImages'] ?? false,
+                $this->logger,
             );
        } elseif (is_a($requestedAssistantConfig['class'], OpenAiPHPClientAssistant::class, true)) {
            $tools = $this->getTools($requestedAssistantConfig);
@@ -182,6 +186,7 @@ class AssistantFactory
                $requestedAssistantConfig['supportsImages'] ?? false,
                $tools,
                $this->compactionStore,
+               $this->logger,
            );
        } elseif (is_a($requestedAssistantConfig['class'], OpenAiChatAssistant::class, true)) {
            $tools = $this->getTools($requestedAssistantConfig);
@@ -198,10 +203,12 @@ class AssistantFactory
                $requestedAssistantConfig['api_key'] ?? '',
                $requestedAssistantConfig['supportsImages'] ?? false,
                $tools,
+               $this->logger,
            );
        } elseif(is_a($requestedAssistantConfig['class'], PerplexicaAssistant::class, true)) {
             $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
                 $requestedAssistantConfig['url'],
+                $this->logger,
             );
         } else {
             throw new Exception("Unexpected assistant class " . $requestedAssistantConfig['class']);
@@ -214,7 +221,7 @@ class AssistantFactory
                 throw new Exception("Invalid abortResponseHandlers value for $name: must contain an array of arguments");
             }
             foreach ($requestedAssistantConfig['abortResponseHandlers'] as $abortResponseHandler => $args) {
-                $handlerInstance = new $abortResponseHandler(...$args);
+                $handlerInstance = new $abortResponseHandler($this->logger, ...$args);
                 $this->assistantInstanceByName[$name]->addAbortResponseHandler($handlerInstance);
             }
         }
