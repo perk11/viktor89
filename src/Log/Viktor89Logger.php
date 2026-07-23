@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Log;
 
+use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\ErrorLogHandler;
 use Monolog\Logger;
 
@@ -23,6 +24,13 @@ class Viktor89Logger extends Logger
 {
     public function __construct()
     {
-        parent::__construct('viktor89', [new ErrorLogHandler()]);
+        $handler = new ErrorLogHandler();
+        // Drop the trailing %context% %extra% placeholders (always empty here,
+        // since every call passes a single string message) so lines don't end
+        // with the noisy "[] []".
+        $handler->setFormatter(new LineFormatter(
+            "[%datetime%] %channel%.%level_name%: %message%\n",
+        ));
+        parent::__construct('viktor89', [$handler]);
     }
 }
