@@ -129,6 +129,16 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                     : $this->formatThinkingAsDetailsBlock($message->reasoning);
             }
 
+            // The model produced no text (e.g. it only made tool calls whose
+            // output was already delivered to the user, or returned an empty
+            // completion) and no streaming message was created to edit. There is
+            // nothing to send: Telegram rejects an empty message with
+            // "message text is empty", so emit nothing instead of failing.
+            if ($message->id === null && trim($message->messageText) === '') {
+                $this->logger?->log(LogLevel::INFO, 'Assistant produced no text content, not sending an empty message');
+                return new ProcessingResult(null, true);
+            }
+
             return new ProcessingResult($message, true);
         } catch (\Exception $e) {
             $this->logger?->log(LogLevel::ERROR, "Failed to get completion based on context: " . $e->getMessage() . "\n" . $e->getTraceAsString());
