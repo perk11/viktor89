@@ -64,6 +64,12 @@ class InternalMessage
     // Cannot contain photo caption.
     public ?string $rawMessageText = null;
 
+    // The text to persist in the message table / replay to the LLM. When set,
+    // it overrides $messageText for storage. Used when $messageText carries
+    // display-only content (e.g. the "Executing tool" notice) that must be shown
+    // in Telegram but never sent back to the model.
+    public ?string $messageTextForDatabase = null;
+
     public int $chatId;
 
     /**

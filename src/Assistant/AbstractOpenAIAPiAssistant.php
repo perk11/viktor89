@@ -111,7 +111,11 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 
             $completion = $this->getCompletionBasedOnContext($assistantContext, $streamFunction, $messageChain, $progressUpdateCallback);
             $this->logger?->log(LogLevel::DEBUG, 'Streamed response: ' . trim($completion->content));
-            $message->messageText = $responseStart . trim($completion->content);
+            // messageText is what Telegram sees (may carry display-only notices);
+            // messageTextForDatabase is the clean text persisted and replayed to
+            // the LLM, so the notices never reach the model on later turns.
+            $message->messageText = $responseStart . trim($completion->getDisplayContent());
+            $message->messageTextForDatabase = $responseStart . trim($completion->content);
             $message->toolCalls = $completion->toolCalls;
             $message->reasoning = $completion->reasoning;
             $message->model = $metadataModel;

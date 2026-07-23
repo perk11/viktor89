@@ -51,7 +51,7 @@ VALUES (:message_id, :tool_call_id, :tool_name, :arguments, :result, :chat_id)'
             $statement->bindValue(':date', $message->date);
             $statement->bindValue(':reply_to_message', $message->replyToMessageId);
             $statement->bindValue(':username', $message->userName);
-            $statement->bindValue(':message_text', $message->messageText);
+            $statement->bindValue(':message_text', $message->messageTextForDatabase ?? $message->messageText);
             $statement->bindValue(':photo_file_id', $message->photoFileId);
             $statement->bindValue(':type', $message->type);
         }

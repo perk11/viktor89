@@ -154,7 +154,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         }
 
         $allToolCalls = [];
-        $accumulatedContent = '';
+        $accumulator = new ResponseContentAccumulator();
 
         retry_compaction:
         try {
@@ -223,7 +223,9 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         if ($progressUpdateCallback !== null) {
                             $currentTime = microtime(true);
                             if ($currentTime - $lastUpdateTime > 3) {
-                                $progressUpdateCallback(static::class, "Streaming response: (" . (mb_strlen($accumulatedContent) + mb_strlen($content)) . ") characters");
+                                $progressUpdateCallback(static::class, "Streaming response: (" . (mb_strlen(
+                                                                             $accumulator->llmVisibleContent
+                                                                         ) + mb_strlen($content)) . ") characters");
                                 $lastUpdateTime = $currentTime;
                             }
                         }
@@ -234,12 +236,11 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                             $stream = null;
                             unset($stream);
                             gc_collect_cycles();
-                            if ($accumulatedContent !== '') {
-                                $accumulatedContent .= "\n";
-                            }
-                            $accumulatedContent .= $content;
+                            $accumulator->appendSeparatingByANewLine($content);
 
-                            return new CompletionResponse($accumulatedContent, $allToolCalls, reasoning: $reasoning);
+                            return new CompletionResponse(
+                                $accumulator->llmVisibleContent, $allToolCalls, reasoning: $reasoning, displayContent: $accumulator->telegramDisplayedContent
+                            );
                         }
                     }
 
@@ -288,15 +289,12 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             }
             $content = $contentWithoutAction;
 
-            if ($content !== '') {
-                if ($accumulatedContent !== '') {
-                    $accumulatedContent .= "\n";
-                }
-                $accumulatedContent .= $content;
-            }
+            $accumulator->appendSeparatingByANewLine($content);
 
             if (count($toolCalls) === 0) {
-                return new CompletionResponse($accumulatedContent, $allToolCalls, reasoning: $reasoning);
+                return new CompletionResponse(
+                    $accumulator->llmVisibleContent, $allToolCalls, reasoning: $reasoning, displayContent: $accumulator->telegramDisplayedContent
+                );
             }
 
             $this->logger?->log(LogLevel::DEBUG, 'Received tool calls: ' . json_encode($toolCalls, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
@@ -312,9 +310,14 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                 $toolDefinition = $this->toolDefintions[$functionName] ?? null;
                 $isSilent = $toolDefinition !== null && $toolDefinition->silent;
 
+                // Tool-call/error notifications are streamed to Telegram as live
+                // progress and added to the display track only — never to the
+                // clean track, which is what gets persisted and replayed to the
+                // model. The model already sees the call via the structured
+                // tool_calls / tool-result messages.
                 if (!$isSilent) {
                     $toolCallNotification = "\n>Executing `" . $functionName . "` with arguments `" . $toolCall->function->arguments . "`\n\n";
-                    $accumulatedContent .= $toolCallNotification;
+                    $accumulator->appendTelegramDisplayOnly($toolCallNotification);
                 }
 
                 if (!isset($this->toolDefintions[$functionName])) {
@@ -323,7 +326,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     if ($streamFunction !== null) {
                         $streamFunction($toolCallNotification);
                         $errorNotification = "\n> ==Tool not found: $functionName==\n";
-                        $accumulatedContent .= $errorNotification;
+                        $accumulator->appendTelegramDisplayOnly($errorNotification);
                         $streamFunction($errorNotification);
                     }
                 } else {
@@ -365,7 +368,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     if ($toolCallFailed) {
                         $errorMsg = $e->getMessage() ?? 'tool call failed';
                         $errorNotification = "\n> ==Error in $functionName: $errorMsg==\n";
-                        $accumulatedContent .= $errorNotification;
+                        $accumulator->appendTelegramDisplayOnly($errorNotification);
                         if ($streamFunction !== null) {
                             $streamFunction($errorNotification);
                         }
@@ -379,7 +382,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         );
                     }
                     $autoOutput  = "\n\n". $toolResult['automatic_output_markdown'] . "\n\n";
-                    $accumulatedContent .= $autoOutput;
+                    $accumulator->append($autoOutput);
                     if ($streamFunction !== null) {
                         $this->suppressDraftUpdates = true;
                         $streamFunction($autoOutput);
@@ -430,7 +433,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
             // Reset accumulators so we start fresh with compacted context
             $allToolCalls = [];
-            $accumulatedContent = '';
+            $accumulator = new ResponseContentAccumulator();
 
             goto retry_compaction;
         }

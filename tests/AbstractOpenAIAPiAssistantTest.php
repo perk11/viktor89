@@ -119,6 +119,41 @@ class AbstractOpenAIAPiAssistantTest extends TestCase
         $this->assertTrue($this->altTextProvider->wasCalled());
     }
 
+    /**
+     * The tool-call "Executing ..." notice must remain in the message that is
+     * sent/edited to Telegram (messageText) but be absent from what is persisted
+     * and replayed to the LLM (messageTextForDatabase). The split is produced by
+     * the assistant returning separate clean/display contents — no text
+     * replacement is involved.
+     */
+    public function testProcessMessageChainKeepsDisplayTextButStoresCleanText(): void
+    {
+        $assistant = new DisplayTextTestAssistant(
+            new NullPreferenceReader(),
+            new NullPreferenceReader(),
+            new NullPreferenceReader(),
+            new StubPhotoDownloader(),
+            new RecordingAltTextProvider(null),
+            self::BOT_USER_ID,
+        );
+
+        $message = new InternalMessage();
+        $message->id = 1;
+        $message->type = 'text';
+        $message->userId = 999;
+        $message->userName = 'Tester';
+        $message->chatId = -100;
+        $message->date = time();
+        $message->messageText = 'what is the weather?';
+
+        $result = $assistant->processMessageChain(new MessageChain([$message]), new NullProgressUpdateCallback());
+
+        $this->assertNotNull($result->response);
+        $this->assertStringContainsString('Executing `weather`', $result->response->messageText);
+        $this->assertSame('Here is the weather.', $result->response->messageTextForDatabase);
+        $this->assertStringNotContainsString('Executing', $result->response->messageTextForDatabase);
+    }
+
     // --- helpers ---
 
     private function buildAssistant(bool $supportsImages, ?string $altText = null): AbstractOpenAIAPiAssistant
@@ -190,6 +225,43 @@ class ConvertContextTestAssistant extends AbstractOpenAIAPiAssistant
         ?ProgressUpdateCallback $progressUpdateCallback = null,
     ): \Perk11\Viktor89\Assistant\CompletionResponse {
         return new \Perk11\Viktor89\Assistant\CompletionResponse('');
+    }
+}
+
+/** Returns a completion with separate clean/display contents to verify the split. */
+class DisplayTextTestAssistant extends AbstractOpenAIAPiAssistant
+{
+    public function __construct(
+        \Perk11\Viktor89\UserPreferenceReaderInterface $systemPromptProcessor,
+        \Perk11\Viktor89\UserPreferenceReaderInterface $responseStartProcessor,
+        \Perk11\Viktor89\UserPreferenceReaderInterface $editFrequencyProcessor,
+        \Perk11\Viktor89\TelegramFileDownloader $telegramFileDownloader,
+        \Perk11\Viktor89\Assistant\AltTextProvider $altTextProvider,
+        int $telegramBotUserId,
+    ) {
+        parent::__construct(
+            $systemPromptProcessor,
+            $responseStartProcessor,
+            $editFrequencyProcessor,
+            $telegramFileDownloader,
+            $altTextProvider,
+            $telegramBotUserId,
+            'http://localhost',
+            supportsImages: false,
+            logger: new \Psr\Log\NullLogger(),
+        );
+    }
+
+    public function getCompletionBasedOnContext(
+        AssistantContext $assistantContext,
+        ?callable $streamFunction = null,
+        ?MessageChain $messageChain = null,
+        ?ProgressUpdateCallback $progressUpdateCallback = null,
+    ): \Perk11\Viktor89\Assistant\CompletionResponse {
+        return new \Perk11\Viktor89\Assistant\CompletionResponse(
+            content: 'Here is the weather.',
+            displayContent: "Here is the weather.\n>Executing `weather` with arguments `{}`\n\n",
+        );
     }
 }
 
