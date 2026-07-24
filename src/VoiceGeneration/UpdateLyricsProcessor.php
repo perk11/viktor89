@@ -73,8 +73,6 @@ class UpdateLyricsProcessor implements MessageChainProcessor
             );
         }
 
-        $durationPref = $this->durationPreference->getCurrentPreferenceValue($lastMessage->userId);
-        $duration = $durationPref === null ? null : (int) $durationPref * 1000;
         $seedPref = $this->seedPreference->getCurrentPreferenceValue($lastMessage->userId);
         $seed = $seedPref === null ? null : (int) $seedPref;
 
@@ -98,7 +96,7 @@ class UpdateLyricsProcessor implements MessageChainProcessor
             $response = $this->coverApiClient->cover(
                 $audioFile,
                 $lyrics,
-                $duration,
+                null,
                 $seed,
             );
             $this->voiceResponder->sendVoice($lastMessage, $response->voiceFileContents);
