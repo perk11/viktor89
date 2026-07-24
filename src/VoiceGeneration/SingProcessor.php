@@ -25,8 +25,21 @@ class SingProcessor implements MessageChainProcessor
         private readonly UserPreferenceReaderInterface $durationPreference,
         private readonly UserPreferenceReaderInterface $seedPreference,
         private readonly UserPreferenceReaderInterface $singModelPreference,
+        private readonly array $singModelsConfig,
+        private readonly ?AudioSuperResolutionApiClient $audioSuperResolutionApiClient,
         private readonly LoggerInterface $logger,
     ) {
+    }
+
+    /**
+     * A sing model entry may set `audioSR: true` to run the generated song through the
+     * AudioSR server (audioSuperResolutionUrl) before posting it. Requires the client to
+     * be wired (i.e. an `audioSuperResolutionUrl` in config); false otherwise.
+     */
+    private function audioSuperResolutionEnabledForModel(string $modelName): bool
+    {
+        return $this->audioSuperResolutionApiClient !== null
+            && ($this->singModelsConfig[$modelName]['audioSR'] ?? false) === true;
     }
 
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
@@ -48,6 +61,7 @@ class SingProcessor implements MessageChainProcessor
         $tags = $lines[0];
         $lyrics = implode("\n", array_slice($lines, 1));
         $modelName = $this->singModelPreference->getCurrentPreferenceValue($message->userId);
+        $seed = $this->seedPreference->getCurrentPreferenceValue($message->userId);
         $durationSeconds = $this->durationPreference->getCurrentPreferenceValue($message->userId);
         if ($durationSeconds === null) {
             $duration = null;
@@ -75,11 +89,31 @@ class SingProcessor implements MessageChainProcessor
                 $tags,
                 $modelName,
                 $duration,
-                $this->seedPreference->getCurrentPreferenceValue($message->userId)
+                $seed
             );
+            $audio = $response->voiceFileContents;
+            if ($this->audioSuperResolutionEnabledForModel($modelName)) {
+                $progressUpdateCallback(
+                    static::class,
+                    "Enhancing the song with AudioSR",
+                    new ChatAction($message->chatId, ChatActionEnum::record_voice),
+                );
+                try {
+                    $audio = $this->audioSuperResolutionApiClient->enhance($audio, $seed === null ? null : (int) $seed)
+                        ->voiceFileContents;
+                } catch (Exception $audioSrException) {
+                    // Enhancement failed; fall back to the original generation rather than
+                    // dropping the song entirely.
+                    $this->logger->log(
+                        LogLevel::WARNING,
+                        "AudioSR enhancement failed, sending the original song:\n"
+                        . $audioSrException->getMessage(),
+                    );
+                }
+            }
             $this->voiceResponder->sendVoice(
                 $message,
-                $response->voiceFileContents,
+                $audio,
             );
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Failed to generate a song:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());

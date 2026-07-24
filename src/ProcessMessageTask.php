@@ -861,6 +861,10 @@ class ProcessMessageTask implements Task
                     $durationProcessor,
                     $seedProcessor,
                     $singModelPreferenceReader,
+                    $config['singModels'],
+                    isset($config['audioSuperResolutionUrl'])
+                        ? new AudioSuperResolutionApiClient($config['audioSuperResolutionUrl'])
+                        : null,
                     $logger,
                 ),
                 $logger,

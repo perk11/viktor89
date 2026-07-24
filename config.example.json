@@ -412,9 +412,16 @@
       "url": "http://localhost:8213"
     },
     "Ace-Step-1.5-XL-Thinking": {
-      "url": "http://localhost:8215"
+      "url": "http://localhost:8215",
+      // Run the generated song through the AudioSR server before posting it. Requires
+      // the top-level `audioSuperResolutionUrl` to point at an audio-sr inference server
+      // (inference-servers/audio-sr). Off by default.
+      "audioSR": true
     }
   },
+  // URL of the audio-sr inference server (inference-servers/audio-sr). Used by /sing as
+  // an optional post-processing step for any singModels entry with `audioSR: true`.
+  "audioSuperResolutionUrl": "http://localhost:8240",
   "coverModels": {
     "Ace-Step-1.5-XL": {
       "url": "http://localhost:8214"
