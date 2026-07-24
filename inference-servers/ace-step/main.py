@@ -88,8 +88,8 @@ parser.add_argument(
          'and (2) ACE-Step TRUNCATES the denoising schedule to start at t = effective_noise_level, '
          'so higher values leave fewer steps. With the API default shift=3.0 and 50 steps this '
          'means: 0.0 -> 50 steps from pure noise (no source melody at all); 0.2 -> ~29 steps from '
-         'an ~80% noise seed (the Gradio UI cover default — recognisable melody, room to restyle); '
-         '0.4 -> only ~17 steps; 0.7 -> ~6 steps and an ~70% source seed (near-passthrough with '
+         'an ~80%% noise seed (the Gradio UI cover default — recognisable melody, room to restyle); '
+         '0.4 -> only ~17 steps; 0.7 -> ~6 steps and an ~70%% source seed (near-passthrough with '
          "artefacts, the old 'same song, worse quality'). 0.2 is the safe default; overridable "
          'per request via the `cover_noise` field (the bot exposes it as /covernoise).',
 )
