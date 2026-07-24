@@ -82,7 +82,7 @@ use Perk11\Viktor89\VideoGeneration\VideoTxtAndVid2VidProcessor;
 use Perk11\Viktor89\VoiceGeneration\AudioSuperResolutionApiClient;
 use Perk11\Viktor89\VoiceGeneration\AudioUpscaleProcessor;
 use Perk11\Viktor89\VoiceGeneration\CoverApiClient;
-use Perk11\Viktor89\VoiceGeneration\CoverProcessor;
+use Perk11\Viktor89\VoiceGeneration\UpdateLyricsProcessor;
 use Perk11\Viktor89\VoiceGeneration\DialogResponder;
 use Perk11\Viktor89\VoiceGeneration\SingApiClient;
 use Perk11\Viktor89\VoiceGeneration\SingProcessor;
@@ -959,61 +959,16 @@ class ProcessMessageTask implements Task
             $container->get(WhoAreYouProcessor::class),
             $container->get(HelloProcessor::class),
         ];
-        // /cover: optional — only wired up when a coverModels section is present in config.json,
-        // so existing configs without it keep working.
-        $coverModelsConfig = $config['coverModels'] ?? [];
-        if ($coverModelsConfig !== []) {
-            $coverModelProcessor = new ListBasedPreferenceByCommandProcessor(
-                $userPreferenceRepository,
-                ['/covermodel'],
-                'covermodel',
-                $this->telegramBotUsername,
-                array_keys($coverModelsConfig),
-                $logger,
-            );
-            // audio_cover_strength (0.0–1.0), ACE-Step's "Remix Strength": fraction of denoising
-            // steps that keep the source as a structural reference. MUST be < 1.0 for the cover
-            // to change genre — at 1.0 ACE-Step skips the prompt-driven phase. Doubles as a
-            // preference reader and a /coverstrength command. When unset, CoverApiClient omits
-            // it and the ace-step wrapper applies its 0.5 default (a faithful-yet-restyled cover).
-            $coverStrengthProcessor = new NumericPreferenceInRangeByCommandProcessor(
-                $userPreferenceRepository,
-                ['/coverstrength'],
-                'cover-strength',
-                $this->telegramBotUsername,
-                0,
-                1,
-                $logger,
-            );
-            // cover_noise_strength (0.0–1.0): melody retention — how much of the original's
-            // melody survives (0 = ignore the source / most creative, 1 = closest to the source).
-            // Doubles as a /covernoise command. When unset, CoverApiClient omits it and the
-            // ace-step wrapper applies its own default (0.4) so covers keep a recognisable melody.
-            $coverNoiseProcessor = new NumericPreferenceInRangeByCommandProcessor(
-                $userPreferenceRepository,
-                ['/covernoise'],
-                'cover-noise',
-                $this->telegramBotUsername,
-                0,
-                1,
-                $logger,
-            );
-            $coverModelPreferenceReader = new DefaultingToFirstInConfigModelPreferenceReader(
-                $coverModelProcessor,
-                $coverModelsConfig,
-            );
-            $messageChainProcessors[] = $coverModelProcessor;
-            $messageChainProcessors[] = $coverStrengthProcessor;
-            $messageChainProcessors[] = $coverNoiseProcessor;
+        // /updatelyrics: optional — only wired up when an updatelyricsModels section is present
+        // in config.json, so existing configs without it keep working.
+        $updatelyricsModelsConfig = $config['updatelyricsModels'] ?? [];
+        if ($updatelyricsModelsConfig !== []) {
             $messageChainProcessors[] = new CommandBasedResponderTrigger(
-                ['/cover'],
-                new CoverProcessor(
-                    new CoverApiClient($coverModelsConfig),
+                ['/updatelyrics'],
+                new UpdateLyricsProcessor(
+                    new CoverApiClient($updatelyricsModelsConfig),
                     $voiceResponder,
                     $telegramFileDownloader,
-                    $coverModelPreferenceReader,
-                    $coverStrengthProcessor,
-                    $coverNoiseProcessor,
                     $durationProcessor,
                     $seedProcessor,
                     $logger,

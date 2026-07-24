@@ -422,7 +422,7 @@
   // URL of the audio-sr inference server (inference-servers/audio-sr). Used by /sing as
   // an optional post-processing step for any singModels entry with `audioSR: true`.
   "audioSuperResolutionUrl": "http://localhost:8240",
-  "coverModels": {
+  "updatelyricsModels": {
     "Ace-Step-1.5-XL": {
       "url": "http://localhost:8214"
     }

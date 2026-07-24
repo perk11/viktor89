@@ -17,23 +17,18 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
 /**
- * Implements the `/cover` command: reply it on an audio/voice/video/video-note to
- * re-render that song in a new style via ACE-Step's `task_type=cover`. The first line
- * after the command is the new style (genre/instruments/vocals); the following lines
- * are optional new lyrics. Strength (`audio_cover_strength`), cover noise
- * (`cover_noise_strength`, how closely to follow the original), model, duration and
- * seed come from user preferences (`/coverstrength`, `/covernoise`, `/covermodel`,
- * `/duration`, `/seed`).
+ * Implements the `/updatelyrics` command: reply it on an audio/voice/video/video-note to
+ * re-render that song with new lyrics via ACE-Step's `task_type=cover`. The whole text
+ * after the command is the new lyrics. The caption/genre, cover strength, cover noise and
+ * model are no longer taken from the user (hardcoded in CoverApiClient); only duration and
+ * seed come from user preferences (`/duration`, `/seed`).
  */
-class CoverProcessor implements MessageChainProcessor
+class UpdateLyricsProcessor implements MessageChainProcessor
 {
     public function __construct(
         private readonly CoverApiClient $coverApiClient,
         private readonly VoiceResponder $voiceResponder,
         private readonly TelegramFileDownloader $telegramFileDownloader,
-        private readonly UserPreferenceReaderInterface $coverModelPreference,
-        private readonly UserPreferenceReaderInterface $coverStrengthPreference,
-        private readonly UserPreferenceReaderInterface $coverNoisePreference,
         private readonly UserPreferenceReaderInterface $durationPreference,
         private readonly UserPreferenceReaderInterface $seedPreference,
         private readonly LoggerInterface $logger,
@@ -44,13 +39,13 @@ class CoverProcessor implements MessageChainProcessor
     {
         $lastMessage = $messageChain->last();
 
-        // /cover must be a reply to the song you want to cover.
+        // /updatelyrics must be a reply to the song you want to re-render.
         if ($messageChain->previous() === null) {
             return new ProcessingResult(
                 InternalMessage::asResponseTo(
                     $lastMessage,
                     "Для использования этой команды, ваше сообщение должно быть ответом на аудио или видео. "
-                    . "После команды напишите новый стиль кавера, например /cover female vocal, synthwave"
+                    . "После команды напишите новый текст песни, например /updatelyrics [Verse 1] ..."
                 ),
                 true,
             );
@@ -61,34 +56,23 @@ class CoverProcessor implements MessageChainProcessor
                 InternalMessage::asResponseTo(
                     $lastMessage,
                     "Не найдено аудио в сообщении, на которое вы отвечаете. Для использования этой команды, "
-                    . "ваше сообщение должно быть ответом на аудио или видео. После команды напишите новый стиль кавера, "
-                    . "например /cover female vocal, synthwave"
+                    . "ваше сообщение должно быть ответом на аудио или видео. После команды напишите новый текст песни."
                 ),
                 true,
             );
         }
 
-        $prompt = trim($lastMessage->messageText);
-        if ($prompt === '') {
+        $lyrics = trim($lastMessage->messageText);
+        if ($lyrics === '') {
             return new ProcessingResult(
                 InternalMessage::asResponseTo(
                     $lastMessage,
-                    "После команды напишите новый стиль кавера (жанры, инструменты, вокал), например "
-                    . "/cover female vocal, synthwave. На следующих строчках можно написать новый текст песни (необязательно)."
+                    "После команды напишите новый текст песни с разметкой [Verse], [Chorus] и т. п."
                 ),
                 true,
             );
         }
 
-        $lines = explode("\n", $prompt);
-        $style = trim($lines[0]);
-        $lyrics = trim(implode("\n", array_slice($lines, 1)));
-
-        $modelName = $this->coverModelPreference->getCurrentPreferenceValue($lastMessage->userId);
-        $strengthPref = $this->coverStrengthPreference->getCurrentPreferenceValue($lastMessage->userId);
-        $strength = $strengthPref === null ? 1.0 : (float) $strengthPref;
-        $coverNoisePref = $this->coverNoisePreference->getCurrentPreferenceValue($lastMessage->userId);
-        $coverNoise = $coverNoisePref === null ? null : (float) $coverNoisePref;
         $durationPref = $this->durationPreference->getCurrentPreferenceValue($lastMessage->userId);
         $duration = $durationPref === null ? null : (int) $durationPref * 1000;
         $seedPref = $this->seedPreference->getCurrentPreferenceValue($lastMessage->userId);
@@ -96,7 +80,7 @@ class CoverProcessor implements MessageChainProcessor
 
         $progressUpdateCallback(
             static::class,
-            "Generating a cover with style: $style",
+            "Updating lyrics",
             new ChatAction($lastMessage->chatId, ChatActionEnum::record_voice),
         );
         Request::execute('setMessageReaction', [
@@ -113,17 +97,13 @@ class CoverProcessor implements MessageChainProcessor
             $audioFile = $this->telegramFileDownloader->downloadFile($sourceAudio->fileId);
             $response = $this->coverApiClient->cover(
                 $audioFile,
-                $style,
-                $modelName,
-                $strength,
-                $lyrics !== '' ? $lyrics : null,
+                $lyrics,
                 $duration,
                 $seed,
-                $coverNoise,
             );
             $this->voiceResponder->sendVoice($lastMessage, $response->voiceFileContents);
         } catch (Exception $e) {
-            $this->logger->log(LogLevel::ERROR, "Failed to generate a cover:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
+            $this->logger->log(LogLevel::ERROR, "Failed to update lyrics:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
 
             return new ProcessingResult(null, true, '🤔', $lastMessage);
         }
