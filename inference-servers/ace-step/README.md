@@ -108,7 +108,8 @@ Common options:
 | `--inference_steps` | `50` | Diffusion steps (50 for sft/base; pass `8` if you switch to turbo) |
 | `--guidance_scale` | `7.0` | CFG strength (effective for sft/base; ignored by turbo) |
 | `--cover_dit_model` | `acestep-v15-xl-base` | DiT used for `/cover` (cover is audio-to-audio; SFT/turbo only do text2music). Download with `acestep-download --model acestep-v15-xl-base` and load it on the API server |
-| `--cover_noise_strength` | `0.4` | `cover_noise_strength` sent to ACE-Step for `/cover`: how faithfully the cover follows the source. ACE-Step truncates the denoising schedule at `t = 1 - cover_noise_strength` (`t=1` pure noise → drifts to the prompt / "nothing like the original"; `t=0` clean source → near-passthrough with artefacts). The good-cover range is ~0.3–0.5; `0.4` is the default. The mapping is non-linear (ACE-Step applies a timestep shift), so `≥0.6` leaves too few denoising steps and reproduces the source with quality loss — this was the old `0.7` default ("same song, worse quality"). Overridable per request via the `cover_noise` field (the bot's `/covernoise`) |
+| `--cover_noise_strength` | `0.2` | `cover_noise_strength` sent to ACE-Step for `/cover`. Two combined effects (verified in `modeling_acestep_v15_xl_base.py`): it sets the source fraction blended into the seed (`effective_noise_level = 1 - cover_noise`) **and** ACE-Step truncates the denoising schedule to start at `t = effective_noise_level`. With shift=3.0 / 50 steps: `0.0` → 50 steps from pure noise (no source melody at all); `0.2` → ~29 steps from an ~80%-noise seed — **the Gradio UI cover default**; `0.7` → ~6 steps + ~70% source seed (near-passthrough with artefacts, the old "same song, worse quality"). Overridable per request via the `cover_noise` field (the bot's `/covernoise`) |
+| `--cover_audio_strength` | `0.2` | `audio_cover_strength` sent to ACE-Step for `/cover`. `cover_steps = int(infer_steps * audio_cover_strength)` — only the first `cover_steps` denoise using source-anchored conditioning, the rest use prompt-driven text2music conditioning. ACE-Step documents `0.2` as **"style transfer"** (change genre while keeping the skeleton) and `1.0` as a faithful cover that barely restyles. `0.2` is the default so covers actually change genre (the recurring complaint); raise toward `0.5`–`1.0` to keep more of the original. Overridable per request via the `cover_strength` field (the bot's `/coverstrength`) |
 | `--lm_model` | (none) | 5Hz LM model, e.g. `acestep-5Hz-lm-1.7B` (only with `--thinking`) |
 | `--thinking` | `false` | Use the 5Hz LM (CoT) to plan generation. Off by default (a missing/broken LM yields noise); enable only with a confirmed-working LM |
 | `--acestep_format` | `wav` | Format requested from ACE-Step. The wrapper always re-encodes to OGG/Opus via the `ffmpeg` CLI (opus fails inside ACE-Step without matching FFmpeg libs + torchcodec) |
@@ -223,20 +224,26 @@ Add a separate entry under `coverModels` (the `url` still points at this wrapper
 }
 ```
 
-Switch with `/covermodel Ace-Step-1.5-XL`. Two source-fidelity knobs (both: lower = drifts
-toward the prompt / more restyle, higher = closer to the original):
+Switch with `/covermodel Ace-Step-1.5-XL`. Two knobs (verified against the ACE-Step v1.5
+DiT source — `audio_cover_strength` and `cover_noise_strength` are genuinely different axes):
 
-- `/covernoise 0.4` → ACE-Step `cover_noise_strength` (0.0–1.0) — **the primary knob.** How
-  faithfully the cover follows the source. ACE-Step truncates the denoising schedule at
-  `t = 1 - cover_noise_strength`, so `0` = full denoise from pure noise (drifts, "nothing like
-  the original"), `1` = clean source (near-passthrough with artefacts). The wrapper defaults to
-  **0.4** (good-cover range ~0.3–0.5); lower (e.g. `0.3`) for a freer reinterpretation, raise
-  (e.g. `0.5`) to keep more of the original. **Do not push it ≥0.6** — with the timestep shift
-  that leaves too few denoising steps and you get the source back with quality loss.
-- `/coverstrength 0.8` → ACE-Step `audio_cover_strength` (0.0–1.0) — secondary. The fraction of
-  denoising steps that keep the source as conditioning; at the default `1.0` it always
-  conditions on the source. Lower it (e.g. `0.4`) to hand the later steps to text2music-style
-  conditioning for a more prompt-driven restyle. Only audible below `1.0`.
+> **If your covers sound like a degraded copy of the source / don't change genre:** you are almost
+> certainly running an older wrapper that never forwarded `cover_noise_strength`. Redeploy this
+> wrapper (it now always sends both knobs) and restart it, then `/covernoise` and `/coverstrength`
+> become effective. With no preference set you get the documented 0.2/0.2 "style transfer" cover.
+
+- `/coverstrength 0.2` → ACE-Step `audio_cover_strength` (0.0–1.0). `cover_steps =
+  int(infer_steps * audio_cover_strength)` — the first `cover_steps` denoise against the source,
+  the rest are prompt-driven text2music. ACE-Step documents **`0.2` as "style transfer"**
+  (change the genre while keeping the skeleton) and `1.0` as a faithful cover that barely
+  restyles. The wrapper defaults to **0.2** so covers actually change genre. Lower → less of the
+  original; raise toward `0.5`–`1.0` (`/coverstrength 0.5`) to keep more of the source.
+- `/covernoise 0.2` → ACE-Step `cover_noise_strength` (0.0–1.0). It sets the source fraction
+  blended into the seed (`effective_noise_level = 1 - cover_noise`) **and** ACE-Step truncates
+  the denoising schedule at `t = effective_noise_level`. `0.0` = 50 steps from pure noise (no
+  melody); `0.2` = ~29 steps from an ~80%-noise seed — **the Gradio UI cover default**;
+  `0.7` = ~6 steps + ~70% source seed → source back with artefacts. The wrapper defaults to
+  **0.2**.
 
 `/duration` and `/seed` are reused from `/sing`. Cover needs the **base** DiT, so on top of
 the SFT setup above, also download and load it:
@@ -315,8 +322,8 @@ Switch with `/singmodel Ace-Step-1.5-XL-Thinking`; `/duration` and `/seed` are r
   "audio": "<base64 of the source song bytes>",
   "prompt": "female vocal, synthwave, 80s, driving bass",
   "lyrics": "[Verse 1]\noptional new lyrics",
-  "cover_strength": 1.0,
-  "cover_noise": 0.4,
+  "cover_strength": 0.2,
+  "cover_noise": 0.2,
   "duration": 180000,
   "seed": 12345
 }
@@ -326,15 +333,15 @@ Switch with `/singmodel Ace-Step-1.5-XL-Thinking`; `/duration` and `/seed` are r
 - `prompt` → ACE-Step `caption`/`prompt` (the new cover style). Required.
 - `lyrics` → optional new lyrics; omit to keep ACE-Step's behaviour (no LM, so the new
   lyrics are used directly).
-- `cover_strength` → ACE-Step `audio_cover_strength`, clamped to 0.0–1.0: fraction of
-  denoising steps that keep the source as conditioning (1.0 = always, the cover default;
-  lower → switches later steps to text2music conditioning → more prompt-driven restyle).
-  Optional.
-- `cover_noise` → ACE-Step `cover_noise_strength`, clamped to 0.0–1.0: **the primary
-  fidelity knob.** How faithfully the cover follows the source. ACE-Step truncates the
-  schedule at `t = 1 - cover_noise_strength`: 0 = drift to the prompt, 1 = near-passthrough.
-  When omitted the wrapper applies its `--cover_noise_strength` default (0.4, good-cover
-  range ~0.3–0.5). Don't send ≥0.6 — too few denoising steps → source back with artefacts.
+- `cover_strength` → ACE-Step `audio_cover_strength`, clamped 0.0–1.0. `cover_steps =
+  int(infer_steps * audio_cover_strength)`: the first `cover_steps` denoise against the source,
+  the rest are prompt-driven. ACE-Step documents `0.2` as "style transfer" (genre change) and
+  `1.0` as a faithful, barely-restyled cover. When omitted the wrapper applies its
+  `--cover_audio_strength` default (0.2).
+- `cover_noise` → ACE-Step `cover_noise_strength`, clamped 0.0–1.0. Sets the source fraction in
+  the seed (`effective_noise_level = 1 - cover_noise`) and truncates the denoising schedule.
+  `0.0` = pure-noise seed (no melody); `1.0` = full source seed (near-passthrough). When omitted
+  the wrapper applies its `--cover_noise_strength` default (0.2, the Gradio UI cover default).
 - `duration` is milliseconds; clamped to 10–600s. Optional.
 - `seed` is optional; omitted → random seed.
 
@@ -346,6 +353,14 @@ Response (same shape for both endpoints):
 ```json
 {
   "voice_data": "<base64 OGG/Opus audio>",
-  "info": { "dit_model": "acestep-v15-xl-base", "metas": { "...": "..." } }
+  "info": {
+    "dit_model": "acestep-v15-xl-base",
+    "audio_cover_strength": 0.2,
+    "cover_noise_strength": 0.2,
+    "metas": { "...": "..." }
+  }
 }
 ```
+
+For `/cover` the `info` echoes `audio_cover_strength` / `cover_noise_strength` actually used, so
+you can confirm from logs what was forwarded to ACE-Step.

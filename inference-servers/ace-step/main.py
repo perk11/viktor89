@@ -31,6 +31,8 @@ import urllib.request
 
 from flask import Flask, request, jsonify
 
+from cover_params import build_cover_params
+
 app = Flask(__name__)
 
 parser = argparse.ArgumentParser(description="ACE-Step 1.5 XL /sing wrapper")
@@ -77,6 +79,29 @@ parser.add_argument(
          'base DiT supports (the SFT/turbo DiTs do text2music only). Download it with '
          '`acestep-download --model acestep-v15-xl-base` and load it on the API server '
          '(ACESTEP_CONFIG_PATH or /v1/init).',
+)
+parser.add_argument(
+    '--cover_noise_strength', type=float, default=0.2,
+    help='cover_noise_strength forwarded to ACE-Step for /cover. Two combined effects (verified '
+         'against the v1.5 DiT source, modeling_acestep_v15_xl_base.py): (1) it sets how much of '
+         "the source is blended into the seed latent (effective_noise_level = 1 - cover_noise), "
+         'and (2) ACE-Step TRUNCATES the denoising schedule to start at t = effective_noise_level, '
+         'so higher values leave fewer steps. With the API default shift=3.0 and 50 steps this '
+         'means: 0.0 -> 50 steps from pure noise (no source melody at all); 0.2 -> ~29 steps from '
+         'an ~80% noise seed (the Gradio UI cover default — recognisable melody, room to restyle); '
+         '0.4 -> only ~17 steps; 0.7 -> ~6 steps and an ~70% source seed (near-passthrough with '
+         "artefacts, the old 'same song, worse quality'). 0.2 is the safe default; overridable "
+         'per request via the `cover_noise` field (the bot exposes it as /covernoise).',
+)
+parser.add_argument(
+    '--cover_audio_strength', type=float, default=0.2,
+    help='audio_cover_strength forwarded to ACE-Step for /cover. cover_steps = int(infer_steps * '
+         'audio_cover_strength); only the first cover_steps denoise using source-anchored '
+         '("cover") conditioning, the rest use prompt-driven text2music conditioning. ACE-Step '
+         "documents 0.2 as 'style transfer' (change the genre while keeping the skeleton) and 1.0 "
+         'as a faithful cover that barely restyles. 0.2 is the default so covers actually change '
+         'genre (the recurring complaint); raise toward 0.5-1.0 via /coverstrength to keep more '
+         'of the original. Overridable per request via the `cover_strength` field.',
 )
 parser.add_argument('--timeout', type=int, default=600, help='Max seconds to wait for one task')
 parser.add_argument('--poll_interval', type=float, default=2.0, help='Seconds between status polls')
@@ -163,26 +188,22 @@ def download_audio(file_url: str) -> bytes:
         raise RuntimeError(f'audio download HTTP {e.code}: {detail}') from e
 
 
-def to_opus_ogg(audio: bytes, input_format: str) -> bytes:
+def to_opus_ogg(audio: bytes) -> bytes:
     # Telegram voice notes must be OGG/Opus. ACE-Step can't be relied on to produce opus
     # (its torchcodec path needs FFmpeg libs + a matching torchcodec build), so we take a
-    # dependable format (wav via soundfile) and re-encode here with the ffmpeg CLI — the
-    # same approach as inference-servers/tts/txt2voice.py.
-    with tempfile.NamedTemporaryFile(suffix='.' + input_format) as in_f, \
-            tempfile.NamedTemporaryFile(suffix='.ogg') as out_f:
-        in_f.write(audio)
-        in_f.flush()
-        proc = subprocess.run(
-            ['ffmpeg', '-y', '-i', in_f.name, '-vn', '-c:a', 'libopus', out_f.name],
-            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+    # dependable format (wav) and re-encode here with the ffmpeg CLI. The audio is piped
+    # through ffmpeg via stdin/stdout so the (uncompressed) wav is never spilled to a temp
+    # file on disk.
+    proc = subprocess.run(
+        ['ffmpeg', '-y', '-i', 'pipe:0', '-vn', '-c:a', 'libopus', '-f', 'ogg', 'pipe:1'],
+        input=audio, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            'ffmpeg failed to encode OGG/Opus (is the ffmpeg CLI installed?):\n'
+            + proc.stderr.decode('utf-8', errors='replace')
         )
-        if proc.returncode != 0:
-            raise RuntimeError(
-                'ffmpeg failed to encode OGG/Opus (is the ffmpeg CLI installed?):\n'
-                + proc.stderr.decode('utf-8', errors='replace')
-            )
-        with open(out_f.name, 'rb') as f:
-            return f.read()
+    return proc.stdout
 
 
 def submit_and_encode(params: dict) -> tuple[dict, bytes]:
@@ -201,7 +222,7 @@ def submit_and_encode(params: dict) -> tuple[dict, bytes]:
         if result.get('generation_info'):
             print(f"generation_info: {result['generation_info']}", flush=True)
         audio = download_audio(result['file'])
-        audio = to_opus_ogg(audio, args.acestep_format)
+        audio = to_opus_ogg(audio)
         print(f"Re-encoded {args.acestep_format} -> OGG/Opus ({len(audio)} bytes)", flush=True)
     finally:
         semaphore.release()
@@ -291,6 +312,7 @@ def cover():
     audio_b64 = data.get('audio')
     prompt = data.get('prompt')
     cover_strength = data.get('cover_strength')
+    cover_noise = data.get('cover_noise')
     lyrics = data.get('lyrics')
     duration_ms = data.get('duration')
 
@@ -310,32 +332,27 @@ def cover():
         src_f.write(audio_bytes)
         src_path = src_f.name
 
-    params = {
-        'task_type': 'cover',
-        'src_audio_path': src_path,
-        'prompt': prompt,
-        'audio_format': args.acestep_format,
-        'batch_size': 1,
-        'model': args.cover_dit_model,
-        'inference_steps': args.inference_steps,
-        'guidance_scale': args.guidance_scale,
-        # thinking/LM are automatically ignored by ACE-Step for cover tasks.
-    }
-    if lyrics:
-        params['lyrics'] = lyrics
-    if cover_strength is not None:
-        try:
-            strength = float(cover_strength)
-        except (TypeError, ValueError):
-            strength = 1.0
-        params['audio_cover_strength'] = max(0.0, min(1.0, strength))
-    if duration_ms:
-        params['audio_duration'] = max(10, min(600, int(duration_ms) / 1000))
-    resolve_seed(params, data)
+    params = build_cover_params(
+        prompt=prompt,
+        lyrics=lyrics,
+        cover_strength=cover_strength,
+        cover_noise=cover_noise,
+        duration_ms=duration_ms,
+        dit_model=args.cover_dit_model,
+        acestep_format=args.acestep_format,
+        inference_steps=args.inference_steps,
+        guidance_scale=args.guidance_scale,
+        default_cover_strength=args.cover_audio_strength,
+        default_cover_noise=args.cover_noise_strength,
+        seed=data.get('seed'),
+    )
+    params['src_audio_path'] = src_path
 
     print(
         f"Submitting ACE-Step cover task (dit={args.cover_dit_model}, "
-        f"strength={params.get('audio_cover_strength', 1.0)})",
+        f"audio_cover_strength={params['audio_cover_strength']}, "
+        f"cover_noise_strength={params['cover_noise_strength']}, "
+        f"inference_steps={params['inference_steps']})",
         flush=True,
     )
     try:
@@ -354,6 +371,10 @@ def cover():
         'prompt': prompt,
         'lyrics': lyrics or '',
     })
+    # Echo the cover knobs actually used so the operator can see (in logs / info)
+    # what was sent — essential for diagnosing "the cover didn't change" reports.
+    info['audio_cover_strength'] = params['audio_cover_strength']
+    info['cover_noise_strength'] = params['cover_noise_strength']
     return jsonify({'voice_data': base64.b64encode(audio).decode('utf-8'), 'info': info})
 
 
