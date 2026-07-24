@@ -151,9 +151,10 @@ class AssistantContext
                    // A sibling photo message (e.g. the image produced by an
                    // image-generation tool call) lands here as a trailing
                    // assistant turn after the tool result. Its image must be
-                   // folded in alongside its caption text, otherwise the model
-                   // that supports images loses the generated photo from its
-                   // own history.
+                   // folded in, otherwise the model that supports images loses
+                   // the generated photo from its own history. (A bot photo's
+                   // caption is already stripped upstream, so only the image is
+                   // carried over here.)
                    if ($message->photo !== null) {
                        $photoPart = $this->buildPhotoContentPart($message->photo);
                        if ($photoPart !== null) {

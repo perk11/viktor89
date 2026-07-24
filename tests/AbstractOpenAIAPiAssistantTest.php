@@ -104,6 +104,46 @@ class AbstractOpenAIAPiAssistantTest extends TestCase
     }
 
     /**
+     * A photo generated/sent by the bot carries its prompt/parameters as the
+     * caption. For a vision assistant only the image matters, so the caption
+     * must be dropped from the context (text stays empty).
+     */
+    public function testBotPhotoForVisionAssistantDropsCaptionAndKeepsPhotoOnly(): void
+    {
+        $assistant = $this->buildAssistant(supportsImages: true);
+        $chain = $this->chainWithMessage(
+            messageText: "Steps: 9, Seed: 1, Model: z_image_turbo",
+            photoFileId: 'file-1',
+            userId: self::BOT_USER_ID,
+        );
+
+        $context = $this->convert($assistant, $chain);
+
+        $this->assertSame(StubPhotoDownloader::PHOTO_BYTES, $context->messages[0]->photo);
+        $this->assertSame('', $context->messages[0]->text);
+    }
+
+    /**
+     * The caption of a bot-generated image must not leak into the context of a
+     * non-vision assistant either; only the auto-generated description is kept.
+     */
+    public function testBotPhotoForNonVisionAssistantDropsCaptionAndKeepsAltTextOnly(): void
+    {
+        $assistant = $this->buildAssistant(supportsImages: false, altText: 'a woman with a guitar');
+        $chain = $this->chainWithMessage(
+            messageText: "Steps: 9, Seed: 1, Model: z_image_turbo",
+            photoFileId: 'file-1',
+            userId: self::BOT_USER_ID,
+        );
+
+        $context = $this->convert($assistant, $chain);
+
+        $this->assertSame('a woman with a guitar', $context->messages[0]->text);
+        $this->assertStringNotContainsString('[caption]', $context->messages[0]->text);
+        $this->assertStringNotContainsString('Steps', $context->messages[0]->text);
+    }
+
+    /**
      * A text-less message (e.g. a voice note) must still fall back to the
      * alt-text provider, which returns its transcription.
      */
@@ -171,12 +211,12 @@ class AbstractOpenAIAPiAssistantTest extends TestCase
         );
     }
 
-    private function chainWithMessage(string $messageText, ?string $photoFileId = null): MessageChain
+    private function chainWithMessage(string $messageText, ?string $photoFileId = null, ?int $userId = null): MessageChain
     {
         $message = new InternalMessage();
         $message->id = 1;
         $message->type = 'text';
-        $message->userId = 999;
+        $message->userId = $userId ?? 999;
         $message->userName = 'Tester';
         $message->chatId = 1;
         $message->date = time();

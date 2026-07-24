@@ -341,12 +341,20 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
            $assistantContextMessage->toolCalls = $message->toolCalls;
            $assistantContextMessage->reasoning = $message->reasoning;
            $assistantContextMessage->messageId = $message->id;
+           // A photo sent by the bot (e.g. a generated image) carries its
+           // generation prompt/parameters as the caption. That metadata is
+           // noise in the model's context, so it is dropped: vision models get
+           // the image alone, non-vision models get only the alt-text.
+           $isBotPhoto = $message->photoFileId !== null && !$assistantContextMessage->isUser;
            if ($message->photoFileId !== null) {
                 if ($this->supportsImages) {
                     $assistantContextMessage->photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);
+                    if ($isBotPhoto) {
+                        $assistantContextMessage->text = '';
+                    }
                 } else {
                     $assistantContextMessage->text = $this->altTextProvider->provide($message, $progressUpdateCallback);
-                    if ($message->messageText !== '') {
+                    if (!$isBotPhoto && $message->messageText !== '') {
                         $assistantContextMessage->text .= "\n[caption] " . $message->messageText;
                     }
                 }
