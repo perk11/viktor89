@@ -107,6 +107,7 @@ Common options:
 | `--dit_model` | `acestep-v15-xl-sft` | DiT model (must be loaded on the API server). Also: `acestep-v15-xl-turbo`, `acestep-v15-xl-base` |
 | `--inference_steps` | `50` | Diffusion steps (50 for sft/base; pass `8` if you switch to turbo) |
 | `--guidance_scale` | `7.0` | CFG strength (effective for sft/base; ignored by turbo) |
+| `--cover_dit_model` | `acestep-v15-xl-base` | DiT used for `/cover` (cover is audio-to-audio; SFT/turbo only do text2music). Download with `acestep-download --model acestep-v15-xl-base` and load it on the API server |
 | `--lm_model` | (none) | 5Hz LM model, e.g. `acestep-5Hz-lm-1.7B` (only with `--thinking`) |
 | `--thinking` | `false` | Use the 5Hz LM (CoT) to plan generation. Off by default (a missing/broken LM yields noise); enable only with a confirmed-working LM |
 | `--acestep_format` | `wav` | Format requested from ACE-Step. The wrapper always re-encodes to OGG/Opus via the `ffmpeg` CLI (opus fails inside ACE-Step without matching FFmpeg libs + torchcodec) |
@@ -195,6 +196,42 @@ Neon lights across the city skyline
 ...
 ```
 
+### `/cover` (audio-to-audio cover)
+
+Cover restyles an existing song from a new prompt while keeping its melody/structure.
+Reply on a bot message that is itself a reply to an audio/voice/video/video-note, then
+use `/cover` with the new style (and optionally new lyrics):
+
+```
+/cover female vocal, synthwave, 80s, driving bass
+
+[Verse 1]
+new lyrics here...
+```
+
+Add a separate entry under `coverModels` (the `url` still points at this wrapper):
+
+```jsonc
+"coverModels": {
+  "Ace-Step-1.5-XL": {
+    "url": "http://localhost:8213"
+  }
+}
+```
+
+Switch with `/covermodel Ace-Step-1.5-XL`; tune follow-vs-restyle with
+`/coverstrength 0.8` (0.0–1.0; lower = closer to style transfer). `/duration` and `/seed`
+are reused from `/sing`. Cover needs the **base** DiT, so on top of the SFT setup above,
+also download and load it:
+
+```bash
+acestep-download --model acestep-v15-xl-base
+# Launch the ACE-Step API server pointing at the base DiT (separate instance/port for cover):
+ACESTEP_CONFIG_PATH=acestep-v15-xl-base acestep-api
+# This wrapper, pointed at that server and told to use the base DiT for cover:
+python main.py --port 8214 --cover_dit_model acestep-v15-xl-base
+```
+
 ## Request / response
 
 `POST /txt_tags2music`
@@ -214,11 +251,36 @@ Neon lights across the city skyline
 - `duration` is milliseconds; clamped to ACE-Step's 10–600s range. Omit to let the model decide.
 - `seed` is optional; omitted → random seed.
 
-Response:
+`POST /cover`
+
+```json
+{
+  "audio": "<base64 of the source song bytes>",
+  "prompt": "female vocal, synthwave, 80s, driving bass",
+  "lyrics": "[Verse 1]\noptional new lyrics",
+  "cover_strength": 0.8,
+  "duration": 180000,
+  "seed": 12345
+}
+```
+
+- `audio` → base64 of the source song (the message being covered). Required.
+- `prompt` → ACE-Step `caption`/`prompt` (the new cover style). Required.
+- `lyrics` → optional new lyrics; omit to keep ACE-Step's behaviour (no LM, so the new
+  lyrics are used directly).
+- `cover_strength` → ACE-Step `audio_cover_strength`, clamped to 0.0–1.0 (1.0 = full
+  re-render, ~0.2 = style transfer). Optional.
+- `duration` is milliseconds; clamped to 10–600s. Optional.
+- `seed` is optional; omitted → random seed.
+
+Cover maps to ACE-Step's async task via `task_type=cover` + `src_audio_path` (the wrapper
+writes `audio` to a host-local temp file). The 5Hz LM is automatically skipped for cover.
+
+Response (same shape for both endpoints):
 
 ```json
 {
   "voice_data": "<base64 OGG/Opus audio>",
-  "info": { "dit_model": "acestep-v15-xl-sft", "metas": { "...": "..." } }
+  "info": { "dit_model": "acestep-v15-xl-base", "metas": { "...": "..." } }
 }
 ```

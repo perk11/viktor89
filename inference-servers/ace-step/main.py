@@ -1,20 +1,27 @@
 """
-ACE-Step 1.5 XL wrapper for the bot's /sing command.
+ACE-Step 1.5 XL wrapper for the bot's /sing and /cover commands.
 
 ACE-Step 1.5 ships its own asynchronous REST API server (`uv run acestep-api`):
 POST /release_task -> task_id, then poll POST /query_result, then GET /v1/audio.
 
-This wrapper exposes the synchronous contract the bot's SingApiClient already
-expects (POST /txt_tags2music -> {voice_data: base64, info: {...}}), translating
-the bot's (tags, lyrics, duration in ms, seed) into an ACE-Step generation task
-and blocking until the audio is ready. Audio is requested from ACE-Step as `wav`
-(its opus/torchcodec output path is unreliable), then re-encoded to OGG/Opus with the
-ffmpeg CLI — the format Telegram requires for voice notes.
+This wrapper exposes the synchronous contract the bot's clients expect:
+POST /txt_tags2music -> {voice_data: base64, info: {...}} (text2music for /sing), and
+POST /cover           -> {voice_data: base64, info: {...}} (audio-to-audio cover). It
+translates the bot's (tags, lyrics, duration in ms, seed) — or, for cover, the source
+song + a new prompt/lyrics/strength — into an ACE-Step task and blocks until the audio
+is ready. Audio is requested from ACE-Step as `wav` (its opus/torchcodec output path is
+unreliable), then re-encoded to OGG/Opus with the ffmpeg CLI — the format Telegram
+requires for voice notes.
+
+Cover needs the base DiT (`--cover_dit_model`, default acestep-v15-xl-base); the SFT/turbo
+DiTs only do text2music. Cover reads the source song from a host-local temp file, so this
+wrapper must run on the same host as the acestep-api server.
 """
 
 import argparse
 import base64
 import json
+import os
 import subprocess
 import tempfile
 import threading
@@ -63,6 +70,13 @@ parser.add_argument(
 parser.add_argument(
     '--guidance_scale', type=float, default=7.0,
     help='CFG guidance strength (effective for sft/base; ignored by turbo)',
+)
+parser.add_argument(
+    '--cover_dit_model', type=str, default='acestep-v15-xl-base',
+    help='DiT model used for /cover tasks. Cover is an audio-to-audio task that only the '
+         'base DiT supports (the SFT/turbo DiTs do text2music only). Download it with '
+         '`acestep-download --model acestep-v15-xl-base` and load it on the API server '
+         '(ACESTEP_CONFIG_PATH or /v1/init).',
 )
 parser.add_argument('--timeout', type=int, default=600, help='Max seconds to wait for one task')
 parser.add_argument('--poll_interval', type=float, default=2.0, help='Seconds between status polls')
@@ -171,6 +185,50 @@ def to_opus_ogg(audio: bytes, input_format: str) -> bytes:
             return f.read()
 
 
+def submit_and_encode(params: dict) -> tuple[dict, bytes]:
+    # Serialize ACE-Step's single pipeline; keep generations ordered.
+    semaphore.acquire()
+    try:
+        task_id = release_task(params)
+        print(f"Task {task_id} submitted, polling...", flush=True)
+        result = wait_for_task(task_id)
+        print(
+            f"Task {task_id} -> dit_model={result.get('dit_model')!r} "
+            f"lm_model={result.get('lm_model')!r} seed={result.get('seed_value')!r} "
+            f"metas={result.get('metas')}",
+            flush=True,
+        )
+        if result.get('generation_info'):
+            print(f"generation_info: {result['generation_info']}", flush=True)
+        audio = download_audio(result['file'])
+        audio = to_opus_ogg(audio, args.acestep_format)
+        print(f"Re-encoded {args.acestep_format} -> OGG/Opus ({len(audio)} bytes)", flush=True)
+    finally:
+        semaphore.release()
+    return result, audio
+
+
+def build_info(result: dict, fallbacks: dict) -> dict:
+    return {
+        'dit_model': result.get('dit_model', fallbacks.get('dit_model')),
+        'lm_model': result.get('lm_model'),
+        'metas': result.get('metas', {}),
+        'seed_value': result.get('seed_value'),
+        'prompt': result.get('prompt', fallbacks.get('prompt')),
+        'lyrics': result.get('lyrics', fallbacks.get('lyrics')),
+    }
+
+
+def resolve_seed(params: dict, data: dict) -> None:
+    # data['seed'] may be a bot integer or None; ACE-Step wants a bool+int pair.
+    seed = data.get('seed')
+    if seed is not None:
+        params['use_random_seed'] = False
+        params['seed'] = int(seed)
+    else:
+        params['use_random_seed'] = True
+
+
 @app.route('/txt_tags2music', methods=['POST'])
 def txt_tags2music():
     data = request.json or {}
@@ -181,7 +239,6 @@ def txt_tags2music():
     # `model` is the bot's singModels key (e.g. "Ace-Step-1.5-XL"); ignored here
     # in favour of the DiT model configured via --dit_model on this wrapper.
     duration_ms = data.get('duration')
-    seed = data.get('seed')
 
     if not tags:
         return jsonify({'error': 'tags (music description / caption) are required'}), 400
@@ -202,55 +259,102 @@ def txt_tags2music():
     if duration_ms:
         duration_seconds = max(10, min(600, int(duration_ms) / 1000))
         params['audio_duration'] = duration_seconds
-    if seed is not None:
-        params['use_random_seed'] = False
-        params['seed'] = int(seed)
-    else:
-        params['use_random_seed'] = True
+    resolve_seed(params, data)
     params['inference_steps'] = args.inference_steps
     params['guidance_scale'] = args.guidance_scale
 
-    semaphore.acquire()
     print(
         f"Submitting ACE-Step task (dit={args.dit_model}, steps={args.inference_steps}, "
         f"cfg={args.guidance_scale}, thinking={args.thinking})",
         flush=True,
     )
     try:
-        task_id = release_task(params)
-        print(f"Task {task_id} submitted, polling...", flush=True)
-        result = wait_for_task(task_id)
-        print(
-            f"Task {task_id} -> dit_model={result.get('dit_model')!r} "
-            f"lm_model={result.get('lm_model')!r} seed={result.get('seed_value')!r} "
-            f"metas={result.get('metas')}",
-            flush=True,
-        )
-        if result.get('generation_info'):
-            print(f"generation_info: {result['generation_info']}", flush=True)
-        audio = download_audio(result['file'])
-        audio = to_opus_ogg(audio, args.acestep_format)
-        print(f"Re-encoded {args.acestep_format} -> OGG/Opus ({len(audio)} bytes)", flush=True)
+        result, audio = submit_and_encode(params)
     except Exception as e:
         print(f"ACE-Step generation failed: {e}", flush=True)
         return jsonify({'error': str(e)}), 500
+
+    info = build_info(result, {
+        'dit_model': args.dit_model,
+        'prompt': tags,
+        'lyrics': lyrics,
+    })
+    return jsonify({'voice_data': base64.b64encode(audio).decode('utf-8'), 'info': info})
+
+
+@app.route('/cover', methods=['POST'])
+def cover():
+    """Cover an audio file with ACE-Step (task_type=cover): keep the melody/structure,
+    restyle it from a new prompt + optional new lyrics."""
+    data = request.json or {}
+
+    audio_b64 = data.get('audio')
+    prompt = data.get('prompt')
+    cover_strength = data.get('cover_strength')
+    lyrics = data.get('lyrics')
+    duration_ms = data.get('duration')
+
+    if not audio_b64:
+        return jsonify({'error': 'audio (base64 of the source song) is required'}), 400
+    if not prompt:
+        return jsonify({'error': 'prompt (the new cover style / caption) is required'}), 400
+
+    try:
+        audio_bytes = base64.b64decode(audio_b64)
+    except Exception as e:
+        return jsonify({'error': f'audio is not valid base64: {e}'}), 400
+
+    # The bot sends the source song inline; ACE-Step reads it by absolute path, so we
+    # spill it to a temp file (this wrapper and the acestep-api server share one host).
+    with tempfile.NamedTemporaryFile(suffix='.src', delete=False) as src_f:
+        src_f.write(audio_bytes)
+        src_path = src_f.name
+
+    params = {
+        'task_type': 'cover',
+        'src_audio_path': src_path,
+        'prompt': prompt,
+        'audio_format': args.acestep_format,
+        'batch_size': 1,
+        'model': args.cover_dit_model,
+        'inference_steps': args.inference_steps,
+        'guidance_scale': args.guidance_scale,
+        # thinking/LM are automatically ignored by ACE-Step for cover tasks.
+    }
+    if lyrics:
+        params['lyrics'] = lyrics
+    if cover_strength is not None:
+        try:
+            strength = float(cover_strength)
+        except (TypeError, ValueError):
+            strength = 1.0
+        params['audio_cover_strength'] = max(0.0, min(1.0, strength))
+    if duration_ms:
+        params['audio_duration'] = max(10, min(600, int(duration_ms) / 1000))
+    resolve_seed(params, data)
+
+    print(
+        f"Submitting ACE-Step cover task (dit={args.cover_dit_model}, "
+        f"strength={params.get('audio_cover_strength', 1.0)})",
+        flush=True,
+    )
+    try:
+        result, audio = submit_and_encode(params)
+    except Exception as e:
+        print(f"ACE-Step cover failed: {e}", flush=True)
+        return jsonify({'error': str(e)}), 500
     finally:
-        semaphore.release()
+        try:
+            os.remove(src_path)
+        except OSError:
+            pass
 
-    info = {
-        'dit_model': result.get('dit_model', args.dit_model),
-        'lm_model': result.get('lm_model'),
-        'metas': result.get('metas', {}),
-        'seed_value': result.get('seed_value'),
-        'prompt': result.get('prompt', tags),
-        'lyrics': result.get('lyrics', lyrics),
-    }
-
-    response = {
-        'voice_data': base64.b64encode(audio).decode('utf-8'),
-        'info': info,
-    }
-    return jsonify(response)
+    info = build_info(result, {
+        'dit_model': args.cover_dit_model,
+        'prompt': prompt,
+        'lyrics': lyrics or '',
+    })
+    return jsonify({'voice_data': base64.b64encode(audio).decode('utf-8'), 'info': info})
 
 
 if __name__ == '__main__':
