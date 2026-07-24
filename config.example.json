@@ -407,6 +407,17 @@
   "singModels": {
     "HeartMuLa": {
       "url": "http://localhost:8212"
+    },
+    "Ace-Step-1.5-XL": {
+      "url": "http://localhost:8213"
+    },
+    "Ace-Step-1.5-XL-Thinking": {
+      "url": "http://localhost:8215"
+    }
+  },
+  "coverModels": {
+    "Ace-Step-1.5-XL": {
+      "url": "http://localhost:8214"
     }
   }
 }
