@@ -4,7 +4,7 @@ namespace Perk11\Viktor89\Assistant;
 
 use GuzzleHttp\Client as GuzzleClient;
 use OpenAI;
-use OpenAI\Client;
+use OpenAI\Contracts\ClientContract;
 use OpenAI\Exceptions\ErrorException;
 use Perk11\Viktor89\Assistant\Compaction\CompactionKey;
 use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
@@ -26,7 +26,16 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 {
     private const int REPETITION_THRESHOLD_CHARACTERS = 2048;
     private const int MAX_COMPACTION_RETRIES = 2;
-    private readonly Client $openAiClient;
+    /**
+     * Safety backstops for the tool-call loop. A model that keeps calling the
+     * SAME tool over and over (e.g. re-generating an image it cannot visually
+     * verify) is aborted after MAX_CONSECUTIVE_SAME_TOOL_USES calls in a row;
+     * calling any other tool resets that counter. MAX_TOTAL_TOOL_USES is a hard
+     * ceiling on the whole completion regardless of which tools are used.
+     */
+    private const int MAX_CONSECUTIVE_SAME_TOOL_USES = 20;
+    private const int MAX_TOTAL_TOOL_USES = 150;
+    private readonly ClientContract $openAiClient;
     private readonly ContextCompactor $contextCompactor;
 
     /**
@@ -38,7 +47,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         UserPreferenceReaderInterface $responseStartProcessor,
         UserPreferenceReaderInterface $editFrequencyProcessor,
         TelegramFileDownloader $telegramFileDownloader,
-        AltTextProvider $altTextProvider,
+        private readonly AltTextProvider $altTextProvider,
         private readonly ProcessingResultExecutor $processingResultExecutor,
         int $telegramBotUserId,
         private readonly string $url,
@@ -47,14 +56,19 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         private readonly array $toolDefintions = [],
         private readonly CompactionSummaryStoreInterface $compactionStore,
         ?LoggerInterface $logger = null,
+        ?ClientContract $openAiClient = null,
     ) {
-        $openAiFactory = OpenAI::factory()
-            ->withBaseUri(rtrim($url, '/'))
-            ->withHttpClient(new GuzzleClient(['timeout' => 3600*4]));
-        if ($apiKey !== '') {
-            $openAiFactory->withApiKey($apiKey);
+        if ($openAiClient !== null) {
+            $this->openAiClient = $openAiClient;
+        } else {
+            $openAiFactory = OpenAI::factory()
+                ->withBaseUri(rtrim($url, '/'))
+                ->withHttpClient(new GuzzleClient(['timeout' => 3600 * 4]));
+            if ($apiKey !== '') {
+                $openAiFactory->withApiKey($apiKey);
+            }
+            $this->openAiClient = $openAiFactory->make();
         }
-        $this->openAiClient = $openAiFactory->make();
         parent::__construct(
             $systemPromptProcessor,
             $responseStartProcessor,
@@ -155,6 +169,9 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
         $allToolCalls = [];
         $accumulator = new ResponseContentAccumulator();
+        $totalToolUses = 0;
+        $lastToolName = null;
+        $consecutiveSameToolUses = 0;
 
         retry_compaction:
         try {
@@ -307,6 +324,13 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
             foreach ($toolCalls as $toolCall) {
                 $functionName = $toolCall->function->name;
+                $totalToolUses++;
+                if ($functionName === $lastToolName) {
+                    $consecutiveSameToolUses++;
+                } else {
+                    $lastToolName = $functionName;
+                    $consecutiveSameToolUses = 1;
+                }
                 $toolDefinition = $this->toolDefintions[$functionName] ?? null;
                 $isSilent = $toolDefinition !== null && $toolDefinition->silent;
 
@@ -390,6 +414,8 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     unset($toolResult['automatic_output_markdown']);
                 }
 
+                $contextImage = $this->processContextImage($toolResult, $progressUpdateCallback);
+
                 $toolResultContent = json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 $this->logger?->log(LogLevel::DEBUG, 'Tool call result: ' . mb_substr($toolResultContent, 0, 1000));
 
@@ -400,11 +426,46 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     $toolResultContent,
                 );
 
-                $requestOptions['messages'][] = [
+                $toolMessage = [
                     'role' => 'tool',
                     'tool_call_id' => $toolCall->id,
                     'content' => $toolResultContent,
                 ];
+                // Let a vision-capable model actually see the image it just produced
+                // (e.g. to judge an image_gen_tool edit) instead of guessing.
+                if ($contextImage !== null) {
+                    $toolMessage['content'] = [
+                        ['type' => 'text', 'text' => $toolResultContent],
+                        ['type' => 'image_url', 'image_url' => ['url' => $contextImage]],
+                    ];
+                }
+                $requestOptions['messages'][] = $toolMessage;
+            }
+
+            $abortReason = null;
+            if ($consecutiveSameToolUses >= self::MAX_CONSECUTIVE_SAME_TOOL_USES) {
+                $abortReason = "the same tool (`$lastToolName`) was called "
+                    . self::MAX_CONSECUTIVE_SAME_TOOL_USES
+                    . " times in a row";
+            } elseif ($totalToolUses >= self::MAX_TOTAL_TOOL_USES) {
+                $abortReason = 'the total limit of ' . self::MAX_TOTAL_TOOL_USES
+                    . ' tool calls was reached';
+            }
+            if ($abortReason !== null) {
+                $limitMessage = "\n> ==Aborting the tool-call loop: " . $abortReason
+                    . ". Stopping to avoid an infinite loop.==\n";
+                $this->logger?->log(LogLevel::WARNING, 'Aborting tool-call loop: ' . $abortReason . '.');
+                $accumulator->appendTelegramDisplayOnly($limitMessage);
+                if ($streamFunction !== null) {
+                    $streamFunction($limitMessage);
+                }
+
+                return new CompletionResponse(
+                    $accumulator->llmVisibleContent,
+                    $allToolCalls,
+                    reasoning: $reasoning,
+                    displayContent: $accumulator->telegramDisplayedContent,
+                );
             }
         }
         } catch (ErrorException $e) {
@@ -518,6 +579,39 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         }
 
         return ['input' => $actionInput];
+    }
+
+    /**
+     * Make a tool's generated image ('context_image') visible to the model so it
+     * has feedback about what it just produced instead of guessing and looping:
+     *  - vision assistants: returns a data URL to embed as an image_url part;
+     *  - non-vision assistants: appends an auto-generated alt-text description to
+     *    the tool result so the model at least knows what the image contains.
+     * The raw bytes are always stripped from $toolResult so they never reach json_encode.
+     */
+    private function processContextImage(array &$toolResult, ?ProgressUpdateCallback $progressUpdateCallback): ?string
+    {
+        $image = $toolResult['context_image'] ?? null;
+        unset($toolResult['context_image']);
+
+        if (!is_string($image) || $image === '') {
+            return null;
+        }
+
+        if ($this->supportsImages) {
+            return 'data:image/png;base64,' . base64_encode($image);
+        }
+
+        try {
+            $altText = $this->altTextProvider->generateAltTextForImageString($image, $progressUpdateCallback);
+            if ($altText !== '') {
+                $toolResult['generated_image_description'] = $altText;
+            }
+        } catch (\Throwable $e) {
+            $this->logger?->log(LogLevel::ERROR, 'Failed to generate alt text for generated image: ' . $e->getMessage());
+        }
+
+        return null;
     }
 
     /**

@@ -50,13 +50,17 @@ class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareTo
         );
         try {
             $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId);
-            $this->photoResponder->sendPhoto($lastMessage, $response->getFirstImageAsPng(), $response->sendAsFile, $response->getCaption());
+            $image = $response->getFirstImageAsPng();
+            $this->photoResponder->sendPhoto($lastMessage, $image, $response->sendAsFile, $response->getCaption());
         } catch (\Exception $e) {
             $this->logger->log(LogLevel::ERROR, $e->getMessage() . "\n" . $e->getTraceAsString());
             return ['status' => 'failed'];
         }
 
-        return ['status' => 'image_succesfully_generated_and_sent_to_user'];
+        return [
+            'status' => 'image_succesfully_generated_and_sent_to_user',
+            'context_image' => $image,
+        ];
     }
 }
 
