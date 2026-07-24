@@ -36,6 +36,11 @@ from flask import Flask, request, jsonify
 parser = argparse.ArgumentParser(description="AudioSR audio super-resolution server")
 parser.add_argument('--port', type=int, help='port to listen on', required=True)
 parser.add_argument(
+    '--host', type=str, default='localhost',
+    help='Address to bind to. Defaults to localhost; set to 0.0.0.0 to listen on all '
+         'interfaces (required when running inside a Docker container).',
+)
+parser.add_argument(
     '--model_name', type=str, default='basic', choices=['basic', 'speech'],
     help='AudioSR checkpoint. "basic" is the general (music/speech/fx) model; '
          '"speech" is tuned for speech.',
@@ -266,4 +271,4 @@ def _cleanup(*paths: str) -> None:
 
 
 if __name__ == '__main__':
-    app.run(host='localhost', port=args.port)
+    app.run(host=args.host, port=args.port)

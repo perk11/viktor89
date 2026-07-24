@@ -64,6 +64,35 @@ The AudioSR checkpoint (`basic` by default) **downloads automatically on first r
 `~/.cache/audiosr/` (a few hundred MB). To pre-fetch it, run any `audiosr` command before
 starting the server, e.g. `audiosr -i some.wav`.
 
+### Run in Docker (GPU)
+
+The `Dockerfile` in this directory reproduces the conda env above and passes the host GPU
+through with `--gpus all` (requires the
+[nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/)).
+PyTorch wheels bundle their own CUDA runtime, so no CUDA toolkit is needed on the host —
+only the NVIDIA driver.
+
+```bash
+# from this directory
+sudo docker build -t viktor89-audio-sr .
+
+# --gpus all exposes the GPU. The checkpoint is stored in a named volume so it is
+# downloaded once and reused across restarts.
+sudo docker run --rm --gpus all -p 8240:8240 \
+  -v audiosr-cache:/root/.cache/audiosr viktor89-audio-sr
+
+# Sanity check it's up:
+curl -s http://localhost:8240/enhance -X POST \
+  -H 'Content-Type: application/json' \
+  -d "{\"audio\": \"$(base64 -w0 some.ogg)\"}" \
+  | head -c 200
+```
+
+The container binds `0.0.0.0:8240`, so point the bot at the host port as usual
+(`"audioSuperResolutionUrl": "http://localhost:8240"`). To override server flags, append
+the full command (it replaces the image's default `CMD`), e.g.
+`... viktor89-audio-sr python main.py --host 0.0.0.0 --port 8240 --model_name speech`.
+
 ### 2. Run the server
 
 ```bash
@@ -90,6 +119,7 @@ Common options:
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--port` | (required) | Port this wrapper listens on |
+| `--host` | `localhost` | Address to bind to. Set to `0.0.0.0` to listen on all interfaces (required inside Docker) |
 | `--model_name` | `basic` | AudioSR checkpoint. `basic` = general (music/speech/fx); `speech` = tuned for speech |
 | `--device` | `auto` | `auto` (cuda→mps→cpu), `cuda`, `mps`, or `cpu` |
 | `--ddim_steps` | `50` | DDIM sampling steps. 50 is AudioSR's recommended default (faster than the older 200, no real quality loss for post-processing). Overridable per request |
