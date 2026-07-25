@@ -152,11 +152,48 @@ def query_result(task_id: str) -> dict:
     raise RuntimeError(f'task {task_id} not found in query_result response')
 
 
+def result_is_empty(result) -> bool:
+    # The ACE-Step API server keeps its job store purely in memory, so a restart wipes
+    # every task. For an unknown task_id it answers status 0 (queued/running) with an
+    # empty result ("[]") instead of erroring — which would make us poll uselessly until
+    # the timeout. A real queued/running job always carries a populated result list (the
+    # store builds a non-empty payload for every record, and the record is created before
+    # the task_id is returned, so there is no race). An empty result is therefore a
+    # reliable signal that the task was lost (typically the server restarted).
+    if result is None:
+        return True
+    if isinstance(result, str):
+        stripped = result.strip()
+        if not stripped:
+            return True
+        try:
+            result = json.loads(stripped)
+        except ValueError:
+            return False
+    return isinstance(result, (list, dict)) and len(result) == 0
+
+
 def wait_for_task(task_id: str) -> dict:
     deadline = time.time() + args.timeout
     while time.time() < deadline:
-        entry = query_result(task_id)
+        try:
+            entry = query_result(task_id)
+        except urllib.error.URLError as e:
+            # The API server is briefly unreachable while it restarts. Tolerate the
+            # transient poll failure rather than aborting a possibly-still-valid job; a
+            # real restart is caught below once the server is back and reports our
+            # task_id as unknown.
+            print(f"query_result transient error (retrying): {e}", flush=True)
+            time.sleep(args.poll_interval)
+            continue
+
         status = entry.get('status')
+        if status == 0 and result_is_empty(entry.get('result')):
+            raise RuntimeError(
+                f'task {task_id} is unknown to the ACE-Step API server (status 0 with '
+                f'empty result): the server likely restarted and lost its in-memory job '
+                f'store. Aborting instead of polling until the {args.timeout}s timeout.'
+            )
         # 0 = queued/running, 1 = succeeded, 2 = failed
         if status == 1:
             result = entry.get('result')
