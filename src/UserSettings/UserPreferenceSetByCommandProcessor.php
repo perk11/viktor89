@@ -4,7 +4,7 @@ namespace Perk11\Viktor89\UserSettings;
 
 use Exception;
 use Longman\TelegramBot\Entities\Message;
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\GetTriggeringCommandsInterface;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
@@ -85,15 +85,7 @@ class UserPreferenceSetByCommandProcessor implements MessageChainProcessor, User
         $this->userPreferenceRepository->writeUserPreference($lastMessage->userId, $this->preferenceName, $preferenceValue);
 
         try {
-            $response = Request::execute('setMessageReaction', [
-                'chat_id'    => $lastMessage->chatId,
-                'message_id' => $lastMessage->id,
-                'reaction'   => [[
-                    'type'  => 'emoji',
-                    'emoji' => '👌',
-                ]],
-                'is_big' => true,
-            ]);
+            $response = ReactionSetter::setMessageReaction($lastMessage, '👌', isBig: true);
             $this->logger->log(LogLevel::INFO, "Reacting to message result: $response");
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, 'Failed to react to message: ' . $e->getMessage());

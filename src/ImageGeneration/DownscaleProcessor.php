@@ -3,7 +3,7 @@
 namespace Perk11\Viktor89\ImageGeneration;
 
 use Exception;
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
@@ -40,16 +40,7 @@ class DownscaleProcessor implements MessageChainProcessor
         }
 
 
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $lastMessage->chatId,
-            'message_id' => $lastMessage->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '👀',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($lastMessage, '👀');
         try {
             $progressUpdateCallback(static::class, "Downloading image");
             $photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageChain->previous());
@@ -67,16 +58,7 @@ class DownscaleProcessor implements MessageChainProcessor
             );
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Failed to generate image:\n" . $e->getMessage());
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $lastMessage->chatId,
-                'message_id' => $lastMessage->id,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '🤔',
-                    ],
-                ],
-            ]);
+            ReactionSetter::setMessageReaction($lastMessage, '🤔');
         }
 
         return new ProcessingResult(null, true);

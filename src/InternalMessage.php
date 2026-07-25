@@ -11,6 +11,7 @@ use Longman\TelegramBot\Entities\VideoNote;
 use Longman\TelegramBot\Entities\Voice;
 use Longman\TelegramBot\Exception\TelegramException;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Longman\TelegramBot\TelegramLog;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\Util\Telegram\BotAdminChecker;
@@ -264,11 +265,7 @@ class InternalMessage
             return;
         }
         try {
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $chatId,
-                'message_id' => $messageIdToReactTo,
-                'reaction'   => [['type' => 'emoji', 'emoji' => '🫡']],
-            ]);
+            ReactionSetter::setReaction($chatId, $messageIdToReactTo, '🫡');
         } catch (\Throwable $e) {
             self::$logger?->log(LogLevel::ERROR, "Failed to set ephemeral salute reaction: {$e->getMessage()}");
         }

@@ -3,7 +3,7 @@
 namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Exception;
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptAndImageGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
@@ -93,16 +93,7 @@ class ImageGenerateProcessor implements MessageChainProcessor
             new ChatAction($lastMessage->chatId, ChatActionEnum::upload_photo),
         );
 
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $lastMessage->chatId,
-            'message_id' => $lastMessage->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '👀',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($lastMessage, '👀');
         try {
             if (count($prompt->sourceImagesContents) === 0) {
                 $response = $this->automatic1111APiClient->generateImageByPrompt($prompt->text, $lastMessage->userId);
@@ -121,16 +112,7 @@ class ImageGenerateProcessor implements MessageChainProcessor
             );
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Failed to generate image:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $lastMessage->chatId,
-                'message_id' => $lastMessage->id,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '🤔',
-                    ],
-                ],
-            ]);
+            ReactionSetter::setMessageReaction($lastMessage, '🤔');
         }
 
         return new ProcessingResult(null, true);

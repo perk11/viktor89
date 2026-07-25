@@ -3,7 +3,6 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
-use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantContext;
@@ -114,7 +113,7 @@ class MvidProcessor implements MessageChainProcessor
             );
         }
 
-        $this->setReaction($message, '👀');
+        ReactionSetter::setMessageReaction($message, '👀');
 
         try {
             if ($imageContents === null) {
@@ -130,7 +129,7 @@ class MvidProcessor implements MessageChainProcessor
                 );
             }
 
-            $this->setReaction($message, '✍');
+            ReactionSetter::setMessageReaction($message, '✍');
             $progressUpdateCallback(
                 static::class,
                 'Writing lyrics for the song...',
@@ -138,7 +137,7 @@ class MvidProcessor implements MessageChainProcessor
             );
             $song = $this->generateLyricsAndTags($userText, $imageContents, $progressUpdateCallback);
             if ($song === null) {
-                $this->setReaction($message, '🤔');
+                ReactionSetter::setMessageReaction($message, '🤔');
                 return new ProcessingResult(
                     InternalMessage::asResponseTo($message, 'Не удалось написать текст песни, попробуйте ещё раз.'),
                     true,
@@ -146,7 +145,7 @@ class MvidProcessor implements MessageChainProcessor
             }
             [$tags, $lyrics] = $song;
 
-            $this->setReaction($message, '👨‍💻');
+            ReactionSetter::setMessageReaction($message, '👨‍💻');
             $audio = $this->singProcessor->generateSongAudio(
                 $message,
                 $tags,
@@ -155,7 +154,7 @@ class MvidProcessor implements MessageChainProcessor
                 $progressUpdateCallback,
             );
 
-            $this->setReaction($message, '⚡');
+            ReactionSetter::setMessageReaction($message, '⚡');
             $videoPrompt = $userText;
             if ($videoPrompt === '') {
                 $videoPrompt = $this->altTextProvider->generateAltTextForImageString($imageContents, $progressUpdateCallback);
@@ -183,7 +182,7 @@ class MvidProcessor implements MessageChainProcessor
                 LogLevel::ERROR,
                 "Failed to generate music video:\n" . $e->getMessage() . "\n" . $e->getTraceAsString(),
             );
-            $this->setReaction($message, '🤔');
+            ReactionSetter::setMessageReaction($message, '🤔');
         }
 
         return new ProcessingResult(null, true);
@@ -253,8 +252,4 @@ PROMPT;
         return [$tags, $lyrics];
     }
 
-    private function setReaction(InternalMessage $message, string $emoji): void
-    {
-        ReactionSetter::setMessageReaction($message->chatId, $message->id, $emoji);
-    }
 }

@@ -2,7 +2,7 @@
 
 namespace Perk11\Viktor89\VoiceGeneration;
 
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\AssistantInterface;
@@ -67,30 +67,12 @@ Character 2 description: $bio2.
 Dialog Prompt: $prompt";
         $context->messages[] = $contextMessage;
 
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $message->chatId,
-            'message_id' => $message->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '✍',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($message, '✍');
 
         $dialogText = $this->assistant->getCompletionBasedOnContext($context)->content;
         $this->logger->log(LogLevel::INFO, "Dialog: $dialogText");
 
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $message->chatId,
-            'message_id' => $message->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '⚡',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($message, '⚡');
 
         $voice1FileContents = file_get_contents(TtsProcessor::VOICE_STORAGE_DIR . '/' . $voice1 . '.ogg');
         if ($voice1FileContents === false) {

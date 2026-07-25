@@ -4,7 +4,7 @@ namespace Perk11\Viktor89\VoiceGeneration;
 
 use Exception;
 use LanguageDetection\Language;
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
@@ -74,16 +74,7 @@ class SingProcessor implements MessageChainProcessor
         $durationSeconds = $this->durationPreference->getCurrentPreferenceValue($message->userId);
         $duration = $durationSeconds === null ? null : $durationSeconds * 1000;
 
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $message->chatId,
-            'message_id' => $message->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '👀',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($message, '👀');
         try {
             $audio = $this->generateSongAudio($message, $tags, $lyrics, $duration, $progressUpdateCallback);
             $this->voiceResponder->sendVoice($message, $audio);

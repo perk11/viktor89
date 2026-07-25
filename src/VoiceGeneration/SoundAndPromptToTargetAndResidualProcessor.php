@@ -2,7 +2,7 @@
 
 namespace Perk11\Viktor89\VoiceGeneration;
 
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
@@ -56,16 +56,7 @@ class SoundAndPromptToTargetAndResidualProcessor implements MessageChainProcesso
             );
         }
 
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $lastMessage->chatId,
-            'message_id' => $lastMessage->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '👀',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($lastMessage, '👀');
         try {
             $audioFile = $this->telegramFileDownloader->downloadFile($messageAudio->fileId);
             $chatAction = new ChatAction($lastMessage->chatId, ChatActionEnum::record_voice);

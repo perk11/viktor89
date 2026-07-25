@@ -2,7 +2,6 @@
 
 namespace Perk11\Viktor89\Util\Telegram;
 
-use Longman\TelegramBot\Request;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
@@ -18,16 +17,7 @@ class ReactionReplacer
     {
         if ($chatId>0 || !$this->reactionDeleter->delete($chatId, $messageId)) {
             $this->logger->log(LogLevel::INFO, 'Failed to delete message reaction, falling back to emoji reaction');
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $chatId,
-                'message_id' => $messageId,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => $emoji,
-                    ],
-                ],
-            ]);
+            ReactionSetter::setReaction($chatId, $messageId, $emoji);
         }
     }
 }

@@ -3,7 +3,6 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
-use Longman\TelegramBot\Request;
 use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
@@ -53,7 +52,7 @@ class VideoTxtAndVid2VidProcessor implements MessageChainProcessor
             "Donwloading source video",
             new ChatAction($lastMessage->chatId, ChatActionEnum::record_video)
         );
-        ReactionSetter::setMessageReaction($lastMessage->chatId, $lastMessage->id, '👀');
+        ReactionSetter::setMessageReaction($lastMessage, '👀');
 
         try {
             $videoContents = $this->telegramFileDownloader->downloadFile($messageChain->previous()->video->getFileId());

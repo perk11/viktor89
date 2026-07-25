@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\ImageGeneration;
 
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\CacheFileManager;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageMetadata;
@@ -104,16 +105,7 @@ class PhotoResponder
         if ($sendOk) {
             $this->reactionReplacer->deleteOrReplaceWith($message->chatId, $message->id, '😎');
         } else {
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $message->chatId,
-                'message_id' => $message->id,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '🤔',
-                    ],
-                ],
-            ]);
+            ReactionSetter::setMessageReaction($message, '🤔');
         }
     }
 

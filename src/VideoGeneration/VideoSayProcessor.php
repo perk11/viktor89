@@ -3,7 +3,7 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantContextMessage;
@@ -107,16 +107,7 @@ class VideoSayProcessor implements MessageChainProcessor
             );
         }
 
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $message->chatId,
-            'message_id' => $message->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '👀',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($message, '👀');
 
         $progressUpdateCallback(static::class, "Generating voice for video");
         $modelName = $this->voiceModelPreference->getCurrentPreferenceValue($message->userId);
@@ -165,16 +156,7 @@ class VideoSayProcessor implements MessageChainProcessor
                                 "Generating a prompt for video",
             new ChatAction($message->chatId, ChatActionEnum::record_video)
         );
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $message->chatId,
-            'message_id' => $message->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '✍',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($message, '✍');
 
         $context = new AssistantContext();
         $context->systemPrompt = 'You a world class expert on video prompt generation. Only output text that will be used for video generation and nothing else. Do not describe audio, only video. Avoid too many scene changes. Do not output specific timestamps.';
@@ -190,16 +172,7 @@ class VideoSayProcessor implements MessageChainProcessor
         $context->messages[] = $contextMessage;
 
         $videoPrompt = $this->promptAssistant->getCompletionBasedOnContext($context)->content;
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $message->chatId,
-            'message_id' => $message->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '⚡',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($message, '⚡');
 
 
         $progressUpdateCallback(static::class, "Generating video", new ChatAction($message->chatId, ChatActionEnum::upload_video));

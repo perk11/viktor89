@@ -2,9 +2,8 @@
 
 namespace Perk11\Viktor89\Assistant\Tool;
 
-use Longman\TelegramBot\Request;
 use Perk11\Viktor89\MessageChain;
-use Perk11\Viktor89\ProcessingResult;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
@@ -21,7 +20,7 @@ class ReactToolCallExecutor implements MessageChainAwareToolCallExecutorInterfac
     public static function allowedReactions(): array
     {
         return array_values(
-            array_diff(ProcessingResult::ALLOWED_REACTIONS, self::EXCLUDED_REACTIONS),
+            array_diff(ReactionSetter::ALLOWED_REACTIONS, self::EXCLUDED_REACTIONS),
         );
     }
 
@@ -37,16 +36,7 @@ class ReactToolCallExecutor implements MessageChainAwareToolCallExecutorInterfac
             return ['error' => ('Reaction must be one of: ' . implode(', ', $allowed))];
         }
         $lastMessage = $messageChain->last();
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $lastMessage->chatId,
-            'message_id' => $lastMessage->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => $arguments['reaction'],
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($lastMessage, $arguments['reaction']);
 
         return ['status' => 'reaction_successfully_applied'];
     }

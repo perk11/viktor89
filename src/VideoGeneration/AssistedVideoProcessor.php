@@ -3,7 +3,7 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantContextMessage;
@@ -53,16 +53,7 @@ class AssistedVideoProcessor implements MessageChainProcessor
 
             return new ProcessingResult($response, true);
         }
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $message->chatId,
-            'message_id' => $message->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '👀',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($message, '👀');
         $chatAction = new ChatAction($messageChain->last()->chatId, ChatActionEnum::record_video);
 
         if ($messageChain->previous()?->photoFileId !== null) {
@@ -81,16 +72,7 @@ class AssistedVideoProcessor implements MessageChainProcessor
         $assistantContext = $this->createFirstFrameContext($prompt);
         $firstFramePrompt = $this->promptAssistant->getCompletionBasedOnContext($assistantContext)->content;
 
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $message->chatId,
-            'message_id' => $message->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '✍',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($message, '✍');
 
         $progressUpdateCallback(static::class, "Generating the first frame for: $firstFramePrompt", $chatAction);
         try {
@@ -99,31 +81,13 @@ class AssistedVideoProcessor implements MessageChainProcessor
                 $this->firstFrameImageModelParams
             );
 
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $message->chatId,
-                'message_id' => $message->id,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '👨‍💻',
-                    ],
-                ],
-            ]);
+            ReactionSetter::setMessageReaction($message, '👨‍💻');
             $progressUpdateCallback(static::class, "Generating video based on the generated first frame for prompt: $prompt", $chatAction);
 
             $newPrompt = $this->rewriteVideoPrompt($prompt, $imageResponse->getFirstImageAsPng(), $firstFramePrompt);
             $progressUpdateCallback(static::class, "Generating video for prompt: $newPrompt", new ChatAction($message->chatId, ChatActionEnum::upload_video));
 
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $message->chatId,
-                'message_id' => $message->id,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '⚡',
-                    ],
-                ],
-            ]);
+            ReactionSetter::setMessageReaction($message, '⚡');
             $response = $this->img2VideoClient->generateByPromptImg2Vid(
                 $imageResponse->getFirstImageAsPng(),
                 $newPrompt,
@@ -136,16 +100,7 @@ class AssistedVideoProcessor implements MessageChainProcessor
             );
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Failed to generate video:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $message->chatId,
-                'message_id' => $message->id,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '🤔',
-                    ],
-                ],
-            ]);
+            ReactionSetter::setMessageReaction($message, '🤔');
         }
 
         return new ProcessingResult(null,true);

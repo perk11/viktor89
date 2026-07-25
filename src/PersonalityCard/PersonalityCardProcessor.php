@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Perk11\Viktor89\PersonalityCard;
 
 use Exception;
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\AssistantInterface;
@@ -57,16 +57,7 @@ class PersonalityCardProcessor implements MessageChainProcessor
         $command = $messageChain->last();
         $target = $this->resolveTarget($messageChain);
         $fail = static fn (): ProcessingResult => new ProcessingResult(null, true, '🤔', $command);
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $command->chatId,
-            'message_id' => $command->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '👀',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($command, '👀');
         $progressUpdateCallback(static::class, 'Собираю досье на ' . $this->displayName($target) . '…');
 
         $recentMessages = $this->messageRepository->findLastMessagesByUserInChat(

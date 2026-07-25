@@ -3,7 +3,7 @@
 namespace Perk11\Viktor89\PreResponseProcessor;
 
 use Longman\TelegramBot\Entities\Message;
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\Repository\RateLimitRepository;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
@@ -53,14 +53,7 @@ class RateLimitProcessor implements PreResponseProcessor
             return false;
         }
         $this->logger->log(LogLevel::INFO, "$priorMessages already sent by user {$userId} in chat $chatId, sending reaction instead of message");
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $chatId,
-            'message_id' => $message->getMessageId(),
-            'reaction'   => [[
-                'type'  => 'emoji',
-                'emoji' => '🙊',
-            ]],
-        ]);
+        ReactionSetter::setReaction($chatId, $message->getMessageId(), '🙊');
 
         return null;
     }

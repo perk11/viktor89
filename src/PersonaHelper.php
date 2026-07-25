@@ -2,7 +2,7 @@
 
 namespace Perk11\Viktor89;
 
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
@@ -52,15 +52,7 @@ class PersonaHelper
     public function reactOrRespond(InternalMessage $message, string $fallbackText): ProcessingResult
     {
         try {
-            $response = Request::execute('setMessageReaction', [
-                'chat_id'    => $message->chatId,
-                'message_id' => $message->id,
-                'reaction'   => [[
-                    'type'  => 'emoji',
-                    'emoji' => '👌',
-                ]],
-                'is_big' => true,
-            ]);
+            $response = ReactionSetter::setMessageReaction($message, '👌', isBig: true);
             $this->logger->log(LogLevel::INFO, "Reacting to message ($fallbackText) result: $response");
 
             return new ProcessingResult(null, true);

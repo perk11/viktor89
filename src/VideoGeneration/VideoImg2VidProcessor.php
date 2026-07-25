@@ -3,7 +3,7 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\TelegramFileDownloader;
@@ -29,16 +29,7 @@ class VideoImg2VidProcessor
         ProgressUpdateCallback $progressUpdateCallback,
     ): void
     {
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $messageWithCommand->chatId,
-            'message_id' => $messageWithCommand->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '👀',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($messageWithCommand, '👀');
         try {
             $progressUpdateCallback(static::class, "Downloading source photo for prompt: $prompt\n");
             $photoContents = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageWithPhoto);
@@ -56,16 +47,7 @@ class VideoImg2VidProcessor
             );
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Failed to generate video:\n" . $e->getMessage());
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $messageWithCommand->chatId,
-                'message_id' => $messageWithCommand->id,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '🤔',
-                    ],
-                ],
-            ]);
+            ReactionSetter::setMessageReaction($messageWithCommand, '🤔');
         }
     }
 }

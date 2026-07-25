@@ -4,7 +4,7 @@ namespace Perk11\Viktor89;
 
 use LogicException;
 use Longman\TelegramBot\Entities\Message;
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\IPC\BeforeMessageSentNotifier;
 use Perk11\Viktor89\Repository\MessageMetadataRepository;
 use Perk11\Viktor89\Repository\MessageRepository;
@@ -68,16 +68,7 @@ class ProcessingResultExecutor
                 throw new LogicException("Reaction property is set, but not messageToReactTo");
             }
             $this->logger?->log(LogLevel::INFO, "Reacting to message from {$result->messageToReactTo->userName} in chat {$result->messageToReactTo->chatId}");
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $result->messageToReactTo->chatId,
-                'message_id' => $result->messageToReactTo->id,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => $result->reaction,
-                    ],
-                ],
-            ]);
+            ReactionSetter::setMessageReaction($result->messageToReactTo, $result->reaction);
         }
         if ($result->callback !== null) {
             call_user_func($result->callback);

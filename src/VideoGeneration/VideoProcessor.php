@@ -3,7 +3,7 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
-use Longman\TelegramBot\Request;
+use Perk11\Viktor89\Util\Telegram\ReactionSetter;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
@@ -48,16 +48,7 @@ class VideoProcessor implements MessageChainProcessor
             return new ProcessingResult(null, true);
         }
         $progressUpdateCallback(static::class,"Generating video for prompt: $prompt",  new ChatAction($message->chatId, ChatActionEnum::upload_video));
-        Request::execute('setMessageReaction', [
-            'chat_id'    => $message->chatId,
-            'message_id' => $message->id,
-            'reaction'   => [
-                [
-                    'type'  => 'emoji',
-                    'emoji' => '👀',
-                ],
-            ],
-        ]);
+        ReactionSetter::setMessageReaction($message, '👀');
         try {
             $response = $this->txt2VideoClient->generateByPromptTxt2Vid($prompt, $message->userId);
             $progressUpdateCallback(static::class,"Sending video response");
@@ -68,16 +59,7 @@ class VideoProcessor implements MessageChainProcessor
             );
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Failed to generate video:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
-            Request::execute('setMessageReaction', [
-                'chat_id'    => $message->chatId,
-                'message_id' => $message->id,
-                'reaction'   => [
-                    [
-                        'type'  => 'emoji',
-                        'emoji' => '🤔',
-                    ],
-                ],
-            ]);
+            ReactionSetter::setMessageReaction($message, '🤔');
         }
 
         return new ProcessingResult(null, true);
