@@ -72,6 +72,7 @@ use Perk11\Viktor89\VideoGeneration\AssistedVideoProcessor;
 use Perk11\Viktor89\VideoGeneration\AudioImgTxt2VidClient;
 use Perk11\Viktor89\VideoGeneration\AudioImgTxt2VidProcessor;
 use Perk11\Viktor89\VideoGeneration\Img2VideoClient;
+use Perk11\Viktor89\VideoGeneration\MvidProcessor;
 use Perk11\Viktor89\VideoGeneration\Txt2VideoClient;
 use Perk11\Viktor89\VideoGeneration\TxtAndVid2VideoClient;
 use Perk11\Viktor89\VideoGeneration\VideoImg2VidProcessor;
@@ -683,6 +684,17 @@ class ProcessMessageTask implements Task
                 : null,
             $logger,
         );
+        $mvidProcessor = new MvidProcessor(
+            $assistedVideoProcessor,
+            $assistantFactory->getAssistantInstanceByName('song'),
+            $singProcessor,
+            $audioImgTxt2VidClient,
+            $videoResponder,
+            $telegramFileDownloader,
+            $imgTagExtractor,
+            $altTextProvider,
+            $logger,
+        );
         $messageChainProcessors = [
             $container->get(VoiceProcessor::class),
             $clownProcessor,
@@ -911,6 +923,11 @@ class ProcessMessageTask implements Task
             ),
             $videoEProcessor,
             $voProcessor,
+            new CommandBasedResponderTrigger(
+                ['/mvid'],
+                $mvidProcessor,
+                $logger,
+            ),
             new CommandBasedResponderTrigger(
                 ['/saveas'],
                 new SaveAsProcessor($telegramFileDownloader, $imageRepository),

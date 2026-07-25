@@ -151,6 +151,24 @@ class AssistedVideoProcessor implements MessageChainProcessor
         return new ProcessingResult(null,true);
     }
 
+    /**
+     * Generates a single first-frame image for a video from a short user prompt
+     * using the same prompt-expansion + image-generation flow as /vid, and returns
+     * it as PNG bytes. Exposed so the music-video pipeline (/mvid) can reuse it to
+     * create a starting frame when the user did not supply an image.
+     */
+    public function generateFirstFrameImage(int $chatId, string $prompt, ProgressUpdateCallback $progressUpdateCallback): string
+    {
+        $chatAction = new ChatAction($chatId, ChatActionEnum::record_video);
+        $progressUpdateCallback(static::class, "Generating a prompt to generate the image for the first frame: $prompt", $chatAction);
+        $firstFramePrompt = $this->promptAssistant->getCompletionBasedOnContext($this->createFirstFrameContext($prompt))->content;
+        $progressUpdateCallback(static::class, "Generating the first frame for: $firstFramePrompt", $chatAction);
+
+        return $this->automatic1111APiClient
+            ->generateImageByPromptAndModelParams($firstFramePrompt, $this->firstFrameImageModelParams)
+            ->getFirstImageAsPng();
+    }
+
     // Based on https://github.com/THUDM/CogVideo/blob/main/inference/convert_demo.py
     private function createFirstFrameContext(string $prompt): AssistantContext
     {
