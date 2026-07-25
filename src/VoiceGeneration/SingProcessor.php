@@ -88,6 +88,16 @@ class SingProcessor implements MessageChainProcessor
     }
 
     /**
+     * Returns the sing model the given user currently has selected, or null if
+     * they are on the default. Exposed so the music-video pipeline (/mvid) can
+     * list the models it used in the final video's caption.
+     */
+    public function getCurrentSingModelName(int $userId): ?string
+    {
+        return $this->singModelPreference->getCurrentPreferenceValue($userId);
+    }
+
+    /**
      * Renders the given tags + lyrics into song audio and returns the raw bytes,
      * applying AudioSR enhancement when the selected model opts in. Shared by
      * /sing and /song (via generateSong, which then posts the voice message) and

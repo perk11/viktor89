@@ -38,6 +38,8 @@ class MvidProcessorTest extends TestCase
             $telegramFileDownloader ?? $this->createMock(TelegramFileDownloader::class),
             $imgTagExtractor ?? $this->createMock(ImgTagExtractor::class),
             $this->createMock(AltTextProvider::class),
+            'flux-dev-720x480',
+            'ltx-2-distilled',
             new NullLogger(),
         );
     }

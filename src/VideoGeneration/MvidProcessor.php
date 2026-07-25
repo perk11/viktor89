@@ -52,6 +52,8 @@ class MvidProcessor implements MessageChainProcessor
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly ImgTagExtractor $imgTagExtractor,
         private readonly AltTextProvider $altTextProvider,
+        private readonly ?string $firstFrameImageModelName,
+        private readonly ?string $img2VidModelName,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -123,7 +125,11 @@ class MvidProcessor implements MessageChainProcessor
         ReactionSetter::setMessageReaction($message, '👀');
 
         try {
-            if ($imageContents === null) {
+            // The starting image model is only used (and thus only worth listing
+            // in the caption) when no image was supplied and we had to generate
+            // a first frame from the text.
+            $imageGenerated = $imageContents === null;
+            if ($imageGenerated) {
                 $progressUpdateCallback(
                     static::class,
                     "Generating a starting frame for: $userText",
@@ -186,7 +192,7 @@ class MvidProcessor implements MessageChainProcessor
             $this->videoResponder->sendVideo(
                 $message,
                 $videoResponse->getFirstVideoAsMp4(),
-                $videoResponse->getCaption(),
+                $this->buildModelsCaption($imageGenerated, $message->userId),
             );
         } catch (Exception $e) {
             $this->logger->log(
@@ -197,6 +203,29 @@ class MvidProcessor implements MessageChainProcessor
         }
 
         return new ProcessingResult(null, true);
+    }
+
+    /**
+     * Builds the final video's caption: a list of the models used in this run
+     * (the first-frame image model only when it was actually generated, the
+     * user's selected sing model, and the audio+image→video model), instead of
+     * echoing the generation prompt. Returns null when no model name is known.
+     */
+    private function buildModelsCaption(bool $imageGenerated, int $userId): ?string
+    {
+        $lines = [];
+        if ($imageGenerated && $this->firstFrameImageModelName !== null && $this->firstFrameImageModelName !== '') {
+            $lines[] = "🖼️ {$this->firstFrameImageModelName}";
+        }
+        $songModel = $this->singProcessor->getCurrentSingModelName($userId);
+        if ($songModel !== null && $songModel !== '') {
+            $lines[] = "🎵 {$songModel}";
+        }
+        if ($this->img2VidModelName !== null && $this->img2VidModelName !== '') {
+            $lines[] = "🎬 {$this->img2VidModelName}";
+        }
+
+        return $lines === [] ? null : implode("\n", $lines);
     }
 
     /**

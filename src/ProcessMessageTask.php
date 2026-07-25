@@ -693,6 +693,8 @@ class ProcessMessageTask implements Task
             $telegramFileDownloader,
             $imgTagExtractor,
             $altTextProvider,
+            array_key_first($config['videoFirstFrameImageModels']) ?: null,
+            array_key_first($config['voiceOverModels']) ?: null,
             $logger,
         );
         $messageChainProcessors = [
