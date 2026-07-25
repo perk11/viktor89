@@ -71,19 +71,9 @@ class SingProcessor implements MessageChainProcessor
      */
     public function generateSong(InternalMessage $message, string $tags, string $lyrics, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
-        $modelName = $this->singModelPreference->getCurrentPreferenceValue($message->userId);
-        $seed = $this->seedPreference->getCurrentPreferenceValue($message->userId);
         $durationSeconds = $this->durationPreference->getCurrentPreferenceValue($message->userId);
-        if ($durationSeconds === null) {
-            $duration = null;
-        } else {
-            $duration = $durationSeconds * 1000;
-        }
-        $progressUpdateCallback(
-            static::class,
-            "Generating a song with tags: $tags",
-           new ChatAction($message->chatId, ChatActionEnum::record_voice),
-        );
+        $duration = $durationSeconds === null ? null : $durationSeconds * 1000;
+
         Request::execute('setMessageReaction', [
             'chat_id'    => $message->chatId,
             'message_id' => $message->id,
@@ -95,37 +85,8 @@ class SingProcessor implements MessageChainProcessor
             ],
         ]);
         try {
-            $response = $this->songApiClient->txtTags2Music(
-                $lyrics,
-                $tags,
-                $modelName,
-                $duration,
-                $seed
-            );
-            $audio = $response->voiceFileContents;
-            if ($this->audioSuperResolutionEnabledForModel($modelName)) {
-                $progressUpdateCallback(
-                    static::class,
-                    "Enhancing the song with AudioSR",
-                    new ChatAction($message->chatId, ChatActionEnum::record_voice),
-                );
-                try {
-                    $audio = $this->audioSuperResolutionApiClient->enhance($audio, $seed === null ? null : (int) $seed)
-                        ->voiceFileContents;
-                } catch (Exception $audioSrException) {
-                    // Enhancement failed; fall back to the original generation rather than
-                    // dropping the song entirely.
-                    $this->logger->log(
-                        LogLevel::WARNING,
-                        "AudioSR enhancement failed, sending the original song:\n"
-                        . $audioSrException->getMessage(),
-                    );
-                }
-            }
-            $this->voiceResponder->sendVoice(
-                $message,
-                $audio,
-            );
+            $audio = $this->generateSongAudio($message, $tags, $lyrics, $duration, $progressUpdateCallback);
+            $this->voiceResponder->sendVoice($message, $audio);
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Failed to generate a song:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
 
@@ -133,5 +94,52 @@ class SingProcessor implements MessageChainProcessor
         }
 
         return new ProcessingResult(null, true, '😎', $message);
+    }
+
+    /**
+     * Renders the given tags + lyrics into song audio and returns the raw bytes,
+     * applying AudioSR enhancement when the selected model opts in. Shared by
+     * /sing and /song (via generateSong, which then posts the voice message) and
+     * by the music-video pipeline (/mvid), which needs the audio without sending
+     * it so it can be attached to the generated video.
+     */
+    public function generateSongAudio(InternalMessage $message, string $tags, string $lyrics, ?int $durationMs, ProgressUpdateCallback $progressUpdateCallback): string
+    {
+        $modelName = $this->singModelPreference->getCurrentPreferenceValue($message->userId);
+        $seed = $this->seedPreference->getCurrentPreferenceValue($message->userId);
+        $progressUpdateCallback(
+            static::class,
+            "Generating a song with tags: $tags",
+            new ChatAction($message->chatId, ChatActionEnum::record_voice),
+        );
+        $response = $this->songApiClient->txtTags2Music(
+            $lyrics,
+            $tags,
+            $modelName,
+            $durationMs,
+            $seed,
+        );
+        $audio = $response->voiceFileContents;
+        if ($this->audioSuperResolutionEnabledForModel($modelName)) {
+            $progressUpdateCallback(
+                static::class,
+                "Enhancing the song with AudioSR",
+                new ChatAction($message->chatId, ChatActionEnum::record_voice),
+            );
+            try {
+                $audio = $this->audioSuperResolutionApiClient->enhance($audio, $seed === null ? null : (int) $seed)
+                    ->voiceFileContents;
+            } catch (Exception $audioSrException) {
+                // Enhancement failed; fall back to the original generation rather than
+                // dropping the song entirely.
+                $this->logger->log(
+                    LogLevel::WARNING,
+                    "AudioSR enhancement failed, sending the original song:\n"
+                    . $audioSrException->getMessage(),
+                );
+            }
+        }
+
+        return $audio;
     }
 }
