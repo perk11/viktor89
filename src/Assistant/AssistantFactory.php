@@ -275,7 +275,7 @@ class AssistantFactory
                     [
                         new ToolParameter('reaction', [
                             'type'           => 'string',
-                            'allowed_values' => ReactToolCallExecutor::ALLOWED_REACTIONS,
+                            'allowed_values' => ReactToolCallExecutor::allowedReactions(),
                         ],                true),
                     ]
                 );
