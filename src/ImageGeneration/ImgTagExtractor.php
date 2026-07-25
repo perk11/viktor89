@@ -23,11 +23,12 @@ class ImgTagExtractor
         ImageGenerationPrompt $promptTobeProcessed,
         ?string $modelName = null,
         ?MessageChain $messageChain = null,
+        bool $removeTags = false,
     ): ImageGenerationPrompt {
         $newPrompt = clone $promptTobeProcessed;
         $newPrompt->text = preg_replace_callback(
             self::IMG_REGEX,
-            function ($matches) use (&$newPrompt, $modelName, $messageChain) {
+            function ($matches) use (&$newPrompt, $modelName, $messageChain, $removeTags) {
                 $reference = trim($matches[1]);
 
                 // Check if this is a chain image reference (e.g., "#1", "#2")
@@ -45,6 +46,10 @@ class ImgTagExtractor
                         throw new SavedImageNotFoundException($reference);
                     }
                     $newPrompt->sourceImagesContents[] = $savedImage;
+                }
+
+                if ($removeTags) {
+                    return '';
                 }
 
                 if ($modelName === 'OmniGen-v1') {

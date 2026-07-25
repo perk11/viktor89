@@ -60,6 +60,7 @@ class AudioImgTxt2VidProcessor implements MessageChainProcessor
                 $imageGenerationPrompt,
                 'not implemented',
                 $messageChain,
+                true,
             );
         } catch (SavedImageNotFoundException $e) {
             return new ProcessingResult(

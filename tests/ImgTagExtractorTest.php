@@ -184,6 +184,30 @@ class ImgTagExtractorTest extends TestCase
         $extractor->extractImageTags(new ImageGenerationPrompt('<img>#5</img> cat'), null, $chain);
     }
 
+    public function testRemoveTagsReplacesImgTagWithEmptyString(): void
+    {
+        $repo = $this->createStub(ImageRepository::class);
+        $repo->method('retrieve')->willReturn('img-bytes');
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
+
+        $result = $extractor->extractImageTags(new ImageGenerationPrompt('a photo of <img>mycat</img> in space'), null, null, true);
+
+        $this->assertSame('a photo of  in space', $result->text);
+        $this->assertSame(['img-bytes'], $result->sourceImagesContents);
+    }
+
+    public function testRemoveTagsStripsMultipleImgTags(): void
+    {
+        $repo = $this->createStub(ImageRepository::class);
+        $repo->method('retrieve')->willReturn('img-bytes');
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
+
+        $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>a</img> and <img>b</img>'), null, null, true);
+
+        $this->assertSame(' and ', $result->text);
+        $this->assertSame(['img-bytes', 'img-bytes'], $result->sourceImagesContents);
+    }
+
     public function testDoesNotMutateOriginalPrompt(): void
     {
         $repo = $this->createStub(ImageRepository::class);
