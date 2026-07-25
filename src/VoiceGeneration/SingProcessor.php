@@ -60,6 +60,17 @@ class SingProcessor implements MessageChainProcessor
         $lines = explode("\n", $prompt);
         $tags = $lines[0];
         $lyrics = implode("\n", array_slice($lines, 1));
+
+        return $this->generateSong($message, $tags, $lyrics, $progressUpdateCallback);
+    }
+
+    /**
+     * Renders the given tags + lyrics into a song and sends it. Shared by /sing
+     * (which parses them from the user's message) and /song (which has an LLM
+     * produce them from a theme).
+     */
+    public function generateSong(InternalMessage $message, string $tags, string $lyrics, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
+    {
         $modelName = $this->singModelPreference->getCurrentPreferenceValue($message->userId);
         $seed = $this->seedPreference->getCurrentPreferenceValue($message->userId);
         $durationSeconds = $this->durationPreference->getCurrentPreferenceValue($message->userId);

@@ -86,6 +86,7 @@ use Perk11\Viktor89\VoiceGeneration\UpdateLyricsProcessor;
 use Perk11\Viktor89\VoiceGeneration\DialogResponder;
 use Perk11\Viktor89\VoiceGeneration\SingApiClient;
 use Perk11\Viktor89\VoiceGeneration\SingProcessor;
+use Perk11\Viktor89\VoiceGeneration\SongProcessor;
 use Perk11\Viktor89\VoiceGeneration\SoundAndPromptToTargetAndResidualApiClient;
 use Perk11\Viktor89\VoiceGeneration\SoundAndPromptToTargetAndResidualProcessor;
 use Perk11\Viktor89\VoiceGeneration\TtsApiClient;
@@ -670,6 +671,18 @@ class ProcessMessageTask implements Task
             $assistantFactory->getAssistantInstanceByName('compliment'),
             $logger,
         );
+        $singProcessor = new SingProcessor(
+            new SingApiClient($config['singModels']),
+            $voiceResponder,
+            $durationProcessor,
+            $seedProcessor,
+            $singModelPreferenceReader,
+            $config['singModels'],
+            isset($config['audioSuperResolutionUrl'])
+                ? new AudioSuperResolutionApiClient($config['audioSuperResolutionUrl'])
+                : null,
+            $logger,
+        );
         $messageChainProcessors = [
             $container->get(VoiceProcessor::class),
             $clownProcessor,
@@ -859,17 +872,15 @@ class ProcessMessageTask implements Task
             ),
             new CommandBasedResponderTrigger(
                 ['/sing'],
-                new SingProcessor(
-                    new SingApiClient($config['singModels']),
-                    $voiceResponder,
-                    $durationProcessor,
-                    $seedProcessor,
-                    $singModelPreferenceReader,
-                    $config['singModels'],
-                    isset($config['audioSuperResolutionUrl'])
-                        ? new AudioSuperResolutionApiClient($config['audioSuperResolutionUrl'])
-                        : null,
+                $singProcessor,
+                $logger,
+            ),
+            new CommandBasedResponderTrigger(
+                ['/song'],
+                new SongProcessor(
                     $logger,
+                    $singProcessor,
+                    $assistantFactory->getAssistantInstanceByName('song'),
                 ),
                 $logger,
             ),
