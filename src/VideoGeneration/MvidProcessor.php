@@ -56,8 +56,10 @@ class MvidProcessor implements MessageChainProcessor
     ) {
     }
 
-    public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
-    {
+    public function processMessageChain(
+        MessageChain $messageChain,
+        ProgressUpdateCallback $progressUpdateCallback
+    ): ProcessingResult {
         $message = $messageChain->last();
         $userText = trim($message->messageText);
 
@@ -68,7 +70,10 @@ class MvidProcessor implements MessageChainProcessor
             return new ProcessingResult(
                 InternalMessage::asResponseTo(
                     $message,
-                    sprintf('Изображение с именем "%s" не найдено, создайте его используя команду /saveas', $e->getMessage()),
+                    sprintf(
+                        'Изображение с именем "%s" не найдено, создайте его используя команду /saveas',
+                        $e->getMessage()
+                    ),
                 ),
                 true,
             );
@@ -84,7 +89,9 @@ class MvidProcessor implements MessageChainProcessor
 
         if ($imageContents === null && $messageChain->previous()?->photoFileId !== null) {
             try {
-                $imageContents = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageChain->previous());
+                $imageContents = $this->telegramFileDownloader->downloadPhotoFromInternalMessage(
+                    $messageChain->previous()
+                );
             } catch (Exception $e) {
                 $this->logger->log(LogLevel::ERROR, 'Failed to download source image for /mvid: ' . $e->getMessage());
 
@@ -138,6 +145,7 @@ class MvidProcessor implements MessageChainProcessor
             $song = $this->generateLyricsAndTags($userText, $imageContents, $progressUpdateCallback);
             if ($song === null) {
                 ReactionSetter::setMessageReaction($message, '🤔');
+
                 return new ProcessingResult(
                     InternalMessage::asResponseTo($message, 'Не удалось написать текст песни, попробуйте ещё раз.'),
                     true,
@@ -157,7 +165,10 @@ class MvidProcessor implements MessageChainProcessor
             ReactionSetter::setMessageReaction($message, '⚡');
             $videoPrompt = $userText;
             if ($videoPrompt === '') {
-                $videoPrompt = $this->altTextProvider->generateAltTextForImageString($imageContents, $progressUpdateCallback);
+                $videoPrompt = $this->altTextProvider->generateAltTextForImageString(
+                    $imageContents,
+                    $progressUpdateCallback
+                );
             }
             $progressUpdateCallback(
                 static::class,
@@ -196,8 +207,11 @@ class MvidProcessor implements MessageChainProcessor
      *
      * @return array{0:string,1:string}|null  [$tags, $lyrics], or null on parse failure
      */
-    private function generateLyricsAndTags(string $theme, string $imageContents, ProgressUpdateCallback $progressUpdateCallback): ?array
-    {
+    private function generateLyricsAndTags(
+        string $theme,
+        string $imageContents,
+        ProgressUpdateCallback $progressUpdateCallback
+    ): ?array {
         $context = new AssistantContext();
         $context->systemPrompt = <<<PROMPT
 You are a songwriter and music producer. Given a theme, idea, or description (and optionally an image), write original song lyrics and choose musical genres that fit it. The song must be short — about 20 seconds long (roughly 4 to 8 lines of lyrics).
@@ -212,11 +226,10 @@ PROMPT;
         $userMessage = new AssistantContextMessage();
         $userMessage->isUser = true;
 
-        $lyricsAssistantSupportsImages = $imageContents !== null
-            && property_exists($this->lyricsAssistant, 'supportsImages')
+        $lyricsAssistantSupportsImages = property_exists($this->lyricsAssistant, 'supportsImages')
             && $this->lyricsAssistant->supportsImages === true;
 
-        if ($imageContents !== null && $lyricsAssistantSupportsImages) {
+        if ($lyricsAssistantSupportsImages) {
             $userMessage->photo = $imageContents;
             $userMessage->text = $theme !== ''
                 ? $theme
@@ -226,12 +239,10 @@ PROMPT;
             if ($theme !== '') {
                 $themeParts[] = $theme;
             }
-            if ($imageContents !== null) {
-                $themeParts[] = "Image description:\n" . $this->altTextProvider->generateAltTextForImageString(
+            $themeParts[] = "Image description:\n" . $this->altTextProvider->generateAltTextForImageString(
                     $imageContents,
                     $progressUpdateCallback,
                 );
-            }
             $userMessage->text = implode("\n\n", $themeParts);
         }
         $context->messages[] = $userMessage;
