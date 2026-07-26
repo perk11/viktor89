@@ -171,7 +171,7 @@ class MvidProcessor implements MessageChainProcessor
             ReactionSetter::setMessageReaction($message, '⚡');
             $videoPrompt = $userText;
             if ($videoPrompt === '') {
-                $videoPrompt = $this->altTextProvider->generateAltTextForImageString(
+                $videoPrompt = "The music video starts with the following scene:\n" . $this->altTextProvider->generateAltTextForImageString(
                     $imageContents,
                     $progressUpdateCallback
                 );
@@ -262,13 +262,13 @@ PROMPT;
             $userMessage->photo = $imageContents;
             $userMessage->text = $theme !== ''
                 ? $theme
-                : 'Write a short song inspired by this image.';
+                : 'The short music video for this song starts with the following scene.';
         } else {
             $themeParts = [];
             if ($theme !== '') {
                 $themeParts[] = $theme;
             }
-            $themeParts[] = "Image description:\n" . $this->altTextProvider->generateAltTextForImageString(
+            $themeParts[] = "The short music video for this song starts with the following scene:\n" . $this->altTextProvider->generateAltTextForImageString(
                     $imageContents,
                     $progressUpdateCallback,
                 );
