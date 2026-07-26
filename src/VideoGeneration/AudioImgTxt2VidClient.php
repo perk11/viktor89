@@ -21,7 +21,7 @@ class AudioImgTxt2VidClient
     {
         $params = $this->getParamsBasedOnUserPreferences($userId);
         $params['init_audios'] = [base64_encode($audioContent)];
-        if ($imageContent == null) {
+        if ($imageContent === null) {
             $uri = 'audio_txt2vid';
         } else {
             $uri = 'audio_img_txt2vid';
