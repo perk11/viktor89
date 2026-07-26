@@ -684,7 +684,7 @@ class ProcessMessageTask implements Task
                 : null,
             $logger,
         );
-        $mvidProcessor = new MvidProcessor(
+        $mvidProcessorArgs = [
             $assistedVideoProcessor,
             $assistantFactory->getAssistantInstanceByName('song'),
             $singProcessor,
@@ -696,6 +696,15 @@ class ProcessMessageTask implements Task
             array_key_first($config['videoFirstFrameImageModels']) ?: null,
             array_key_first($config['voiceOverModels']) ?: null,
             $logger,
+        ];
+        $mvidProcessor = new MvidProcessor(...$mvidProcessorArgs);
+        // /mvideo reuses the same pipeline as /mvid but never generates a
+        // first frame: with no image supplied the video is produced from the
+        // audio only (LTX audio→video).
+        $mvideoProcessor = new MvidProcessor(
+            ...$mvidProcessorArgs,
+            generateFirstFrame: false,
+            commandName: '/mvideo',
         );
         $messageChainProcessors = [
             $container->get(VoiceProcessor::class),
@@ -928,6 +937,11 @@ class ProcessMessageTask implements Task
             new CommandBasedResponderTrigger(
                 ['/mvid'],
                 $mvidProcessor,
+                $logger,
+            ),
+            new CommandBasedResponderTrigger(
+                ['/mvideo'],
+                $mvideoProcessor,
                 $logger,
             ),
             new CommandBasedResponderTrigger(

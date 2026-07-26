@@ -28,7 +28,7 @@ class CommandBasedResponderTrigger implements MessageChainProcessor, GetTriggeri
         $lastMessageText = $messageChain->last()->messageText;
         $triggerFound = false;
         foreach ($this->triggeringCommands as $triggeringCommand) {
-            if (str_starts_with($lastMessageText, $triggeringCommand)) {
+            if ($this->textStartsWithCommand($lastMessageText, $triggeringCommand)) {
                 $triggerFound = true;
                 $messageChain->last()->messageText = trim(str_replace($triggeringCommand, '', $lastMessageText));
                 break;
@@ -45,7 +45,7 @@ class CommandBasedResponderTrigger implements MessageChainProcessor, GetTriggeri
 
             foreach ($messageChain->getMessages() as $message) {
                 foreach ($this->triggeringCommands as $triggeringCommand) {
-                    if (str_starts_with($message->messageText, $triggeringCommand)) {
+                    if ($this->textStartsWithCommand($message->messageText, $triggeringCommand)) {
                         $triggerFound = true;
                         $message->messageText = trim(
                             str_replace($triggeringCommand, '', $message->messageText)
@@ -70,5 +70,17 @@ class CommandBasedResponderTrigger implements MessageChainProcessor, GetTriggeri
     public function getTriggeringCommands(): array
     {
         return $this->triggeringCommands;
+    }
+
+    /**
+     * A command matches only when it stands at the start of the text as a
+     * complete command token — i.e. followed by a word boundary — so that a
+     * shorter command cannot swallow a longer one. Without this, /mvid would
+     * match /mvideo (leaving "eo" as the argument) and /image would match
+     * /images. Mirrors the \b used by MessageChainProcessorRunner's splitter.
+     */
+    private function textStartsWithCommand(string $text, string $command): bool
+    {
+        return preg_match('/^' . preg_quote($command, '/') . '\b/', $text) === 1;
     }
 }

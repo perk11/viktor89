@@ -27,14 +27,20 @@ use Psr\Log\LogLevel;
  * Implements the `/mvid` (music video) command.
  *
  * Pipeline:
- *  1. Acquire a starting image (reply photo, <img> tag, or generate a first
- *     frame from the text like /vid when none is given).
+ *  1. Acquire a starting image (reply photo, <img> tag, or — for /mvid only —
+ *     generate a first frame from the text like /vid when none is given).
  *  2. Have the "song" assistant write ~20s lyrics + genre tags from the image
  *     and/or text (image passed directly to vision-capable assistants, or
  *     described via alt text otherwise — same as the normal assistant path).
  *  3. Render the lyrics into song audio with the currently selected sing model.
- *  4. Generate a video that starts from the image and uses the song as audio
- *     (the same audio+image→video model /vo uses) and send it.
+ *  4. Generate a video that uses the song as audio and send it. When a starting
+ *     image is available it is used as the first frame (the same
+ *     audio+image→video model /vo uses); otherwise the whole video is generated
+ *     from the audio only (LTX audio→video).
+ *
+ * The class powers both /mvid and /mvideo, which share steps 2–4. The only
+ * difference is step 1: /mvid generates a first frame when no image is given,
+ * /mvideo never does, so it falls back to the audio-only video model.
  *
  * Each step sets a distinct reaction on the command message; the final video
  * send removes it (via VideoResponder), mirroring /image.
@@ -55,6 +61,10 @@ class MvidProcessor implements MessageChainProcessor
         private readonly ?string $firstFrameImageModelName,
         private readonly ?string $img2VidModelName,
         private readonly LoggerInterface $logger,
+        // When false (/mvideo), a first frame is never generated: with no image
+        // supplied the video is produced from the audio only (LTX audio→video).
+        private readonly bool $generateFirstFrame = true,
+        private readonly string $commandName = '/mvid',
     ) {
     }
 
@@ -114,7 +124,8 @@ class MvidProcessor implements MessageChainProcessor
             return new ProcessingResult(
                 InternalMessage::asResponseTo(
                     $message,
-                    'Используйте эту команду с текстом (идеей для клипа), например: /mvid закат над городом. '
+                    'Используйте эту команду с текстом (идеей для клипа), например: '
+                    . $this->commandName . ' закат над городом. '
                     . 'Можно ответить командой на изображение или вставить сохранённое через /saveas в теге <img>имя</img>. '
                     . 'По тексту и/или картинке будет написана короткая песня и сгенерирован видеоклип.',
                 ),
@@ -127,9 +138,11 @@ class MvidProcessor implements MessageChainProcessor
         try {
             // The starting image model is only used (and thus only worth listing
             // in the caption) when no image was supplied and we had to generate
-            // a first frame from the text.
-            $imageGenerated = $imageContents === null;
-            if ($imageGenerated) {
+            // a first frame from the text. /mvideo ($generateFirstFrame = false)
+            // never generates a frame, so with no image the video is produced
+            // from the audio only (LTX audio→video).
+            $imageGenerated = false;
+            if ($imageContents === null && $this->generateFirstFrame) {
                 $progressUpdateCallback(
                     static::class,
                     "Generating a starting frame for: $userText",
@@ -140,6 +153,7 @@ class MvidProcessor implements MessageChainProcessor
                     $userText,
                     $progressUpdateCallback,
                 );
+                $imageGenerated = true;
             }
 
             ReactionSetter::setMessageReaction($message, '✍');
@@ -232,18 +246,21 @@ class MvidProcessor implements MessageChainProcessor
      * Has the lyrics assistant write genre tags + lyrics for a ~20s song from
      * the text and/or image. The image is passed directly when the assistant
      * supports images; otherwise it is described via alt text (same as the
-     * normal assistant message path).
+     * normal assistant message path). When no image is available the lyrics are
+     * written from the text alone.
      *
      * @return array{0:string,1:string}|null  [$tags, $lyrics], or null on parse failure
      */
     private function generateLyricsAndTags(
         string $theme,
-        string $imageContents,
+        ?string $imageContents,
         ProgressUpdateCallback $progressUpdateCallback
     ): ?array {
+        $imageClause = $imageContents === null ? '' : ' and an image';
+
         $context = new AssistantContext();
         $context->systemPrompt = <<<PROMPT
-You are a songwriter and music producer. Given a theme, idea, or description (and optionally an image), write original song lyrics and choose musical genres that fit it. The song must be short — about 20 seconds long (roughly 4 to 8 lines of lyrics).
+You are a songwriter and music producer. Given a theme, idea, or description{$imageClause}, write original song lyrics and choose musical genres that fit it. The song must be short — about 20 seconds long (roughly 4 to 8 lines of lyrics).
 
 Respond in EXACTLY this format and nothing else:
 - The FIRST line must be a comma-separated list of genre/style tags in English (e.g. "synthpop, upbeat, female vocals, electronic").
@@ -258,7 +275,11 @@ PROMPT;
         $lyricsAssistantSupportsImages = property_exists($this->lyricsAssistant, 'supportsImages')
             && $this->lyricsAssistant->supportsImages === true;
 
-        if ($lyricsAssistantSupportsImages) {
+        if ($imageContents === null) {
+            // No starting image (e.g. /mvideo with text only): write the lyrics
+            // from the theme alone.
+            $userMessage->text = $theme;
+        } elseif ($lyricsAssistantSupportsImages) {
             $userMessage->photo = $imageContents;
             $userMessage->text = $theme !== ''
                 ? $theme

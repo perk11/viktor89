@@ -211,6 +211,46 @@ class CommandBasedResponderTriggerTest extends TestCase
         $this->assertSame('', $chain->last()->messageText);
     }
 
+    public function testShorterCommandDoesNotMatchLongerCommand(): void
+    {
+        $responder = $this->createMock(MessageChainProcessor::class);
+        $responder->expects($this->never())
+            ->method('processMessageChain');
+
+        $callback = $this->createMock(ProgressUpdateCallback::class);
+
+        $trigger = new CommandBasedResponderTrigger(
+            ['/mvid'],
+            $responder,
+         logger: new \Psr\Log\NullLogger());
+
+        // /mvid must not swallow /mvideo (which would leave "eo" as the argument).
+        $chain = new MessageChain([self::makeMessage('User', '/mvideo sunset')]);
+        $trigger->processMessageChain($chain, $callback);
+
+        $this->assertSame('/mvideo sunset', $chain->last()->messageText);
+    }
+
+    public function testLongerCommandIsStillMatchedByItsOwnTrigger(): void
+    {
+        $responder = $this->createMock(MessageChainProcessor::class);
+        $responder->expects($this->once())
+            ->method('processMessageChain')
+            ->willReturn(new ProcessingResult(null, true));
+
+        $callback = $this->createMock(ProgressUpdateCallback::class);
+
+        $trigger = new CommandBasedResponderTrigger(
+            ['/mvideo'],
+            $responder,
+         logger: new \Psr\Log\NullLogger());
+
+        $chain = new MessageChain([self::makeMessage('User', '/mvideo sunset')]);
+        $trigger->processMessageChain($chain, $callback);
+
+        $this->assertSame('sunset', $chain->last()->messageText);
+    }
+
     private static function makeMessage(string $userName, string $text): InternalMessage
     {
         $message = new InternalMessage();

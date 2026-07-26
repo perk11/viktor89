@@ -28,6 +28,8 @@ class MvidProcessorTest extends TestCase
     private function buildProcessor(
         ?ImgTagExtractor $imgTagExtractor = null,
         ?TelegramFileDownloader $telegramFileDownloader = null,
+        bool $generateFirstFrame = true,
+        string $commandName = '/mvid',
     ): MvidProcessor {
         return new MvidProcessor(
             $this->createMock(AssistedVideoProcessor::class),
@@ -41,6 +43,8 @@ class MvidProcessorTest extends TestCase
             'flux-dev-720x480',
             'ltx-2-distilled',
             new NullLogger(),
+            $generateFirstFrame,
+            $commandName,
         );
     }
 
@@ -157,5 +161,46 @@ class MvidProcessorTest extends TestCase
 
         $this->assertTrue($result->abortProcessing);
         $this->assertSame('🤔', $result->reaction);
+    }
+
+    public function testConstructorExposesMvideoOptionsDefaultingToMvid(): void
+    {
+        $params = (new \ReflectionClass(MvidProcessor::class))
+            ->getConstructor()
+            ->getParameters();
+
+        $byName = [];
+        foreach ($params as $param) {
+            $byName[$param->getName()] = $param;
+        }
+
+        $this->assertArrayHasKey('generateFirstFrame', $byName);
+        $this->assertTrue($byName['generateFirstFrame']->isDefaultValueAvailable());
+        $this->assertTrue($byName['generateFirstFrame']->getDefaultValue());
+
+        $this->assertArrayHasKey('commandName', $byName);
+        $this->assertTrue($byName['commandName']->isDefaultValueAvailable());
+        $this->assertSame('/mvid', $byName['commandName']->getDefaultValue());
+    }
+
+    public function testMvideoModeUsageMessageReferencesMvideoCommand(): void
+    {
+        $imgTagExtractor = $this->createMock(ImgTagExtractor::class);
+        $imgTagExtractor->method('extractImageTags')->willReturnArgument(0);
+
+        $processor = $this->buildProcessor(
+            $imgTagExtractor,
+            null,
+            generateFirstFrame: false,
+            commandName: '/mvideo',
+        );
+        $result = $processor->processMessageChain(
+            $this->singleMessageChain(''),
+            $this->createMock(ProgressUpdateCallback::class),
+        );
+
+        $this->assertTrue($result->abortProcessing);
+        $this->assertNotNull($result->response);
+        $this->assertStringContainsString('/mvideo закат', $result->response->messageText);
     }
 }
