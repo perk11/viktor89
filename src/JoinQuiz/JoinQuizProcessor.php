@@ -43,7 +43,8 @@ class JoinQuizProcessor implements PreResponseProcessor
         // ephemerally when the bot is an admin (sendPoll doesn't support
         // receiver_user_id, so the poll itself stays public). Ephemeral messages
         // self-destruct and are not queued for deletion; a public fallback is.
-        $photoEphemeral = BotAdminChecker::isBotAdminInChat($chatId);
+//        $photoEphemeral = BotAdminChecker::isBotAdminInChat($chatId);
+        $photoEphemeral = false; // disable for now until more people have an updated client
         if ($photoEphemeral) {
             $photoParams['receiver_user_id'] = $message->getNewChatMembers()[0]->getId();
         }
@@ -102,8 +103,10 @@ class JoinQuizProcessor implements PreResponseProcessor
             $questionMessage->chatId = $message->getChat()->getId();
             $questionMessage->replyToMessageId = $message->getMessageId();
             $questionMessage->messageText =  'Уважаемый(-ая) ' . $newChatMember->getFirstName() . ', добро пожаловать в наш чат! Чтобы стать полноценным членом нашего сообщества, пожалуйста, пройдите опрос и представтесь. В противном случае, вас удалят из чата.';
-            // The welcome instructions are addressed to the new member only -> ephemeral.
-            $questionMessage->receiverUserId = $member->getId();
+            if ($photoEphemeral) {
+                // The welcome instructions are addressed to the new member only -> ephemeral.
+                $questionMessage->receiverUserId = $member->getId();
+            }
             $telegramServerResponse = $questionMessage->send();
             if ($telegramServerResponse->isOk() && $telegramServerResponse->getResult() instanceof Message) {
                 $this->messageRepository->logInternalMessage($questionMessage);
