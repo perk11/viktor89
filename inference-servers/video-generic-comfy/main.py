@@ -55,6 +55,9 @@ def generate_video():
             case 'LTX-2.3-distilled':
                 vhs = True
                 comfy_workflow_object, infotext = get_workflow_and_infotext_ltx23(prompt, seed, num_frames)
+            case 'minimax-h3':
+                vhs = True
+                comfy_workflow_object, infotext = get_workflow_and_infotext_minimaxh3(prompt, seed, num_frames)
             case _:
                 return jsonify({"error": "Unknown model: " + model}), 400
         if vhs:
@@ -97,6 +100,17 @@ def get_workflow_and_infotext_ltx23(prompt, seed, num_frames):
     comfy_workflow_object["189"]["inputs"]["noise_seed"] = seed
 
     return comfy_workflow_object, f'{prompt}\nSeed: {seed}, Model: ltx-2.3-22b-dev, Lora: ltx-23-22b-distilled-lora-384'
+def get_workflow_and_infotext_minimaxh3(prompt, seed, num_frames):
+    workflow_file_path = Path(__file__).with_name("minimax_h3_txt2vid.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    num_frames = max(num_frames, 360)
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["131"]["inputs"]["prompt"] = prompt
 
+    comfy_workflow_object["130"]["inputs"]["value"] = num_frames/24
+    comfy_workflow_object["130"]["inputs"]["noise_seed"] = seed
+
+    return comfy_workflow_object, f'{prompt}\nSeed: {seed}, Model: minimax-h3'
 if __name__ == '__main__':
     app.run(host='localhost', port=args.port)
