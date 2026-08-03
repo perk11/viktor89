@@ -47,7 +47,12 @@ use Psr\Log\LogLevel;
  */
 class MvidProcessor implements MessageChainProcessor
 {
-    private const SONG_DURATION_MS = 20 * 1000;
+    // Kept below the 20s TrimAudioDuration cap baked into the LTX audio→video
+    // workflow (inference-servers/audio-img-txt2vid-generic-comfy) so the song
+    // ends before that hard cut. ACE-Step fills its latent right to the requested
+    // duration, so at 20s the song's tail lands on the trim blade and gets sliced
+    // mid-word; the 2s margin keeps the final word/note intact.
+    private const SONG_DURATION_MS = 18 * 1000;
 
     public function __construct(
         private readonly AssistedVideoProcessor $assistedVideoProcessor,
@@ -260,7 +265,7 @@ class MvidProcessor implements MessageChainProcessor
 
         $context = new AssistantContext();
         $context->systemPrompt = <<<PROMPT
-You are a songwriter and music producer. Given a theme, idea, or description{$imageClause}, write original song lyrics and choose musical genres that fit it. The song must be short — about 20 seconds long (roughly 4 to 8 lines of lyrics).
+You are a songwriter and music producer. Given a theme, idea, or description{$imageClause}, write original song lyrics and choose musical genres that fit it. The song must be short — about 18 seconds long (roughly 4 to 6 lines of lyrics).
 
 Respond in EXACTLY this format and nothing else:
 - The FIRST line must be a comma-separated list of genre/style tags in English (e.g. "synthpop, upbeat, female vocals, electronic").

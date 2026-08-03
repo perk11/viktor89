@@ -397,7 +397,7 @@
         "276",
         0
       ],
-      "mode": "round"
+      "mode": "floor"
     },
     "class_type": "JWFloatToInteger",
     "_meta": {
