@@ -104,11 +104,11 @@ def get_workflow_and_infotext_minimaxh3(prompt, seed, num_frames):
     workflow_file_path = Path(__file__).with_name("minimax_h3_txt2vid.json")
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
-    num_frames = max(num_frames, 360)
+    num_frames = min(num_frames, 360)
     comfy_workflow_object = json.loads(comfy_workflow)
     comfy_workflow_object["131"]["inputs"]["prompt"] = prompt
 
-    comfy_workflow_object["130"]["inputs"]["value"] = num_frames/24
+    comfy_workflow_object["132"]["inputs"]["value"] = num_frames/24
     comfy_workflow_object["130"]["inputs"]["noise_seed"] = seed
 
     return comfy_workflow_object, f'{prompt}\nSeed: {seed}, Model: minimax-h3'
