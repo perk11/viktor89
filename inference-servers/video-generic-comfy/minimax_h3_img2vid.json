@@ -199,15 +199,11 @@
   "136": {
     "inputs": {
       "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
-      "weight_dtype": "default",
-      "model_type": "flux2",
-      "on_the_fly_quantization": false,
-      "enable_convrot": true,
-      "lora_mode": "None"
+      "weight_dtype": "default"
     },
-    "class_type": "OTUNetLoaderW8A8",
+    "class_type": "UNETLoader",
     "_meta": {
-      "title": "Load Diffusion Model INT8 (W8A8)"
+      "title": "Load Diffusion Model"
     }
   },
   "138": {
