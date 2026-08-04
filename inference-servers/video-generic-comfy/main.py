@@ -169,9 +169,9 @@ def get_workflow_and_infotext_minimaxh3_img2vid(image_file_name, prompt, seed, n
     num_frames = min(num_frames, 360)
     comfy_workflow_object = json.loads(comfy_workflow)
     comfy_workflow_object["114"]["inputs"]["image"] = image_file_name
-    comfy_workflow_object["133"]["inputs"]["prompt"] = prompt
-    comfy_workflow_object["131"]["inputs"]["noise_seed"] = seed
-    comfy_workflow_object["135"]["inputs"]["value"] = num_frames / 24
+    comfy_workflow_object["135"]["inputs"]["prompt"] = prompt
+    comfy_workflow_object["132"]["inputs"]["noise_seed"] = seed
+    comfy_workflow_object["134"]["inputs"]["value"] = num_frames / 24
 
     return comfy_workflow_object, f'{prompt}\nSeed: {seed}, Model: minimax-h3'
 if __name__ == '__main__':

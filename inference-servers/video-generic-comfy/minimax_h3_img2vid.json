@@ -8,22 +8,15 @@
       "title": "Load Image"
     }
   },
-  "115": {
-    "inputs": {
-      "aspect_ratio": "1:1 (Square)",
-      "megapixels": 0.4,
-      "multiple": 32
-    },
-    "class_type": "ResolutionSelector",
-    "_meta": {
-      "title": "Resolution Selector"
-    }
-  },
   "119": {
     "inputs": {
       "upscale_method": "nearest-exact",
       "megapixels": 1,
-      "resolution_steps": 32
+      "resolution_steps": 32,
+      "image": [
+        "114",
+        0
+      ]
     },
     "class_type": "ImageScaleToTotalPixels",
     "_meta": {
@@ -42,7 +35,7 @@
       "title": "Get Image Size"
     }
   },
-  "121": {
+  "125": {
     "inputs": {
       "vae_name": "minimax_h3_video_vae_fp16.safetensors"
     },
@@ -51,7 +44,7 @@
       "title": "Load VAE"
     }
   },
-  "122": {
+  "126": {
     "inputs": {
       "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
     },
@@ -60,39 +53,7 @@
       "title": "Load VAE"
     }
   },
-  "123": {
-    "inputs": {
-      "samples": [
-        "127",
-        0
-      ],
-      "vae": [
-        "122",
-        0
-      ]
-    },
-    "class_type": "VAEDecodeAudio",
-    "_meta": {
-      "title": "VAE Decode Audio"
-    }
-  },
-  "124": {
-    "inputs": {
-      "samples": [
-        "127",
-        0
-      ],
-      "vae": [
-        "121",
-        0
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "VAE Decode"
-    }
-  },
-  "125": {
+  "127": {
     "inputs": {
       "sampler_name": "res_multistep"
     },
@@ -101,13 +62,13 @@
       "title": "KSamplerSelect"
     }
   },
-  "126": {
+  "128": {
     "inputs": {
       "scheduler": "simple",
       "steps": 20,
       "denoise": 1,
       "model": [
-        "129",
+        "136",
         0
       ]
     },
@@ -116,26 +77,26 @@
       "title": "BasicScheduler"
     }
   },
-  "127": {
+  "129": {
     "inputs": {
       "noise": [
-        "131",
+        "132",
         0
       ],
       "guider": [
-        "128",
+        "130",
         0
       ],
       "sampler": [
-        "125",
+        "127",
         0
       ],
       "sigmas": [
-        "126",
+        "128",
         0
       ],
       "latent_image": [
-        "133",
+        "135",
         1
       ]
     },
@@ -144,14 +105,14 @@
       "title": "SamplerCustomAdvanced"
     }
   },
-  "128": {
+  "130": {
     "inputs": {
       "model": [
-        "129",
+        "136",
         0
       ],
       "conditioning": [
-        "133",
+        "135",
         0
       ]
     },
@@ -160,17 +121,7 @@
       "title": "Basic Guider"
     }
   },
-  "129": {
-    "inputs": {
-      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
-      "weight_dtype": "default"
-    },
-    "class_type": "UNETLoader",
-    "_meta": {
-      "title": "Load Diffusion Model"
-    }
-  },
-  "130": {
+  "131": {
     "inputs": {
       "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
       "type": "minimax",
@@ -181,9 +132,9 @@
       "title": "Load CLIP"
     }
   },
-  "131": {
+  "132": {
     "inputs": {
-      "noise_seed": 1
+      "noise_seed": 1034858671896051
     },
     "class_type": "RandomNoise",
     "_meta": {
@@ -192,25 +143,47 @@
   },
   "133": {
     "inputs": {
-      "prompt": "Vaporwave title sequence look: pink and blue gradient palette, VHS tracking artifacts, Greek statue motifs, chrome palm trees, RGB chromatic aberration, lo-fi retro atmosphere, mood languid and nostalgic.\n\nTimeline:\n[0s-1s] VHS static opens the frame, the title \"COMFYUI\" appears with RGB split and a slight horizontal jitter.\n[1s-2.5s] Hard cut, a Greek plaster bust close-up, pink-purple gradient sky, a pixelated sun.\n[2.5s-4s] Clean \"STARRING\" credits appear, \"LATENT\" and \"CONTROLNET\" each shown exactly once.\n[4s-5s] Final card \"DIRECTED BY COMFYUI\" holds, one VHS tracking glitch settling into stability.\n\nHard cuts only, transitions landing with tape jumps, no push-ins, no dissolves.\n\nAudio: lo-fi vaporwave score, slow drum machine with soft bass, VHS tape-noise sample joins at 2.5s, melody fading for the last 1s.\n\nAll text must be clearly legible, do not misspell English, no Chinese characters, do not repeat names or job titles, no soft dissolves, no subtitle bars.",
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "134",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "Math Expression"
+    }
+  },
+  "134": {
+    "inputs": {
+      "value": 1
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Float (duration)"
+    }
+  },
+  "135": {
+    "inputs": {
+      "prompt": "prompt goes here",
       "width": [
-        "115",
+        "120",
         0
       ],
       "height": [
-        "115",
+        "120",
         1
       ],
       "length": [
-        "134",
+        "133",
         1
       ],
       "clip": [
-        "130",
+        "131",
         0
       ],
       "vae": [
-        "121",
+        "125",
         0
       ],
       "first_frame": [
@@ -223,44 +196,70 @@
       "title": "MiniMax H3 Image to Video"
     }
   },
-  "134": {
+  "136": {
     "inputs": {
-      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
-      "values.a": [
-        "135",
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default",
+      "model_type": "flux2",
+      "on_the_fly_quantization": false,
+      "enable_convrot": true,
+      "lora_mode": "None"
+    },
+    "class_type": "OTUNetLoaderW8A8",
+    "_meta": {
+      "title": "Load Diffusion Model INT8 (W8A8)"
+    }
+  },
+  "138": {
+    "inputs": {
+      "samples": [
+        "129",
+        0
+      ],
+      "vae": [
+        "125",
         0
       ]
     },
-    "class_type": "ComfyMathExpression",
+    "class_type": "VAEDecode",
     "_meta": {
-      "title": "Math Expression"
+      "title": "VAE Decode"
     }
   },
-  "135": {
+  "139": {
     "inputs": {
-      "value": 2
+      "samples": [
+        "129",
+        0
+      ],
+      "vae": [
+        "126",
+        0
+      ]
     },
-    "class_type": "PrimitiveFloat",
+    "class_type": "VAEDecodeAudio",
     "_meta": {
-      "title": "Float (duration)"
+      "title": "VAE Decode Audio"
     }
   },
-  "136": {
+  "140": {
     "inputs": {
-      "frame_rate": 24,
+      "frame_rate": 8,
       "loop_count": 0,
       "filename_prefix": "AnimateDiff",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 23,
+      "save_metadata": true,
+      "trim_to_audio": false,
       "pingpong": false,
-      "save_output": true,
+      "save_output": false,
       "images": [
-        "124",
+        "138",
         0
       ],
       "audio": [
-        "123",
+        "139",
         0
       ]
     },
