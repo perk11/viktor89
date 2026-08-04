@@ -30,6 +30,8 @@ print(f"ComfyUI server address: {comfyui_server_address}")
 
 comfyui_input_dir = args.comfy_ui_input_dir
 
+semaphores = {}
+
 
 @app.route('/txt2vid', methods=['POST'])
 def generate_video():
@@ -89,11 +91,17 @@ def generate_video_from_image():
     if len(init_images) != 1:
         return jsonify({'error': "Exactly one init image is required."}), 400
 
+    if model not in semaphores:
+        semaphores[model] = threading.Semaphore()
+
+    print("Acquiring lock for " + model, flush=True)
+    semaphores[model].acquire()
+    print("Acquired lock for " + model, flush=True)
     try:
         match model:
             case 'minimax-h3':
                 image_data = base64.b64decode(init_images[0])
-                image_file_name = "viktor89-minimax-h3-img2vid-image.jpg"
+                image_file_name = "viktor89-" + model + "-img2vid-image.jpg"
                 with open(args.comfy_ui_input_dir + '/' + image_file_name, 'wb') as image_file:
                     image_file.write(image_data)
                 comfy_workflow_object, infotext = get_workflow_and_infotext_minimaxh3_img2vid(
@@ -106,6 +114,8 @@ def generate_video_from_image():
         print(e)
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+    finally:
+        semaphores[model].release()
 
 
 def get_workflow_and_infotext_kandinsky(prompt, negative_prompt, seed, width, height, steps, num_frames):
