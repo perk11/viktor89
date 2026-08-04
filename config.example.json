@@ -102,6 +102,14 @@
       "supportsImages": true,
       "model": "gemma3-12B-Q8_0-vision",
       "class": "Perk11\\Viktor89\\Assistant\\OpenAiChatAssistant"
+    },
+    "minimax-h3-video-prompt": {
+      "url": "http://localhost:7070/",
+      "supportsResponseStart": false,
+      "selectableByUser": false,
+      "supportsImages": true,
+      "model": "gemma3-12B-Q8_0-vision",
+      "class": "Perk11\\Viktor89\\Assistant\\OpenAiChatAssistant"
     }
   },
   "imageModels": {
@@ -322,6 +330,10 @@
     "CogVideoX-2b": {
       "steps": 50,
       "url": "http://localhost:8100"
+    },
+    "minimax-h3-preprocessed": {
+      "url": "http://localhost:8210",
+      "preprocessor": "minimax-h3"
     }
   },
   "videoEditModels": {
@@ -334,12 +346,20 @@
     "ltx-2-distilled": {
       "url": "http://localhost:8207",
       "model": "ltx-2-distilled"
+    },
+    "minimax-h3-preprocessed": {
+      "url": "http://localhost:8210",
+      "preprocessor": "minimax-h3"
     }
   },
   "img2videoModels": {
     "CogVideoX-5B-I2V": {
       "steps": 50,
       "url": "http://localhost:8103"
+    },
+    "minimax-h3-preprocessed": {
+      "url": "http://localhost:8210",
+      "preprocessor": "minimax-h3"
     }
   },
   "upscaleModels": {

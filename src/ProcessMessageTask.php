@@ -80,6 +80,7 @@ use Perk11\Viktor89\VideoGeneration\VideoProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoResponder;
 use Perk11\Viktor89\VideoGeneration\VideoSayProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoTxtAndVid2VidProcessor;
+use Perk11\Viktor89\VideoGeneration\VideoPromptPreprocessor\VideoPromptPreprocessorFactory;
 use Perk11\Viktor89\VoiceGeneration\AudioSuperResolutionApiClient;
 use Perk11\Viktor89\VoiceGeneration\AudioUpscaleProcessor;
 use Perk11\Viktor89\VoiceGeneration\CoverApiClient;
@@ -515,7 +516,24 @@ class ProcessMessageTask implements Task
         $upscaleClient = new UpscaleApiClient($stepsProcessor, $seedProcessor, $upscaleModelProcessor, $config['upscaleModels']);
         $videoResponder = $container->get(VideoResponder::class);
         $videoImg2VidProcessor = new VideoImg2VidProcessor($telegramFileDownloader, $img2VideoClient, $videoResponder, $logger);
-        $videoProcessor = new VideoProcessor($txt2VideoClient, $videoResponder, $videoImg2VidProcessor, $altTextProvider, $logger);
+        $videoPromptPreprocessorFactory = new VideoPromptPreprocessorFactory(
+            $assistantFactory,
+            $altTextProvider,
+            $logger,
+        );
+        $videoProcessor = new VideoProcessor(
+            $txt2VideoClient,
+            $videoResponder,
+            $videoImg2VidProcessor,
+            $altTextProvider,
+            $telegramFileDownloader,
+            $videoPromptPreprocessorFactory,
+            $videoModelProcessor,
+            $config['videoModels'],
+            $imv2VideModelProcessor,
+            $config['img2videoModels'],
+            $logger,
+        );
         $assistedVideoProcessor = new AssistedVideoProcessor(
             $automatic1111APiClient,
             $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),
