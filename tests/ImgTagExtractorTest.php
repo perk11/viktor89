@@ -7,6 +7,7 @@ namespace Perk11\Viktor89\Test;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
+use Perk11\Viktor89\VideoGeneration\VideoGenerationPrompt;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\PreResponseProcessor\SavedImageNotFoundException;
@@ -219,5 +220,130 @@ class ImgTagExtractorTest extends TestCase
 
         $this->assertSame('<img>a</img>', $original->text);
         $this->assertSame([], $original->sourceImagesContents);
+    }
+
+    public function testFrameTagsLeaveTextUnchangedWhenNonePresent(): void
+    {
+        $extractor = $this->frameTagExtractor();
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('just some text'));
+
+        $this->assertSame('just some text', $result->userPrompt);
+        $this->assertNull($result->firstFrame);
+        $this->assertNull($result->lastFrame);
+        $this->assertSame([], $result->referenceImages);
+        $this->assertFalse($result->hasAnyImage());
+    }
+
+    public function testFirstFrameTagResolvesSavedImageIntoFirstFrame(): void
+    {
+        $extractor = $this->frameTagExtractor();
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<fframe>mycat</fframe> running'));
+
+        $this->assertSame('running', $result->userPrompt);
+        $this->assertSame('img-bytes', $result->firstFrame);
+        $this->assertNull($result->lastFrame);
+        $this->assertSame([], $result->referenceImages);
+    }
+
+    public function testLastFrameTagResolvesSavedImageIntoLastFrame(): void
+    {
+        $extractor = $this->frameTagExtractor();
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<lframe>mycat</lframe> ending'));
+
+        $this->assertSame('ending', $result->userPrompt);
+        $this->assertSame('img-bytes', $result->lastFrame);
+    }
+
+    public function testImgFrameTagResolvesSavedImageIntoReferences(): void
+    {
+        $extractor = $this->frameTagExtractor();
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<img>mycat</img> referenced'));
+
+        $this->assertSame('referenced', $result->userPrompt);
+        $this->assertSame(['img-bytes'], $result->referenceImages);
+    }
+
+    public function testMixedFrameTagsAreGroupedByRoleInOrder(): void
+    {
+        $repo = $this->createStub(ImageRepository::class);
+        $repo->method('retrieve')->willReturnMap([
+            ['ff', 'ff-bytes'],
+            ['lf', 'lf-bytes'],
+            ['ref', 'ref-bytes'],
+        ]);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<fframe>ff</fframe> then <img>ref</img> then <lframe>lf</lframe>'));
+
+        $this->assertSame('then  then', $result->userPrompt);
+        $this->assertSame('ff-bytes', $result->firstFrame);
+        $this->assertSame('lf-bytes', $result->lastFrame);
+        $this->assertSame(['ref-bytes'], $result->referenceImages);
+    }
+
+    public function testFrameChainReferenceIsResolvedFromMessageChain(): void
+    {
+        $downloader = $this->createStub(TelegramFileDownloader::class);
+        $downloader->method('downloadPhotoFromInternalMessage')->willReturn('chain-img-bytes');
+        $extractor = new ImgTagExtractor($this->createStub(ImageRepository::class), $downloader, logger: new \Psr\Log\NullLogger());
+
+        $photoMessage = new InternalMessage();
+        $photoMessage->photoFileId = 'file-id-1';
+        $commandMessage = new InternalMessage();
+        $chain = new MessageChain([$photoMessage, $commandMessage]);
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<fframe>#0</fframe> go'), $chain);
+
+        $this->assertSame('chain-img-bytes', $result->firstFrame);
+        $this->assertSame('go', $result->userPrompt);
+    }
+
+    public function testFrameTagThrowsWhenSavedImageNotFound(): void
+    {
+        $repo = $this->createStub(ImageRepository::class);
+        $repo->method('retrieve')->willReturn(null);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
+
+        $this->expectException(SavedImageNotFoundException::class);
+
+        $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<fframe>missing</fframe>'));
+    }
+
+    public function testMultipleFirstFrameTagsKeepOnlyTheFirst(): void
+    {
+        // Only a single first frame is supported; a second <fframe> is ignored.
+        $repo = $this->createStub(ImageRepository::class);
+        $repo->method('retrieve')->willReturnMap([
+            ['a', 'a-bytes'],
+            ['b', 'b-bytes'],
+        ]);
+        $extractor = new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<fframe>a</fframe><fframe>b</fframe>'));
+
+        $this->assertSame('a-bytes', $result->firstFrame);
+        $this->assertSame('', $result->userPrompt);
+    }
+
+    public function testMultipleImgTagsCollectAllReferences(): void
+    {
+        $extractor = $this->frameTagExtractor();
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<img>a</img><img>b</img>'));
+
+        $this->assertSame(['img-bytes', 'img-bytes'], $result->referenceImages);
+        $this->assertNull($result->firstFrame);
+    }
+
+    private function frameTagExtractor(): ImgTagExtractor
+    {
+        $repo = $this->createStub(ImageRepository::class);
+        $repo->method('retrieve')->willReturn('img-bytes');
+
+        return new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
     }
 }
