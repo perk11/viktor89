@@ -56,7 +56,7 @@ class StatusProcessor implements MessageChainProcessor
                 "| %d | **%s** | %s | `%s` |\n",
                 $index,
                 self::escapeTableCell($this->shortProcessorName($task->processor)),
-                self::escapeTableCell($this->truncateStatus($task->message)),
+                self::escapeTableCell($this->prepareStatusCell($task->message)),
                 self::escapeTableCell($this->elapsedTimeString($task->startTime)),
             );
             $index++;
@@ -72,13 +72,19 @@ class StatusProcessor implements MessageChainProcessor
         return end($parts);
     }
 
-    private function truncateStatus(string $status): string
+    /**
+     * Normalize a task status for a markdown table cell: collapse any
+     * whitespace (a newline inside a cell breaks the whole table row),
+     * enforce the length limit, and escape pipes.
+     */
+    private function prepareStatusCell(string $status): string
     {
-        if (mb_strlen($status) <= self::MAX_STATUS_LENGTH) {
-            return $status;
+        $status = preg_replace('/\s+/u', ' ', $status);
+        if (mb_strlen($status) > self::MAX_STATUS_LENGTH) {
+            $status = mb_substr($status, 0, self::MAX_STATUS_LENGTH) . '…';
         }
+        return trim($status);
 
-        return mb_substr($status, 0, self::MAX_STATUS_LENGTH) . '…';
     }
 
     private function elapsedTimeString(DateTimeInterface $dateTime): string

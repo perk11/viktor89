@@ -74,6 +74,18 @@ class StatusProcessorIntegrationTest extends TestCase
         $this->assertStringNotContainsString(str_repeat('а', 201), $sentText, 'Status must not exceed 200 characters');
     }
 
+    public function testStatusCollapsesNewlinesInTaskStatus(): void
+    {
+        // A newline inside a markdown table cell breaks the whole table, so
+        // embedded whitespace in a status must be collapsed to single spaces.
+        $status = "Generating image for prompt: аниме стиль\n\n🎬 Сцена: описание сцены";
+        $sentText = $this->runScenario(registerTask: true, status: $status);
+
+        $this->assertStringContainsString('аниме стиль 🎬 Сцена: описание сцены', $sentText, 'Newlines in status must be collapsed to spaces');
+        $this->assertStringNotContainsString("аниме стиль\n\n🎬 Сцена", $sentText, 'Status must not contain raw newlines');
+        $this->assertStringNotContainsString("аниме стиль\n🎬 Сцена", $sentText);
+    }
+
     private function runScenario(bool $registerTask, string $status = 'Transcribing audio message'): string
     {
         ob_start();
