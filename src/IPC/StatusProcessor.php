@@ -10,10 +10,11 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
 use Perk11\Viktor89\ProcessingResult;
 
-use function Amp\now;
-
 class StatusProcessor implements MessageChainProcessor
 {
+    /** Max characters of a task status shown in the table. */
+    private const int MAX_STATUS_LENGTH = 200;
+
     public function __construct(private readonly Channel $channel)
     {
     }
@@ -28,21 +29,57 @@ class StatusProcessor implements MessageChainProcessor
             throw new \LogicException("Unexpected message received: " . get_class($report));
         }
         if (count($report->runningTasks) === 0) {
-            return new ProcessingResult(InternalMessage::asResponseTo($messageChain->last(), 'Ничего не происходит'), true);
+            return new ProcessingResult(
+                InternalMessage::asResponseTo($messageChain->last(), '💤 Ничего не происходит'),
+                true,
+            );
         }
+
         $message = InternalMessage::asResponseTo($messageChain->last());
-        $message->messageText = "Запущенные задачи:\n\n";
-        $message->parseMode = 'HTML';
-        $index = 1;
-        foreach ($report->runningTasks as $task) {
-            $processorNameParts = explode('\\', $task->processor);
-            $message->messageText .= "$index: <b>" . htmlspecialchars(end($processorNameParts)) . "</b>: " . htmlspecialchars($task->message) . " (<i>". $this->elapsedTimeString($task->startTime) ."</i>)\n";
-            $index++;
-        }
+        $message->parseMode = 'RichMarkdown';
+        $message->messageText = $this->buildMarkdown($report->runningTasks);
 
         return new ProcessingResult($message, true);
     }
 
+    /**
+     * @param RunningTask[] $runningTasks
+     */
+    private function buildMarkdown(array $runningTasks): string
+    {
+        $markdown = "## ⚙️ Запущенные задачи (" . count($runningTasks) . ")\n\n";
+        $markdown .= "| # | Задача | Статус | Время |\n";
+        $markdown .= "| ---: | --- | --- | ---: |\n";
+        $index = 1;
+        foreach ($runningTasks as $task) {
+            $markdown .= sprintf(
+                "| %d | **%s** | %s | `%s` |\n",
+                $index,
+                self::escapeTableCell($this->shortProcessorName($task->processor)),
+                self::escapeTableCell($this->truncateStatus($task->message)),
+                self::escapeTableCell($this->elapsedTimeString($task->startTime)),
+            );
+            $index++;
+        }
+
+        return trim($markdown);
+    }
+
+    private function shortProcessorName(string $fullyQualifiedClassName): string
+    {
+        $parts = explode('\\', $fullyQualifiedClassName);
+
+        return end($parts);
+    }
+
+    private function truncateStatus(string $status): string
+    {
+        if (mb_strlen($status) <= self::MAX_STATUS_LENGTH) {
+            return $status;
+        }
+
+        return mb_substr($status, 0, self::MAX_STATUS_LENGTH) . '…';
+    }
 
     private function elapsedTimeString(DateTimeInterface $dateTime): string
     {
@@ -52,9 +89,14 @@ class StatusProcessor implements MessageChainProcessor
         $totalMinutesAcrossEntireDuration = intdiv($absoluteSecondsBetweenNowAndStart, 60);
         $remainingSecondsWithinCurrentMinute = $absoluteSecondsBetweenNowAndStart % 60;
 
-       return $signPrefix
+        return $signPrefix
             . $totalMinutesAcrossEntireDuration
             . ':'
             . str_pad((string)$remainingSecondsWithinCurrentMinute, 2, '0', STR_PAD_LEFT);
+    }
+
+    private static function escapeTableCell(string $content): string
+    {
+        return str_replace('|', '\\|', $content);
     }
 }

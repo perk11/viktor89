@@ -49,7 +49,7 @@ class StatusProcessorIntegrationTest extends TestCase
         $this->assertNotEmpty(
             array_filter(
                 $this->recordedCalls(),
-                static fn (array $call): bool => $call['action'] === 'sendMessage',
+                static fn (array $call): bool => in_array($call['action'], ['sendMessage', 'sendRichMessage'], true),
             ),
             'The status report should have been sent to Telegram',
         );
@@ -64,17 +64,27 @@ class StatusProcessorIntegrationTest extends TestCase
         $this->assertStringContainsString('Ничего не происходит', $sentText);
     }
 
-    private function runScenario(bool $registerTask): string
+    public function testStatusTruncatesLongTaskStatus(): void
+    {
+        $longStatus = str_repeat('а', 250);
+        $sentText = $this->runScenario(registerTask: true, status: $longStatus);
+
+        $expected = str_repeat('а', 200) . '…';
+        $this->assertStringContainsString($expected, $sentText, 'Long status must be truncated to 200 characters');
+        $this->assertStringNotContainsString(str_repeat('а', 201), $sentText, 'Status must not exceed 200 characters');
+    }
+
+    private function runScenario(bool $registerTask, string $status = 'Transcribing audio message'): string
     {
         ob_start();
         try {
-            return async(fn () => $this->runScenarioAsync($registerTask))->await();
+            return async(fn () => $this->runScenarioAsync($registerTask, $status))->await();
         } finally {
             ob_end_clean();
         }
     }
 
-    private function runScenarioAsync(bool $registerTask): string
+    private function runScenarioAsync(bool $registerTask, string $status): string
     {
         [$workerChannel, $mainChannel] = IntegrationTestDsl::createChannelPair();
 
@@ -90,7 +100,7 @@ class StatusProcessorIntegrationTest extends TestCase
             $workerChannel->send(new TaskUpdateMessage(
                 1,
                 'Perk11\Viktor89\TranscribingAssistant',
-                'Transcribing audio message',
+                $status,
                 IntegrationTestDsl::typingAction(555),
             ));
             delay(0.05);

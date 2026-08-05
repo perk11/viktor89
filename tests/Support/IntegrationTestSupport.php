@@ -93,6 +93,13 @@ trait TelegramRecordingTrait
         }
 
         if (in_array($action, ['sendMessage', 'sendRichMessage', 'editMessageText'], true)) {
+            // For rich messages the payload is JSON-encoded in rich_message;
+            // echo the markdown back as text so InternalMessage round-trips messageText.
+            $text = $form['text'] ?? '';
+            if ($text === '' && isset($form['rich_message'])) {
+                $rich = json_decode((string) $form['rich_message'], true);
+                $text = $rich['markdown'] ?? '';
+            }
             return self::jsonResponse([
                 'ok' => true,
                 'result' => [
@@ -100,7 +107,7 @@ trait TelegramRecordingTrait
                     'date' => time(),
                     'chat' => ['id' => $chatId, 'type' => 'private', 'first_name' => 'Tester'],
                     'from' => ['id' => TELEGRAM_TEST_BOT_ID, 'is_bot' => true, 'first_name' => 'Bot'],
-                    'text' => $form['text'] ?? '',
+                    'text' => $text,
                 ],
             ]);
         }
