@@ -64,6 +64,9 @@ class MetadataCommandProcessor implements MessageChainProcessor
         if ($metadata->caption !== null) {
             $lines[] = "🖼 <b>Подпись:</b>\n<pre>" . TelegramHtml::escape($metadata->caption) . "</pre>";
         }
+        if ($metadata->processedPrompt !== null) {
+            $lines[] = "✏️ <b>Переписанный промпт:</b>\n<pre>" . TelegramHtml::escape($metadata->processedPrompt) . "</pre>";
+        }
 
         return implode("\n", $lines);
     }

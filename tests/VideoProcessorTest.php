@@ -120,6 +120,82 @@ class VideoProcessorTest extends TestCase
         $this->assertNull($spies->img2vidPrompt);
     }
 
+    public function testPreprocessedTxt2VidShowsOriginalPromptAsCaptionAndRecordsRewrite(): void
+    {
+        // The preprocessor rewrites the idea, but the caption shown under the
+        // video must be the original user prompt; the rewrite is recorded.
+        $preprocessor = $this->preprocessorThatPrefixes('[MINIMAX] ');
+        $captured = (object) ['caption' => null, 'processed' => null];
+        $responder = $this->createMock(VideoResponder::class);
+        $responder->method('sendVideo')->willReturnCallback(
+            function ($message, $video, $caption, $processedPrompt = null) use ($captured): void {
+                $captured->caption = $caption;
+                $captured->processed = $processedPrompt;
+            },
+        );
+
+        [$processor] = $this->buildProcessorWithSpies(
+            videoModelPreference: $this->preferenceReturning('minimax-h3-preprocessed'),
+            videoModelsConfig: ['minimax-h3-preprocessed' => ['preprocessor' => 'minimax-h3']],
+            preprocessorFactory: $this->factoryReturning('minimax-h3', $preprocessor),
+            videoResponder: $responder,
+        );
+
+        $processor->processMessageChain($this->singleMessageChain('a dog on a beach'), $this->progressCallback());
+
+        $this->assertSame('a dog on a beach', $captured->caption);
+        $this->assertSame('[MINIMAX] a dog on a beach', $captured->processed);
+    }
+
+    public function testTxt2VidWithoutPreprocessorRecordsNullProcessedPrompt(): void
+    {
+        // No preprocessor: caption is the original prompt and nothing is recorded
+        // as the processed prompt (no rewrite happened).
+        $captured = (object) ['caption' => null, 'processed' => 'sentinel'];
+        $responder = $this->createMock(VideoResponder::class);
+        $responder->method('sendVideo')->willReturnCallback(
+            function ($message, $video, $caption, $processedPrompt = null) use ($captured): void {
+                $captured->caption = $caption;
+                $captured->processed = $processedPrompt;
+            },
+        );
+
+        [$processor] = $this->buildProcessorWithSpies(videoResponder: $responder);
+
+        $processor->processMessageChain($this->singleMessageChain('a cat playing piano'), $this->progressCallback());
+
+        $this->assertSame('a cat playing piano', $captured->caption);
+        $this->assertNull($captured->processed);
+    }
+
+    public function testPreprocessedImg2VidPassesOriginalCaptionAndRewriteThrough(): void
+    {
+        // The img2vid path must forward the original-prompt caption and the
+        // rewritten prompt just like the txt2vid path does.
+        $preprocessor = $this->preprocessorThatPrefixes('[MINIMAX] ');
+        $captured = (object) ['caption' => null, 'processed' => null];
+        $img2Processor = $this->createMock(VideoImg2VidProcessor::class);
+        $img2Processor->method('respondWithImg2VidResult')->willReturnCallback(
+            function ($command, $image, $prompt, $cb, $model = null, $caption = null, $processed = null) use ($captured): void {
+                $captured->caption = $caption;
+                $captured->processed = $processed;
+            },
+        );
+
+        [$processor] = $this->buildProcessorWithSpies(
+            img2VideoModelPreference: $this->preferenceReturning('minimax-h3-preprocessed'),
+            img2videoModelsConfig: ['minimax-h3-preprocessed' => ['preprocessor' => 'minimax-h3']],
+            preprocessorFactory: $this->factoryReturning('minimax-h3', $preprocessor),
+            telegramFileDownloader: $this->downloaderReturning('photo-bytes'),
+            videoImg2VidProcessor: $img2Processor,
+        );
+
+        $processor->processMessageChain($this->chainWithReplyPhoto('a dog on a beach'), $this->progressCallback());
+
+        $this->assertSame('a dog on a beach', $captured->caption);
+        $this->assertSame('[MINIMAX] a dog on a beach', $captured->processed);
+    }
+
     public function testFirstFrameTagUsesSavedImageAsFirstFrame(): void
     {
         // With no replied photo, the <fframe> image becomes the first frame.
@@ -350,6 +426,8 @@ class VideoProcessorTest extends TestCase
         ?VideoPromptPreprocessorFactory $preprocessorFactory = null,
         ?ImgTagExtractor $imgTagExtractor = null,
         ?UserPreferenceReaderInterface $framesPreference = null,
+        ?VideoResponder $videoResponder = null,
+        ?VideoImg2VidProcessor $videoImg2VidProcessor = null,
     ): array {
         $spies = (object) [
             'img2vidImage' => null,
@@ -358,13 +436,17 @@ class VideoProcessorTest extends TestCase
             'txt2vidPrompt' => null,
         ];
 
-        $videoImg2VidProcessor = $this->createMock(VideoImg2VidProcessor::class);
-        $videoImg2VidProcessor->method('respondWithImg2VidResult')
-            ->willReturnCallback(function ($command, string $image, string $prompt, $cb, ?string $modelName = null) use ($spies): void {
-                $spies->img2vidImage = $image;
-                $spies->img2vidPrompt = $prompt;
-                $spies->img2vidModel = $modelName;
-            });
+        $videoImg2VidProcessor ??= (function () use ($spies): VideoImg2VidProcessor {
+            $mock = $this->createMock(VideoImg2VidProcessor::class);
+            $mock->method('respondWithImg2VidResult')
+                ->willReturnCallback(function ($command, string $image, string $prompt, $cb, ?string $modelName = null) use ($spies): void {
+                    $spies->img2vidImage = $image;
+                    $spies->img2vidPrompt = $prompt;
+                    $spies->img2vidModel = $modelName;
+                });
+
+            return $mock;
+        })();
 
         $txt2VideoClient = $this->createMock(Txt2VideoClient::class);
         $txt2VideoClient->method('generateByPromptTxt2Vid')
@@ -374,7 +456,7 @@ class VideoProcessorTest extends TestCase
                 return new VideoApiResponse([base64_encode('mp4-bytes')], ['infotexts' => ['info']]);
             });
 
-        $videoResponder = $this->createMock(VideoResponder::class);
+        $videoResponder ??= $this->createMock(VideoResponder::class);
 
         $processor = new VideoProcessor(
             $txt2VideoClient,

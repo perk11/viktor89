@@ -5,7 +5,8 @@ namespace Perk11\Viktor89;
 /**
  * Generation metadata recorded for messages created by AI: the model that
  * produced the response, the system prompt that was used, the active persona id
- * (if any), and the caption (for images).
+ * (if any), the caption (for images), and the preprocessor-rewritten prompt
+ * (for video generations whose caption carries the original user prompt).
  */
 class MessageMetadata
 {
@@ -16,6 +17,7 @@ class MessageMetadata
         public readonly ?string $systemPrompt = null,
         public readonly ?int $personaId = null,
         public readonly ?string $caption = null,
+        public readonly ?string $processedPrompt = null,
     ) {
     }
 
@@ -24,7 +26,8 @@ class MessageMetadata
         return $this->model !== null
             || $this->systemPrompt !== null
             || $this->personaId !== null
-            || $this->caption !== null;
+            || $this->caption !== null
+            || $this->processedPrompt !== null;
     }
 
     public static function fromSqliteAssoc(array $result): self
@@ -36,6 +39,7 @@ class MessageMetadata
             $result['system_prompt'] ?? null,
             $result['persona_id'] !== null ? (int) $result['persona_id'] : null,
             $result['caption'] ?? null,
+            $result['processed_prompt'] ?? null,
         );
     }
 }

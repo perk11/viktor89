@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\Repository;
 
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\MessageMetadata;
+use SQLite3;
 use SQLite3Stmt;
 
 class MessageMetadataRepository
@@ -15,8 +16,8 @@ class MessageMetadataRepository
     {
         $sqlite = $this->database->sqlite3Database;
         $this->insertStatement = $sqlite->prepare(
-            'INSERT INTO message_metadata (chat_id, message_id, model, system_prompt, persona_id, caption)
-             VALUES (:chat_id, :message_id, :model, :system_prompt, :persona_id, :caption)'
+            'INSERT INTO message_metadata (chat_id, message_id, model, system_prompt, persona_id, caption, processed_prompt)
+             VALUES (:chat_id, :message_id, :model, :system_prompt, :persona_id, :caption, :processed_prompt)'
         );
         $this->selectStatement = $sqlite->prepare(
             'SELECT * FROM message_metadata WHERE chat_id = :chat_id AND message_id = :message_id'
@@ -31,6 +32,7 @@ class MessageMetadataRepository
         $this->insertStatement->bindValue(':system_prompt', $metadata->systemPrompt);
         $this->insertStatement->bindValue(':persona_id', $metadata->personaId, SQLITE3_INTEGER);
         $this->insertStatement->bindValue(':caption', $metadata->caption);
+        $this->insertStatement->bindValue(':processed_prompt', $metadata->processedPrompt);
         $success = $this->insertStatement->execute();
         $this->insertStatement->reset();
 

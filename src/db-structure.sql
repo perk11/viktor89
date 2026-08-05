@@ -138,11 +138,12 @@ CREATE INDEX IF NOT EXISTS idx_context_compaction_chat_root ON context_compactio
 
 CREATE TABLE IF NOT EXISTS `message_metadata`
 (
-    `chat_id`       bigint NOT NULL,
-    `message_id`    bigint NOT NULL,
-    `model`         text DEFAULT NULL,
-    `system_prompt` text DEFAULT NULL,
-    `persona_id`    integer DEFAULT NULL,
-    `caption`       text DEFAULT NULL,
+    `chat_id`            bigint NOT NULL,
+    `message_id`         bigint NOT NULL,
+    `model`              text DEFAULT NULL,
+    `system_prompt`      text DEFAULT NULL,
+    `persona_id`         integer DEFAULT NULL,
+    `caption`            text DEFAULT NULL,
+    `processed_prompt` text DEFAULT NULL,
     PRIMARY KEY (chat_id, message_id)
 );

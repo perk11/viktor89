@@ -40,6 +40,10 @@ class VideoImg2VidProcessor
      * which needs the bytes for prompt preprocessing) can reuse them instead of
      * downloading twice. $modelName overrides the user's selected model (used to
      * fall back to a last-frame-capable model when a last frame is supplied).
+     *
+     * $caption/$processedPrompt let a caller that preprocessed the prompt
+     * surface the original user prompt as the caption (the default falls back to
+     * the generation echo) and record the rewritten prompt as metadata.
      */
     public function respondWithImg2VidResult(
         InternalMessage $messageWithCommand,
@@ -47,6 +51,8 @@ class VideoImg2VidProcessor
         string $prompt,
         ProgressUpdateCallback $progressUpdateCallback,
         ?string $modelName = null,
+        ?string $caption = null,
+        ?string $processedPrompt = null,
     ): void {
         ReactionSetter::setMessageReaction($messageWithCommand, '👀');
         try {
@@ -61,7 +67,8 @@ class VideoImg2VidProcessor
             $this->videoResponder->sendVideo(
                 $messageWithCommand,
                 $videoResponse->getFirstVideoAsMp4(),
-                $videoResponse->getCaption(),
+                $caption ?? $videoResponse->getCaption(),
+                $processedPrompt,
             );
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Failed to generate video:\n" . $e->getMessage());

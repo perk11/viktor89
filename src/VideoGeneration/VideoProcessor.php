@@ -211,6 +211,10 @@ class VideoProcessor implements MessageChainProcessor
             $finalPrompt,
             $progressUpdateCallback,
             $lastFrameModel,
+            // The caption carries the original user idea; the rewritten prompt
+            // is recorded as metadata rather than shown under the video.
+            $videoPrompt->userPrompt,
+            $this->processedPromptToRecord($videoPrompt, $finalPrompt),
         );
 
         return new ProcessingResult(null, true);
@@ -226,10 +230,13 @@ class VideoProcessor implements MessageChainProcessor
         try {
             $response = $this->txt2VideoClient->generateByPromptTxt2Vid($finalPrompt, $message->userId);
             $progressUpdateCallback(static::class, "Sending video response");
+            // The caption carries the original user idea; the rewritten prompt
+            // is recorded as metadata rather than shown under the video.
             $this->videoResponder->sendVideo(
                 $message,
                 $response->getFirstVideoAsMp4(),
-                $response->getCaption(),
+                $videoPrompt->userPrompt,
+                $this->processedPromptToRecord($videoPrompt, $finalPrompt),
             );
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Failed to generate video:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
@@ -247,6 +254,16 @@ class VideoProcessor implements MessageChainProcessor
     private function preprocessForTxt2Video(int $userId, VideoGenerationPrompt $videoPrompt, ProgressUpdateCallback $progressUpdateCallback): string
     {
         return $this->preprocessForModel($this->videoModelPreference, $this->videoModelsConfig, $userId, $videoPrompt, $progressUpdateCallback);
+    }
+
+    /**
+     * The model-specific prompt the preprocessor rewrote, or null when no
+     * rewriting happened (no preprocessor, or it returned the prompt unchanged).
+     * Recorded as metadata so the caption can show the original user idea.
+     */
+    private function processedPromptToRecord(VideoGenerationPrompt $videoPrompt, string $finalPrompt): ?string
+    {
+        return $finalPrompt !== $videoPrompt->userPrompt ? $finalPrompt : null;
     }
 
     /**
