@@ -11,6 +11,11 @@ namespace Perk11\Viktor89\VideoGeneration;
  * The task structure (T2VA / I2VA / L2VA / FL2VA / full-reference) is NOT
  * chosen by the caller — effectiveMode() derives it deterministically from
  * which fields are set, matching the MiniMax-H3 guide's task taxonomy.
+ *
+ * Mutable on purpose: the /video pipeline builds it incrementally (tags are
+ * resolved into frame/reference fields, the replied photo is appended, the
+ * single-reference -> first-frame fallback is applied) by mutating the same
+ * instance rather than reconstructing it at every step.
  */
 class VideoGenerationPrompt
 {
@@ -24,13 +29,13 @@ class VideoGenerationPrompt
      * @param int         $durationSeconds  Hard cap on the generated video length.
      */
     public function __construct(
-        public readonly string $userPrompt,
-        public readonly ?string $firstFrame = null,
-        public readonly ?string $lastFrame = null,
-        public readonly array $referenceImages = [],
-        public readonly ?string $audioTrack = null,
-        public readonly array $referenceAudios = [],
-        public readonly int $durationSeconds = 15,
+        public string $userPrompt,
+        public ?string $firstFrame = null,
+        public ?string $lastFrame = null,
+        public array $referenceImages = [],
+        public ?string $audioTrack = null,
+        public array $referenceAudios = [],
+        public int $durationSeconds = 15,
     ) {
     }
 
