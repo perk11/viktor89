@@ -22,12 +22,15 @@ class Img2VideoClientTest extends TestCase
         $reflection = new \ReflectionClass(\Perk11\Viktor89\VideoGeneration\Img2VideoClient::class);
         $method = $reflection->getMethod('generateByPromptImg2Vid');
         $params = $method->getParameters();
-        $this->assertCount(3, $params);
+        $this->assertCount(4, $params);
         $this->assertSame('imageContent', $params[0]->getName());
         $this->assertSame('string', $params[0]->getType()->getName());
         $this->assertSame('prompt', $params[1]->getName());
         $this->assertSame('userId', $params[2]->getName());
         $this->assertSame('int', $params[2]->getType()->getName());
+        $this->assertSame('modelName', $params[3]->getName());
+        $this->assertTrue($params[3]->isOptional());
+        $this->assertNull($params[3]->getDefaultValue());
     }
 
     public function testGenerateByPromptImg2VidReturnsVideoApiResponse(): void

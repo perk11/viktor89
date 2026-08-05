@@ -532,6 +532,8 @@ class ProcessMessageTask implements Task
             $config['videoModels'],
             $imv2VideModelProcessor,
             $config['img2videoModels'],
+            $framesProcessor,
+            $imgTagExtractor,
             $logger,
         );
         $assistedVideoProcessor = new AssistedVideoProcessor(

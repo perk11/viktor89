@@ -4,23 +4,27 @@ namespace Perk11\Viktor89\VideoGeneration;
 
 use Exception;
 use Perk11\Viktor89\Assistant\AltTextProvider;
+use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\PreResponseProcessor\SavedImageNotFoundException;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 use Perk11\Viktor89\Util\Telegram\ReactionSetter;
-use Perk11\Viktor89\VideoGeneration\VideoPromptPreprocessor\VideoPromptPreprocessor;
 use Perk11\Viktor89\VideoGeneration\VideoPromptPreprocessor\VideoPromptPreprocessorFactory;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
 class VideoProcessor implements MessageChainProcessor
 {
+    /** MiniMax-H3 renders at 24 fps; the /frames preference converts to seconds through it. */
+    private const int FRAMES_PER_SECOND = 24;
+
     public function __construct(
         private readonly Txt2VideoClient $txt2VideoClient,
         private readonly VideoResponder $videoResponder,
@@ -32,6 +36,8 @@ class VideoProcessor implements MessageChainProcessor
         private readonly array $videoModelsConfig,
         private readonly UserPreferenceReaderInterface $img2VideoModelPreference,
         private readonly array $img2videoModelsConfig,
+        private readonly UserPreferenceReaderInterface $framesPreference,
+        private readonly ImgTagExtractor $imgTagExtractor,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -39,50 +45,191 @@ class VideoProcessor implements MessageChainProcessor
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
         $message = $messageChain->last();
-        $prompt = trim($message->messageText);
-        if ($prompt === '' && $messageChain->count() > 1) {
-            $prompt = trim($messageChain->previous()->messageText);
+
+        $promptText = $this->resolvePromptText($messageChain, $progressUpdateCallback);
+        if ($promptText === '') {
+            return $this->abortWith($message, 'Непонятно, что генерировать...');
         }
-        if ($prompt === '' && $messageChain->count() > 1) {
-            $prompt = trim($this->altTextProvider->provide($messageChain->previous(), $progressUpdateCallback));
-        }
-        if ($prompt === '') {
-            $response = new InternalMessage();
-            $response->chatId = $message->chatId;
-            $response->replyToMessageId = $message->id;
-            $response->messageText = 'Непонятно, что генерировать...';
-            return new ProcessingResult($response, true);
-        }
-        if ($messageChain->previous()?->photoFileId !== null) {
-            $preprocessor = $this->preprocessorFactory->createForModelPreference(
-                $this->img2VideoModelPreference,
-                $this->img2videoModelsConfig,
-                $message->userId,
-            );
-            if ($preprocessor !== null) {
-                $photo = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageChain->previous());
-                $prompt = $this->preprocess($preprocessor, $prompt, $photo, $message->chatId, $progressUpdateCallback);
-            }
-            $this->videoImg2ImgProcessor->respondWithImg2VidResultBasedOnPhotoInMessage($messageChain->previous(), $message, $prompt, $progressUpdateCallback);
-            return new ProcessingResult(null, true);
-        }
-        $preprocessor = $this->preprocessorFactory->createForModelPreference(
-            $this->videoModelPreference,
-            $this->videoModelsConfig,
-            $message->userId,
-        );
-        if ($preprocessor !== null) {
-            $prompt = $this->preprocess($preprocessor, $prompt, null, $message->chatId, $progressUpdateCallback);
-        }
-        $progressUpdateCallback(static::class, "Generating video for prompt: $prompt", new ChatAction($message->chatId, ChatActionEnum::upload_video));
-        ReactionSetter::setMessageReaction($message, '👀');
+
+        $videoPrompt = new VideoGenerationPrompt($promptText);
+        $videoPrompt->durationSeconds = $this->resolveDurationSeconds($message->userId);
         try {
-            $response = $this->txt2VideoClient->generateByPromptTxt2Vid($prompt, $message->userId);
+            $videoPrompt = $this->imgTagExtractor->extractImageAndFrameTags($videoPrompt, $messageChain);
+        } catch (SavedImageNotFoundException $e) {
+            return $this->abortWith(
+                $message,
+                sprintf('Изображение "%s" не найдено. Создайте его через /saveas или ответьте на фото.', $e->getMessage()),
+            );
+        }
+
+        // A replied photo is always treated as an additional image reference.
+        $replyImage = $this->downloadReplyPhoto($messageChain);
+        if ($replyImage !== null) {
+            $videoPrompt->referenceImages[] = $replyImage;
+        }
+
+        $abort = $this->applyReferenceRules($videoPrompt, $message);
+        if ($abort !== null) {
+            return $abort;
+        }
+
+        // A last-frame request needs a model that declares support for it.
+        $lastFrameModel = null;
+        if ($videoPrompt->lastFrame !== null) {
+            $lastFrameModel = $this->resolveLastFrameModel($message->userId);
+            if ($lastFrameModel === null) {
+                return $this->abortWith(
+                    $message,
+                    'Ни одна из настроенных моделей img2video не поддерживает последний кадр. '
+                    . 'Укажите модель с поддержкой последнего кадра или не используйте тег <lframe>...',
+                );
+            }
+        }
+
+        // Validation passed: the request will actually be processed, so show
+        // the eye now (before the slow preprocessor / generation work).
+        ReactionSetter::setMessageReaction($message, '👀');
+
+        // Any concrete frame anchor (first or last) is an image-based task;
+        // everything else is plain text-to-video.
+        $frameImage = $videoPrompt->firstFrame ?? $videoPrompt->lastFrame;
+        if ($frameImage !== null) {
+            return $this->generateImg2Vid($message, $videoPrompt, $frameImage, $progressUpdateCallback, $lastFrameModel);
+        }
+
+        return $this->generateTxt2Vid($message, $videoPrompt, $progressUpdateCallback);
+    }
+
+    private function resolvePromptText(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): string
+    {
+        $promptText = trim($messageChain->last()->messageText);
+        if ($promptText !== '' || $messageChain->count() <= 1) {
+            return $promptText;
+        }
+
+        $previous = $messageChain->previous();
+        $promptText = trim($previous->messageText);
+        if ($promptText === '') {
+            $promptText = trim($this->altTextProvider->provide($previous, $progressUpdateCallback));
+        }
+
+        return $promptText;
+    }
+
+    private function resolveDurationSeconds(int $userId): int
+    {
+        $frames = $this->framesPreference->getCurrentPreferenceValue($userId);
+        if ($frames === null) {
+            return 5; //I think this is in minimax workflow
+        }
+
+        return max(1, (int) round($frames / self::FRAMES_PER_SECOND));
+    }
+
+    private function downloadReplyPhoto(MessageChain $messageChain): ?string
+    {
+        $previous = $messageChain->previous();
+        if ($previous?->photoFileId === null) {
+            return null;
+        }
+        try {
+            return $this->telegramFileDownloader->downloadPhotoFromInternalMessage($previous);
+        } catch (Exception $e) {
+            $this->logger->log(LogLevel::WARNING, 'Failed to download replied photo: ' . $e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
+     * Reconciles reference images with the selected model's capabilities.
+     *
+     * Returns an abort result when the references cannot be satisfied; null to
+     * continue. As a side effect, a lone reference on a non-reference model is
+     * promoted to the first frame — the legacy reply-to-photo img2vid path.
+     *
+     * No-op when there are no references, so the model preference is never read
+     * in the common text-only case.
+     */
+    private function applyReferenceRules(VideoGenerationPrompt $videoPrompt, InternalMessage $message): ?ProcessingResult
+    {
+        if ($videoPrompt->referenceImages === []) {
+            return null;
+        }
+
+        $modelSupportsReferences = (bool) ($this->selectedImg2VideoEntry($message->userId)['supportsReferences'] ?? false);
+        if ($modelSupportsReferences) {
+            return null;
+        }
+
+        // A non-reference model can consume at most a single image, and only as
+        // the first frame. Collapse a lone reference; reject multiple references
+        // or a reference alongside an explicit first/last frame.
+        if ($videoPrompt->firstFrame === null && count($videoPrompt->referenceImages) === 1) {
+            $videoPrompt->firstFrame = array_pop($videoPrompt->referenceImages);
+
+            return null;
+        }
+
+        return $this->abortWith(
+            $message,
+            'Выбранная модель не поддерживает изображения-референсы. '
+            . 'Укажите только один референс (он будет использован как первый кадр) через ответ на фото или тег <img>...</img>, '
+            . 'либо выберите модель с поддержкой референсов.',
+        );
+    }
+
+    /**
+     * Model to drive a last-frame request: the selected model when it declares
+     * supportsLastFrame, otherwise the first configured model that does. Null
+     * when none supports it.
+     */
+    private function resolveLastFrameModel(int $userId): ?string
+    {
+        $selected = $this->selectedModelName($userId);
+        if (
+            $selected !== null
+            && ($this->img2videoModelsConfig[$selected]['supportsLastFrame'] ?? false)
+        ) {
+            return $selected;
+        }
+
+        return array_find_key($this->img2videoModelsConfig, static fn($config) => $config['supportsLastFrame'] ?? false);
+    }
+
+    private function generateImg2Vid(
+        InternalMessage $message,
+        VideoGenerationPrompt $videoPrompt,
+        string $frameImage,
+        ProgressUpdateCallback $progressUpdateCallback,
+        ?string $lastFrameModel,
+    ): ProcessingResult {
+        $finalPrompt = $this->preprocessForImg2Video($message->userId, $videoPrompt, $progressUpdateCallback);
+        $this->videoImg2ImgProcessor->respondWithImg2VidResult(
+            $message,
+            $frameImage,
+            $finalPrompt,
+            $progressUpdateCallback,
+            $lastFrameModel,
+        );
+
+        return new ProcessingResult(null, true);
+    }
+
+    private function generateTxt2Vid(
+        InternalMessage $message,
+        VideoGenerationPrompt $videoPrompt,
+        ProgressUpdateCallback $progressUpdateCallback,
+    ): ProcessingResult {
+        $finalPrompt = $this->preprocessForTxt2Video($message->userId, $videoPrompt, $progressUpdateCallback);
+        $progressUpdateCallback(static::class, "Generating video for prompt: $finalPrompt", new ChatAction($message->chatId, ChatActionEnum::upload_video));
+        try {
+            $response = $this->txt2VideoClient->generateByPromptTxt2Vid($finalPrompt, $message->userId);
             $progressUpdateCallback(static::class, "Sending video response");
             $this->videoResponder->sendVideo(
                 $message,
                 $response->getFirstVideoAsMp4(),
-                $response->getCaption()
+                $response->getCaption(),
             );
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Failed to generate video:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());
@@ -92,23 +239,66 @@ class VideoProcessor implements MessageChainProcessor
         return new ProcessingResult(null, true);
     }
 
-    private function preprocess(
-        VideoPromptPreprocessor $preprocessor,
-        string $prompt,
-        ?string $image,
-        int $chatId,
+    private function preprocessForImg2Video(int $userId, VideoGenerationPrompt $videoPrompt, ProgressUpdateCallback $progressUpdateCallback): string
+    {
+        return $this->preprocessForModel($this->img2VideoModelPreference, $this->img2videoModelsConfig, $userId, $videoPrompt, $progressUpdateCallback);
+    }
+
+    private function preprocessForTxt2Video(int $userId, VideoGenerationPrompt $videoPrompt, ProgressUpdateCallback $progressUpdateCallback): string
+    {
+        return $this->preprocessForModel($this->videoModelPreference, $this->videoModelsConfig, $userId, $videoPrompt, $progressUpdateCallback);
+    }
+
+    /**
+     * Resolves the preprocessor for the given model family and runs it, falling
+     * back to the raw user prompt when there is no preprocessor or it fails.
+     */
+    private function preprocessForModel(
+        UserPreferenceReaderInterface $preference,
+        array $config,
+        int $userId,
+        VideoGenerationPrompt $videoPrompt,
         ProgressUpdateCallback $progressUpdateCallback,
     ): string {
+        $preprocessor = $this->preprocessorFactory->createForModelPreference($preference, $config, $userId);
+        if ($preprocessor === null) {
+            return $videoPrompt->userPrompt;
+        }
+
         $progressUpdateCallback(static::class, 'Preprocessing video prompt');
         try {
-            return $preprocessor->preprocess(
-                new VideoGenerationPrompt($prompt, firstFrame: $image),
-                $progressUpdateCallback,
-            );
+            return $preprocessor->preprocess($videoPrompt, $progressUpdateCallback);
         } catch (Exception $e) {
             $this->logger->log(LogLevel::WARNING, 'Prompt preprocessing failed, using the raw prompt: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
 
-            return $prompt;
+            return $videoPrompt->userPrompt;
         }
+    }
+
+    private function abortWith(InternalMessage $message, string $text): ProcessingResult
+    {
+        return new ProcessingResult(InternalMessage::asResponseTo($message, $text), true);
+    }
+
+    /**
+     * The user's selected img2video model name (null when unset/unknown).
+     */
+    private function selectedModelName(int $userId): ?string
+    {
+        return $this->img2VideoModelPreference->getCurrentPreferenceValue($userId);
+    }
+
+    /**
+     * The selected img2video model's config entry, falling back to the first
+     * configured entry when the user has no preference or it is unknown.
+     */
+    private function selectedImg2VideoEntry(int $userId): ?array
+    {
+        $modelName = $this->selectedModelName($userId);
+        if ($modelName !== null && isset($this->img2videoModelsConfig[$modelName])) {
+            return $this->img2videoModelsConfig[$modelName];
+        }
+
+        return current($this->img2videoModelsConfig) ?: null;
     }
 }

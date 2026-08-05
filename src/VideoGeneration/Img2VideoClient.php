@@ -17,9 +17,9 @@ class Img2VideoClient
         private readonly UserPreferenceReaderInterface $img2VideoModelPreference,
         private readonly array $modelConfig,
     ){}
-    public function generateByPromptImg2Vid( string $imageContent, string $prompt, int $userId): VideoApiResponse
+    public function generateByPromptImg2Vid( string $imageContent, string $prompt, int $userId, ?string $modelName = null): VideoApiResponse
     {
-        $params = $this->getParamsBasedOnUserPreferences($userId);
+        $params = $this->getParamsBasedOnUserPreferences($userId, $modelName);
         $params['init_images'] = [base64_encode($imageContent)];
         $params['prompt'] = $prompt;
         $response = $this->request('img2vid', $params);
@@ -30,9 +30,9 @@ class Img2VideoClient
      * @param int $userId
      * @return mixed
      */
-    private function getParamsBasedOnUserPreferences(int $userId): mixed
+    private function getParamsBasedOnUserPreferences(int $userId, ?string $forcedModelName = null): mixed
     {
-        $modelName = $this->img2VideoModelPreference->getCurrentPreferenceValue($userId);
+        $modelName = $forcedModelName ?? $this->img2VideoModelPreference->getCurrentPreferenceValue($userId);
         if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
             $params = current($this->modelConfig);
         } else {
