@@ -207,7 +207,7 @@ class MiniMaxH3VideoPromptPreprocessor implements VideoPromptPreprocessor
                 if (!empty($auds)) {
                     $parts[] = count($auds) . ' audio track(s) supplied, labelled '
                         . implode(', ', array_column($auds, 'label'))
-                        . '. You cannot listen to any of them; their exact roles (copied 1:1 vs reference-only) and how to cite them are specified in the system instructions. Never invent unheard dialogue or lyrics; mark uncertain verbal spans [unclear].';
+                        . '. You cannot listen to any of them; their exact roles (copied 1:1 vs reference-only) and how to cite them are specified in the system instructions.';
                 }
                 break;
         }
