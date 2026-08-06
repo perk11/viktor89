@@ -10,6 +10,7 @@ class Txt2VideoClient
 {
     private Client $httpClient;
     private ?string $resolvedModelName = null;
+    private bool $resolvedSupportsReferences = false;
 
     public function __construct(
         private readonly UserPreferenceReaderInterface $stepsPreference,
@@ -18,19 +19,70 @@ class Txt2VideoClient
         private readonly UserPreferenceReaderInterface $videoModelPreference,
         private readonly array $modelConfig,
     ){}
-    public function generateByPromptTxt2Vid(string $prompt, int $userId): VideoApiResponse
-    {
+
+    /**
+     * Generate a video from a prompt, optionally conditioned on reference images
+     * and/or reference audios. Reference-capable models (supportsReferences in
+     * their config) are served by the audio-img-txt2vid server and accept up to
+     * 3 of each; anything beyond that is rejected before the request is sent.
+     *
+     * @param string[] $referenceImages raw image bytes (0–3)
+     * @param string[] $referenceAudios raw audio bytes (0–3)
+     */
+    public function generateByPromptTxt2Vid(
+        string $prompt,
+        int $userId,
+        array $referenceImages = [],
+        array $referenceAudios = [],
+        ?string $audioTrack = null,
+    ): VideoApiResponse {
         $params = $this->getParamsBasedOnUserPreferences($userId);
         if(isset($params['promptPrefix']) && !str_starts_with($prompt, $params['promptPrefix'])) {
             $prompt = $params['promptPrefix'] . $prompt;
         }
         $params['prompt'] = $prompt;
-        $response = $this->request('txt2vid', $params);
+
+        // A synchronized audio track plus the reference-only audios together
+        // populate the model's reference-audio slots.
+        $audios = $audioTrack !== null
+            ? array_merge([$audioTrack], $referenceAudios)
+            : $referenceAudios;
+        // Only reference-capable models consume image/audio references; for any
+        // other model the references are silently dropped (legacy behaviour),
+        // so they must not be forwarded to a /txt2vid endpoint that cannot use
+        // them.
+        if ($this->resolvedSupportsReferences) {
+            if (count($referenceImages) > 3 || count($audios) > 3) {
+                throw new \InvalidArgumentException('At most 3 reference images and 3 reference audios are supported.');
+            }
+            if ($referenceImages !== []) {
+                $params['init_images'] = array_map('base64_encode', $referenceImages);
+            }
+            if ($audios !== []) {
+                $params['init_audios'] = array_map('base64_encode', $audios);
+            }
+        }
+
+        $response = $this->request($this->endpointFor($referenceImages !== []), $params);
 
         $videoResponse = VideoApiResponse::fromString($response->getBody()->getContents());
         $videoResponse->modelName = $this->resolvedModelName;
 
         return $videoResponse;
+    }
+
+    /**
+     * Reference-capable models live on the audio-img-txt2vid server, which
+     * exposes separate image/no-image endpoints both backed by the MiniMax-H3
+     * ref2vid workflow. Plain txt2vid models keep the legacy /txt2vid endpoint.
+     */
+    private function endpointFor(bool $hasImages): string
+    {
+        if (!$this->resolvedSupportsReferences) {
+            return 'txt2vid';
+        }
+
+        return $hasImages ? 'audio_img_txt2vid' : 'audio_txt2vid';
     }
     /**
      * @param int $userId
@@ -41,6 +93,7 @@ class Txt2VideoClient
         $modelName = $this->resolveModelName($userId);
         $this->resolvedModelName = $modelName;
         $params = $modelName !== null ? $this->modelConfig[$modelName] : current($this->modelConfig);
+        $this->resolvedSupportsReferences = (bool) ($params['supportsReferences'] ?? false);
         $apiUrl = rtrim($params['url'], '/');
         unset ($params['url']);
         $this->httpClient = new Client(['base_uri' => $apiUrl]);

@@ -1,0 +1,366 @@
+ {
+  "200": {
+    "inputs": {
+      "aspect_ratio": "16:9 (Widescreen)",
+      "megapixels": 0.4,
+      "multiple": 32
+    },
+    "class_type": "ResolutionSelector",
+    "_meta": {
+      "title": "Resolution Selector"
+    }
+  },
+  "201": {
+    "inputs": {
+      "value": 5
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Float (duration seconds)"
+    }
+  },
+  "202": {
+    "inputs": {
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "201",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "Math Expression (snap length to 17k+5)"
+    }
+  },
+  "203": {
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE (video)"
+    }
+  },
+  "204": {
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE (audio)"
+    }
+  },
+  "205": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "206": {
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model (ref2va)"
+    }
+  },
+  "207": {
+    "inputs": {
+      "sampler_name": "res_multistep"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "208": {
+    "inputs": {
+      "scheduler": "simple",
+      "steps": 20,
+      "denoise": 1,
+      "model": [
+        "206",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "BasicScheduler"
+    }
+  },
+  "209": {
+    "inputs": {
+      "noise_seed": 1
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "210": {
+    "inputs": {
+      "prompt": "prompt goes here",
+      "width": [
+        "200",
+        0
+      ],
+      "height": [
+        "200",
+        1
+      ],
+      "length": [
+        "202",
+        1
+      ],
+      "clip": [
+        "205",
+        0
+      ],
+      "vae": [
+        "203",
+        0
+      ],
+      "audio_vae": [
+        "204",
+        0
+      ],
+      "ref_image_size": "match",
+      "ref_images.ref_image_0": [
+        "216",
+        0
+      ],
+      "ref_images.ref_image_1": [
+        "217",
+        0
+      ],
+      "ref_images.ref_image_2": [
+        "218",
+        0
+      ],
+      "ref_audios.ref_audio_0": [
+        "221",
+        0
+      ],
+      "ref_audios.ref_audio_1": [
+        "222",
+        0
+      ],
+      "ref_audios.ref_audio_2": [
+        "224",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3ReferenceToVideo",
+    "_meta": {
+      "title": "MiniMax H3 Reference to Video"
+    }
+  },
+  "211": {
+    "inputs": {
+      "model": [
+        "206",
+        0
+      ],
+      "conditioning": [
+        "210",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Basic Guider"
+    }
+  },
+  "212": {
+    "inputs": {
+      "noise": [
+        "209",
+        0
+      ],
+      "guider": [
+        "211",
+        0
+      ],
+      "sampler": [
+        "207",
+        0
+      ],
+      "sigmas": [
+        "208",
+        0
+      ],
+      "latent_image": [
+        "210",
+        1
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "213": {
+    "inputs": {
+      "samples": [
+        "212",
+        0
+      ],
+      "vae": [
+        "203",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "214": {
+    "inputs": {
+      "samples": [
+        "212",
+        0
+      ],
+      "vae": [
+        "204",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "VAE Decode Audio"
+    }
+  },
+  "215": {
+    "inputs": {
+      "frame_rate": 24,
+      "loop_count": 0,
+      "filename_prefix": "AnimateDiff",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 23,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": false,
+      "images": [
+        "213",
+        0
+      ],
+      "audio": [
+        "214",
+        0
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  },
+  "216": {
+    "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Reference Image 1"
+    }
+  },
+  "217": {
+    "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Reference Image 2"
+    }
+  },
+  "218": {
+    "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Reference Image 3"
+    }
+  },
+  "219": {
+    "inputs": {
+      "audio": "example.ogg",
+      "audioUI": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "Load Reference Audio 1"
+    }
+  },
+  "221": {
+    "inputs": {
+      "start_index": 0,
+      "duration": 15,
+      "audio": [
+        "219",
+        0
+      ]
+    },
+    "class_type": "TrimAudioDuration",
+    "_meta": {
+      "title": "Trim Audio 1 (15s cap)"
+    }
+  },
+  "220": {
+    "inputs": {
+      "audio": "example.ogg",
+      "audioUI": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "Load Reference Audio 2"
+    }
+  },
+  "222": {
+    "inputs": {
+      "start_index": 0,
+      "duration": 15,
+      "audio": [
+        "220",
+        0
+      ]
+    },
+    "class_type": "TrimAudioDuration",
+    "_meta": {
+      "title": "Trim Audio 2 (15s cap)"
+    }
+  },
+  "223": {
+    "inputs": {
+      "audio": "example.ogg",
+      "audioUI": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "Load Reference Audio 3"
+    }
+  },
+  "224": {
+    "inputs": {
+      "start_index": 0,
+      "duration": 15,
+      "audio": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "TrimAudioDuration",
+    "_meta": {
+      "title": "Trim Audio 3 (15s cap)"
+    }
+  }
+}

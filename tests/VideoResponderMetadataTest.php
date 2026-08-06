@@ -237,9 +237,9 @@ class VideoResponderMetadataTest extends TestCase
 
     public function testCaptionWithModelPrependsModel(): void
     {
-        $this->assertSame("cogvideox\na dog on a beach", VideoResponder::captionWithModel('cogvideox', 'a dog on a beach'));
+        $this->assertSame("Model: cogvideox\na dog on a beach", VideoResponder::captionWithModel('cogvideox', 'a dog on a beach'));
         $this->assertSame('a dog on a beach', VideoResponder::captionWithModel(null, 'a dog on a beach'));
-        $this->assertSame('cogvideox', VideoResponder::captionWithModel('cogvideox', null));
+        $this->assertSame('Model: cogvideox', VideoResponder::captionWithModel('cogvideox', null));
         $this->assertNull(VideoResponder::captionWithModel(null, null));
     }
 

@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
+use Perk11\Viktor89\Audio\AudioRepository;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\VideoGeneration\VideoGenerationPrompt;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
+use Perk11\Viktor89\PreResponseProcessor\SavedAudioNotFoundException;
 use Perk11\Viktor89\PreResponseProcessor\SavedImageNotFoundException;
 use Perk11\Viktor89\TelegramFileDownloader;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -339,11 +341,100 @@ class ImgTagExtractorTest extends TestCase
         $this->assertNull($result->firstFrame);
     }
 
-    private function frameTagExtractor(): ImgTagExtractor
+    public function testAudioTagResolvesSavedAudioIntoAudioTrack(): void
+    {
+        $extractor = $this->frameTagExtractor();
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<audio>mysong</audio> go'));
+
+        $this->assertSame('go', $result->userPrompt);
+        $this->assertSame('audio-bytes', $result->audioTrack);
+        $this->assertSame([], $result->referenceAudios);
+    }
+
+    public function testRaudioTagResolvesSavedAudioIntoReferences(): void
+    {
+        $extractor = $this->frameTagExtractor();
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<raudio>a</raudio><raudio>b</raudio> go'));
+
+        $this->assertSame('go', $result->userPrompt);
+        $this->assertNull($result->audioTrack);
+        $this->assertSame(['audio-bytes', 'audio-bytes'], $result->referenceAudios);
+    }
+
+    public function testMultipleAudioTagsKeepOnlyTheFirst(): void
+    {
+        $audioRepo = $this->createStub(AudioRepository::class);
+        $audioRepo->method('retrieve')->willReturnMap([
+            ['a', 'a-bytes'],
+            ['b', 'b-bytes'],
+        ]);
+        $extractor = new ImgTagExtractor(
+            $this->createStub(ImageRepository::class),
+            logger: new \Psr\Log\NullLogger(),
+            audioRepository: $audioRepo,
+        );
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<audio>a</audio><audio>b</audio>'));
+
+        $this->assertSame('a-bytes', $result->audioTrack);
+        $this->assertSame('', $result->userPrompt);
+    }
+
+    public function testAudioAndImgTagsCanBeMixed(): void
+    {
+        $extractor = $this->frameTagExtractor();
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<fframe>ff</fframe> with <audio>mysong</audio> and <raudio>ref</raudio>'));
+
+        $this->assertSame('with  and', $result->userPrompt);
+        $this->assertSame('img-bytes', $result->firstFrame);
+        $this->assertSame('audio-bytes', $result->audioTrack);
+        $this->assertSame(['audio-bytes'], $result->referenceAudios);
+        $this->assertTrue($result->hasAnyAudio());
+    }
+
+    public function testAudioTagThrowsWhenSavedAudioNotFound(): void
+    {
+        $audioRepo = $this->createStub(AudioRepository::class);
+        $audioRepo->method('retrieve')->willReturn(null);
+        $extractor = new ImgTagExtractor(
+            $this->createStub(ImageRepository::class),
+            logger: new \Psr\Log\NullLogger(),
+            audioRepository: $audioRepo,
+        );
+
+        $this->expectException(SavedAudioNotFoundException::class);
+
+        $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<audio>missing</audio>'));
+    }
+
+    public function testResolvesChainAudioReference(): void
+    {
+        $downloader = $this->createStub(TelegramFileDownloader::class);
+        $downloader->method('downloadFile')->willReturn('chain-audio-bytes');
+        $audio = new \Longman\TelegramBot\Entities\Audio(['file_id' => 'file-id-1', 'file_unique_id' => 'uid', 'duration' => 60]);
+        $extractor = $this->frameTagExtractor($downloader);
+
+        $audioMessage = new InternalMessage();
+        $audioMessage->audio = $audio;
+        $commandMessage = new InternalMessage();
+        $chain = new MessageChain([$audioMessage, $commandMessage]);
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<audio>#0</audio> go'), $chain);
+
+        $this->assertSame('chain-audio-bytes', $result->audioTrack);
+        $this->assertSame('go', $result->userPrompt);
+    }
+
+    private function frameTagExtractor(?TelegramFileDownloader $downloader = null): ImgTagExtractor
     {
         $repo = $this->createStub(ImageRepository::class);
         $repo->method('retrieve')->willReturn('img-bytes');
+        $audioRepo = $this->createStub(AudioRepository::class);
+        $audioRepo->method('retrieve')->willReturn('audio-bytes');
 
-        return new ImgTagExtractor($repo, logger: new \Psr\Log\NullLogger());
+        return new ImgTagExtractor($repo, $downloader, logger: new \Psr\Log\NullLogger(), audioRepository: $audioRepo);
     }
 }

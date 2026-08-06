@@ -2,7 +2,9 @@
 
 namespace Perk11\Viktor89\ImageGeneration;
 
+use Perk11\Viktor89\Audio\AudioRepository;
 use Perk11\Viktor89\MessageChain;
+use Perk11\Viktor89\PreResponseProcessor\SavedAudioNotFoundException;
 use Perk11\Viktor89\PreResponseProcessor\SavedImageNotFoundException;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\VideoGeneration\VideoGenerationPrompt;
@@ -15,13 +17,14 @@ class ImgTagExtractor
         private readonly ImageRepository $imageRepository,
         private readonly ?TelegramFileDownloader $telegramFileDownloader = null,
         private readonly ?LoggerInterface $logger = null,
+        private readonly ?AudioRepository $audioRepository = null,
     ) {
     }
 
     private const string IMG_REGEX = '/<img>(.*?)<\/img>/s';
 
-    /** <fframe>, <lframe> and <img> frame tags, each carrying a saved-image name or #N chain reference. */
-    private const string FRAME_TAG_REGEX = '/<(fframe|lframe|img)>(.*?)<\/\\1>/s';
+    /** <fframe>, <lframe>, <img>, <audio> and <raudio> tags, each carrying a saved-image/-audio name or #N chain reference. */
+    private const string FRAME_TAG_REGEX = '/<(fframe|lframe|img|audio|raudio)>(.*?)<\/\\1>/s';
 
     public function extractImageTags(
         ImageGenerationPrompt $promptTobeProcessed,
@@ -73,15 +76,24 @@ class ImgTagExtractor
         $firstFrame = $prompt->firstFrame;
         $lastFrame = $prompt->lastFrame;
         $references = $prompt->referenceImages;
+        $audioTrack = $prompt->audioTrack;
+        $referenceAudios = $prompt->referenceAudios;
 
         $prompt->userPrompt = trim((string) preg_replace_callback(
             self::FRAME_TAG_REGEX,
-            function (array $matches) use (&$firstFrame, &$lastFrame, &$references, $messageChain): string {
-                $imageData = $this->resolveReference(trim($matches[2]), $messageChain);
-                match ($matches[1]) {
-                    'fframe' => $firstFrame ??= $imageData,
-                    'lframe' => $lastFrame ??= $imageData,
-                    'img' => $references[] = $imageData,
+            function (array $matches) use (&$firstFrame, &$lastFrame, &$references, &$audioTrack, &$referenceAudios, $messageChain): string {
+                $tag = $matches[1];
+                $reference = trim($matches[2]);
+                $isAudio = $tag === 'audio' || $tag === 'raudio';
+                $data = $isAudio
+                    ? $this->resolveAudioReference($reference, $messageChain)
+                    : $this->resolveReference($reference, $messageChain);
+                match ($tag) {
+                    'fframe' => $firstFrame ??= $data,
+                    'lframe' => $lastFrame ??= $data,
+                    'img' => $references[] = $data,
+                    'audio' => $audioTrack ??= $data,
+                    'raudio' => $referenceAudios[] = $data,
                 };
 
                 return '';
@@ -92,12 +104,21 @@ class ImgTagExtractor
         $prompt->firstFrame = $firstFrame;
         $prompt->lastFrame = $lastFrame;
         $prompt->referenceImages = $references;
+        $prompt->audioTrack = $audioTrack;
+        $prompt->referenceAudios = $referenceAudios;
 
         if ($prompt->hasAnyImage()) {
             $this->logger?->log(
                 LogLevel::INFO,
                 'Resolved frame tags: ' . ($firstFrame !== null ? '1' : '0') . ' first, '
                 . ($lastFrame !== null ? '1' : '0') . ' last, ' . count($references) . ' reference',
+            );
+        }
+        if ($prompt->hasAnyAudio()) {
+            $this->logger?->log(
+                LogLevel::INFO,
+                'Resolved audio tags: ' . ($audioTrack !== null ? '1' : '0') . ' track, '
+                . count($referenceAudios) . ' reference',
             );
         }
 
@@ -126,6 +147,58 @@ class ImgTagExtractor
         }
 
         return $savedImage;
+    }
+
+    /**
+     * Resolves a single audio reference to its bytes: a #N chain index reads the
+     * Nth audio of the message chain, anything else is a saved-audio name.
+     */
+    private function resolveAudioReference(string $reference, ?MessageChain $messageChain): string
+    {
+        if ($messageChain !== null && str_starts_with($reference, '#')) {
+            $audioIndex = (int) substr($reference, 1);
+            $audioData = $this->resolveChainAudio($messageChain, $audioIndex);
+            if ($audioData === null) {
+                throw new SavedAudioNotFoundException("Chain audio $reference not found");
+            }
+
+            return $audioData;
+        }
+
+        $savedAudio = $this->audioRepository?->retrieve($reference);
+        if ($savedAudio === null) {
+            throw new SavedAudioNotFoundException($reference);
+        }
+
+        return $savedAudio;
+    }
+
+    /**
+     * Resolve a chain audio reference to its binary contents.
+     * $audioIndex is 0-based.
+     */
+    private function resolveChainAudio(MessageChain $messageChain, int $audioIndex): ?string
+    {
+        if ($audioIndex < 0 || $this->telegramFileDownloader === null) {
+            return null;
+        }
+
+        $foundIndex = 0;
+        foreach ($messageChain->getMessages() as $message) {
+            if ($message->audio !== null) {
+                if ($foundIndex === $audioIndex) {
+                    try {
+                        return $this->telegramFileDownloader->downloadFile($message->audio->getFileId());
+                    } catch (\Exception $e) {
+                        $this->logger?->log(LogLevel::ERROR, "Failed to download chain audio $audioIndex: " . $e->getMessage());
+                        return null;
+                    }
+                }
+                $foundIndex++;
+            }
+        }
+
+        return null;
     }
 
     /**

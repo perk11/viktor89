@@ -9,6 +9,7 @@ use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\MessageChainProcessor;
+use Perk11\Viktor89\PreResponseProcessor\SavedAudioNotFoundException;
 use Perk11\Viktor89\PreResponseProcessor\SavedImageNotFoundException;
 use Perk11\Viktor89\ProcessingResult;
 use Perk11\Viktor89\TelegramFileDownloader;
@@ -59,6 +60,11 @@ class VideoProcessor implements MessageChainProcessor
             return $this->abortWith(
                 $message,
                 sprintf('Изображение "%s" не найдено. Создайте его через /saveas или ответьте на фото.', $e->getMessage()),
+            );
+        } catch (SavedAudioNotFoundException $e) {
+            return $this->abortWith(
+                $message,
+                sprintf('Аудио "%s" не найдено. Создайте его через /saveas в ответ на аудио.', $e->getMessage()),
             );
         }
 
@@ -142,24 +148,40 @@ class VideoProcessor implements MessageChainProcessor
     }
 
     /**
-     * Reconciles reference images with the selected model's capabilities.
+     * Reconciles reference images/audios with the selected model's capabilities.
      *
      * Returns an abort result when the references cannot be satisfied; null to
-     * continue. As a side effect, a lone reference on a non-reference model is
-     * promoted to the first frame — the legacy reply-to-photo img2vid path.
+     * continue. As a side effect, a lone image reference on a non-reference
+     * model is promoted to the first frame — the legacy reply-to-photo img2vid
+     * path.
      *
      * No-op when there are no references, so the model preference is never read
      * in the common text-only case.
      */
     private function applyReferenceRules(VideoGenerationPrompt $videoPrompt, InternalMessage $message): ?ProcessingResult
     {
-        if ($videoPrompt->referenceImages === []) {
+        $hasReferences = $videoPrompt->referenceImages !== [] || $videoPrompt->hasAnyAudio();
+        if (!$hasReferences) {
             return null;
         }
 
-        $modelSupportsReferences = (bool) ($this->selectedImg2VideoEntry($message->userId)['supportsReferences'] ?? false);
+        // References are accepted as-is when either the selected video model
+        // (the one that actually drives the txt2vid request) or the selected
+        // img2video model declares reference support. Otherwise a single image
+        // reference can still be folded into the first frame (legacy path).
+        $modelSupportsReferences = (bool) ($this->selectedVideoEntry($message->userId)['supportsReferences'] ?? false)
+            || (bool) ($this->selectedImg2VideoEntry($message->userId)['supportsReferences'] ?? false);
+
         if ($modelSupportsReferences) {
-            return null;
+            return $this->validateReferenceCounts($videoPrompt, $message);
+        }
+
+        // A non-reference model cannot use audio references at all.
+        if ($videoPrompt->hasAnyAudio()) {
+            return $this->abortWith(
+                $message,
+                'Выбранная модель не поддерживает аудио-референсы. Выберите модель с поддержкой референсов.',
+            );
         }
 
         // A non-reference model can consume at most a single image, and only as
@@ -177,6 +199,24 @@ class VideoProcessor implements MessageChainProcessor
             . 'Укажите только один референс (он будет использован как первый кадр) через ответ на фото или тег <img>...</img>, '
             . 'либо выберите модель с поддержкой референсов.',
         );
+    }
+
+    /**
+     * The MiniMax-H3 ref2vid workflow has exactly 3 image and 3 audio reference
+     * slots. Reject anything beyond that with a user-facing message before the
+     * request reaches the inference server.
+     */
+    private function validateReferenceCounts(VideoGenerationPrompt $videoPrompt, InternalMessage $message): ?ProcessingResult
+    {
+        $audioCount = count($videoPrompt->referenceAudios) + ($videoPrompt->audioTrack !== null ? 1 : 0);
+        if (count($videoPrompt->referenceImages) > 3) {
+            return $this->abortWith($message, 'Можно указать не более 3 изображений-референсов.');
+        }
+        if ($audioCount > 3) {
+            return $this->abortWith($message, 'Можно указать не более 3 аудио-референсов.');
+        }
+
+        return null;
     }
 
     /**
@@ -228,7 +268,13 @@ class VideoProcessor implements MessageChainProcessor
         $finalPrompt = $this->preprocessForTxt2Video($message->userId, $videoPrompt, $progressUpdateCallback);
         $progressUpdateCallback(static::class, "Generating video for prompt: $finalPrompt", new ChatAction($message->chatId, ChatActionEnum::upload_video));
         try {
-            $response = $this->txt2VideoClient->generateByPromptTxt2Vid($finalPrompt, $message->userId);
+            $response = $this->txt2VideoClient->generateByPromptTxt2Vid(
+                $finalPrompt,
+                $message->userId,
+                $videoPrompt->referenceImages,
+                $videoPrompt->referenceAudios,
+                $videoPrompt->audioTrack,
+            );
             $progressUpdateCallback(static::class, "Sending video response");
             // The caption carries the original user idea; the rewritten prompt
             // is recorded as metadata rather than shown under the video.
@@ -318,5 +364,27 @@ class VideoProcessor implements MessageChainProcessor
         }
 
         return current($this->img2videoModelsConfig) ?: null;
+    }
+
+    /**
+     * The user's selected video model name (null when unset/unknown).
+     */
+    private function selectedVideoModelName(int $userId): ?string
+    {
+        return $this->videoModelPreference->getCurrentPreferenceValue($userId);
+    }
+
+    /**
+     * The selected video model's config entry, falling back to the first
+     * configured entry when the user has no preference or it is unknown.
+     */
+    private function selectedVideoEntry(int $userId): ?array
+    {
+        $modelName = $this->selectedVideoModelName($userId);
+        if ($modelName !== null && isset($this->videoModelsConfig[$modelName])) {
+            return $this->videoModelsConfig[$modelName];
+        }
+
+        return current($this->videoModelsConfig) ?: null;
     }
 }
