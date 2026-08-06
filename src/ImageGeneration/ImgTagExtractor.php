@@ -79,9 +79,11 @@ class ImgTagExtractor
         $audioTrack = $prompt->audioTrack;
         $referenceAudios = $prompt->referenceAudios;
 
+        $imageNo = 0;
+        $audioNo = 0;
         $prompt->userPrompt = trim((string) preg_replace_callback(
             self::FRAME_TAG_REGEX,
-            function (array $matches) use (&$firstFrame, &$lastFrame, &$references, &$audioTrack, &$referenceAudios, $messageChain): string {
+            function (array $matches) use (&$firstFrame, &$lastFrame, &$references, &$audioTrack, &$referenceAudios, &$imageNo, &$audioNo, $messageChain): string {
                 $tag = $matches[1];
                 $reference = trim($matches[2]);
                 $isAudio = $tag === 'audio' || $tag === 'raudio';
@@ -96,7 +98,18 @@ class ImgTagExtractor
                     'raudio' => $referenceAudios[] = $data,
                 };
 
-                return '';
+                if ($isAudio) {
+                    $audioNo++;
+                    if (str_starts_with($reference, '#')) {
+                        return "audio $audioNo";
+                    }
+                    return "$reference (audio $audioNo)";
+                }
+                $imageNo++;
+                if (str_starts_with($reference, '#')) {
+                    return "image $imageNo";
+                }
+                return "$reference (image $imageNo)";
             },
             $prompt->userPrompt,
         ));

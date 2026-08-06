@@ -234,7 +234,7 @@ class VideoProcessorTest extends TestCase
         );
 
         $this->assertSame('ff-bytes', $spies->img2vidImage);
-        $this->assertSame('animate', $spies->img2vidPrompt);
+        $this->assertSame('ff (image 1) animate', $spies->img2vidPrompt);
         $this->assertNull($spies->txt2vidPrompt);
     }
 
@@ -271,7 +271,7 @@ class VideoProcessorTest extends TestCase
         );
 
         $this->assertSame('ref-bytes', $spies->img2vidImage);
-        $this->assertSame('transform', $spies->img2vidPrompt);
+        $this->assertSame('ref (image 1) transform', $spies->img2vidPrompt);
     }
 
     public function testMultipleReferencesOnNonReferenceModelAreRejected(): void
@@ -370,7 +370,7 @@ class VideoProcessorTest extends TestCase
 
         $this->assertSame('lf-bytes', $spies->img2vidImage);
         $this->assertSame('lf-model', $spies->img2vidModel);
-        $this->assertSame('converge', $spies->img2vidPrompt);
+        $this->assertSame('lf (image 1) converge', $spies->img2vidPrompt);
         $this->assertNull($spies->txt2vidPrompt);
     }
 

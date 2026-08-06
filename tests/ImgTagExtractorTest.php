@@ -243,7 +243,7 @@ class ImgTagExtractorTest extends TestCase
 
         $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<fframe>mycat</fframe> running'));
 
-        $this->assertSame('running', $result->userPrompt);
+        $this->assertSame('mycat (image 1) running', $result->userPrompt);
         $this->assertSame('img-bytes', $result->firstFrame);
         $this->assertNull($result->lastFrame);
         $this->assertSame([], $result->referenceImages);
@@ -255,7 +255,7 @@ class ImgTagExtractorTest extends TestCase
 
         $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<lframe>mycat</lframe> ending'));
 
-        $this->assertSame('ending', $result->userPrompt);
+        $this->assertSame('mycat (image 1) ending', $result->userPrompt);
         $this->assertSame('img-bytes', $result->lastFrame);
     }
 
@@ -265,7 +265,7 @@ class ImgTagExtractorTest extends TestCase
 
         $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<img>mycat</img> referenced'));
 
-        $this->assertSame('referenced', $result->userPrompt);
+        $this->assertSame('mycat (image 1) referenced', $result->userPrompt);
         $this->assertSame(['img-bytes'], $result->referenceImages);
     }
 
@@ -281,7 +281,7 @@ class ImgTagExtractorTest extends TestCase
 
         $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<fframe>ff</fframe> then <img>ref</img> then <lframe>lf</lframe>'));
 
-        $this->assertSame('then  then', $result->userPrompt);
+        $this->assertSame('ff (image 1) then ref (image 2) then lf (image 3)', $result->userPrompt);
         $this->assertSame('ff-bytes', $result->firstFrame);
         $this->assertSame('lf-bytes', $result->lastFrame);
         $this->assertSame(['ref-bytes'], $result->referenceImages);
@@ -301,7 +301,7 @@ class ImgTagExtractorTest extends TestCase
         $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<fframe>#0</fframe> go'), $chain);
 
         $this->assertSame('chain-img-bytes', $result->firstFrame);
-        $this->assertSame('go', $result->userPrompt);
+        $this->assertSame('image 1 go', $result->userPrompt);
     }
 
     public function testFrameTagThrowsWhenSavedImageNotFound(): void
@@ -328,7 +328,7 @@ class ImgTagExtractorTest extends TestCase
         $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<fframe>a</fframe><fframe>b</fframe>'));
 
         $this->assertSame('a-bytes', $result->firstFrame);
-        $this->assertSame('', $result->userPrompt);
+        $this->assertSame('a (image 1)b (image 2)', $result->userPrompt);
     }
 
     public function testMultipleImgTagsCollectAllReferences(): void
@@ -347,7 +347,7 @@ class ImgTagExtractorTest extends TestCase
 
         $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<audio>mysong</audio> go'));
 
-        $this->assertSame('go', $result->userPrompt);
+        $this->assertSame('mysong (audio 1) go', $result->userPrompt);
         $this->assertSame('audio-bytes', $result->audioTrack);
         $this->assertSame([], $result->referenceAudios);
     }
@@ -358,7 +358,7 @@ class ImgTagExtractorTest extends TestCase
 
         $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<raudio>a</raudio><raudio>b</raudio> go'));
 
-        $this->assertSame('go', $result->userPrompt);
+        $this->assertSame('a (audio 1)b (audio 2) go', $result->userPrompt);
         $this->assertNull($result->audioTrack);
         $this->assertSame(['audio-bytes', 'audio-bytes'], $result->referenceAudios);
     }
@@ -379,7 +379,7 @@ class ImgTagExtractorTest extends TestCase
         $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<audio>a</audio><audio>b</audio>'));
 
         $this->assertSame('a-bytes', $result->audioTrack);
-        $this->assertSame('', $result->userPrompt);
+        $this->assertSame('a (audio 1)b (audio 2)', $result->userPrompt);
     }
 
     public function testAudioAndImgTagsCanBeMixed(): void
@@ -388,7 +388,7 @@ class ImgTagExtractorTest extends TestCase
 
         $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<fframe>ff</fframe> with <audio>mysong</audio> and <raudio>ref</raudio>'));
 
-        $this->assertSame('with  and', $result->userPrompt);
+        $this->assertSame('ff (image 1) with mysong (audio 1) and ref (audio 2)', $result->userPrompt);
         $this->assertSame('img-bytes', $result->firstFrame);
         $this->assertSame('audio-bytes', $result->audioTrack);
         $this->assertSame(['audio-bytes'], $result->referenceAudios);
@@ -425,7 +425,7 @@ class ImgTagExtractorTest extends TestCase
         $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<audio>#0</audio> go'), $chain);
 
         $this->assertSame('chain-audio-bytes', $result->audioTrack);
-        $this->assertSame('go', $result->userPrompt);
+        $this->assertSame('audio 1 go', $result->userPrompt);
     }
 
     private function frameTagExtractor(?TelegramFileDownloader $downloader = null): ImgTagExtractor
