@@ -212,6 +212,8 @@ class MvidProcessor implements MessageChainProcessor
                 $message,
                 $videoResponse->getFirstVideoAsMp4(),
                 $this->buildModelsCaption($imageGenerated, $message->userId),
+                null,
+                $videoResponse->modelName,
             );
         } catch (Exception $e) {
             $this->logger->log(

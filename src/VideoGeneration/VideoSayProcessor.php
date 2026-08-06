@@ -187,7 +187,9 @@ class VideoSayProcessor implements MessageChainProcessor
         $this->videoResponder->sendVideo(
             $message,
             $videoResponse->getFirstVideoAsMp4(),
-            $videoResponse->getCaption()
+            $videoResponse->getCaption(),
+            null,
+            $videoResponse->modelName,
         );
 
         return new ProcessingResult(null, true, '😎', $message);

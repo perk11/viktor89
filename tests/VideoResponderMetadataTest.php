@@ -182,6 +182,67 @@ class VideoResponderMetadataTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
+    public function testModelIsRecordedAsMetadata(): void
+    {
+        $responder = new VideoResponder(
+            $this->stubReactionReplacer(),
+            new \Psr\Log\NullLogger(),
+            new NullMessageRepository(),
+            $this->metadataRepository,
+        );
+
+        $message = new InternalMessage();
+        $message->id = 5;
+        $message->chatId = -100604;
+        $message->userId = 999;
+
+        ob_start();
+        try {
+            $responder->sendVideo($message, 'mp4-bytes', 'a prompt', null, 'cogvideox');
+        } finally {
+            ob_end_clean();
+        }
+
+        $metadata = $this->metadataRepository->findByMessageIdInChat(42, -100604);
+        $this->assertNotNull($metadata);
+        $this->assertSame('cogvideox', $metadata->model);
+    }
+
+    public function testModelAloneIsRecordedAsMetadata(): void
+    {
+        // Even with no caption/processed prompt, the model is worth recording.
+        $responder = new VideoResponder(
+            $this->stubReactionReplacer(),
+            new \Psr\Log\NullLogger(),
+            new NullMessageRepository(),
+            $this->metadataRepository,
+        );
+
+        $message = new InternalMessage();
+        $message->id = 6;
+        $message->chatId = -100605;
+        $message->userId = 999;
+
+        ob_start();
+        try {
+            $responder->sendVideo($message, 'mp4-bytes', null, null, 'ltx-video');
+        } finally {
+            ob_end_clean();
+        }
+
+        $metadata = $this->metadataRepository->findByMessageIdInChat(42, -100605);
+        $this->assertNotNull($metadata);
+        $this->assertSame('ltx-video', $metadata->model);
+    }
+
+    public function testCaptionWithModelPrependsModel(): void
+    {
+        $this->assertSame("cogvideox\na dog on a beach", VideoResponder::captionWithModel('cogvideox', 'a dog on a beach'));
+        $this->assertSame('a dog on a beach', VideoResponder::captionWithModel(null, 'a dog on a beach'));
+        $this->assertSame('cogvideox', VideoResponder::captionWithModel('cogvideox', null));
+        $this->assertNull(VideoResponder::captionWithModel(null, null));
+    }
+
     private function stubReactionReplacer(): ReactionReplacer
     {
         return new class extends ReactionReplacer {

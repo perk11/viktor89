@@ -9,6 +9,7 @@ use Psr\Http\Message\ResponseInterface;
 class TxtAndVid2VideoClient
 {
     private Client $httpClient;
+    private ?string $resolvedModelName = null;
 
     public function __construct(
         private readonly UserPreferenceReaderInterface $stepsPreference,
@@ -26,7 +27,10 @@ class TxtAndVid2VideoClient
         $params['prompt'] = $prompt;
         $response = $this->request('vid_txt2vid', $params);
 
-        return VideoApiResponse::fromString($response->getBody()->getContents());
+        $videoResponse = VideoApiResponse::fromString($response->getBody()->getContents());
+        $videoResponse->modelName = $this->resolvedModelName;
+
+        return $videoResponse;
     }
 
     /**
@@ -36,12 +40,9 @@ class TxtAndVid2VideoClient
     private function getParamsBasedOnUserPreferences(int $userId): mixed
     {
 
-        $modelName = $this->videoEditModelPreference->getCurrentPreferenceValue($userId);
-        if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
-            $params = current($this->modelConfig);
-        } else {
-            $params = $this->modelConfig[$modelName];
-        }
+        $modelName = $this->resolveModelName($userId);
+        $this->resolvedModelName = $modelName;
+        $params = $modelName !== null ? $this->modelConfig[$modelName] : current($this->modelConfig);
         $apiUrl = rtrim($params['url'], '/');
         unset ($params['url']);
         $this->httpClient = new Client(['base_uri' => $apiUrl]);
@@ -60,6 +61,22 @@ class TxtAndVid2VideoClient
         }
 
         return $params;
+    }
+
+    /**
+     * The user's selected video-edit model, falling back to the first configured
+     * model when there is no preference or it is unknown.
+     */
+    private function resolveModelName(int $userId): ?string
+    {
+        $modelName = $this->videoEditModelPreference->getCurrentPreferenceValue($userId);
+        if ($modelName !== null && array_key_exists($modelName, $this->modelConfig)) {
+            return $modelName;
+        }
+
+        $fallback = array_key_first($this->modelConfig);
+
+        return $fallback !== false ? $fallback : null;
     }
 
     private function request(string $method, array $data): ResponseInterface

@@ -31,12 +31,15 @@ class VideoResponder
      *                                        preprocessor rewrote from the user
      *                                        idea (recorded as metadata, never
      *                                        shown as the caption).
+     * @param string|null $model                The model that generated the video,
+     *                                        recorded as metadata.
      */
     public function sendVideo(
         InternalMessage $message,
         string $videoContents,
         ?string $caption = null,
         ?string $processedPrompt = null,
+        ?string $model = null,
     ): void {
         $videoPath = tempnam(sys_get_temp_dir(), 'viktor89-video-generator');
         $this->logger->log(LogLevel::INFO, "Temporary video recorded to $videoPath");
@@ -57,12 +60,12 @@ class VideoResponder
             $this->messageRepository?->logMessage($sentMessage);
             if (
                 $this->messageMetadataRepository !== null
-                && ($caption !== null || $processedPrompt !== null)
+                && ($caption !== null || $processedPrompt !== null || $model !== null)
             ) {
                 $this->messageMetadataRepository->insert(new MessageMetadata(
                     $message->chatId,
                     $sentMessage->getMessageId(),
-                    null,
+                    $model,
                     null,
                     null,
                     $caption,
@@ -73,5 +76,23 @@ class VideoResponder
         $this->logger->log(LogLevel::INFO, "Deleting $videoPath");
         unlink($videoPath);
         $this->reactionReplacer->deleteOrReplaceWith($message->chatId, $message->id, '😎');
+    }
+
+    /**
+     * Prepends the model name to a caption, each on its own line, so the model is
+     * visible under the video like image infotexts. Returns null when both are
+     * empty.
+     */
+    public static function captionWithModel(?string $model, ?string $caption): ?string
+    {
+        $lines = [];
+        if ($model !== null && $model !== '') {
+            $lines[] = "Model: " . $model;
+        }
+        if ($caption !== null && $caption !== '') {
+            $lines[] = $caption;
+        }
+
+        return $lines === [] ? null : implode("\n", $lines);
     }
 }

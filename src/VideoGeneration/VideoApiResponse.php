@@ -6,6 +6,13 @@ use RuntimeException;
 
 class VideoApiResponse
 {
+    /**
+     * The name of the model that produced this video, filled in by the client
+     * from the user's selection (falling back to the first configured model).
+     * Used to label the video caption and to record generation metadata.
+     */
+    public ?string $modelName = null;
+
     public function __construct(public array $videos, public array $info)
     {
     }

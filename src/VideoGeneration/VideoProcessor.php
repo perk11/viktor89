@@ -235,8 +235,9 @@ class VideoProcessor implements MessageChainProcessor
             $this->videoResponder->sendVideo(
                 $message,
                 $response->getFirstVideoAsMp4(),
-                $videoPrompt->userPrompt,
+                VideoResponder::captionWithModel($response->modelName, $videoPrompt->userPrompt),
                 $this->processedPromptToRecord($videoPrompt, $finalPrompt),
+                $response->modelName,
             );
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Failed to generate video:\n" . $e->getMessage() . "\n" . $e->getTraceAsString());

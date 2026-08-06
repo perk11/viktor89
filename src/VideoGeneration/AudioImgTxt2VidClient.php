@@ -9,6 +9,7 @@ use Psr\Http\Message\ResponseInterface;
 class AudioImgTxt2VidClient
 {
     private Client $httpClient;
+    private ?string $resolvedModelName = null;
 
     public function __construct(
         private readonly UserPreferenceReaderInterface $stepsPreference,
@@ -30,7 +31,10 @@ class AudioImgTxt2VidClient
         $params['prompt'] = $prompt;
         $response = $this->request($uri, $params);
 
-        return VideoApiResponse::fromString($response->getBody()->getContents());
+        $videoResponse = VideoApiResponse::fromString($response->getBody()->getContents());
+        $videoResponse->modelName = $this->resolvedModelName;
+
+        return $videoResponse;
     }
 
     /**
@@ -39,7 +43,9 @@ class AudioImgTxt2VidClient
      */
     private function getParamsBasedOnUserPreferences(int $userId): mixed
     {
-        $params = current($this->modelConfig);
+        $modelName = $this->resolveModelName();
+        $this->resolvedModelName = $modelName;
+        $params = $modelName !== null ? $this->modelConfig[$modelName] : current($this->modelConfig);
         $apiUrl = rtrim($params['url'], '/');
         unset ($params['url']);
         $this->httpClient = new Client(['base_uri' => $apiUrl]);
@@ -54,6 +60,16 @@ class AudioImgTxt2VidClient
         }
 
         return $params;
+    }
+
+    /**
+     * The single configured audio+image→video model (first entry).
+     */
+    private function resolveModelName(): ?string
+    {
+        $fallback = array_key_first($this->modelConfig);
+
+        return $fallback !== false ? $fallback : null;
     }
 
     private function request(string $method, array $data): ResponseInterface

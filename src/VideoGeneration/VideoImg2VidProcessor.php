@@ -64,11 +64,18 @@ class VideoImg2VidProcessor
                 $modelName,
             );
             $progressUpdateCallback(static::class, "Sending video for prompt: $prompt\n",  new ChatAction($messageWithCommand->chatId,ChatActionEnum::upload_video));
+            // When the caller supplies an explicit prompt caption, the model is
+            // prepended (the API infotext fallback already carries model info).
+            $baseCaption = $caption ?? $videoResponse->getCaption();
+            $displayCaption = $caption !== null
+                ? VideoResponder::captionWithModel($videoResponse->modelName, $baseCaption)
+                : $baseCaption;
             $this->videoResponder->sendVideo(
                 $messageWithCommand,
                 $videoResponse->getFirstVideoAsMp4(),
-                $caption ?? $videoResponse->getCaption(),
+                $displayCaption,
                 $processedPrompt,
+                $videoResponse->modelName,
             );
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Failed to generate video:\n" . $e->getMessage());

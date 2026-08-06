@@ -9,6 +9,7 @@ use Psr\Http\Message\ResponseInterface;
 class Img2VideoClient
 {
     private Client $httpClient;
+    private ?string $resolvedModelName = null;
 
     public function __construct(
         private readonly UserPreferenceReaderInterface $stepsPreference,
@@ -24,7 +25,10 @@ class Img2VideoClient
         $params['prompt'] = $prompt;
         $response = $this->request('img2vid', $params);
 
-        return VideoApiResponse::fromString($response->getBody()->getContents());
+        $videoResponse = VideoApiResponse::fromString($response->getBody()->getContents());
+        $videoResponse->modelName = $this->resolvedModelName;
+
+        return $videoResponse;
     }
     /**
      * @param int $userId
@@ -32,12 +36,9 @@ class Img2VideoClient
      */
     private function getParamsBasedOnUserPreferences(int $userId, ?string $forcedModelName = null): mixed
     {
-        $modelName = $forcedModelName ?? $this->img2VideoModelPreference->getCurrentPreferenceValue($userId);
-        if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
-            $params = current($this->modelConfig);
-        } else {
-            $params = $this->modelConfig[$modelName];
-        }
+        $modelName = $this->resolveModelName($userId, $forcedModelName);
+        $this->resolvedModelName = $modelName;
+        $params = $modelName !== null ? $this->modelConfig[$modelName] : current($this->modelConfig);
         $apiUrl = rtrim($params['url'], '/');
         unset ($params['url']);
         $this->httpClient = new Client(['base_uri' => $apiUrl]);
@@ -55,6 +56,23 @@ class Img2VideoClient
             $params['num_frames'] = $frames;
         }
         return $params;
+    }
+
+    /**
+     * The forced model when given, otherwise the user's selected model, falling
+     * back to the first configured model when there is no preference or it is
+     * unknown.
+     */
+    private function resolveModelName(int $userId, ?string $forcedModelName = null): ?string
+    {
+        $modelName = $forcedModelName ?? $this->img2VideoModelPreference->getCurrentPreferenceValue($userId);
+        if ($modelName !== null && array_key_exists($modelName, $this->modelConfig)) {
+            return $modelName;
+        }
+
+        $fallback = array_key_first($this->modelConfig);
+
+        return $fallback !== false ? $fallback : null;
     }
     private function request(string $method, array $data): ResponseInterface
     {

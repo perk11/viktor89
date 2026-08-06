@@ -168,6 +168,31 @@ class VideoProcessorTest extends TestCase
         $this->assertNull($captured->processed);
     }
 
+    public function testTxt2VidCaptionIncludesModelAndForwardsItAsMetadata(): void
+    {
+        // When the client reports the model it used, /video prepends it to the
+        // caption (so the model is visible like image infotexts) and forwards it
+        // to VideoResponder for metadata recording.
+        $captured = (object) ['caption' => null, 'model' => null];
+        $responder = $this->createMock(VideoResponder::class);
+        $responder->method('sendVideo')->willReturnCallback(
+            function ($message, $video, $caption, $processedPrompt = null, $model = null) use ($captured): void {
+                $captured->caption = $caption;
+                $captured->model = $model;
+            },
+        );
+
+        [$processor] = $this->buildProcessorWithSpies(
+            videoResponder: $responder,
+            txt2VidResponseModelName: 'cogvideox',
+        );
+
+        $processor->processMessageChain($this->singleMessageChain('a cat playing piano'), $this->progressCallback());
+
+        $this->assertSame("cogvideox\na cat playing piano", $captured->caption);
+        $this->assertSame('cogvideox', $captured->model);
+    }
+
     public function testPreprocessedImg2VidPassesOriginalCaptionAndRewriteThrough(): void
     {
         // The img2vid path must forward the original-prompt caption and the
@@ -428,6 +453,7 @@ class VideoProcessorTest extends TestCase
         ?UserPreferenceReaderInterface $framesPreference = null,
         ?VideoResponder $videoResponder = null,
         ?VideoImg2VidProcessor $videoImg2VidProcessor = null,
+        ?string $txt2VidResponseModelName = null,
     ): array {
         $spies = (object) [
             'img2vidImage' => null,
@@ -450,10 +476,13 @@ class VideoProcessorTest extends TestCase
 
         $txt2VideoClient = $this->createMock(Txt2VideoClient::class);
         $txt2VideoClient->method('generateByPromptTxt2Vid')
-            ->willReturnCallback(function (string $prompt) use ($spies): VideoApiResponse {
+            ->willReturnCallback(function (string $prompt) use ($spies, $txt2VidResponseModelName): VideoApiResponse {
                 $spies->txt2vidPrompt = $prompt;
 
-                return new VideoApiResponse([base64_encode('mp4-bytes')], ['infotexts' => ['info']]);
+                $response = new VideoApiResponse([base64_encode('mp4-bytes')], ['infotexts' => ['info']]);
+                $response->modelName = $txt2VidResponseModelName;
+
+                return $response;
             });
 
         $videoResponder ??= $this->createMock(VideoResponder::class);

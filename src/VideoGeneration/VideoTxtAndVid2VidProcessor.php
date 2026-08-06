@@ -82,6 +82,8 @@ class VideoTxtAndVid2VidProcessor implements MessageChainProcessor
                 $lastMessage,
                 $videoResponse->getFirstVideoAsMp4(),
                 $videoResponse->getCaption(),
+                null,
+                $videoResponse->modelName,
             );
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, 'Failed to generate video: ' . $e->getMessage());
