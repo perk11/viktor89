@@ -417,7 +417,7 @@ RULES;
         }
 
         $audioBodyRules = $hasAudio
-            ? "\n- Cite each supplied <Audio N> wherever its role applies and state its marker (fully_copy for the synchronized track, reference for reference audio). Since you cannot hear any of them, never invent specific unheard dialogue or lyrics: where a verbal span is uncertain mark it [unclear], and for a reference <Audio N> do not carry its original dialogue into the target video unless the idea explicitly asks for it."
+            ? "\n- Cite each supplied <Audio N> wherever its role applies and state its marker (fully_copy for the synchronized track, reference for reference audio)."
             : '';
 
         $audioSpeakerSourceRule = $hasAudio
