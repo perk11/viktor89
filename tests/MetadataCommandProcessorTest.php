@@ -172,8 +172,10 @@ class MetadataCommandProcessorTest extends TestCase
         $this->assertStringContainsString('удалена', $text);
     }
 
-    public function testHtmlEscapesSystemPrompt(): void
+    public function testWrapsSystemPromptInCodeBlock(): void
     {
+        // Rich messages render fenced code blocks literally, so any HTML or
+        // markup inside a prompt is shown verbatim instead of being interpreted.
         $this->repository->insert(new MessageMetadata(
             100,
             5,
@@ -185,7 +187,23 @@ class MetadataCommandProcessorTest extends TestCase
         $result = $this->processor->processMessageChain($this->buildChain(5), $callback);
 
         $text = $result->response->messageText;
-        $this->assertStringNotContainsString('<b>bold</b>', $text);
-        $this->assertStringContainsString('bold', $text);
+        $this->assertStringContainsString("```\nUse <b>bold</b> & <i>tags</i>\n```", $text);
+    }
+
+    public function testGrowsCodeBlockFenceForBackticksInPrompt(): void
+    {
+        // A prompt containing triple backticks must not break out of its code block.
+        $this->repository->insert(new MessageMetadata(
+            100,
+            5,
+            'gpt-4o',
+            "Run ```code``` now",
+        ));
+
+        $callback = $this->createStub(\Perk11\Viktor89\IPC\ProgressUpdateCallback::class);
+        $result = $this->processor->processMessageChain($this->buildChain(5), $callback);
+
+        $text = $result->response->messageText;
+        $this->assertStringContainsString("````\nRun ```code``` now\n````", $text);
     }
 }

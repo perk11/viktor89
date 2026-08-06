@@ -5,7 +5,6 @@ namespace Perk11\Viktor89;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\Repository\MessageMetadataRepository;
 use Perk11\Viktor89\Repository\PersonaRepository;
-use Perk11\Viktor89\Util\TelegramHtml;
 
 class MetadataCommandProcessor implements MessageChainProcessor
 {
@@ -21,7 +20,7 @@ class MetadataCommandProcessor implements MessageChainProcessor
         $lastMessage = $messageChain->last();
 
         $response = InternalMessage::asResponseTo($lastMessage);
-        $response->parseMode = 'HTML';
+        $response->parseMode = 'RichMarkdown';
 
         $replyTarget = $messageChain->previous();
         if ($replyTarget === null) {
@@ -45,29 +44,45 @@ class MetadataCommandProcessor implements MessageChainProcessor
 
     private function formatMetadata(MessageMetadata $metadata): string
     {
-        $lines = ["<b>Метаданные сообщения</b>"];
+        $lines = ['## Метаданные сообщения'];
         if ($metadata->model !== null) {
-            $lines[] = "🤖 <b>Модель:</b> " . TelegramHtml::escape($metadata->model);
+            $lines[] = "🤖 **Модель:** " . $metadata->model;
         }
         if ($metadata->systemPrompt !== null) {
-            $lines[] = "📝 <b>Системный промпт:</b>\n<pre>" . TelegramHtml::escape($metadata->systemPrompt) . "</pre>";
+            $lines[] = "📝 **Системный промпт:**\n" . self::codeBlock($metadata->systemPrompt);
         }
         if ($metadata->personaId !== null) {
             $persona = $this->personaRepository->findPersonaById($metadata->personaId);
             if ($persona !== null) {
-                $author = $persona->userName !== '' ? ' (от ' . TelegramHtml::escape($persona->userName) . ')' : '';
-                $lines[] = "🎭 <b>Персона:</b> " . TelegramHtml::escape($persona->name) . $author;
+                $author = $persona->userName !== '' ? " (от {$persona->userName})" : '';
+                $lines[] = "🎭 **Персона:** {$persona->name}{$author}";
             } else {
-                $lines[] = "🎭 <b>Персона:</b> ID " . $metadata->personaId . " (удалена)";
+                $lines[] = "🎭 **Персона:** ID {$metadata->personaId} (удалена)";
             }
         }
         if ($metadata->caption !== null) {
-            $lines[] = "🖼 <b>Подпись:</b>\n<pre>" . TelegramHtml::escape($metadata->caption) . "</pre>";
+            $lines[] = "🖼 **Подпись:**\n" . self::codeBlock($metadata->caption);
         }
         if ($metadata->processedPrompt !== null) {
-            $lines[] = "✏️ <b>Переписанный промпт:</b>\n<pre>" . TelegramHtml::escape($metadata->processedPrompt) . "</pre>";
+            $lines[] = "✏️ **Переписанный промпт:**\n" . self::codeBlock($metadata->processedPrompt);
         }
 
-        return implode("\n", $lines);
+        return implode("\n\n", $lines);
+    }
+
+    /**
+     * Wrap arbitrary text in a fenced code block. The fence is grown to be
+     * longer than the longest run of backticks inside the content, so prompts
+     * that themselves contain ``` (or longer) sequences cannot break the block.
+     */
+    private static function codeBlock(string $content): string
+    {
+        $longestBacktickRun = 0;
+        if (preg_match('/`++/', $content, $matches)) {
+            $longestBacktickRun = strlen($matches[0]);
+        }
+        $fence = str_repeat('`', max(3, $longestBacktickRun + 1));
+
+        return "{$fence}\n{$content}\n{$fence}";
     }
 }
