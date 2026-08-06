@@ -32,13 +32,14 @@ class SaveAsProcessorTest extends TestCase
         $this->assertFalse($method->isAbstract());
     }
 
-    public function testConstructorTakesTwoParameters(): void
+    public function testConstructorTakesThreeParameters(): void
     {
         $reflection = new \ReflectionClass(\Perk11\Viktor89\ImageGeneration\SaveAsProcessor::class);
         $constructor = $reflection->getConstructor();
         $params = $constructor->getParameters();
-        $this->assertCount(2, $params);
+        $this->assertCount(3, $params);
         $this->assertSame(\Perk11\Viktor89\TelegramFileDownloader::class, $params[0]->getType()->getName());
         $this->assertSame(\Perk11\Viktor89\ImageGeneration\ImageRepository::class, $params[1]->getType()->getName());
+        $this->assertSame(\Perk11\Viktor89\Audio\AudioRepository::class, $params[2]->getType()->getName());
     }
 }

@@ -90,6 +90,15 @@ CREATE TABLE IF NOT EXISTS `saved_image`
     `created_at` timestamp NOT NULL,
     `private` boolean NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS `saved_audio`
+(
+    `id` integer PRIMARY KEY AUTOINCREMENT,
+    `name` text NOT NULL UNIQUE,
+    `filename` NOT NULL,
+    `user_id` bigint NOT NULL,
+    `created_at` timestamp NOT NULL,
+    `private` boolean NOT NULL DEFAULT 0
+);
 
 CREATE TABLE IF NOT EXISTS `patches`
 (

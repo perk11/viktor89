@@ -13,6 +13,7 @@ use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantFactory;
+use Perk11\Viktor89\Audio\AudioRepository;
 use Perk11\Viktor89\Container\ContainerFactory;
 use Perk11\Viktor89\EmojiArt\EmojiArtProcessor;
 use Perk11\Viktor89\EmojiArt\EmojiPalette;
@@ -378,7 +379,8 @@ class ProcessMessageTask implements Task
             is_int($generatedImageMarkdownUploaderConfig['port'] ?? null) ? $generatedImageMarkdownUploaderConfig['port'] : 22,
         );
         $imageRepository = new ImageRepository($database->sqlite3Database);
-        $imgTagExtractor = new ImgTagExtractor($imageRepository, $telegramFileDownloader, $logger);
+        $audioRepository = new AudioRepository($database->sqlite3Database);
+        $imgTagExtractor = new ImgTagExtractor($imageRepository, $telegramFileDownloader, $logger, $audioRepository);
 
         $altTextProvider = $container->get(AltTextProvider::class);
         $processingResultExecutor = new ProcessingResultExecutor(
@@ -966,7 +968,7 @@ class ProcessMessageTask implements Task
             ),
             new CommandBasedResponderTrigger(
                 ['/saveas'],
-                new SaveAsProcessor($telegramFileDownloader, $imageRepository),
+                new SaveAsProcessor($telegramFileDownloader, $imageRepository, $audioRepository),
                 $logger,
             ),
             new CommandBasedResponderTrigger(
