@@ -79,6 +79,10 @@ function parameterDefinitions(): array
         'denoising_strength' => ['type' => 'number', 'description' => 'Denoising strength for img2img, 0 to 1.'],
         'loras' => ['type' => 'array', 'description' => 'List of LoRA overrides, e.g. [{"name":"file.safetensors","weight":0.8}].', 'items' => ['type' => 'object']],
         'init_image' => ['type' => 'string', 'description' => 'Base64-encoded source image (no data-URI prefix) for img2img / img2vid. The result media is also returned base64-encoded.'],
+        'last_frame' => ['type' => 'string', 'description' => 'Base64-encoded target LAST frame for MiniMax first+last-frame (FL2VA) generation; the clip converges to land on it.'],
+        'reference_images' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Up to 2 extra base64-encoded reference images (character/scene anchors) beyond the continuation/last frame. MiniMax accepts 3 image slots total.'],
+        'reference_audios' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Up to 3 base64-encoded reference audio clips. A reference audio supplies voice timbre/style for a speaker (voice cloning) per MiniMax-H3 full-reference mode.'],
+        'duration' => ['type' => 'integer', 'description' => 'Target video length in seconds (5–15, the MiniMax workflow clamp).'],
         'language' => ['type' => 'string', 'description' => 'ISO language code for TTS, e.g. "en", "ru".'],
         'speaker_id' => ['type' => 'string', 'description' => 'Built-in speaker name for TTS.'],
         'source_voice' => ['type' => 'string', 'description' => 'Base64-encoded reference voice audio for voice cloning.'],
@@ -260,7 +264,11 @@ function makeToolHandler(array $tool, array $endpoint, InferenceHttpClient $http
         ?string $source_voice = null,
         ?string $source_voice_format = null,
         ?string $source_voice_2 = null,
-        ?float $speed = null
+        ?float $speed = null,
+        ?array $reference_images = null,
+        ?array $reference_audios = null,
+        ?string $last_frame = null,
+        ?int $duration = null
     ) use ($tool, $endpoint, $httpClient, $preprocessor, $logger): CallToolResult {
         $args = array_filter([
             'prompt' => $prompt,
@@ -283,6 +291,10 @@ function makeToolHandler(array $tool, array $endpoint, InferenceHttpClient $http
             'source_voice_format' => $source_voice_format,
             'source_voice_2' => $source_voice_2,
             'speed' => $speed,
+            'reference_images' => $reference_images,
+            'reference_audios' => $reference_audios,
+            'last_frame' => $last_frame,
+            'duration' => $duration,
         ], static fn ($v) => $v !== null);
 
         // Video tools that declare a preprocessor rewrite the user's prompt into
@@ -294,7 +306,15 @@ function makeToolHandler(array $tool, array $endpoint, InferenceHttpClient $http
             $logger ??= new StderrLogger();
             try {
                 $args['prompt'] = $preprocessor->preprocess(
-                    new VideoGenerationPrompt($args['prompt']),
+                    new VideoGenerationPrompt(
+                        $args['prompt'],
+                        $args['init_image'] ?? null,            // firstFrame
+                        $args['last_frame'] ?? null,            // lastFrame
+                        is_array($args['reference_images'] ?? null) ? $args['reference_images'] : [],
+                        null,                                    // audioTrack (1:1 track) — unused here
+                        is_array($args['reference_audios'] ?? null) ? $args['reference_audios'] : [],
+                        isset($args['duration']) ? (int) $args['duration'] : 15,
+                    ),
                     new McpProgressUpdateCallback($logger),
                 );
             } catch (\Throwable $e) {
@@ -380,10 +400,35 @@ function executeInference(array $tool, array $endpoint, array $args, InferenceHt
         $body['model'] = $tool['model'];
     }
 
-    // MCP exposes a single base64 image; the inference servers expect init_images[].
+    // MiniMax ref2vid takes ordered init_images[] (first frame, then last frame,
+    // then extra references) and init_audios[] (reference voice/style clips).
+    $images = [];
     if (isset($args['init_image'])) {
-        $body['init_images'] = [$args['init_image']];
+        $images[] = $args['init_image'];
         unset($args['init_image']);
+    }
+    if (isset($args['last_frame'])) {
+        $images[] = $args['last_frame'];
+        unset($args['last_frame']);
+    }
+    if (isset($args['reference_images']) && is_array($args['reference_images'])) {
+        foreach ($args['reference_images'] as $img) {
+            $images[] = $img;
+        }
+        unset($args['reference_images']);
+    }
+    if (count($images) > 3) {
+        return CallToolResult::error([new TextContent('MiniMax ref2vid accepts at most 3 reference images.')]);
+    }
+    if ($images !== []) {
+        $body['init_images'] = $images;
+    }
+    if (isset($args['reference_audios']) && is_array($args['reference_audios'])) {
+        if (count($args['reference_audios']) > 3) {
+            return CallToolResult::error([new TextContent('MiniMax ref2vid accepts at most 3 reference audios.')]);
+        }
+        $body['init_audios'] = $args['reference_audios'];
+        unset($args['reference_audios']);
     }
 
     $body = array_merge($body, $args);
@@ -642,9 +687,10 @@ final class McpLlmAssistant implements ContextCompletingAssistantInterface
 /**
  * AltTextProvider stand-in for the MCP server. The real AltTextProvider pulls
  * Telegram / database / transcription dependencies a standalone server does not
- * have, so its constructor is intentionally not called. MiniMax-H3 text-to-video
- * never describes an image, so the only reachable method is overridden to fail
- * loudly if image-conditioned video is ever attempted.
+ * have, so its constructor is intentionally not called. The rewrite LLM is
+ * text-only, so it cannot inspect a supplied frame; instead of failing, the
+ * method returns a neutral description — the actual visual conditioning reaches
+ * the video model through the workflow's reference-image slots, not the prompt.
  */
 final class McpStubAltTextProvider extends AltTextProvider
 {
@@ -654,7 +700,7 @@ final class McpStubAltTextProvider extends AltTextProvider
 
     public function generateAltTextForImageString(string $image, ?ProgressUpdateCallback $progressUpdateCallback = null): string
     {
-        throw new LogicException('The MCP server supports MiniMax-H3 text-to-video only; image-conditioned video generation is not available here.');
+        return 'A supplied reference frame; its exact visual content is conditioned directly on the video model via the reference-image slot. Keep identity, clothing, colours, composition and spatial layout consistent with it.';
     }
 }
 

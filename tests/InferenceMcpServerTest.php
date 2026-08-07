@@ -83,6 +83,17 @@ class InferenceMcpServerTest extends TestCase
         $this->assertArrayHasKey('items', $defs['loras']);
     }
 
+    public function testParameterDefinitionsContainsReferenceVideoParams(): void
+    {
+        $defs = parameterDefinitions();
+        $this->assertSame('string', $defs['last_frame']['type']);
+        $this->assertSame('integer', $defs['duration']['type']);
+        $this->assertSame('array', $defs['reference_images']['type']);
+        $this->assertSame(['type' => 'string'], $defs['reference_images']['items']);
+        $this->assertSame('array', $defs['reference_audios']['type']);
+        $this->assertSame(['type' => 'string'], $defs['reference_audios']['items']);
+    }
+
     public function testDefaultRequiredParameters(): void
     {
         $this->assertSame(['prompt'], defaultRequiredParameters('txt2img'));
@@ -120,6 +131,23 @@ class InferenceMcpServerTest extends TestCase
         $schema = buildInputSchema($tool, 'txt2voice');
         $this->assertSame(['prompt', 'source_voice', 'source_voice_format'], $schema['required']);
         $this->assertSame(['wav', 'ogg', 'mp3'], $schema['properties']['source_voice_format']['enum']);
+    }
+
+    public function testBuildInputSchemaForVideoToolEmitsArrayReferenceParams(): void
+    {
+        $tool = [
+            'parameters' => ['prompt', 'init_image', 'last_frame', 'reference_images', 'reference_audios', 'seed', 'duration'],
+            'required' => ['prompt'],
+        ];
+        $schema = buildInputSchema($tool, 'audio_img_txt2vid');
+        $this->assertSame('string', $schema['properties']['init_image']['type']);
+        $this->assertSame('string', $schema['properties']['last_frame']['type']);
+        $this->assertSame('integer', $schema['properties']['duration']['type']);
+        $this->assertSame('array', $schema['properties']['reference_images']['type']);
+        $this->assertSame(['type' => 'string'], $schema['properties']['reference_images']['items']);
+        $this->assertSame('array', $schema['properties']['reference_audios']['type']);
+        $this->assertSame(['type' => 'string'], $schema['properties']['reference_audios']['items']);
+        $this->assertSame(['prompt'], $schema['required']);
     }
 
     public function testBuildInputSchemaAppliesSizeConstraints(): void
@@ -358,9 +386,16 @@ class InferenceMcpServerTest extends TestCase
         $this->assertSame('flux2_dev_fp8-turbo-8-steps', $byTool['image_edit_tool']['model']);
         $this->assertContains('init_image', $byTool['image_edit_tool']['parameters']);
 
-        $this->assertSame('audio_txt2vid', $byTool['video_gen_tool']['endpoint']);
+        $this->assertSame('audio_img_txt2vid', $byTool['video_gen_tool']['endpoint']);
         $this->assertSame('minimax-h3-ref2vid', $byTool['video_gen_tool']['model']);
         $this->assertSame('minimax-h3', $byTool['video_gen_tool']['preprocessor']);
+        $videoParams = $byTool['video_gen_tool']['parameters'];
+        $this->assertContains('init_image', $videoParams);
+        $this->assertContains('last_frame', $videoParams);
+        $this->assertContains('reference_images', $videoParams);
+        $this->assertContains('reference_audios', $videoParams);
+        $this->assertContains('duration', $videoParams);
+        $this->assertArrayHasKey('audio_img_txt2vid', $config['endpoints']);
         $this->assertArrayHasKey('llm', $config, 'Claude config must declare the llm block for the video preprocessor');
     }
 
@@ -430,6 +465,68 @@ class InferenceMcpServerTest extends TestCase
         $this->assertStringContainsString('init_images_count=1', $note);
     }
 
+    public function testExecuteInferenceAssemblesOrderedInitImagesAndAudios(): void
+    {
+        [$tool, $endpoint] = $this->videoToolAndEndpoint($this->ensureMockServer());
+        $result = executeInference(
+            $tool,
+            $endpoint,
+            [
+                'prompt' => 'continue',
+                'init_image' => 'FIRSTIMG',
+                'last_frame' => 'LASTFRAM',
+                'reference_images' => ['REF1'],
+                'reference_audios' => ['AUD1'],
+                'duration' => 10,
+            ],
+            $this->httpClient(),
+        );
+        $this->assertFalse($result->isError);
+        // init_image + last_frame + 1 reference => ordered init_images[] of 3;
+        // reference_audios => init_audios[] of 1. init_image must lead the order
+        // and duration is forwarded to the server verbatim.
+        $note = $result->content[1]->text;
+        $this->assertStringContainsString('has_init_image=0', $note);
+        $this->assertStringContainsString('init_images_count=3', $note);
+        $this->assertStringContainsString('init_audios_count=1', $note);
+        $this->assertStringContainsString('first_image=FIRSTIMG', $note);
+        $this->assertStringContainsString('duration=10', $note);
+    }
+
+    public function testExecuteInferenceRejectsMoreThanThreeReferenceImages(): void
+    {
+        [$tool, $endpoint] = $this->videoToolAndEndpoint($this->ensureMockServer());
+        $result = executeInference(
+            $tool,
+            $endpoint,
+            [
+                'prompt' => 'too many images',
+                'init_image' => 'A',
+                'last_frame' => 'B',
+                'reference_images' => ['C', 'D'],
+            ],
+            $this->httpClient(),
+        );
+        $this->assertTrue($result->isError);
+        $this->assertStringContainsString('at most 3 reference images', $result->content[0]->text);
+    }
+
+    public function testExecuteInferenceRejectsMoreThanThreeReferenceAudios(): void
+    {
+        [$tool, $endpoint] = $this->videoToolAndEndpoint($this->ensureMockServer());
+        $result = executeInference(
+            $tool,
+            $endpoint,
+            [
+                'prompt' => 'too many audios',
+                'reference_audios' => ['A', 'B', 'C', 'D'],
+            ],
+            $this->httpClient(),
+        );
+        $this->assertTrue($result->isError);
+        $this->assertStringContainsString('at most 3 reference audios', $result->content[0]->text);
+    }
+
     public function testMakeToolHandlerAppliesVideoPreprocessorBeforeForwarding(): void
     {
         [$tool, $endpoint] = $this->videoToolAndEndpoint($this->ensureMockServer());
@@ -469,6 +566,83 @@ class InferenceMcpServerTest extends TestCase
         $this->assertTrue($result->isError);
         $this->assertStringContainsString('Video prompt preprocessing failed', $result->content[0]->text);
         $this->assertStringContainsString('rewrite exploded', $result->content[0]->text);
+    }
+
+    public function testMakeToolHandlerPassesReferencesToPreprocessor(): void
+    {
+        [$tool, $endpoint] = $this->videoToolAndEndpoint($this->ensureMockServer());
+
+        $preprocessor = new class implements \Perk11\Viktor89\VideoGeneration\VideoPromptPreprocessor\VideoPromptPreprocessor {
+            public ?\Perk11\Viktor89\VideoGeneration\VideoGenerationPrompt $captured = null;
+
+            public function preprocess(\Perk11\Viktor89\VideoGeneration\VideoGenerationPrompt $input, \Perk11\Viktor89\IPC\ProgressUpdateCallback $progressUpdateCallback): string
+            {
+                $this->captured = $input;
+
+                return 'REWRITTEN';
+            }
+        };
+
+        $handler = makeToolHandler($tool, $endpoint, $this->httpClient(), $preprocessor, new NullLogger());
+        $result = $handler(
+            prompt: 'continue',
+            init_image: 'FIRST',
+            reference_images: ['R1'],
+            reference_audios: ['A1'],
+            duration: 8,
+        );
+
+        $this->assertFalse($result->isError);
+        $this->assertNotNull($preprocessor->captured);
+        $this->assertSame('FIRST', $preprocessor->captured->firstFrame);
+        $this->assertNull($preprocessor->captured->lastFrame);
+        $this->assertSame(['R1'], $preprocessor->captured->referenceImages);
+        $this->assertSame(['A1'], $preprocessor->captured->referenceAudios);
+        $this->assertSame(8, $preprocessor->captured->durationSeconds);
+    }
+
+    public function testMakeToolHandlerSelectsReferenceModeFromReferences(): void
+    {
+        [$tool, $endpoint] = $this->videoToolAndEndpoint($this->ensureMockServer());
+
+        $captured = new \stdClass();
+        $preprocessor = new class($captured) implements \Perk11\Viktor89\VideoGeneration\VideoPromptPreprocessor\VideoPromptPreprocessor {
+            public function __construct(private \stdClass $captured)
+            {
+            }
+
+            public function preprocess(\Perk11\Viktor89\VideoGeneration\VideoGenerationPrompt $input, \Perk11\Viktor89\IPC\ProgressUpdateCallback $progressUpdateCallback): string
+            {
+                $this->captured->mode = $input->effectiveMode();
+
+                return 'REWRITTEN';
+            }
+        };
+
+        $handler = makeToolHandler($tool, $endpoint, $this->httpClient(), $preprocessor, new NullLogger());
+
+        $handler(prompt: 'p');
+        $this->assertSame(\Perk11\Viktor89\VideoGeneration\VideoTaskMode::TextToVideo, $captured->mode);
+
+        $handler(prompt: 'p', init_image: 'F');
+        $this->assertSame(\Perk11\Viktor89\VideoGeneration\VideoTaskMode::FirstFrame, $captured->mode);
+
+        $handler(prompt: 'p', init_image: 'F', last_frame: 'L');
+        $this->assertSame(\Perk11\Viktor89\VideoGeneration\VideoTaskMode::FirstLastFrame, $captured->mode);
+
+        $handler(prompt: 'p', reference_images: ['R']);
+        $this->assertSame(\Perk11\Viktor89\VideoGeneration\VideoTaskMode::FullReference, $captured->mode);
+
+        $handler(prompt: 'p', reference_audios: ['A']);
+        $this->assertSame(\Perk11\Viktor89\VideoGeneration\VideoTaskMode::FullReference, $captured->mode);
+    }
+
+    public function testStubAltTextProviderReturnsNeutralDescriptionInsteadOfThrowing(): void
+    {
+        $provider = new \McpStubAltTextProvider();
+        $text = $provider->generateAltTextForImageString('any-base64');
+        $this->assertStringContainsString('reference frame', $text);
+        $this->assertStringContainsString('consistent', $text);
     }
 
     // ---------------------------------------------------------------------
@@ -531,6 +705,75 @@ class InferenceMcpServerTest extends TestCase
         $this->assertContains('image', $types);
         $this->assertContains('text', $types);
         $this->assertSame(self::PNG_BASE64, $call['result']['content'][0]['data']);
+    }
+
+    public function testStdioTransportVideoCallAcceptsReferences(): void
+    {
+        $mockUrl = $this->ensureMockServer();
+        // Use the real Claude config surface, point every model at the mock, and
+        // drop the llm block so the rewrite preprocessor is not built (prompt is
+        // forwarded verbatim) — no real LLM call is made in this transport test.
+        $config = json_decode((string) file_get_contents(self::CLAUDE_CONFIG_PATH), true, 512, JSON_THROW_ON_ERROR);
+        foreach ($config['models'] as &$model) {
+            $model['url'] = $mockUrl;
+        }
+        unset($model);
+        unset($config['llm']);
+        $config['http']['timeoutSeconds'] = 5;
+        $config['http']['connectTimeoutSeconds'] = 3;
+
+        // 1) tools/list must advertise the reference array params on video_gen_tool.
+        $listResponses = $this->runStdio($config, [
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize', 'params' => $this->initializeParams()],
+            ['jsonrpc' => '2.0', 'method' => 'notifications/initialized'],
+            ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list', 'params' => new \stdClass()],
+        ]);
+        $list = $this->findById($listResponses, 2);
+        $this->assertNotNull($list);
+        $videoTool = null;
+        foreach ($list['result']['tools'] ?? [] as $t) {
+            if (($t['name'] ?? null) === 'video_gen_tool') {
+                $videoTool = $t;
+                break;
+            }
+        }
+        $this->assertNotNull($videoTool, 'video_gen_tool must be advertised');
+        $props = $videoTool['inputSchema']['properties'];
+        $this->assertSame('array', $props['reference_images']['type']);
+        $this->assertSame(['type' => 'string'], $props['reference_images']['items']);
+        $this->assertSame('array', $props['reference_audios']['type']);
+        $this->assertSame(['type' => 'string'], $props['reference_audios']['items']);
+        $this->assertSame('string', $props['init_image']['type']);
+        $this->assertSame('string', $props['last_frame']['type']);
+        $this->assertSame('integer', $props['duration']['type']);
+        $this->assertSame(['prompt'], $videoTool['inputSchema']['required']);
+
+        // 2) tools/call with references must reach the inference server as
+        //    init_images[] (init_image + reference) and init_audios[].
+        $callResponses = $this->runStdio($config, [
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize', 'params' => $this->initializeParams()],
+            ['jsonrpc' => '2.0', 'method' => 'notifications/initialized'],
+            ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/call', 'params' => [
+                'name' => 'video_gen_tool',
+                'arguments' => [
+                    'prompt' => 'a cat',
+                    'init_image' => 'QkFTRTY0',
+                    'reference_images' => ['REF1'],
+                    'reference_audios' => ['AUD1'],
+                ],
+            ]],
+        ]);
+        $call = $this->findById($callResponses, 2);
+        $this->assertNotNull($call);
+        $this->assertFalse($call['result']['isError']);
+        $text = '';
+        foreach ($call['result']['content'] as $c) {
+            if (($c['type'] ?? '') === 'text') {
+                $text .= $c['text'];
+            }
+        }
+        $this->assertStringContainsString('init_images_count=2', $text);
+        $this->assertStringContainsString('init_audios_count=1', $text);
     }
 
     // ---------------------------------------------------------------------
@@ -979,7 +1222,10 @@ if (($parsed['prompt'] ?? '') === 'FAIL') {
 
 $hasInitImage = is_array($parsed) && array_key_exists('init_image', $parsed) ? 1 : 0;
 $initImagesCount = is_array($parsed) ? count($parsed['init_images'] ?? []) : 0;
-$meta = "has_init_image={$hasInitImage} init_images_count={$initImagesCount} prompt=" . substr(($parsed['prompt'] ?? ''), 0, 60);
+$initAudiosCount = is_array($parsed) ? count($parsed['init_audios'] ?? []) : 0;
+$firstImage = is_array($parsed['init_images'] ?? null) ? substr($parsed['init_images'][0] ?? '', 0, 8) : '';
+$duration = is_array($parsed) && array_key_exists('duration', $parsed) ? $parsed['duration'] : '';
+$meta = "has_init_image={$hasInitImage} init_images_count={$initImagesCount} init_audios_count={$initAudiosCount} first_image={$firstImage} duration={$duration} prompt=" . substr(($parsed['prompt'] ?? ''), 0, 60);
 
 if (str_contains($path, 'txt2img') || str_contains($path, 'img2img')) {
     echo json_encode(['images' => [$png], 'parameters' => [], 'info' => json_encode(['infotexts' => ['CAPIMG ' . $meta]])]);

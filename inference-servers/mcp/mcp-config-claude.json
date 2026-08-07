@@ -49,6 +49,18 @@
         "infoIsJsonString": true,
         "captionField": "infotexts"
       }
+    },
+    "audio_img_txt2vid": {
+      "method": "POST",
+      "path": "/audio_img_txt2vid",
+      "response": {
+        "media": "video",
+        "field": "videos",
+        "mimeType": "video/mp4",
+        "infoField": "info",
+        "infoIsJsonString": true,
+        "captionField": "infotexts"
+      }
     }
   },
   "models": [
@@ -106,21 +118,15 @@
     },
     {
       "tool": "video_gen_tool",
-      "endpoint": "audio_txt2vid",
+      "endpoint": "audio_img_txt2vid",
       "url": "http://localhost:8240",
       "model": "minimax-h3-ref2vid",
-      "title": "MiniMax-H3 ref2vid text-to-video",
-      "description": "Generate a short video from a text prompt using MiniMax-H3 ref2vid. The prompt is automatically rewritten into the structured MiniMax-H3 video-prompt format before generation.",
+      "title": "MiniMax-H3 ref2vid (text / first-frame / reference)",
+      "description": "Generate a short video with synchronized audio using MiniMax-H3 ref2vid. Optionally pass init_image (continuation/first frame), reference_images (character/scene anchors), and reference_audios (voice-timbre samples for consistent voices). With no references it behaves as plain text-to-video. The prompt is auto-rewritten; the MiniMax task mode is chosen automatically from which references are supplied.",
       "preprocessor": "minimax-h3",
-      "defaults": {
-        "model": "minimax-h3-ref2vid"
-      },
-      "parameters": [
-        "prompt"
-      ],
-      "required": [
-        "prompt"
-      ]
+      "defaults": { "model": "minimax-h3-ref2vid" },
+      "parameters": ["prompt", "init_image", "last_frame", "reference_images", "reference_audios", "seed", "duration"],
+      "required": ["prompt"]
     }
   ]
 }
