@@ -6,6 +6,9 @@ use LogicException;
 
 class MessageChain
 {
+    /** Images generated during the current turn, kept out of $messages. */
+    private array $generatedImages = [];
+
     /** @param InternalMessage[] $messages */
     public function __construct(private array $messages)
     {
@@ -15,13 +18,28 @@ class MessageChain
     }
 
     /**
-     * Append a message generated during the current turn (e.g. an image produced
-     * by a tool call) so that subsequent tool calls in the same completion
-     * (list_chain_images, image_gen_tool edits) can see and reference it.
+     * Track an image generated during the current turn (e.g. by image_gen_tool)
+     * so later tool calls in the same completion (list_chain_images,
+     * image_gen_tool edits) can reference it by its #N index. Stored separately
+     * from the persisted message history on purpose: a generated image must never
+     * become last()/previous(), since those drive reply targets, reactions and
+     * user-preference lookups that expect the real triggering message.
      */
-    public function appendMessage(InternalMessage $message): void
+    public function appendGeneratedImage(InternalMessage $image): void
     {
-        $this->messages[] = $message;
+        $this->generatedImages[] = $image;
+    }
+
+    /**
+     * Images generated earlier in the current turn, in the order produced. They
+     * share the #N index space with the chain's photos but follow them (they are
+     * the newest).
+     *
+     * @return InternalMessage[]
+     */
+    public function getGeneratedImages(): array
+    {
+        return $this->generatedImages;
     }
 
     public function first(): InternalMessage
@@ -32,23 +50,6 @@ class MessageChain
     public function last(): InternalMessage
     {
         return $this->messages[count($this->messages) - 1];
-    }
-
-    /**
-     * The most recent message not authored by $userId (e.g. the bot). Needed to
-     * find the message currently being responded to when transient bot messages
-     * have been appended to the chain during a turn (e.g. images just generated
-     * by a tool call). Falls back to last() if every message is by $userId.
-     */
-    public function lastMessageByOtherThan(int $userId): InternalMessage
-    {
-        for ($i = count($this->messages) - 1; $i >= 0; $i--) {
-            if ($this->messages[$i]->userId !== $userId) {
-                return $this->messages[$i];
-            }
-        }
-
-        return $this->last();
     }
 
     public function withReplacedLastMessage(InternalMessage $message): MessageChain

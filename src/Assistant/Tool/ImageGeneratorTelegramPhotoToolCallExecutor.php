@@ -39,7 +39,7 @@ class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareTo
             }
         }
 
-        $lastMessage = $messageChain->lastMessageByOtherThan($this->botUserId);
+        $lastMessage = $messageChain->last();
         $hasImageReferences = str_contains($arguments['prompt'], '<img>') && str_contains($arguments['prompt'], '</img>');
         $generator = ($hasImageReferences && $this->editByPromptGenerator !== null)
             ? $this->editByPromptGenerator
@@ -54,7 +54,7 @@ class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareTo
             $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId);
             $image = $response->getFirstImageAsPng();
             $this->photoResponder->sendPhoto($lastMessage, $image, $response->sendAsFile, $response->getCaption());
-            $messageChain->appendMessage(
+            $messageChain->appendGeneratedImage(
                 $this->buildGeneratedPhotoMessage($lastMessage, $image, $response->getCaption()),
             );
         } catch (\Exception $e) {

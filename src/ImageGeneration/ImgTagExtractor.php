@@ -277,7 +277,8 @@ class ImgTagExtractor
 
     /**
      * Resolve a chain image reference to its binary contents.
-     * $imageIndex is 0-based.
+     * $imageIndex is 0-based and counts persisted chain photos first, then any
+     * images generated earlier in the current turn.
      */
     private function resolveChainImage(MessageChain $messageChain, int $imageIndex): ?string
     {
@@ -300,6 +301,15 @@ class ImgTagExtractor
                     $this->logger?->log(LogLevel::ERROR, "Failed to download chain image $imageIndex: " . $e->getMessage());
                     return null;
                 }
+            }
+            $foundIndex++;
+        }
+
+        // Images generated earlier in this turn are in-memory (photoContents)
+        // and numbered after the chain's persisted photos.
+        foreach ($messageChain->getGeneratedImages() as $generated) {
+            if ($foundIndex === $imageIndex) {
+                return $generated->photoContents;
             }
             $foundIndex++;
         }

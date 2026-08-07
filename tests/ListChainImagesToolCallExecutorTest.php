@@ -147,7 +147,7 @@ class ListChainImagesToolCallExecutorTest extends TestCase
         $generated->userId = $botUserId;
         $generated->photoContents = 'png-bytes';
         $chain = new MessageChain([$persisted]);
-        $chain->appendMessage($generated);
+        $chain->appendGeneratedImage($generated);
 
         $result = $executor->executeToolCall([], $chain);
 

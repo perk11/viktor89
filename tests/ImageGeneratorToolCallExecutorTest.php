@@ -75,25 +75,25 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
         $executor->executeToolCall(['prompt' => 'A cool <img>#1</img>'], $chain);
     }
 
-    // ─── triggering user is stable across multiple tool calls in a turn ─────
+    // ─── generated images stay out of the message history ───────────────────
 
-    public function testUsesTriggeringUserPreferencesWhenBotPhotoAlreadyAppended(): void
+    public function testGeneratedImageIsTrackedOutOfMessageHistorySoTriggerStaysStable(): void
     {
-        // Regression: during a multi-image turn the first tool call appends a
-        // bot-generated photo to the chain. The next call must still read the
-        // triggering user's preferences instead of falling back to the bot/
-        // default model.
+        // Regression for a multi-image turn: a generated image must be tracked
+        // outside the message history, so every tool call keeps reading the
+        // triggering user's preferences (not the bot's) and replying to the
+        // triggering message.
+        $invokedUserIds = [];
         $imageModel = $this->createMock(ImageByPromptGenerator::class);
+        $imageModel->method('generateImageByImagePrompt')
+            ->willReturnCallback(function ($prompt, int $userId) use (&$invokedUserIds) {
+                $invokedUserIds[] = $userId;
+
+                return $this->createMock(Automatic1111ImageApiResponse::class);
+            });
         $photoResponder = $this->createMock(PhotoResponder::class);
         $imgTagExtractor = $this->createMock(ImgTagExtractor::class);
-
-        $imageModel->expects($this->once())
-            ->method('generateImageByImagePrompt')
-            ->with($this->anything(), 12345)
-            ->willReturn($this->createMock(Automatic1111ImageApiResponse::class));
-
-        $imgTagExtractor->expects($this->once())
-            ->method('extractImageTags')
+        $imgTagExtractor->method('extractImageTags')
             ->willReturn(new ImageGenerationPrompt('text'));
 
         $executor = new \Perk11\Viktor89\Assistant\Tool\ImageGeneratorTelegramPhotoToolCallExecutor(
@@ -104,15 +104,16 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
          logger: new \Psr\Log\NullLogger(),
             botUserId: 999,);
 
-        $chain = new MessageChain([self::makeMessage()]);
-        // Simulate a prior tool call in the same turn appending a bot photo.
-        $botPhoto = new InternalMessage();
-        $botPhoto->userId = 999;
-        $botPhoto->type = 'photo';
-        $botPhoto->photoContents = 'png-bytes';
-        $chain->appendMessage($botPhoto);
+        $trigger = self::makeMessage();
+        $chain = new MessageChain([$trigger]);
 
-        $executor->executeToolCall(['prompt' => 'Another image'], $chain);
+        $executor->executeToolCall(['prompt' => 'first'], $chain);
+        $executor->executeToolCall(['prompt' => 'second'], $chain);
+
+        $this->assertSame([12345, 12345], $invokedUserIds);
+        $this->assertCount(2, $chain->getGeneratedImages());
+        $this->assertSame([$trigger], $chain->getMessages());
+        $this->assertSame($trigger, $chain->last());
     }
 
     // ─── edit model used when image references present ───────────────────────

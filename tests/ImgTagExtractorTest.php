@@ -189,10 +189,10 @@ class ImgTagExtractorTest extends TestCase
     }
 
     /**
-     * An image generated earlier in the same turn is appended with its raw
-     * bytes (photoContents) and no file id; it must be resolvable by its #N
-     * index without any Telegram download, sharing the index space with
-     * persisted photos.
+     * An image generated earlier in the same turn is tracked separately (raw
+     * bytes in photoContents, no file id) but must still be resolvable by its #N
+     * index without any Telegram download, sharing the index space with the
+     * chain's persisted photos.
      */
     public function testResolvesInMemoryGeneratedChainImageWithoutDownload(): void
     {
@@ -210,7 +210,7 @@ class ImgTagExtractorTest extends TestCase
         $generatedMessage->photoContents = 'generated-png-bytes';
 
         $chain = new MessageChain([$commandMessage]);
-        $chain->appendMessage($generatedMessage);
+        $chain->appendGeneratedImage($generatedMessage);
 
         $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>#0</img> cat'), null, $chain);
 

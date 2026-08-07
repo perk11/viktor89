@@ -37,7 +37,7 @@ class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallE
             }
         }
 
-        $lastMessage = $messageChain->lastMessageByOtherThan($this->botUserId);
+        $lastMessage = $messageChain->last();
         $hasImageReferences = str_contains($arguments['prompt'], '<img>') && str_contains($arguments['prompt'], '</img>');
         $generator = ($hasImageReferences && $this->editByPromptGenerator !== null)
             ? $this->editByPromptGenerator
@@ -52,7 +52,7 @@ class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallE
             $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId);
             $image = $response->getFirstImageAsPng();
             $uploadedImage = $this->generatedImageMarkdownUploader->uploadPng($image);
-            $messageChain->appendMessage(
+            $messageChain->appendGeneratedImage(
                 $this->buildGeneratedPhotoMessage($lastMessage, $image, $response->getCaption()),
             );
         } catch (\Exception $e) {

@@ -128,42 +128,35 @@ class MessageChainTest extends TestCase
         $this->assertSame($second, $chain->getMessages()[1]);
     }
 
-    public function testAppendMessageAddsToEndOfSameChain(): void
+    public function testAppendGeneratedImageDoesNotPolluteMessageHistory(): void
     {
         $first = self::makeMessage('Alice');
         $chain = new MessageChain([$first]);
 
-        $appended = self::makeMessage('Bob');
-        $chain->appendMessage($appended);
+        $generated = self::makeMessage('');
+        $chain->appendGeneratedImage($generated);
 
-        $this->assertSame(2, $chain->count());
-        $this->assertSame($appended, $chain->last());
-        $this->assertSame($first, $chain->previous());
-        $this->assertContains($appended, $chain->getMessages());
+        // The generated image is tracked for #N referencing ...
+        $this->assertSame([$generated], $chain->getGeneratedImages());
+        // ... but never becomes part of the message history, so last(),
+        // previous(), count() and getMessages() stay tied to real messages.
+        $this->assertSame(1, $chain->count());
+        $this->assertSame($first, $chain->last());
+        $this->assertNull($chain->previous());
+        $this->assertSame([$first], $chain->getMessages());
+        $this->assertNotContains($generated, $chain->getMessages());
     }
 
-    public function testLastMessageByOtherThanSkipsTrailingBotMessages(): void
+    public function testAppendGeneratedImageKeepsInsertionOrder(): void
     {
-        $user = self::makeMessage('Alice');
-        $bot1 = self::makeMessage('');
-        $bot1->userId = 999;
-        $bot2 = self::makeMessage('');
-        $bot2->userId = 999;
-        $chain = new MessageChain([$user, $bot1, $bot2]);
+        $chain = new MessageChain([self::makeMessage('Alice')]);
 
-        $this->assertSame($user, $chain->lastMessageByOtherThan(999));
-        $this->assertSame($bot2, $chain->last());
-    }
+        $first = self::makeMessage('');
+        $second = self::makeMessage('');
+        $chain->appendGeneratedImage($first);
+        $chain->appendGeneratedImage($second);
 
-    public function testLastMessageByOtherThanFallsBackToLastWhenAllMatch(): void
-    {
-        $bot1 = self::makeMessage('');
-        $bot1->userId = 999;
-        $bot2 = self::makeMessage('');
-        $bot2->userId = 999;
-        $chain = new MessageChain([$bot1, $bot2]);
-
-        $this->assertSame($bot2, $chain->lastMessageByOtherThan(999));
+        $this->assertSame([$first, $second], $chain->getGeneratedImages());
     }
 
     private static function makeMessage(string $userName): InternalMessage
