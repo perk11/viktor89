@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "viktor89-inference": {
+      "type": "http",
+      "url": "http://host.docker.internal:8080"
+    }
+  }
+}

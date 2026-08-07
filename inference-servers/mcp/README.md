@@ -27,7 +27,14 @@ The server speaks the same HTTP contract the rest of the project already uses (s
 | `img2img` | `POST /sdapi/v1/img2img` | same + `init_images: [base64]` | `{images: [base64], info}` |
 | `txt2vid` | `POST /txt2vid` | `{prompt, negative_prompt, seed, steps, num_frames, width, height, cfg_scale, ...}` | `{videos: [base64], info}` |
 | `img2vid` | `POST /img2vid` | same + `init_images: [base64]` | `{videos: [base64], info}` |
+| `audio_txt2vid` | `POST /audio_txt2vid` | `{prompt, seed, model, init_audios?: [base64]}` (reference-capable models, no image) | `{videos: [base64], info}` |
+| `audio_img_txt2vid` | `POST /audio_img_txt2vid` | same + `init_images: [base64]` (reference-capable models, with image) | `{videos: [base64], info}` |
 | `txt2voice` | `POST /txt2voice` | `{prompt, language, speaker_id, source_voice, source_voice_format, speed, ...}` | `{voice_data: base64, info: {...}}` |
+
+`audio_txt2vid` / `audio_img_txt2vid` are served by the `audio-img-txt2vid-generic-comfy`
+server and back the MiniMax-H3 `ref2vid` model (text-to-video uses `audio_txt2vid`;
+image/audio references use `audio_img_txt2vid`). Both return the same `{videos, info}`
+shape as `txt2vid`.
 
 A single MCP tool accepts `init_image` (one base64 image); the server wraps it into the `init_images[]`
 array the inference servers expect.
@@ -113,6 +120,33 @@ error message rather than producing a broken image. Constraints are model-specif
 128–1024 multiple-of-8; LTX-2 video: 256–1280 multiple-of-64; Flux/wan2.2 image: up to 2048/2880
 multiple-of-16).
 
+**Prompt preprocessing (`preprocessor` + `llm`).** A video tool may declare a
+`preprocessor` key. When set to `minimax-h3`, the user's prompt is first rewritten
+into the structured MiniMax-H3 video-prompt format — by reusing the project's
+`MiniMaxH3VideoPromptPreprocessor` (`src/VideoGeneration/VideoPromptPreprocessor/`)
+over a small OpenAI-compatible LLM — and only the rewritten prompt is forwarded
+to the inference server. This lets a client such as Claude Code get
+MiniMax-H3-quality prompts without the bot's full dependency container.
+
+The preprocessor needs an LLM, configured via a top-level `llm` block:
+
+```jsonc
+{
+  "llm": {
+    "url": "https://api.z.ai/api/coding/paas/v4",
+    "model": "glm-5.2",
+    "supportsImages": false        // optional; the bot's rewrite model is text-only
+    // "apiKey": "..."             // optional; else read from Z_AI_API_KEY / VIKTOR89_MCP_LLM_API_KEY
+  }
+}
+```
+
+`apiKey` is resolved as: `llm.apiKey` → `Z_AI_API_KEY` env → `VIKTOR89_MCP_LLM_API_KEY`
+env. If no key is available, the image tools still work; only the video tool's
+prompt-rewrite step (and therefore `video_gen_tool`) fails with a clear error. The
+preprocessor supports MiniMax-H3 **text-to-video** only; image-conditioned video is
+not wired through the standalone server.
+
 ## Running
 
 The server supports **two transports**: stdio (default) and Streamable HTTP.
@@ -170,6 +204,52 @@ Add it under `mcpServers` in an assistant's config in `config.json` (see
 ```
 
 Each configured tool then becomes available to the assistant as an LLM tool via `McpToolCallExecutor`.
+
+### Wiring it into Claude Code
+
+A dedicated, minimal config (`mcp-config-claude.json`) exposes exactly three tools
+for use from Claude Code:
+
+| Tool | Model | Endpoint |
+|---|---|---|
+| `image_gen_tool` | `ideogram4_fast` | `txt2img` @ `http://localhost:8227` |
+| `image_edit_tool` | `flux2_dev_fp8-turbo-8-steps` (Flux2 dev turbo) | `img2img` @ `http://localhost:8149` (`init_image` = base64 source) |
+| `video_gen_tool` | `minimax-h3-ref2vid` | `audio_txt2vid` @ `http://localhost:8240` (prompt rewritten via `preprocessor: minimax-h3`) |
+
+Claude Code connects to the server over **HTTP**, not stdio. Run the server on the
+host that owns the inference servers (so it can reach them on `localhost`), binding
+to all interfaces so it is reachable from the Claude Code container as
+`host.docker.internal`:
+
+```bash
+Z_AI_API_KEY=… php inference-servers/mcp/server.php --http --bind=0.0.0.0:8080 \
+    inference-servers/mcp/mcp-config-claude.json
+```
+
+`Z_AI_API_KEY` lives in the server process's environment (it is not passed through
+`.mcp.json` for an HTTP server) and is required only for `video_gen_tool`'s prompt
+rewrite. The project `.mcp.json` (gitignored — copy from `.mcp.json.example`) just
+points Claude Code at the running server:
+
+```jsonc
+{
+  "mcpServers": {
+    "viktor89-inference": {
+      "type": "http",
+      "url": "http://host.docker.internal:8080"
+    }
+  }
+}
+```
+
+Restart Claude Code (or re-run `/mcp`) after creating `.mcp.json`. The image tools
+work without any key; `video_gen_tool` additionally needs `Z_AI_API_KEY` (see
+preprocessing above) and the `ideogram4_fast` / `flux2_dev_turbo` /
+`minimax-h3-ref2vid` inference servers running on their localhost ports.
+
+> Linux Docker note: `host.docker.internal` resolves automatically on Docker Desktop;
+on a Linux host, start the Claude Code container with
+`--add-host=host.docker.internal:host-gateway`.
 
 ## Testing the server manually (stdio)
 

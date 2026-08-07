@@ -14,6 +14,12 @@ declare(strict_types=1);
  * CallToolResult content (image / audio / embedded blob). Endpoint and tool
  * definitions live in mcp-config.json (one tool per configured model).
  *
+ * A video tool may additionally declare a "preprocessor" (currently only
+ * "minimax-h3"): the user's prompt is first rewritten into the target model's
+ * structured prompt format — reusing the project's MiniMaxH3VideoPromptPreprocessor
+ * over a small OpenAI-compatible LLM configured via the "llm" block — and only
+ * the rewritten prompt is forwarded to the inference server.
+ *
  * Transports:
  *   - stdio (default):  php server.php [config]
  *   - HTTP:             php server.php --http [--bind=127.0.0.1:8080] [config]
@@ -34,6 +40,16 @@ use Mcp\Server\Session\FileSessionStore;
 use Mcp\Server\Session\SessionStoreInterface;
 use Mcp\Server\Transport\StdioTransport;
 use Mcp\Server\Transport\StreamableHttpTransport;
+use Perk11\Viktor89\Assistant\AltTextProvider;
+use Perk11\Viktor89\Assistant\AssistantContext;
+use Perk11\Viktor89\Assistant\CompletionResponse;
+use Perk11\Viktor89\Assistant\ContextCompletingAssistantInterface;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+use Perk11\Viktor89\MessageChain;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+use Perk11\Viktor89\VideoGeneration\VideoGenerationPrompt;
+use Perk11\Viktor89\VideoGeneration\VideoPromptPreprocessor\MiniMaxH3\MiniMaxH3VideoPromptPreprocessor;
+use Perk11\Viktor89\VideoGeneration\VideoPromptPreprocessor\VideoPromptPreprocessor;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -222,7 +238,7 @@ function buildToolDescription(array $tool, array $endpoint): string
  * @param array<string, mixed> $tool
  * @param array<string, mixed> $endpoint
  */
-function makeToolHandler(array $tool, array $endpoint, InferenceHttpClient $httpClient): Closure
+function makeToolHandler(array $tool, array $endpoint, InferenceHttpClient $httpClient, ?VideoPromptPreprocessor $preprocessor = null, ?LoggerInterface $logger = null): Closure
 {
     return function (
         ?string $prompt = null,
@@ -245,7 +261,7 @@ function makeToolHandler(array $tool, array $endpoint, InferenceHttpClient $http
         ?string $source_voice_format = null,
         ?string $source_voice_2 = null,
         ?float $speed = null
-    ) use ($tool, $endpoint, $httpClient): CallToolResult {
+    ) use ($tool, $endpoint, $httpClient, $preprocessor, $logger): CallToolResult {
         $args = array_filter([
             'prompt' => $prompt,
             'negative_prompt' => $negative_prompt,
@@ -269,8 +285,80 @@ function makeToolHandler(array $tool, array $endpoint, InferenceHttpClient $http
             'speed' => $speed,
         ], static fn ($v) => $v !== null);
 
+        // Video tools that declare a preprocessor rewrite the user's prompt into
+        // the target model's structured prompt format before the request leaves
+        // this server (e.g. MiniMax-H3). A rewrite failure is a hard error: the
+        // requirement is that video_gen goes via the preprocessor, so the raw
+        // prompt is never forwarded as a fallback.
+        if ($preprocessor !== null && isset($args['prompt']) && is_string($args['prompt'])) {
+            $logger ??= new StderrLogger();
+            try {
+                $args['prompt'] = $preprocessor->preprocess(
+                    new VideoGenerationPrompt($args['prompt']),
+                    new McpProgressUpdateCallback($logger),
+                );
+            } catch (\Throwable $e) {
+                $logger->error('Video prompt preprocessing failed: ' . $e->getMessage());
+
+                return CallToolResult::error([
+                    new TextContent('Video prompt preprocessing failed: ' . $e->getMessage()),
+                ]);
+            }
+        }
+
         return executeInference($tool, $endpoint, $args, $httpClient);
     };
+}
+
+/**
+ * Build the VideoPromptPreprocessor declared on a tool's "preprocessor" field,
+ * or null when none is set or the key is unknown. Only "minimax-h3" is
+ * supported, and it requires an "llm" block (url + model; optional apiKey and
+ * supportsImages) in the MCP config so this standalone server can rewrite
+ * prompts via the project's MiniMaxH3VideoPromptPreprocessor without the bot's
+ * full DI container. The API key is read from llm.apiKey, falling back to the
+ * Z_AI_API_KEY / VIKTOR89_MCP_LLM_API_KEY environment variables.
+ *
+ * @param array<string, mixed> $config
+ */
+function buildVideoPromptPreprocessor(?string $key, array $config, ?LoggerInterface $logger = null): ?VideoPromptPreprocessor
+{
+    if ($key === null || $key === '') {
+        return null;
+    }
+    $logger ??= new StderrLogger();
+
+    if ($key !== 'minimax-h3') {
+        $logger->warning("Unknown preprocessor '{$key}'; prompt will be forwarded unchanged.");
+
+        return null;
+    }
+
+    $llm = $config['llm'] ?? null;
+    if (!is_array($llm) || !isset($llm['url'], $llm['model'])) {
+        $logger->error("Preprocessor 'minimax-h3' requires an 'llm' block with 'url' and 'model' in the MCP config; prompt will be forwarded unchanged.");
+
+        return null;
+    }
+
+    $configuredKey = is_string($llm['apiKey'] ?? null) && $llm['apiKey'] !== '' ? $llm['apiKey'] : '';
+    $apiKey = $configuredKey !== ''
+        ? $configuredKey
+        : (string) (getenv('Z_AI_API_KEY') ?: getenv('VIKTOR89_MCP_LLM_API_KEY') ?: '');
+
+    $assistant = new McpLlmAssistant(
+        rtrim((string) $llm['url'], '/'),
+        (string) $llm['model'],
+        $apiKey,
+        $logger,
+    );
+
+    return new MiniMaxH3VideoPromptPreprocessor(
+        $assistant,
+        (bool) ($llm['supportsImages'] ?? false),
+        new McpStubAltTextProvider(),
+        $logger,
+    );
 }
 
 /**
@@ -479,6 +567,118 @@ final class InferenceHttpClient
     }
 }
 
+/**
+ * Minimal OpenAI-compatible chat-completion adapter used only to drive the
+ * MiniMax-H3 prompt preprocessor from within this server. It posts an
+ * AssistantContext to {llm.url}/chat/completions and returns the first choice's
+ * content. Only the single method the preprocessor calls is implemented;
+ * streaming, tools and compaction are not used here.
+ */
+final class McpLlmAssistant implements ContextCompletingAssistantInterface
+{
+    public function __construct(
+        private readonly string $url,
+        private readonly string $model,
+        private readonly string $apiKey,
+        private readonly LoggerInterface $logger,
+    ) {
+    }
+
+    public function getCompletionBasedOnContext(
+        AssistantContext $assistantContext,
+        ?callable $streamFunction = null,
+        ?MessageChain $messageChain = null,
+        ?ProgressUpdateCallback $progressUpdateCallback = null,
+    ): CompletionResponse {
+        $fullUrl = $this->url . '/chat/completions';
+        $payload = json_encode(
+            ['model' => $this->model, 'messages' => $assistantContext->toOpenAiMessagesArray()],
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        );
+
+        $headers = ['Content-Type: application/json', 'Accept: application/json'];
+        if ($this->apiKey !== '') {
+            $headers[] = 'Authorization: Bearer ' . $this->apiKey;
+        }
+
+        $ch = curl_init($fullUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_TIMEOUT => 600,
+            CURLOPT_CONNECTTIMEOUT => 30,
+        ]);
+        $response = curl_exec($ch);
+        $error = $response === false ? curl_error($ch) : '';
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($error !== '') {
+            throw new RuntimeException("LLM request to {$fullUrl} failed: {$error}");
+        }
+
+        $decoded = json_decode(is_string($response) ? $response : '', true);
+        if (!is_array($decoded)) {
+            throw new RuntimeException('LLM returned a non-JSON response (HTTP ' . $status . '): '
+                . substr(is_string($response) ? $response : '', 0, 500));
+        }
+
+        $content = $decoded['choices'][0]['message']['content'] ?? null;
+        if (!is_string($content) || $content === '') {
+            $detail = $decoded['error']['message'] ?? ($decoded['error'] ?? '(no content)');
+
+            throw new RuntimeException('LLM response had no completion content (HTTP ' . $status . '): '
+                . (is_array($detail) ? json_encode($detail, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : (string) $detail));
+        }
+
+        $this->logger->info('MiniMax-H3 rewrite LLM responded with ' . strlen($content) . ' characters.');
+
+        return new CompletionResponse($content);
+    }
+}
+
+/**
+ * AltTextProvider stand-in for the MCP server. The real AltTextProvider pulls
+ * Telegram / database / transcription dependencies a standalone server does not
+ * have, so its constructor is intentionally not called. MiniMax-H3 text-to-video
+ * never describes an image, so the only reachable method is overridden to fail
+ * loudly if image-conditioned video is ever attempted.
+ */
+final class McpStubAltTextProvider extends AltTextProvider
+{
+    public function __construct()
+    {
+    }
+
+    public function generateAltTextForImageString(string $image, ?ProgressUpdateCallback $progressUpdateCallback = null): string
+    {
+        throw new LogicException('The MCP server supports MiniMax-H3 text-to-video only; image-conditioned video generation is not available here.');
+    }
+}
+
+/**
+ * Forwards MiniMax-H3 preprocessing progress lines to the server logger. The
+ * MCP server has no Telegram chat to react in, so subscribe() and the optional
+ * ChatAction are no-ops.
+ */
+final class McpProgressUpdateCallback implements ProgressUpdateCallback
+{
+    public function __construct(private readonly LoggerInterface $logger)
+    {
+    }
+
+    public function __invoke(string $processor, string $status, ?ChatAction $chatAction = null): void
+    {
+        $this->logger->info("[{$processor}] {$status}");
+    }
+
+    public function subscribe(callable $subscriber): void
+    {
+    }
+}
+
 final class StderrLogger extends \Psr\Log\AbstractLogger
 {
     /**
@@ -528,9 +728,10 @@ function loadConfig(string $path): array
  *
  * @param array<string, mixed> $config
  */
-function buildMcpServer(array $config, ?LoggerInterface $logger = null, ?InferenceHttpClient $httpClient = null, ?SessionStoreInterface $sessionStore = null): Server
+function buildMcpServer(array $config, ?LoggerInterface $logger = null, ?InferenceHttpClient $httpClient = null, ?SessionStoreInterface $sessionStore = null, ?Closure $preprocessorResolver = null): Server
 {
     $logger ??= new StderrLogger();
+    $preprocessorResolver ??= static fn (?string $key) => buildVideoPromptPreprocessor($key, $config, $logger);
     if ($httpClient === null) {
         $httpClient = new InferenceHttpClient(
             $config['http']['timeoutSeconds'] ?? 600,
@@ -565,7 +766,9 @@ function buildMcpServer(array $config, ?LoggerInterface $logger = null, ?Inferen
 
         $inputSchema = buildInputSchema($modelConfig, $modelConfig['endpoint']);
         $description = buildToolDescription($modelConfig, $endpointConfig);
-        $handler = makeToolHandler($modelConfig, $endpointConfig, $httpClient);
+        $preprocessorKey = isset($modelConfig['preprocessor']) && is_string($modelConfig['preprocessor']) ? $modelConfig['preprocessor'] : null;
+        $preprocessor = $preprocessorResolver($preprocessorKey);
+        $handler = makeToolHandler($modelConfig, $endpointConfig, $httpClient, $preprocessor, $logger);
 
         $builder->addTool(
             $handler,

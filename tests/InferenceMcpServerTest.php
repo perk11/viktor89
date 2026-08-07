@@ -18,6 +18,7 @@ class InferenceMcpServerTest extends TestCase
 {
     private const SERVER_PATH = __DIR__ . '/../inference-servers/mcp/server.php';
     private const CONFIG_PATH = __DIR__ . '/../inference-servers/mcp/mcp-config.example.json';
+    private const CLAUDE_CONFIG_PATH = __DIR__ . '/../inference-servers/mcp/mcp-config-claude.json';
 
     private const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
@@ -317,6 +318,53 @@ class InferenceMcpServerTest extends TestCase
     }
 
     // ---------------------------------------------------------------------
+    // Unit tests: video prompt preprocessing
+    // ---------------------------------------------------------------------
+
+    public function testBuildVideoPromptPreprocessorResolvesMinimaxH3AndIgnoresUnknown(): void
+    {
+        $config = [
+            'llm' => ['url' => 'https://example.test/v1', 'model' => 'glm-5.2'],
+        ];
+
+        $this->assertNull(buildVideoPromptPreprocessor(null, $config));
+        $this->assertNull(buildVideoPromptPreprocessor('', $config));
+        $this->assertNull(buildVideoPromptPreprocessor('unknown-key', $config, new NullLogger()));
+
+        // No llm block -> cannot build the minimax-h3 preprocessor.
+        $this->assertNull(buildVideoPromptPreprocessor('minimax-h3', [], new NullLogger()));
+
+        $preprocessor = buildVideoPromptPreprocessor('minimax-h3', $config, new NullLogger());
+        $this->assertInstanceOf(
+            \Perk11\Viktor89\VideoGeneration\VideoPromptPreprocessor\MiniMaxH3\MiniMaxH3VideoPromptPreprocessor::class,
+            $preprocessor,
+        );
+    }
+
+    public function testClaudeConfigExposesImageEditAndVideoTools(): void
+    {
+        $config = loadConfig(self::CLAUDE_CONFIG_PATH);
+        $byTool = [];
+        foreach ($config['models'] as $model) {
+            $byTool[$model['tool']] = $model;
+        }
+
+        $this->assertSame(['image_gen_tool', 'image_edit_tool', 'video_gen_tool'], array_keys($byTool));
+
+        $this->assertSame('txt2img', $byTool['image_gen_tool']['endpoint']);
+        $this->assertSame('ideogram4_fast', $byTool['image_gen_tool']['model']);
+
+        $this->assertSame('img2img', $byTool['image_edit_tool']['endpoint']);
+        $this->assertSame('flux2_dev_fp8-turbo-8-steps', $byTool['image_edit_tool']['model']);
+        $this->assertContains('init_image', $byTool['image_edit_tool']['parameters']);
+
+        $this->assertSame('audio_txt2vid', $byTool['video_gen_tool']['endpoint']);
+        $this->assertSame('minimax-h3-ref2vid', $byTool['video_gen_tool']['model']);
+        $this->assertSame('minimax-h3', $byTool['video_gen_tool']['preprocessor']);
+        $this->assertArrayHasKey('llm', $config, 'Claude config must declare the llm block for the video preprocessor');
+    }
+
+    // ---------------------------------------------------------------------
     // Integration: executeInference() against a mock inference server
     // ---------------------------------------------------------------------
 
@@ -380,6 +428,47 @@ class InferenceMcpServerTest extends TestCase
         $note = $result->content[1]->text;
         $this->assertStringContainsString('has_init_image=0', $note);
         $this->assertStringContainsString('init_images_count=1', $note);
+    }
+
+    public function testMakeToolHandlerAppliesVideoPreprocessorBeforeForwarding(): void
+    {
+        [$tool, $endpoint] = $this->videoToolAndEndpoint($this->ensureMockServer());
+
+        $fakePreprocessor = new class implements \Perk11\Viktor89\VideoGeneration\VideoPromptPreprocessor\VideoPromptPreprocessor {
+            public function preprocess(\Perk11\Viktor89\VideoGeneration\VideoGenerationPrompt $input, \Perk11\Viktor89\IPC\ProgressUpdateCallback $progressUpdateCallback): string
+            {
+                return 'REWRITTEN:' . $input->userPrompt;
+            }
+        };
+
+        $handler = makeToolHandler($tool, $endpoint, $this->httpClient(), $fakePreprocessor, new NullLogger());
+        $result = $handler(prompt: 'a running cat');
+
+        $this->assertFalse($result->isError);
+        // The mock echoes the forwarded prompt in the caption; it must be the
+        // preprocessor's rewritten prompt, not the raw user input.
+        $this->assertStringContainsString('prompt=REWRITTEN:a running cat', $result->content[1]->text);
+    }
+
+    public function testMakeToolHandlerReturnsErrorWhenPreprocessorFails(): void
+    {
+        [$tool, $endpoint] = $this->videoToolAndEndpoint($this->ensureMockServer());
+
+        $failingPreprocessor = new class implements \Perk11\Viktor89\VideoGeneration\VideoPromptPreprocessor\VideoPromptPreprocessor {
+            public function preprocess(\Perk11\Viktor89\VideoGeneration\VideoGenerationPrompt $input, \Perk11\Viktor89\IPC\ProgressUpdateCallback $progressUpdateCallback): string
+            {
+                throw new \RuntimeException('rewrite exploded');
+            }
+        };
+
+        $handler = makeToolHandler($tool, $endpoint, $this->httpClient(), $failingPreprocessor, new NullLogger());
+        $result = $handler(prompt: 'a running cat');
+
+        // A preprocessor failure must surface as an error result, never as a
+        // silent fall back to forwarding the raw prompt.
+        $this->assertTrue($result->isError);
+        $this->assertStringContainsString('Video prompt preprocessing failed', $result->content[0]->text);
+        $this->assertStringContainsString('rewrite exploded', $result->content[0]->text);
     }
 
     // ---------------------------------------------------------------------
@@ -651,6 +740,41 @@ class InferenceMcpServerTest extends TestCase
         return new \InferenceHttpClient(5, 3);
     }
 
+    /**
+     * A minimax-h3-ref2vid video tool backed by the audio_txt2vid endpoint,
+     * pointed at the mock inference server. Mirrors the video_gen_tool entry in
+     * mcp-config-claude.json.
+     *
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
+     */
+    private function videoToolAndEndpoint(string $url): array
+    {
+        $tool = [
+            'tool' => 'video_gen_tool',
+            'endpoint' => 'audio_txt2vid',
+            'url' => $url,
+            'model' => 'minimax-h3-ref2vid',
+            'preprocessor' => 'minimax-h3',
+            'defaults' => ['model' => 'minimax-h3-ref2vid'],
+            'parameters' => ['prompt'],
+            'required' => ['prompt'],
+        ];
+        $endpoint = [
+            'method' => 'POST',
+            'path' => '/audio_txt2vid',
+            'response' => [
+                'media' => 'video',
+                'field' => 'videos',
+                'mimeType' => 'video/mp4',
+                'infoField' => 'info',
+                'infoIsJsonString' => true,
+                'captionField' => 'infotexts',
+            ],
+        ];
+
+        return [$tool, $endpoint];
+    }
+
     private function initializeParams(): array
     {
         return [
@@ -855,7 +979,7 @@ if (($parsed['prompt'] ?? '') === 'FAIL') {
 
 $hasInitImage = is_array($parsed) && array_key_exists('init_image', $parsed) ? 1 : 0;
 $initImagesCount = is_array($parsed) ? count($parsed['init_images'] ?? []) : 0;
-$meta = "has_init_image={$hasInitImage} init_images_count={$initImagesCount}";
+$meta = "has_init_image={$hasInitImage} init_images_count={$initImagesCount} prompt=" . substr(($parsed['prompt'] ?? ''), 0, 60);
 
 if (str_contains($path, 'txt2img') || str_contains($path, 'img2img')) {
     echo json_encode(['images' => [$png], 'parameters' => [], 'info' => json_encode(['infotexts' => ['CAPIMG ' . $meta]])]);

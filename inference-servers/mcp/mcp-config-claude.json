@@ -1,0 +1,126 @@
+{
+  "server": {
+    "name": "viktor89-inference-claude",
+    "version": "1.0.0",
+    "instructions": "Three media-generation tools for Claude. image_gen_tool: text-to-image with ideogram4_fast. image_edit_tool: edit a source image (passed as base64 init_image) with Flux2 dev turbo. video_gen_tool: text-to-video with MiniMax-H3 ref2vid; the prompt is automatically rewritten into the structured MiniMax-H3 video-prompt format before generation. Every result is returned base64-encoded (image as MCP image content, video as an embedded blob resource), with a text note restating the MIME type."
+  },
+  "http": {
+    "timeoutSeconds": 600,
+    "connectTimeoutSeconds": 30
+  },
+  "llm": {
+    "url": "https://api.z.ai/api/coding/paas/v4",
+    "model": "glm-5.2",
+    "supportsImages": false
+  },
+  "endpoints": {
+    "txt2img": {
+      "method": "POST",
+      "path": "/sdapi/v1/txt2img",
+      "response": {
+        "media": "image",
+        "field": "images",
+        "mimeType": "image/png",
+        "infoField": "info",
+        "infoIsJsonString": true,
+        "captionField": "infotexts"
+      }
+    },
+    "img2img": {
+      "method": "POST",
+      "path": "/sdapi/v1/img2img",
+      "response": {
+        "media": "image",
+        "field": "images",
+        "mimeType": "image/png",
+        "infoField": "info",
+        "infoIsJsonString": true,
+        "captionField": "infotexts"
+      }
+    },
+    "audio_txt2vid": {
+      "method": "POST",
+      "path": "/audio_txt2vid",
+      "response": {
+        "media": "video",
+        "field": "videos",
+        "mimeType": "video/mp4",
+        "infoField": "info",
+        "infoIsJsonString": true,
+        "captionField": "infotexts"
+      }
+    }
+  },
+  "models": [
+    {
+      "tool": "image_gen_tool",
+      "endpoint": "txt2img",
+      "url": "http://localhost:8227",
+      "model": "ideogram4_fast",
+      "title": "ideogram4_fast text-to-image",
+      "description": "Generate an image from a text prompt using ideogram4_fast.",
+      "defaults": {
+        "model": "ideogram4_fast",
+        "width": 1280,
+        "height": 1280
+      },
+      "sizeConstraints": {
+        "width": {
+          "min": 640,
+          "max": 2048,
+          "multipleOf": 16
+        },
+        "height": {
+          "min": 640,
+          "max": 2048,
+          "multipleOf": 16
+        }
+      },
+      "parameters": [
+        "prompt"
+      ],
+      "required": [
+        "prompt"
+      ]
+    },
+    {
+      "tool": "image_edit_tool",
+      "endpoint": "img2img",
+      "url": "http://localhost:8149",
+      "model": "flux2_dev_fp8-turbo-8-steps",
+      "title": "Flux2 dev turbo image edit",
+      "description": "Edit a source image according to a text prompt using Flux2 dev turbo. Pass the source image as init_image (base64, no data-URI prefix). The output resolution is derived from the input image.",
+      "defaults": {
+        "model": "flux2_dev_fp8-turbo-8-steps",
+        "steps": 20
+      },
+      "parameters": [
+        "prompt",
+        "init_image",
+        "seed"
+      ],
+      "required": [
+        "prompt",
+        "init_image"
+      ]
+    },
+    {
+      "tool": "video_gen_tool",
+      "endpoint": "audio_txt2vid",
+      "url": "http://localhost:8240",
+      "model": "minimax-h3-ref2vid",
+      "title": "MiniMax-H3 ref2vid text-to-video",
+      "description": "Generate a short video from a text prompt using MiniMax-H3 ref2vid. The prompt is automatically rewritten into the structured MiniMax-H3 video-prompt format before generation.",
+      "preprocessor": "minimax-h3",
+      "defaults": {
+        "model": "minimax-h3-ref2vid"
+      },
+      "parameters": [
+        "prompt"
+      ],
+      "required": [
+        "prompt"
+      ]
+    }
+  ]
+}
