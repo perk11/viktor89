@@ -45,9 +45,20 @@ class VideoProcessor implements MessageChainProcessor
 
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
     {
+        $promptText = $this->resolvePromptText($messageChain, $progressUpdateCallback);
+
+        return $this->generateVideo($messageChain, $promptText, $progressUpdateCallback);
+    }
+
+    /**
+     * Runs the full /video generation pipeline for an already-resolved prompt.
+     * Extracted so the video-generation assistant tool can reuse it verbatim
+     * instead of duplicating the reference/frame/preprocessing logic.
+     */
+    public function generateVideo(MessageChain $messageChain, string $promptText, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
+    {
         $message = $messageChain->last();
 
-        $promptText = $this->resolvePromptText($messageChain, $progressUpdateCallback);
         if ($promptText === '') {
             return $this->abortWith($message, 'Непонятно, что генерировать...');
         }
