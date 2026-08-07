@@ -77,6 +77,7 @@ use Perk11\Viktor89\VideoGeneration\Img2VideoClient;
 use Perk11\Viktor89\VideoGeneration\MvidProcessor;
 use Perk11\Viktor89\VideoGeneration\Txt2VideoClient;
 use Perk11\Viktor89\VideoGeneration\TxtAndVid2VideoClient;
+use Perk11\Viktor89\VideoGeneration\VideoFrameExtractor;
 use Perk11\Viktor89\VideoGeneration\VideoImg2VidProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoProcessor;
 use Perk11\Viktor89\VideoGeneration\VideoResponder;
@@ -381,7 +382,7 @@ class ProcessMessageTask implements Task
         );
         $imageRepository = new ImageRepository($database->sqlite3Database);
         $audioRepository = new AudioRepository($database->sqlite3Database);
-        $imgTagExtractor = new ImgTagExtractor($imageRepository, $telegramFileDownloader, $logger, $audioRepository);
+        $imgTagExtractor = new ImgTagExtractor($imageRepository, $telegramFileDownloader, $logger, $audioRepository, new VideoFrameExtractor($logger));
 
         $altTextProvider = $container->get(AltTextProvider::class);
         $processingResultExecutor = new ProcessingResultExecutor(

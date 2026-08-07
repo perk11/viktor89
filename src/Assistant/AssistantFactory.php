@@ -272,7 +272,7 @@ class AssistantFactory
                 new ToolDefinition(
                     'video_gen_tool',
                     $this->videoGeneratorTool,
-                    'Generate a video from a text prompt and send it to the user. Behaves exactly like the /video command: supports <fframe>...</fframe>/<lframe>...</lframe> (first/last frame), <img>...</img> (image references, by saved name or #N chain index) and <audio>...</audio>/<raudio>...</raudio> tags, subject to the selected model\'s capabilities. Replying to a photo uses it as a reference. Use this whenever the user asks for a video.',
+                    'Generate a video from a text prompt and send it to the user. Behaves exactly like the /video command: supports <fframe>...</fframe>/<lframe>...</lframe> (first/last frame), <img>...</img> (image references, by saved name or #N chain index), <vframe>#N</vframe> (last frame of the Nth video in the current chat, used as an image reference) and <audio>...</audio>/<raudio>...</raudio> tags, subject to the selected model\'s capabilities. Replying to a photo uses it as a reference. Use this whenever the user asks for a video.',
                     [
                         new ToolParameter('prompt', ['type' => 'string'], true),
                     ]

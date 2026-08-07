@@ -7,6 +7,7 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\PreResponseProcessor\SavedAudioNotFoundException;
 use Perk11\Viktor89\PreResponseProcessor\SavedImageNotFoundException;
 use Perk11\Viktor89\TelegramFileDownloader;
+use Perk11\Viktor89\VideoGeneration\VideoFrameExtractor;
 use Perk11\Viktor89\VideoGeneration\VideoGenerationPrompt;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
@@ -18,13 +19,14 @@ class ImgTagExtractor
         private readonly ?TelegramFileDownloader $telegramFileDownloader = null,
         private readonly ?LoggerInterface $logger = null,
         private readonly ?AudioRepository $audioRepository = null,
+        private readonly ?VideoFrameExtractor $videoFrameExtractor = null,
     ) {
     }
 
     private const string IMG_REGEX = '/<img>(.*?)<\/img>/s';
 
-    /** <fframe>, <lframe>, <img>, <audio> and <raudio> tags, each carrying a saved-image/-audio name or #N chain reference. */
-    private const string FRAME_TAG_REGEX = '/<(fframe|lframe|img|audio|raudio)>(.*?)<\/\\1>/s';
+    /** <fframe>, <lframe>, <img>, <vframe>, <audio> and <raudio> tags, each carrying a saved-image/-audio name or #N chain reference. */
+    private const string FRAME_TAG_REGEX = '/<(fframe|lframe|img|vframe|audio|raudio)>(.*?)<\/\\1>/s';
 
     public function extractImageTags(
         ImageGenerationPrompt $promptTobeProcessed,
@@ -63,13 +65,14 @@ class ImgTagExtractor
     }
 
     /**
-     * Resolves <fframe>, <lframe> and <img> tags from the prompt's userPrompt,
-     * downloading each referenced image (a saved-image name or a #N chain
-     * index) through the same logic as extractImageTags(). Mutates and returns
-     * the prompt: the tags are stripped from userPrompt and the resolved bytes
-     * are mapped to the role each tag declared. Only a single first frame and
-     * last frame are kept (the first <fframe>/<lframe> wins); <img> references
-     * may repeat.
+     * Resolves <fframe>, <lframe>, <img> and <vframe> tags from the prompt's
+     * userPrompt, downloading each referenced image (a saved-image name or a #N
+     * chain index) through the same logic as extractImageTags(). <vframe>#N</vframe>
+     * instead references the last frame of the Nth video in the chain. Mutates
+     * and returns the prompt: the tags are stripped from userPrompt and the
+     * resolved bytes are mapped to the role each tag declared. Only a single
+     * first frame and last frame are kept (the first <fframe>/<lframe> wins);
+     * <img>/<vframe> references may repeat.
      */
     public function extractImageAndFrameTags(VideoGenerationPrompt $prompt, ?MessageChain $messageChain = null): VideoGenerationPrompt
     {
@@ -87,13 +90,16 @@ class ImgTagExtractor
                 $tag = $matches[1];
                 $reference = trim($matches[2]);
                 $isAudio = $tag === 'audio' || $tag === 'raudio';
-                $data = $isAudio
-                    ? $this->resolveAudioReference($reference, $messageChain)
-                    : $this->resolveReference($reference, $messageChain);
+                $isVideoFrame = $tag === 'vframe';
+                $data = match (true) {
+                    $isVideoFrame => $this->resolveChainVideoLastFrame($reference, $messageChain),
+                    $isAudio => $this->resolveAudioReference($reference, $messageChain),
+                    default => $this->resolveReference($reference, $messageChain),
+                };
                 match ($tag) {
                     'fframe' => $firstFrame ??= $data,
                     'lframe' => $lastFrame ??= $data,
-                    'img' => $references[] = $data,
+                    'img', 'vframe' => $references[] = $data,
                     'audio' => $audioTrack ??= $data,
                     'raudio' => $referenceAudios[] = $data,
                 };
@@ -106,6 +112,11 @@ class ImgTagExtractor
                     return "$reference (audio $audioNo)";
                 }
                 $imageNo++;
+                // A <vframe> reference resolves to the last frame of a chain
+                // video; surface it to the model as an image reference.
+                if ($isVideoFrame) {
+                    return "video $reference last frame (image $imageNo)";
+                }
                 if (str_starts_with($reference, '#')) {
                     return "image $imageNo";
                 }
@@ -160,6 +171,56 @@ class ImgTagExtractor
         }
 
         return $savedImage;
+    }
+
+    /**
+     * Resolves a <vframe>#N</vframe> reference to the last frame (PNG bytes) of
+     * the Nth video in the message chain. Videos are persisted (video_file_id)
+     * just like photos, so this works for both the triggering message and any
+     * video earlier in the history that is part of the chain.
+     */
+    private function resolveChainVideoLastFrame(string $reference, ?MessageChain $messageChain): string
+    {
+        if ($messageChain === null || !str_starts_with($reference, '#')) {
+            throw new SavedImageNotFoundException("Video frame $reference could not be resolved (use a #N chain video index)");
+        }
+        if ($this->telegramFileDownloader === null || $this->videoFrameExtractor === null) {
+            throw new SavedImageNotFoundException('Video frame extraction is not available');
+        }
+
+        $videoIndex = (int) substr($reference, 1);
+        $videoFileId = $this->findChainVideoFileId($messageChain, $videoIndex);
+        if ($videoFileId === null) {
+            throw new SavedImageNotFoundException("Chain video $reference not found");
+        }
+
+        $videoBytes = $this->telegramFileDownloader->downloadFile($videoFileId);
+
+        return $this->videoFrameExtractor->extractLastFrameAsPng($videoBytes);
+    }
+
+    /**
+     * Resolve the fileId of the Nth (0-based) video attached to a chain message.
+     * Falls back to the live Video entity for messages that carry one but have
+     * no persisted id (e.g. an unsaved in-memory message).
+     */
+    private function findChainVideoFileId(MessageChain $messageChain, int $videoIndex): ?string
+    {
+        if ($videoIndex < 0) {
+            return null;
+        }
+        $foundIndex = 0;
+        foreach ($messageChain->getMessages() as $message) {
+            $fileId = $message->videoFileId ?? $message->video?->getFileId();
+            if ($fileId !== null) {
+                if ($foundIndex === $videoIndex) {
+                    return $fileId;
+                }
+                $foundIndex++;
+            }
+        }
+
+        return null;
     }
 
     /**

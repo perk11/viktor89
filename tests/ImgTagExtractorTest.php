@@ -8,6 +8,7 @@ use Perk11\Viktor89\Audio\AudioRepository;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
+use Perk11\Viktor89\VideoGeneration\VideoFrameExtractor;
 use Perk11\Viktor89\VideoGeneration\VideoGenerationPrompt;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
@@ -408,6 +409,91 @@ class ImgTagExtractorTest extends TestCase
         $this->expectException(SavedAudioNotFoundException::class);
 
         $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<audio>missing</audio>'));
+    }
+
+    public function testVframeTagResolvesLastFrameOfChainVideoIntoReferences(): void
+    {
+        $downloader = $this->createStub(TelegramFileDownloader::class);
+        $downloader->method('downloadFile')->willReturn('video-bytes');
+        $frameExtractor = $this->createStub(VideoFrameExtractor::class);
+        $frameExtractor->method('extractLastFrameAsPng')->willReturn('frame-bytes');
+        $extractor = new ImgTagExtractor(
+            $this->createStub(ImageRepository::class),
+            $downloader,
+            logger: new \Psr\Log\NullLogger(),
+            audioRepository: $this->createStub(AudioRepository::class),
+            videoFrameExtractor: $frameExtractor,
+        );
+
+        $videoMessage = new InternalMessage();
+        $videoMessage->videoFileId = 'file-id-1';
+        $commandMessage = new InternalMessage();
+        $chain = new MessageChain([$videoMessage, $commandMessage]);
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('continue <vframe>#0</vframe>'), $chain);
+
+        $this->assertSame('continue video #0 last frame (image 1)', $result->userPrompt);
+        $this->assertSame(['frame-bytes'], $result->referenceImages);
+        $this->assertNull($result->firstFrame);
+        $this->assertNull($result->lastFrame);
+    }
+
+    public function testVframeTagNumbersMultipleVideosSequentially(): void
+    {
+        $downloader = $this->createStub(TelegramFileDownloader::class);
+        $downloader->method('downloadFile')->willReturn('video-bytes');
+        $frameExtractor = $this->createStub(VideoFrameExtractor::class);
+        $frameExtractor->method('extractLastFrameAsPng')->willReturn('frame-bytes');
+        $extractor = new ImgTagExtractor(
+            $this->createStub(ImageRepository::class),
+            $downloader,
+            logger: new \Psr\Log\NullLogger(),
+            videoFrameExtractor: $frameExtractor,
+        );
+
+        $videoMessage = new InternalMessage();
+        $videoMessage->videoFileId = 'file-id-1';
+        $commandMessage = new InternalMessage();
+        $chain = new MessageChain([$videoMessage, $commandMessage]);
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<vframe>#0</vframe> <vframe>#0</vframe>'), $chain);
+
+        $this->assertSame('video #0 last frame (image 1) video #0 last frame (image 2)', $result->userPrompt);
+        $this->assertSame(['frame-bytes', 'frame-bytes'], $result->referenceImages);
+    }
+
+    public function testVframeTagThrowsWhenChainVideoNotFound(): void
+    {
+        $downloader = $this->createStub(TelegramFileDownloader::class);
+        $frameExtractor = $this->createStub(VideoFrameExtractor::class);
+        $extractor = new ImgTagExtractor(
+            $this->createStub(ImageRepository::class),
+            $downloader,
+            logger: new \Psr\Log\NullLogger(),
+            videoFrameExtractor: $frameExtractor,
+        );
+
+        $commandMessage = new InternalMessage();
+        $chain = new MessageChain([$commandMessage]);
+
+        $this->expectException(SavedImageNotFoundException::class);
+
+        $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<vframe>#0</vframe> go'), $chain);
+    }
+
+    public function testVframeTagRequiresChainIndexReference(): void
+    {
+        // There is no saved-video store, so a non-# reference cannot resolve.
+        $frameExtractor = $this->createStub(VideoFrameExtractor::class);
+        $extractor = new ImgTagExtractor(
+            $this->createStub(ImageRepository::class),
+            logger: new \Psr\Log\NullLogger(),
+            videoFrameExtractor: $frameExtractor,
+        );
+
+        $this->expectException(SavedImageNotFoundException::class);
+
+        $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<vframe>somevideo</vframe> go'));
     }
 
     public function testResolvesChainAudioReference(): void
