@@ -128,6 +128,20 @@ class MessageChainTest extends TestCase
         $this->assertSame($second, $chain->getMessages()[1]);
     }
 
+    public function testAppendMessageAddsToEndOfSameChain(): void
+    {
+        $first = self::makeMessage('Alice');
+        $chain = new MessageChain([$first]);
+
+        $appended = self::makeMessage('Bob');
+        $chain->appendMessage($appended);
+
+        $this->assertSame(2, $chain->count());
+        $this->assertSame($appended, $chain->last());
+        $this->assertSame($first, $chain->previous());
+        $this->assertContains($appended, $chain->getMessages());
+    }
+
     private static function makeMessage(string $userName): InternalMessage
     {
         $message = new InternalMessage();

@@ -7,11 +7,21 @@ use LogicException;
 class MessageChain
 {
     /** @param InternalMessage[] $messages */
-    public function __construct(private readonly array $messages)
+    public function __construct(private array $messages)
     {
         if (count($this->messages) === 0) {
             throw new LogicException('Message chain initialized with no messages');
         }
+    }
+
+    /**
+     * Append a message generated during the current turn (e.g. an image produced
+     * by a tool call) so that subsequent tool calls in the same completion
+     * (list_chain_images, image_gen_tool edits) can see and reference it.
+     */
+    public function appendMessage(InternalMessage $message): void
+    {
+        $this->messages[] = $message;
     }
 
     public function first(): InternalMessage

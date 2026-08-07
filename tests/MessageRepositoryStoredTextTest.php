@@ -63,6 +63,19 @@ class MessageRepositoryStoredTextTest extends TestCase
         $this->assertSame('plain stored text', $stored->messageText);
     }
 
+    public function testUpdateMessageTextOverwritesStoredText(): void
+    {
+        $message = $this->baseMessage(3);
+        $message->messageText = 'original caption';
+        $this->repository->logInternalMessage($message);
+
+        $this->repository->updateMessageText(3, -100, 'extracted file contents');
+
+        $stored = $this->repository->findMessageByIdInChat(3, -100);
+        $this->assertNotNull($stored);
+        $this->assertSame('extracted file contents', $stored->messageText);
+    }
+
     private function baseMessage(int $id): InternalMessage
     {
         $message = new InternalMessage();

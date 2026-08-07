@@ -5,6 +5,7 @@ namespace Perk11\Viktor89\Assistant\Tool;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
+use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
@@ -17,6 +18,7 @@ class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallE
         private readonly ImageUploader $generatedImageMarkdownUploader,
         private readonly ImgTagExtractor $imgTagExtractor,
         private readonly LoggerInterface $logger,
+        private readonly int $botUserId,
     )
     {
     }
@@ -48,7 +50,11 @@ class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallE
         );
         try {
             $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId);
-            $uploadedImage = $this->generatedImageMarkdownUploader->uploadPng($response->getFirstImageAsPng());
+            $image = $response->getFirstImageAsPng();
+            $uploadedImage = $this->generatedImageMarkdownUploader->uploadPng($image);
+            $messageChain->appendMessage(
+                $this->buildGeneratedPhotoMessage($lastMessage, $image, $response->getCaption()),
+            );
         } catch (\Exception $e) {
             $this->logger->log(LogLevel::ERROR, $e->getMessage() . "\n" . $e->getTraceAsString());
             return [
@@ -62,5 +68,27 @@ class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallE
             'directions' => 'Do not attempt to send the image to the user or embed it again. The user has the generated image but you cannot embed it again.',
             'automatic_output_markdown' => $uploadedImage->toRichMarkdown($response->getCaption()),
         ];
+    }
+
+    /**
+     * A transient InternalMessage representing the just-generated image, appended
+     * to the chain so later tool calls in the same turn (list_chain_images,
+     * image_gen_tool edits) can see and reference it via its #N index.
+     */
+    private function buildGeneratedPhotoMessage(
+        InternalMessage $triggerMessage,
+        string $imageBytes,
+        ?string $caption,
+    ): InternalMessage {
+        $message = new InternalMessage();
+        $message->chatId = $triggerMessage->chatId;
+        $message->userId = $this->botUserId;
+        $message->userName = '';
+        $message->type = 'photo';
+        $message->date = time();
+        $message->messageText = $caption ?? '';
+        $message->photoContents = $imageBytes;
+
+        return $message;
     }
 }

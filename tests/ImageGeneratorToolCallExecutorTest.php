@@ -42,7 +42,8 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             $editModel,
             $photoResponder,
             $imgTagExtractor,
-         logger: new \Psr\Log\NullLogger());
+         logger: new \Psr\Log\NullLogger(),
+            botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
         $executor->executeToolCall(['prompt' => 'A beautiful sunset'], $chain);
@@ -67,7 +68,8 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             null, // no edit model
             $photoResponder,
             $imgTagExtractor,
-         logger: new \Psr\Log\NullLogger());
+         logger: new \Psr\Log\NullLogger(),
+            botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
         $executor->executeToolCall(['prompt' => 'A cool <img>#1</img>'], $chain);
@@ -97,7 +99,8 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             $editModel,
             $photoResponder,
             $imgTagExtractor,
-         logger: new \Psr\Log\NullLogger());
+         logger: new \Psr\Log\NullLogger(),
+            botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
         $executor->executeToolCall(['prompt' => 'A scene based on <img>MySavedImage</img>'], $chain);
@@ -125,7 +128,8 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             $editModel,
             $photoResponder,
             $imgTagExtractor,
-         logger: new \Psr\Log\NullLogger());
+         logger: new \Psr\Log\NullLogger(),
+            botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
         $executor->executeToolCall(['prompt' => 'Remix <img>#1</img>'], $chain);
@@ -153,7 +157,8 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             $editModel,
             $photoResponder,
             $imgTagExtractor,
-         logger: new \Psr\Log\NullLogger());
+         logger: new \Psr\Log\NullLogger(),
+            botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
         $executor->executeToolCall(
@@ -200,7 +205,8 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             $editModel,
             $photoResponder,
             $imgTagExtractor,
-         logger: new \Psr\Log\NullLogger());
+         logger: new \Psr\Log\NullLogger(),
+            botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
         $executor->executeToolCall(['prompt' => $prompt], $chain);
@@ -238,7 +244,8 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             null,
             $photoResponder,
             $imgTagExtractor,
-         logger: new \Psr\Log\NullLogger());
+         logger: new \Psr\Log\NullLogger(),
+            botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
         $this->expectException(\InvalidArgumentException::class);
@@ -257,7 +264,8 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             null,
             $photoResponder,
             $imgTagExtractor,
-         logger: new \Psr\Log\NullLogger());
+         logger: new \Psr\Log\NullLogger(),
+            botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
         $this->expectException(\InvalidArgumentException::class);

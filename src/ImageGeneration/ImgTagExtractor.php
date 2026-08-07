@@ -287,17 +287,21 @@ class ImgTagExtractor
 
         $foundIndex = 0;
         foreach ($messageChain->getMessages() as $message) {
-            if ($message->photoFileId !== null) {
-                if ($foundIndex === $imageIndex) {
-                    try {
-                        return $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);
-                    } catch (\Exception $e) {
-                        $this->logger?->log(LogLevel::ERROR, "Failed to download chain image $imageIndex: " . $e->getMessage());
-                        return null;
-                    }
-                }
-                $foundIndex++;
+            if ($message->photoFileId === null && $message->photoContents === null) {
+                continue;
             }
+            if ($foundIndex === $imageIndex) {
+                if ($message->photoContents !== null) {
+                    return $message->photoContents;
+                }
+                try {
+                    return $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);
+                } catch (\Exception $e) {
+                    $this->logger?->log(LogLevel::ERROR, "Failed to download chain image $imageIndex: " . $e->getMessage());
+                    return null;
+                }
+            }
+            $foundIndex++;
         }
 
         return null;

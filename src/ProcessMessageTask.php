@@ -420,7 +420,7 @@ class ProcessMessageTask implements Task
             $altTextProvider,
             $processingResultExecutor,
             $container->get(WebSearchToolFactory::class)->buildFromConfig($config),
-            new ImageGeneratorTelegramPhotoToolCallExecutor($automatic1111APiClient, $editAutomatic1111APiClient, $photoResponder, $imgTagExtractor, $logger),
+            new ImageGeneratorTelegramPhotoToolCallExecutor($automatic1111APiClient, $editAutomatic1111APiClient, $photoResponder, $imgTagExtractor, $logger, $telegram->getBotId()),
             $videoGeneratorTool = new VideoGeneratorToolCallExecutor($logger),
             $container->get(ReactToolCallExecutor::class),
             $container->get(GetUrlContentsToolCallExecutor::class),

@@ -7,6 +7,7 @@ use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
+use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
@@ -19,6 +20,7 @@ class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareTo
         private readonly PhotoResponder $photoResponder,
         private readonly ImgTagExtractor $imgTagExtractor,
         private readonly LoggerInterface $logger,
+        private readonly int $botUserId,
     )
     {
     }
@@ -52,6 +54,9 @@ class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareTo
             $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId);
             $image = $response->getFirstImageAsPng();
             $this->photoResponder->sendPhoto($lastMessage, $image, $response->sendAsFile, $response->getCaption());
+            $messageChain->appendMessage(
+                $this->buildGeneratedPhotoMessage($lastMessage, $image, $response->getCaption()),
+            );
         } catch (\Exception $e) {
             $this->logger->log(LogLevel::ERROR, $e->getMessage() . "\n" . $e->getTraceAsString());
             return ['status' => 'failed'];
@@ -61,6 +66,28 @@ class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareTo
             'status' => 'image_succesfully_generated_and_sent_to_user',
             'context_image' => $image,
         ];
+    }
+
+    /**
+     * A transient InternalMessage representing the just-generated image, appended
+     * to the chain so later tool calls in the same turn (list_chain_images,
+     * image_gen_tool edits) can see and reference it via its #N index.
+     */
+    private function buildGeneratedPhotoMessage(
+        InternalMessage $triggerMessage,
+        string $imageBytes,
+        ?string $caption,
+    ): InternalMessage {
+        $message = new InternalMessage();
+        $message->chatId = $triggerMessage->chatId;
+        $message->userId = $this->botUserId;
+        $message->userName = '';
+        $message->type = 'photo';
+        $message->date = time();
+        $message->messageText = $caption ?? '';
+        $message->photoContents = $imageBytes;
+
+        return $message;
     }
 }
 

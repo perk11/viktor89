@@ -133,6 +133,32 @@ class ListChainImagesToolCallExecutorTest extends TestCase
         $this->assertSame(0, $result['count']);
     }
 
+    /**
+     * Images generated earlier in the same turn are appended to the chain with
+     * their raw bytes (photoContents) and no Telegram file id; they must still
+     * be listed, continuing the #N index sequence used by the persisted photos.
+     */
+    public function testInMemoryGeneratedImageIsListed(): void
+    {
+        $botUserId = 88888;
+        $executor = new ListChainImagesToolCallExecutor($botUserId);
+        $persisted = self::makeMessage('Alice', 'A photo', 'photo_file_1');
+        $generated = self::makeMessage('', 'Generated image', null);
+        $generated->userId = $botUserId;
+        $generated->photoContents = 'png-bytes';
+        $chain = new MessageChain([$persisted]);
+        $chain->appendMessage($generated);
+
+        $result = $executor->executeToolCall([], $chain);
+
+        $this->assertSame(2, $result['count']);
+        $this->assertSame('#0', $result['images'][0]['reference']);
+        $this->assertSame('Alice', $result['images'][0]['author']);
+        $this->assertSame('#1', $result['images'][1]['reference']);
+        $this->assertSame('assistant', $result['images'][1]['author']);
+        $this->assertSame('Generated image', $result['images'][1]['caption']);
+    }
+
     // ─── helpers ─────────────────────────────────────────────────────────────
 
     private static function makeMessage(string $userName, string $text, ?string $photoFileId): InternalMessage

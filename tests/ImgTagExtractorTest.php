@@ -188,6 +188,35 @@ class ImgTagExtractorTest extends TestCase
         $extractor->extractImageTags(new ImageGenerationPrompt('<img>#5</img> cat'), null, $chain);
     }
 
+    /**
+     * An image generated earlier in the same turn is appended with its raw
+     * bytes (photoContents) and no file id; it must be resolvable by its #N
+     * index without any Telegram download, sharing the index space with
+     * persisted photos.
+     */
+    public function testResolvesInMemoryGeneratedChainImageWithoutDownload(): void
+    {
+        $downloader = $this->createStub(TelegramFileDownloader::class);
+        $downloader->method('downloadPhotoFromInternalMessage')->willReturn('should-not-be-used');
+        $extractor = new ImgTagExtractor($this->createStub(ImageRepository::class), $downloader, logger: new \Psr\Log\NullLogger());
+
+        $commandMessage = new InternalMessage();
+        $commandMessage->messageText = '/imagine <img>#0</img> cat';
+        $commandMessage->type = 'text';
+
+        $generatedMessage = new InternalMessage();
+        $generatedMessage->messageText = 'generated';
+        $generatedMessage->type = 'photo';
+        $generatedMessage->photoContents = 'generated-png-bytes';
+
+        $chain = new MessageChain([$commandMessage]);
+        $chain->appendMessage($generatedMessage);
+
+        $result = $extractor->extractImageTags(new ImageGenerationPrompt('<img>#0</img> cat'), null, $chain);
+
+        $this->assertSame(['generated-png-bytes'], $result->sourceImagesContents);
+    }
+
     public function testRemoveTagsReplacesImgTagWithEmptyString(): void
     {
         $repo = $this->createStub(ImageRepository::class);

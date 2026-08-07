@@ -21,7 +21,7 @@ class ListChainImagesToolCallExecutor implements MessageChainAwareToolCallExecut
         $index = 0;
 
         foreach ($messageChain->getMessages() as $message) {
-            if ($message->photoFileId !== null) {
+            if ($message->photoFileId !== null || $message->photoContents !== null) {
                 $images[] = [
                     'id' => $index,
                     'reference' => '#' . $index,
