@@ -82,6 +82,7 @@ class InternalMessage
     public ?int $receiverUserId = null;
 
     public ?string $photoFileId = null;
+    public ?string $videoFileId = null;
     public ?string $altText = null;
     public ?string $reasoning = null;
 
@@ -121,6 +122,7 @@ class InternalMessage
         $message->userName = $result['username'];
         $message->messageText = $result['message_text'];
         $message->photoFileId = $result['photo_file_id'];
+        $message->videoFileId = $result['video_file_id'] ?? null;
         $message->altText = $result['alt_text'] ?? null;
         $message->reasoning = $result['reasoning'] ?? null;
         $message->receiverUserId = isset($result['receiver_user_id']) ? (int)$result['receiver_user_id'] : null;
@@ -187,6 +189,7 @@ class InternalMessage
         }
         $message->audio = $telegramMessage->getAudio();
         $message->video = $telegramMessage->getVideo();
+        $message->videoFileId = $message->video?->getFileId();
         $message->videoNote = $telegramMessage->getVideoNote();
         $message->voice = $telegramMessage->getVoice();
 

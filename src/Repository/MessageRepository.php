@@ -7,6 +7,7 @@ use Longman\TelegramBot\Entities\Message;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
+use SQLite3;
 use SQLite3Stmt;
 
 class MessageRepository
@@ -19,9 +20,10 @@ class MessageRepository
     public function __construct(private readonly Database $database)
     {
         $sqlite = $this->database->sqlite3Database;
+        $this->migrateVideoFileIdColumn($sqlite);
         $this->insertMessageStatement = $sqlite->prepare(
-            'INSERT INTO message (chat_id, id, type, message_thread_id, user_id, `date`, reply_to_message, username, message_text, photo_file_id, alt_text, reasoning, receiver_user_id)
-VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_message, :username, :message_text, :photo_file_id, :alt_text, :reasoning, :receiver_user_id)
+            'INSERT INTO message (chat_id, id, type, message_thread_id, user_id, `date`, reply_to_message, username, message_text, photo_file_id, video_file_id, alt_text, reasoning, receiver_user_id)
+VALUES (:chat_id, :id, :type, :message_thread_id, :user_id, :date, :reply_to_message, :username, :message_text, :photo_file_id, :video_file_id, :alt_text, :reasoning, :receiver_user_id)
 '
         );
         $this->updateMessageStatement = $sqlite->prepare('UPDATE message SET alt_text = :alt_text WHERE id = :id AND chat_id = :chat_id');
@@ -53,6 +55,7 @@ VALUES (:message_id, :tool_call_id, :tool_name, :arguments, :result, :chat_id)'
             $statement->bindValue(':username', $message->userName);
             $statement->bindValue(':message_text', $message->messageTextForDatabase ?? $message->messageText);
             $statement->bindValue(':photo_file_id', $message->photoFileId);
+            $statement->bindValue(':video_file_id', $message->videoFileId);
             $statement->bindValue(':type', $message->type);
         }
         $statement->bindValue(':id', $message->id);
@@ -69,6 +72,22 @@ VALUES (:message_id, :tool_call_id, :tool_name, :arguments, :result, :chat_id)'
         foreach ($message->toolCalls as $toolCall) {
             $this->logToolCall($message->id, $message->chatId, $toolCall);
         }
+    }
+
+    /**
+     * Adds the video_file_id column to databases created before it existed, so
+     * videos can be referenced from history like photos (e.g. to extract a
+     * frame). No-op when the column is already present.
+     */
+    private function migrateVideoFileIdColumn(SQLite3 $sqlite): void
+    {
+        $columns = $sqlite->query('PRAGMA table_info(message)');
+        while ($row = $columns->fetchArray(SQLITE3_ASSOC)) {
+            if (($row['name'] ?? null) === 'video_file_id') {
+                return;
+            }
+        }
+        $sqlite->exec('ALTER TABLE message ADD COLUMN video_file_id varchar DEFAULT NULL');
     }
 
     private function logToolCall(int $messageId, int $chatId, ToolCall $toolCall): void

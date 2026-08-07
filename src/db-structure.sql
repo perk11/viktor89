@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS `message` (
     `username`          varchar,                      -- 'Message that this message is reply to',
     `message_text`      varchar,                           -- Message text,
     `photo_file_id`     varchar DEFAULT NULL,               -- id of telegram file that can be used to download photo
+    `video_file_id`     varchar DEFAULT NULL,               -- id of telegram video file (e.g. to extract a frame as an image reference)
     `alt_text`          varchar DEFAULT NULL,          -- for non-text messages
     `reasoning`         varchar DEFAULT NULL,          -- AI reasoning context
     `receiver_user_id`  bigint DEFAULT NULL           -- for ephemeral messages: the user the message was visible to (NULL for normal messages)
