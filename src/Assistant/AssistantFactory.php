@@ -11,6 +11,8 @@ use Monolog\Level;
 use Monolog\Logger;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
+use Perk11\Viktor89\Assistant\Tool\McpConnectionCache;
+use Perk11\Viktor89\Assistant\Tool\McpServerConnection;
 use Perk11\Viktor89\Assistant\Tool\McpToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
@@ -268,11 +270,11 @@ class AssistantFactory
                 );
         }
         if ($requestedAssistantConfig['generateVideos'] ?? false) {
-            $tools['video_gen_tool'] =
+            $tools['video_gen'] =
                 new ToolDefinition(
-                    'video_gen_tool',
+                    'video_gen',
                     $this->videoGeneratorTool,
-                    'Generate a video from a text prompt and send it to the user. Behaves exactly like the /video command: supports <fframe>...</fframe>/<lframe>...</lframe> (first/last frame), <img>...</img> (image references, by saved name or #N chain index), <vframe>#N</vframe> (last frame of the Nth video in the current chat, used as an image reference) and <audio>...</audio>/<raudio>...</raudio> tags, subject to the selected model\'s capabilities. Replying to a photo uses it as a reference. Use this whenever the user asks for a video.',
+                    'Generate a video from a text prompt and send it to the user. Video duration is always 15 seconds. Supports <img>...</img> (image references, by saved name or #N chain index), <vframe>#N</vframe> (last frame of the Nth video in the current chat, used as the reference image, you must mention in the prompt that it has to be the first frame). No more than 3 references per call. Use this whenever the user asks for a video.',
                     [
                         new ToolParameter('prompt', ['type' => 'string'], true),
                     ]
@@ -313,27 +315,28 @@ class AssistantFactory
         }
         if ($requestedAssistantConfig['mcpServers'] ?? []) {
             foreach ($requestedAssistantConfig['mcpServers'] as $serverName => $serverConfig) {
-                if (isset($serverConfig['command'])) {
-                    $transport = new StdioTransport(
-                        command: $serverConfig['command'],
-                        args:    $serverConfig['args'] ?? [],
-                        env:     $serverConfig['env'] ?? null,
-                    );
-                } elseif (isset($serverConfig['url'])) {
-                    $transport = new HttpTransport(
-                        endpoint: $serverConfig['url'],
-                        headers:  $serverConfig['headers'] ?? [],
-                    );
-                } else {
-                    throw new \RuntimeException("Invalid MCP server configuration for $serverName: missing command or url");
+                $serverKey = self::mcpServerKey($serverConfig);
+                // Reuse one live connection per server across messages: the spawn
+                // + initialize handshake and the tools/list call only run once
+                // (on the first use within this worker). A shared connection also
+                // means a reconnect transparently fixes every tool that uses it.
+                $connection = McpConnectionCache::get(
+                    $serverKey,
+                    fn (): McpServerConnection => new McpServerConnection(
+                        $this->buildMcpConnector($serverConfig, $serverName),
+                    ),
+                );
+                try {
+                    $mcpTools = $connection->getTools();
+                } catch (\Throwable) {
+                    $connection->reconnect();
+                    $mcpTools = $connection->getTools();
                 }
-                $logger = new Logger('mcp', [new ErrorLogHandler(ErrorLogHandler::OPERATING_SYSTEM, Level::Debug)]);
-                $client = Client::builder()
-                    ->setClientInfo('Viktor89', '1.0.0')
-                    ->setLogger($logger)
-                    ->build();
-                $client->connect($transport);
-                foreach ($client->listTools()->tools as $tool) {
+                $allowedTools = (array) ($serverConfig['allowedTools'] ?? []);
+                foreach ($mcpTools as $tool) {
+                    if ($allowedTools !== [] && !in_array($tool->name, $allowedTools, true)) {
+                        continue;
+                    }
                     $parameters = [];
                     $properties = $tool->inputSchema['properties'] ?? [];
                     if ($properties instanceof \stdClass) {
@@ -351,7 +354,7 @@ class AssistantFactory
                     $toolSilent = $serverSilent || in_array($tool->name, $silentTools, true);
                     $tools[$tool->name] = new ToolDefinition(
                         $tool->name,
-                        new McpToolCallExecutor($client, $tool->name),
+                        new McpToolCallExecutor($connection, $tool->name),
                         $tool->description,
                         $parameters,
                         'function',
@@ -362,5 +365,62 @@ class AssistantFactory
         }
 
         return $tools;
+    }
+
+    /**
+     * Stable identifier for an MCP server configuration. Intentionally excludes
+     * tool-level options (allowedTools/silent/silentTools) so that models sharing
+     * the same server reuse a single cached connection.
+     */
+    private static function mcpServerKey(array $serverConfig): string
+    {
+        $encoded = json_encode(
+            [
+                'command' => $serverConfig['command'] ?? null,
+                'args'    => $serverConfig['args'] ?? [],
+                'env'     => $serverConfig['env'] ?? [],
+                'url'     => $serverConfig['url'] ?? null,
+                'headers' => $serverConfig['headers'] ?? [],
+            ],
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        );
+
+        return md5($encoded === false ? '' : $encoded);
+    }
+
+    /**
+     * Build a closure that spawns and initializes a fresh client for one server.
+     * Captures only the server config so it stays valid across reconnects.
+     *
+     * @param array<string, mixed> $serverConfig
+     *
+     * @return \Closure(): Client
+     */
+    private function buildMcpConnector(array $serverConfig, int|string $serverName): \Closure
+    {
+        return function () use ($serverConfig, $serverName): Client {
+            if (isset($serverConfig['command'])) {
+                $transport = new StdioTransport(
+                    command: $serverConfig['command'],
+                    args:    $serverConfig['args'] ?? [],
+                    env:     array_merge(getenv(), $serverConfig['env'] ?? []),
+                );
+            } elseif (isset($serverConfig['url'])) {
+                $transport = new HttpTransport(
+                    endpoint: $serverConfig['url'],
+                    headers:  $serverConfig['headers'] ?? [],
+                );
+            } else {
+                throw new \RuntimeException("Invalid MCP server configuration for $serverName: missing command or url");
+            }
+            $logger = new Logger('mcp', [new ErrorLogHandler(ErrorLogHandler::OPERATING_SYSTEM, Level::Debug)]);
+            $client = Client::builder()
+                ->setClientInfo('Viktor89', '1.0.0')
+                ->setLogger($logger)
+                ->build();
+            $client->connect($transport);
+
+            return $client;
+        };
     }
 }
