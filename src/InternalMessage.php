@@ -83,6 +83,17 @@ class InternalMessage
 
     public ?string $photoFileId = null;
     public ?string $videoFileId = null;
+
+    // Telegram document (generic file) metadata. Text documents are read by
+    // TextDocumentReader and turned into a prompt; image documents are folded
+    // into $photoFileId above instead. Not persisted: the extracted text is
+    // stored in message_text, and the file id is re-read from Telegram on the
+    // rare occasion a fresh document re-enters the chain.
+    public ?string $documentFileId = null;
+    public ?string $documentFileName = null;
+    public ?string $documentMimeType = null;
+    public ?int $documentFileSize = null;
+
     public ?string $altText = null;
     public ?string $reasoning = null;
 
@@ -167,6 +178,13 @@ class InternalMessage
                     $message->photoFileId = $photo->getFileId();
                 }
             }
+        }
+        $document = $telegramMessage->getDocument();
+        if ($document !== null) {
+            $message->documentFileId = $document->getFileId();
+            $message->documentFileName = $document->getFileName();
+            $message->documentMimeType = $document->getMimeType();
+            $message->documentFileSize = $document->getFileSize();
         }
         if ($message->photoFileId === null)  {
             if ($telegramMessage->getDocument() !== null) {

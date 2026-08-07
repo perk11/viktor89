@@ -472,7 +472,13 @@ class ProcessMessageTask implements Task
             $editModelConfig,
             $logger,
         );
-        $userSelectedAssistant = new UserSelectedAssistant($assistantFactory, $assistantModelProcessor);
+        $userSelectedAssistant = new UserSelectedAssistant(
+            $assistantFactory,
+            $assistantModelProcessor,
+            new \Perk11\Viktor89\Assistant\TextDocumentReader($telegramFileDownloader),
+            $messageRepository,
+            $logger,
+        );
         $videoModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $userPreferenceRepository,
             ['/videomodel'],

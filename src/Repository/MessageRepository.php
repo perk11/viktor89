@@ -101,6 +101,22 @@ VALUES (:message_id, :tool_call_id, :tool_name, :arguments, :result, :chat_id)'
         $this->insertToolCallStatement->execute();
     }
 
+    /**
+     * Overwrite the stored message_text of an already-logged message. Used to
+     * persist text extracted from an attachment (e.g. a document read as a
+     * prompt) so it is available in future history lookups.
+     */
+    public function updateMessageText(int $messageId, int $chatId, string $text): void
+    {
+        $statement = $this->database->sqlite3Database->prepare(
+            'UPDATE message SET message_text = :message_text WHERE id = :id AND chat_id = :chat_id'
+        );
+        $statement->bindValue(':message_text', $text);
+        $statement->bindValue(':id', $messageId, SQLITE3_INTEGER);
+        $statement->bindValue(':chat_id', $chatId, SQLITE3_INTEGER);
+        $statement->execute();
+    }
+
     public function findMessageByIdInChat(int $id, int $chatId): ?InternalMessage
     {
         $this->selectMessageStatement->bindValue(':id', $id);

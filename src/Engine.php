@@ -23,6 +23,7 @@ class Engine
         'audio',
         'video_note',
         'sticker',
+        'document',
     ];
 
     public function __construct(
