@@ -33,6 +33,24 @@ class MessageChain
     {
         return $this->messages[count($this->messages) - 1];
     }
+
+    /**
+     * The most recent message not authored by $userId (e.g. the bot). Needed to
+     * find the message currently being responded to when transient bot messages
+     * have been appended to the chain during a turn (e.g. images just generated
+     * by a tool call). Falls back to last() if every message is by $userId.
+     */
+    public function lastMessageByOtherThan(int $userId): InternalMessage
+    {
+        for ($i = count($this->messages) - 1; $i >= 0; $i--) {
+            if ($this->messages[$i]->userId !== $userId) {
+                return $this->messages[$i];
+            }
+        }
+
+        return $this->last();
+    }
+
     public function withReplacedLastMessage(InternalMessage $message): MessageChain
     {
         return $this->withReplacedMessage($message, count($this->messages) - 1);

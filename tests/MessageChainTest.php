@@ -142,6 +142,30 @@ class MessageChainTest extends TestCase
         $this->assertContains($appended, $chain->getMessages());
     }
 
+    public function testLastMessageByOtherThanSkipsTrailingBotMessages(): void
+    {
+        $user = self::makeMessage('Alice');
+        $bot1 = self::makeMessage('');
+        $bot1->userId = 999;
+        $bot2 = self::makeMessage('');
+        $bot2->userId = 999;
+        $chain = new MessageChain([$user, $bot1, $bot2]);
+
+        $this->assertSame($user, $chain->lastMessageByOtherThan(999));
+        $this->assertSame($bot2, $chain->last());
+    }
+
+    public function testLastMessageByOtherThanFallsBackToLastWhenAllMatch(): void
+    {
+        $bot1 = self::makeMessage('');
+        $bot1->userId = 999;
+        $bot2 = self::makeMessage('');
+        $bot2->userId = 999;
+        $chain = new MessageChain([$bot1, $bot2]);
+
+        $this->assertSame($bot2, $chain->lastMessageByOtherThan(999));
+    }
+
     private static function makeMessage(string $userName): InternalMessage
     {
         $message = new InternalMessage();

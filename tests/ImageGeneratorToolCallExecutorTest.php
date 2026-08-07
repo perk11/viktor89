@@ -75,6 +75,46 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
         $executor->executeToolCall(['prompt' => 'A cool <img>#1</img>'], $chain);
     }
 
+    // ─── triggering user is stable across multiple tool calls in a turn ─────
+
+    public function testUsesTriggeringUserPreferencesWhenBotPhotoAlreadyAppended(): void
+    {
+        // Regression: during a multi-image turn the first tool call appends a
+        // bot-generated photo to the chain. The next call must still read the
+        // triggering user's preferences instead of falling back to the bot/
+        // default model.
+        $imageModel = $this->createMock(ImageByPromptGenerator::class);
+        $photoResponder = $this->createMock(PhotoResponder::class);
+        $imgTagExtractor = $this->createMock(ImgTagExtractor::class);
+
+        $imageModel->expects($this->once())
+            ->method('generateImageByImagePrompt')
+            ->with($this->anything(), 12345)
+            ->willReturn($this->createMock(Automatic1111ImageApiResponse::class));
+
+        $imgTagExtractor->expects($this->once())
+            ->method('extractImageTags')
+            ->willReturn(new ImageGenerationPrompt('text'));
+
+        $executor = new \Perk11\Viktor89\Assistant\Tool\ImageGeneratorTelegramPhotoToolCallExecutor(
+            $imageModel,
+            null,
+            $photoResponder,
+            $imgTagExtractor,
+         logger: new \Psr\Log\NullLogger(),
+            botUserId: 999,);
+
+        $chain = new MessageChain([self::makeMessage()]);
+        // Simulate a prior tool call in the same turn appending a bot photo.
+        $botPhoto = new InternalMessage();
+        $botPhoto->userId = 999;
+        $botPhoto->type = 'photo';
+        $botPhoto->photoContents = 'png-bytes';
+        $chain->appendMessage($botPhoto);
+
+        $executor->executeToolCall(['prompt' => 'Another image'], $chain);
+    }
+
     // ─── edit model used when image references present ───────────────────────
 
     public function testUsesEditModelForPromptWithSavedImageReference(): void

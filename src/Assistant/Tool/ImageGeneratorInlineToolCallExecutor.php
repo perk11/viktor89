@@ -37,7 +37,7 @@ class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallE
             }
         }
 
-        $lastMessage = $messageChain->last();
+        $lastMessage = $messageChain->lastMessageByOtherThan($this->botUserId);
         $hasImageReferences = str_contains($arguments['prompt'], '<img>') && str_contains($arguments['prompt'], '</img>');
         $generator = ($hasImageReferences && $this->editByPromptGenerator !== null)
             ? $this->editByPromptGenerator
