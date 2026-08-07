@@ -24,6 +24,7 @@ use Perk11\Viktor89\Assistant\Tool\ImageGeneratorInlineToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ListChainImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ListSavedImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
+use Perk11\Viktor89\Assistant\Tool\VideoGeneratorToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\WebSearchToolFactory;
 use Perk11\Viktor89\Assistant\UnknownAssistantException;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
@@ -419,6 +420,7 @@ class ProcessMessageTask implements Task
             $processingResultExecutor,
             $container->get(WebSearchToolFactory::class)->buildFromConfig($config),
             new ImageGeneratorTelegramPhotoToolCallExecutor($automatic1111APiClient, $editAutomatic1111APiClient, $photoResponder, $imgTagExtractor, $logger),
+            $videoGeneratorTool = new VideoGeneratorToolCallExecutor($logger),
             $container->get(ReactToolCallExecutor::class),
             $container->get(GetUrlContentsToolCallExecutor::class),
             new ListSavedImagesToolCallExecutor($imageRepository),
@@ -538,6 +540,10 @@ class ProcessMessageTask implements Task
             $imgTagExtractor,
             $logger,
         );
+        // Breaks the VideoProcessor <-> AssistantFactory dependency cycle: the
+        // video tool lives inside AssistantFactory, and VideoProcessor is only
+        // available now that it (and its preprocessor factory) are built.
+        $videoGeneratorTool->setVideoProcessor($videoProcessor);
         $assistedVideoProcessor = new AssistedVideoProcessor(
             $automatic1111APiClient,
             $assistantFactory->getAssistantInstanceByName('gemma2-for-imagine'),

@@ -66,6 +66,7 @@ class AssistantFactoryModelNameTest extends TestCase
             $nullTool,
             $nullChainTool,
             $nullChainTool,
+            $nullChainTool,
             $nullTool,
             $nullTool,
             $nullChainTool,

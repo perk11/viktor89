@@ -38,6 +38,7 @@ class AssistantFactory
         private readonly ProcessingResultExecutor $processingResultExecutor,
         private readonly ToolCallExecutorInterface $webSearchTool,
         private readonly MessageChainAwareToolCallExecutorInterface $imageFromTextGeneratorTool,
+        private readonly MessageChainAwareToolCallExecutorInterface $videoGeneratorTool,
         private readonly MessageChainAwareToolCallExecutorInterface $reactToolCallExecutor,
         private readonly ToolCallExecutorInterface $getUrlContentsTool,
         private readonly ToolCallExecutorInterface $listSavedImagesTool,
@@ -264,6 +265,17 @@ class AssistantFactory
                     'list_chain_images',
                     $this->listChainImagesTool,
                     'List images present in the current conversation (message chain). Each image has a numbered ID like "#0", "#1" that can be used to reference the image in image_gen_tool prompt inside "img" XML tag, e.g. <img>#0</img>. Images are numbered starting from 0 in the order they appear in the conversation. Use this to reference previously sent or generated images in the chat.',
+                );
+        }
+        if ($requestedAssistantConfig['generateVideos'] ?? false) {
+            $tools['video_gen_tool'] =
+                new ToolDefinition(
+                    'video_gen_tool',
+                    $this->videoGeneratorTool,
+                    'Generate a video from a text prompt and send it to the user. Behaves exactly like the /video command: supports <fframe>...</fframe>/<lframe>...</lframe> (first/last frame), <img>...</img> (image references, by saved name or #N chain index) and <audio>...</audio>/<raudio>...</raudio> tags, subject to the selected model\'s capabilities. Replying to a photo uses it as a reference. Use this whenever the user asks for a video.',
+                    [
+                        new ToolParameter('prompt', ['type' => 'string'], true),
+                    ]
                 );
         }
         if ($requestedAssistantConfig['toolReact'] ?? false) {
