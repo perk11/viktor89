@@ -270,6 +270,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
                 // capped off with a notice and further edits stop; generation
                 // itself continues and the final edit() delivers the full text
                 // as a file (deliverAsFile makes that unconditional).
+                $this->logger?->log(LogLevel::DEBUG, 'Message text exceeds Telegram rich text limit, adding deliver as file notice and aborting editing');
                 $message->deliverAsFile = true;
                 $messageText = mb_substr(
                     $responseStart . $partialContent,
