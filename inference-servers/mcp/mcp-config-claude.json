@@ -5,7 +5,7 @@
     "instructions": "Three media-generation tools for Claude. image_gen_tool: text-to-image with ideogram4_fast. image_edit_tool: edit a source image (passed as base64 init_image) with Flux2 dev turbo. video_gen_tool: text-to-video with MiniMax-H3 ref2vid; the prompt is automatically rewritten into the structured MiniMax-H3 video-prompt format before generation. Every result is returned base64-encoded (image as MCP image content, video as an embedded blob resource), with a text note restating the MIME type."
   },
   "http": {
-    "timeoutSeconds": 600,
+    "timeoutSeconds": 3600,
     "connectTimeoutSeconds": 30
   },
   "llm": {
