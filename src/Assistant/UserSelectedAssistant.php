@@ -20,6 +20,7 @@ class UserSelectedAssistant implements MessageChainProcessor
         private readonly TextDocumentReader $textDocumentReader,
         private readonly MessageRepository $messageRepository,
         private readonly LoggerInterface $logger,
+        private readonly int $telegramBotUserId,
     )
     {
     }
@@ -64,6 +65,12 @@ class UserSelectedAssistant implements MessageChainProcessor
     private function loadTextDocumentContents(MessageChain $messageChain): ?ProcessingResult
     {
         foreach ($messageChain->getMessages() as $message) {
+            // Documents sent by the bot (over-long rich markdown delivered as a
+            // .md file) already carry their full text in messageText, so
+            // re-reading the file would duplicate the content in the prompt.
+            if ($message->userId === $this->telegramBotUserId) {
+                continue;
+            }
             if (!$this->textDocumentReader->isTextDocument($message)) {
                 continue;
             }

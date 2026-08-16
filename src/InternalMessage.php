@@ -104,6 +104,13 @@ class InternalMessage
     public ?string $reasoning = null;
 
     /**
+     * Set once a streamed RichMarkdown message hit the length limit and told
+     * the user the results will be sent as a file: the final edit() then always
+     * delivers a .md document, even if the trimmed final text would just fit.
+     */
+    public bool $deliverAsFile = false;
+
+    /**
      * If set, this will be prepended to messageText when sending to Telegram,
      * but it will NOT be saved to the database.
      */
@@ -248,7 +255,11 @@ class InternalMessage
         }
         if ($this->parseMode === 'RichMarkdown') {
             $options['rich_message'] = [
-                'markdown' => TelegramRichMarkdown::removeImages($this->rawMessageText ?? $this->messageText),
+                'markdown' => mb_substr(
+                    TelegramRichMarkdown::removeImages($this->rawMessageText ?? $this->messageText),
+                    0,
+                    TelegramRichMarkdown::MAX_LENGTH,
+                ),
             ];
 
             return Request::execute('sendRichMessageDraft', $options);
@@ -325,18 +336,23 @@ class InternalMessage
             $this->receiverUserId = null;
         }
         if ($this->parseMode === 'RichMarkdown') {
-            $options['rich_message'] = [
-                'markdown' => TelegramRichMarkdown::removeImages($this->rawMessageText ?? $this->messageText),
-            ];
-            $rawResponse = Request::execute('sendRichMessage', $options);
-            $response = json_decode($rawResponse, true);
+            $markdown = TelegramRichMarkdown::removeImages($this->rawMessageText ?? $this->messageText);
+            if ($this->deliverAsFile || mb_strlen($markdown) > TelegramRichMarkdown::MAX_LENGTH) {
+                $response = $this->sendAsMarkdownDocument($this->rawMessageText ?? $this->messageText, $options);
+            } else {
+                $options['rich_message'] = [
+                    'markdown' => $markdown,
+                ];
+                $rawResponse = Request::execute('sendRichMessage', $options);
+                $response = json_decode($rawResponse, true);
 
-            if (null === $response || json_last_error() !== JSON_ERROR_NONE) {
-                TelegramLog::debug($rawResponse);
-                throw new TelegramException('Telegram returned an invalid response!');
+                if (null === $response || json_last_error() !== JSON_ERROR_NONE) {
+                    TelegramLog::debug($rawResponse);
+                    throw new TelegramException('Telegram returned an invalid response!');
+                }
+
+                $response = new ServerResponse($response, $_ENV['TELEGRAM_BOT_USERNAME']);
             }
-
-            $response = new ServerResponse($response, $_ENV['TELEGRAM_BOT_USERNAME']);
         } else {
             $options['text'] = $this->rawMessageText ?? $this->messageText;
             if ($this->parseMode !== 'Default') {
@@ -388,8 +404,15 @@ class InternalMessage
         ];
 
         if ($this->parseMode === 'RichMarkdown') {
+            $markdown = TelegramRichMarkdown::removeImages($textToEdit);
+            if ($this->deliverAsFile || mb_strlen($markdown) > TelegramRichMarkdown::MAX_LENGTH) {
+                // Telegram cannot turn an existing message into a document, so
+                // the over-long markdown is delivered as a new .md file message
+                // and the streamed message is deleted, keeping only the file.
+                return $this->editAsMarkdownDocument($newText);
+            }
             $options['rich_message'] = [
-                'markdown' => TelegramRichMarkdown::removeImages($textToEdit),
+                'markdown' => $markdown,
             ];
         } else {
             $options['text'] = $textToEdit;
@@ -420,6 +443,64 @@ class InternalMessage
                 $this->rawMessageText = $newText;
             }
         }
+
+        return $response;
+    }
+
+    private function editAsMarkdownDocument(string $newText): ServerResponse
+    {
+        $options = [
+            'chat_id' => $this->chatId,
+        ];
+        if ($this->replyToMessageId !== null) {
+            $options['reply_parameters'] = ['message_id' => $this->replyToMessageId];
+        }
+        $streamedMessageId = $this->id;
+        $chatId = $this->chatId;
+        $response = $this->sendAsMarkdownDocument($newText, $options);
+        if ($response->isOk()) {
+            $this->messageText = $newText;
+            if ($this->rawMessageText !== null) {
+                $this->rawMessageText = $newText;
+            }
+            if ($streamedMessageId !== null) {
+                $deleteResult = Request::deleteMessage([
+                    'chat_id' => $chatId,
+                    'message_id' => $streamedMessageId,
+                ]);
+                if (!$deleteResult->isOk()) {
+                    self::$logger?->log(LogLevel::WARNING, "Failed to delete streamed message {$streamedMessageId} replaced by a markdown file: " . $deleteResult->getDescription());
+                }
+            }
+        }
+
+        return $response;
+    }
+
+    /**
+     * Telegram rejects rich messages longer than TelegramRichMarkdown::MAX_LENGTH,
+     * so the markdown is delivered as a .md document instead. The full text is
+     * kept in messageText, so the sent message keeps working as part of the
+     * chain the same way a user-sent text document does (its contents are
+     * folded into messageText and persisted).
+     */
+    private function sendAsMarkdownDocument(string $markdown, array $options): ServerResponse
+    {
+        $tmpFilePath = tempnam(sys_get_temp_dir(), 'v89-md-');
+        $tmpFilePathWithSuffix = $tmpFilePath . '.md';
+        rename($tmpFilePath, $tmpFilePathWithSuffix);
+        $tmpFilePath = $tmpFilePathWithSuffix;
+        $putResult = file_put_contents($tmpFilePath, $markdown);
+        if ($putResult === false) {
+            throw new \RuntimeException("Failed to write to $tmpFilePath");
+        }
+        $options['document'] = Request::encodeFile($tmpFilePath);
+        $response = Request::sendDocument($options);
+        if ($response->isOk() && $response->getResult() instanceof Message) {
+            self::extractPropertiesFromTelegramMessage($this, $response->getResult());
+        }
+        self::$logger?->log(LogLevel::INFO, "Deleting $tmpFilePath");
+        unlink($tmpFilePath);
 
         return $response;
     }

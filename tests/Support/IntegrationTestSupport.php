@@ -112,6 +112,24 @@ trait TelegramRecordingTrait
             ]);
         }
 
+        if ($action === 'sendDocument') {
+            return self::jsonResponse([
+                'ok' => true,
+                'result' => [
+                    'message_id' => 43,
+                    'date' => time(),
+                    'chat' => ['id' => $chatId, 'type' => 'private', 'first_name' => 'Tester'],
+                    'from' => ['id' => TELEGRAM_TEST_BOT_ID, 'is_bot' => true, 'first_name' => 'Bot'],
+                    'document' => [
+                        'file_id' => 'doc-file-id',
+                        'file_name' => 'v89-md-test.md',
+                        'mime_type' => 'text/markdown',
+                        'file_size' => 40960,
+                    ],
+                ],
+            ]);
+        }
+
         if ($action === 'getMe') {
             return self::jsonResponse([
                 'ok' => true,
@@ -168,7 +186,7 @@ trait TelegramRecordingTrait
     protected function recordedActionsAfterLastMessage(): array
     {
         $calls = $this->recordedCalls();
-        $messageActions = ['sendMessage', 'sendRichMessage', 'editMessageText'];
+        $messageActions = ['sendMessage', 'sendRichMessage', 'editMessageText', 'sendDocument'];
         $lastMessageIndex = -1;
         foreach ($calls as $index => $call) {
             if (in_array($call['action'], $messageActions, true)) {

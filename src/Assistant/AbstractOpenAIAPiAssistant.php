@@ -15,12 +15,18 @@ use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
+use Perk11\Viktor89\Util\TelegramRichMarkdown;
 
 abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 {
     private const float EDIT_FREQUENCY_MIN_SECONDS = 1.5;
     private const float EDIT_FREQUENCY_MAX_SECONDS = 120;
     private const float SMALL_EDIT_MIN_TIME_SECONDS = 10;
+
+    private const string MAX_LENGTH_REACHED_NOTICE = "Max length reached, continuing generation, results will be sent as a file...";
+
+    /** Characters reserved after the draft notice for the appended thinking block. */
+    private const int DRAFT_NOTICE_HEADROOM = 512;
 
     /**
      * Minimum interval between consecutive draft updates sent while streaming.
@@ -212,6 +218,19 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 
         $text = $partialContent;
         if ($message->parseMode === 'RichMarkdown') {
+            if (mb_strlen($partialContent) > TelegramRichMarkdown::MAX_LENGTH) {
+                // Same as the edit stream: the draft is capped off with a
+                // notice and the final text is delivered as a file by send()
+                // once generation completes. Room is left for the thinking
+                // block appended below so the notice survives the send-side
+                // hard cap.
+                $message->deliverAsFile = true;
+                $text = mb_substr(
+                    $partialContent,
+                    0,
+                    TelegramRichMarkdown::MAX_LENGTH - mb_strlen(self::MAX_LENGTH_REACHED_NOTICE) - self::DRAFT_NOTICE_HEADROOM,
+                ) . "\n\n" . self::MAX_LENGTH_REACHED_NOTICE;
+            }
             $text .= '<tg-thinking>' . $this->progressUpdateStatus . "...\n</tg-thinking>";
         }
 
@@ -246,9 +265,18 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 
             return true;
         } else {
-            if (mb_strlen($messageText) > 32768) {
-                $messageText = mb_substr($responseStart . $partialContent, 0, 32768);
-                $editingAborted = true; // Truncating early and aborting updates once standard bounds are met
+            if (mb_strlen($messageText) > TelegramRichMarkdown::MAX_LENGTH) {
+                // The message cannot grow past the rich text limit, so it is
+                // capped off with a notice and further edits stop; generation
+                // itself continues and the final edit() delivers the full text
+                // as a file (deliverAsFile makes that unconditional).
+                $message->deliverAsFile = true;
+                $messageText = mb_substr(
+                    $responseStart . $partialContent,
+                    0,
+                    TelegramRichMarkdown::MAX_LENGTH - mb_strlen(self::MAX_LENGTH_REACHED_NOTICE) - 2,
+                ) . "\n\n" . self::MAX_LENGTH_REACHED_NOTICE;
+                $editingAborted = true;
             }
             if ($this->draftUpdateCallback !== null) {
                 // Route through DraftUpdater so edits share the same per-chat
@@ -265,7 +293,11 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
 
                 return true;
             }
-            $editResult = $message->edit($messageText, false);
+            $editCarrier = new InternalMessage();
+            $editCarrier->chatId = $message->chatId;
+            $editCarrier->id = $message->id;
+            $editCarrier->parseMode = $message->parseMode;
+            $editResult = $editCarrier->edit($messageText, false);
             if (!$editResult->isOk()) {
                 $this->logger?->log(LogLevel::DEBUG, 'Edit result: ' . print_r($editResult, true));
                 $rawData = $editResult->getRawData();

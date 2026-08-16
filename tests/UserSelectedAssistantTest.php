@@ -43,12 +43,13 @@ class UserSelectedAssistantTest extends TestCase
     {
         $reflection = new \ReflectionClass(UserSelectedAssistant::class);
         $params = $reflection->getConstructor()->getParameters();
-        $this->assertCount(5, $params);
+        $this->assertCount(6, $params);
         $this->assertSame('assistantFactory', $params[0]->getName());
         $this->assertSame(AssistantFactory::class, $params[0]->getType()->getName());
         $this->assertSame(UserPreferenceReaderInterface::class, $params[1]->getType()->getName());
         $this->assertSame(TextDocumentReader::class, $params[2]->getType()->getName());
         $this->assertSame(MessageRepository::class, $params[3]->getType()->getName());
+        $this->assertSame('telegramBotUserId', $params[5]->getName());
     }
 
     public function testUsesSelectedAssistantWhenAllowedInChat(): void
@@ -159,8 +160,51 @@ class UserSelectedAssistantTest extends TestCase
 
             $this->assertTrue($result->abortProcessing);
             $this->assertNotNull($result->response);
-            $this->assertStringContainsString('too large', $result->response->messageText);
+            $this->assertStringContainsString('слишком большой', $result->response->messageText);
             $this->assertStringContainsString('big.txt', $result->response->messageText);
+        } finally {
+            $close();
+        }
+    }
+
+    public function testBotDocumentInChainIsNotReadAgainAndStillReachesAssistant(): void
+    {
+        // A bot-sent .md document (over-long rich markdown delivered as a file)
+        // already carries its full text in messageText; it must not be
+        // re-downloaded or re-folded, but its text must reach the model.
+        $assistant = $this->createMock(AssistantInterface::class);
+        $assistant->expects($this->once())->method('processMessageChain')->willReturn(
+            new ProcessingResult(InternalMessage::asResponseTo($this->message(0), 'OK'), true),
+        );
+        $factory = $this->buildFactory($assistant, allowed: true);
+
+        [$repository, $close] = $this->repository();
+        try {
+            $botDocument = $this->message(-200);
+            $botDocument->id = 60;
+            $botDocument->userId = 777;
+            $botDocument->messageText = str_repeat('a', TextDocumentReader::MAX_SIZE_BYTES + 1);
+            $botDocument->documentFileId = 'bot-doc';
+            $botDocument->documentFileName = 'response.md';
+            $botDocument->documentMimeType = 'text/markdown';
+            $repository->logInternalMessage($botDocument);
+
+            $downloader = $this->createMock(TelegramFileDownloader::class);
+            $downloader->expects($this->never())->method('downloadFile');
+            $processor = new UserSelectedAssistant(
+                $factory,
+                $this->reader(null),
+                new TextDocumentReader($downloader),
+                $repository,
+                new NullLogger(),
+                777,
+            );
+
+            $result = $processor->processMessageChain(new MessageChain([$botDocument]), $this->createCallback());
+
+            $this->assertSame('OK', $result->response->messageText);
+            // messageText unchanged, no size-limit error
+            $this->assertSame(str_repeat('a', TextDocumentReader::MAX_SIZE_BYTES + 1), $botDocument->messageText);
         } finally {
             $close();
         }
@@ -215,6 +259,7 @@ class UserSelectedAssistantTest extends TestCase
             new TextDocumentReader($downloader),
             $repository ?? $this->createStub(MessageRepository::class),
             new NullLogger(),
+            777,
         );
     }
 

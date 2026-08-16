@@ -5,6 +5,12 @@ namespace Perk11\Viktor89\Util;
 class TelegramRichMarkdown
 {
     /**
+     * Telegram's hard cap on rich message text: "Up to 32768 UTF-8 characters
+     * in the rich message text" (Bot API, Rich Message Limits).
+     */
+    public const int MAX_LENGTH = 32768;
+
+    /**
      * Markdown image syntax: ![alt](url) or ![alt](url "caption").
      */
     private const string IMAGE_REGEX = '/!\[([^]]*)]\(([^)]+)\)/';

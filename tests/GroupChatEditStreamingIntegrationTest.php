@@ -177,4 +177,67 @@ class GroupChatEditStreamingIntegrationTest extends TestCase
             return 'final answer';
         };
     }
+
+    /**
+     * When a streamed group-chat response outgrows the rich message limit,
+     * the streamed message is capped off with a "results will be sent as a
+     * file" notice, generation continues, and the final edit delivers a .md
+     * document, deleting the streamed message so only the file remains.
+     */
+    public function testOverlongStreamedResponseIsCappedWithNoticeAndDeliveredAsFile(): void
+    {
+        ob_start();
+        try {
+            $actions = async(fn () => $this->runScenario($this->overlongStreamBehavior()))->await();
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertContains('sendRichMessage', $actions, 'The first chunk should create the streamed message');
+        $this->assertContains('sendDocument', $actions, 'The over-long final response must be delivered as a .md file');
+        $this->assertContains('deleteMessage', $actions, 'The streamed message must be deleted so only the file remains');
+
+        $lastStreamedMarkdown = null;
+        foreach ($this->recordedCalls() as $call) {
+            if ($call['action'] === 'editMessageText' && isset($call['form']['rich_message'])) {
+                $rich = json_decode((string) $call['form']['rich_message'], true);
+                $lastStreamedMarkdown = $rich['markdown'] ?? $lastStreamedMarkdown;
+            }
+        }
+        $this->assertNotNull($lastStreamedMarkdown, 'the streamed message must have been edited with the length-limit notice');
+        $this->assertStringEndsWith(
+            'Max length reached, continuing generation, results will be sent as a file...',
+            $lastStreamedMarkdown,
+        );
+        $this->assertLessThanOrEqual(
+            \Perk11\Viktor89\Util\TelegramRichMarkdown::MAX_LENGTH,
+            mb_strlen($lastStreamedMarkdown),
+            'the notice edit itself must stay within the rich message limit',
+        );
+
+        $deletes = array_values(array_filter(
+            $this->recordedCalls(),
+            static fn(array $call): bool => $call['action'] === 'deleteMessage',
+        ));
+        $this->assertSame(42, (int) $deletes[0]['form']['message_id'], 'the streamed message is the one deleted');
+    }
+
+    private function overlongStreamBehavior(): \Closure
+    {
+        return function ($streamFunction): string {
+            delay(0.2);
+            $first = 'Start of a very long response. ';
+            $streamFunction($first); // creates the message (sendRichMessage)
+
+            delay(1.6); // >= edit frequency minimum (1.5s)
+
+            $huge = str_repeat('x', \Perk11\Viktor89\Util\TelegramRichMarkdown::MAX_LENGTH);
+            $streamFunction($huge); // crosses the limit: notice edit, further edits stop
+            delay(0.3); // let the main process deliver the notice edit
+
+            $extra = ' and a bit more after the limit was hit';
+
+            return $first . $huge . $extra;
+        };
+    }
 }

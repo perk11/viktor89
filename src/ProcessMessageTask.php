@@ -478,6 +478,7 @@ class ProcessMessageTask implements Task
             new \Perk11\Viktor89\Assistant\TextDocumentReader($telegramFileDownloader),
             $messageRepository,
             $logger,
+            $this->telegramBotId,
         );
         $videoModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $userPreferenceRepository,

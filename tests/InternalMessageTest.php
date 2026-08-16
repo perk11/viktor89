@@ -6,6 +6,7 @@ namespace Perk11\Viktor89\Test;
 
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\Test\Support\TelegramRecordingTrait;
+use Perk11\Viktor89\Util\TelegramRichMarkdown;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
@@ -290,6 +291,17 @@ class InternalMessageTest extends TestCase
         $this->assertSame([], $this->recordedActionsFiltered('setMessageReaction'));
     }
 
+    private function documentRequestBody(): string
+    {
+        foreach ($this->telegramTransactions as $transaction) {
+            if (self::extractActionFromRequest($transaction['request']) === 'sendDocument') {
+                return (string) $transaction['request']->getBody();
+            }
+        }
+
+        return '';
+    }
+
     /** @return list<array{action: string, chatId: int, form: array<string, mixed>, text: ?string, draftId: ?int}> */
     private function recordedActionsFiltered(string $action): array
     {
@@ -337,5 +349,117 @@ class InternalMessageTest extends TestCase
         $this->assertTrue($response->isOk(), 'edit() must keep retrying past repeated 429s until it succeeds');
         $this->assertSame(3, $attempt, 'edit() must retry past repeated 429s (previous behaviour gave up after a single retry)');
         $this->assertSame('final content', $message->messageText);
+    }
+
+    public function testOverlongRichMarkdownSendIsDeliveredAsMarkdownFile(): void
+    {
+        $this->installRecordingTelegramClient();
+
+        $longMarkdown = str_repeat('a', TelegramRichMarkdown::MAX_LENGTH + 10);
+        $message = new InternalMessage();
+        $message->chatId = 12345;
+        $message->replyToMessageId = 7;
+        $message->parseMode = 'RichMarkdown';
+        $message->messageText = $longMarkdown;
+
+        ob_start();
+        try {
+            $response = $message->send();
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertTrue($response->isOk());
+        $this->assertSame($longMarkdown, $message->messageText, 'full markdown is kept in messageText so the message stays usable in the chain');
+        $this->assertSame('doc-file-id', $message->documentFileId);
+        $this->assertSame('v89-md-test.md', $message->documentFileName);
+
+        $documents = $this->recordedActionsFiltered('sendDocument');
+        $this->assertCount(1, $documents, 'an over-long rich markdown message must be sent as a document');
+        $this->assertStringContainsString($longMarkdown, $this->documentRequestBody(), 'the .md file carries the full markdown');
+        $this->assertSame([], $this->recordedActionsFiltered('sendRichMessage'));
+        $this->assertSame([], $this->recordedActionsFiltered('deleteMessage'), 'a fresh send has no streamed message to delete');
+    }
+
+    public function testOverlongRichMarkdownEditSendsFileAndDeletesStreamedMessage(): void
+    {
+        $this->installRecordingTelegramClient();
+
+        $longMarkdown = str_repeat('b', TelegramRichMarkdown::MAX_LENGTH + 1);
+        $message = new InternalMessage();
+        $message->id = 42;
+        $message->chatId = -100;
+        $message->replyToMessageId = 7;
+        $message->parseMode = 'RichMarkdown';
+        $message->messageText = 'streamed prefix';
+
+        ob_start();
+        try {
+            $response = $message->edit($longMarkdown);
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertTrue($response->isOk());
+        $this->assertSame(43, $message->id, 'the message object now represents the sent file message');
+        $this->assertSame($longMarkdown, $message->messageText);
+        $this->assertSame('doc-file-id', $message->documentFileId);
+
+        $documents = $this->recordedActionsFiltered('sendDocument');
+        $this->assertCount(1, $documents);
+        $this->assertStringContainsString($longMarkdown, $this->documentRequestBody(), 'the .md file carries the full final markdown');
+        $this->assertStringContainsString('.md', $this->documentRequestBody(), 'the document is named as a markdown file');
+
+        $deletes = $this->recordedActionsFiltered('deleteMessage');
+        $this->assertCount(1, $deletes, 'the streamed message must be deleted so only the file remains');
+        $this->assertSame(42, (int) $deletes[0]['form']['message_id']);
+        $this->assertSame(-100, (int) $deletes[0]['chatId']);
+        $this->assertSame([], $this->recordedActionsFiltered('editMessageText'));
+    }
+
+    public function testDeliverAsFileFlagForcesFileDeliveryOnEditEvenWhenTextFits(): void
+    {
+        $this->installRecordingTelegramClient();
+
+        $message = new InternalMessage();
+        $message->id = 42;
+        $message->chatId = -100;
+        $message->parseMode = 'RichMarkdown';
+        $message->messageText = 'short';
+        $message->deliverAsFile = true;
+
+        ob_start();
+        try {
+            $response = $message->edit('still short');
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertTrue($response->isOk());
+        $this->assertCount(1, $this->recordedActionsFiltered('sendDocument'));
+        $this->assertCount(1, $this->recordedActionsFiltered('deleteMessage'));
+        $this->assertSame([], $this->recordedActionsFiltered('editMessageText'));
+        $this->assertSame('still short', $message->messageText);
+    }
+
+    public function testRichMarkdownSendWithinLimitStillSendsRichMessage(): void
+    {
+        $this->installRecordingTelegramClient();
+
+        $message = new InternalMessage();
+        $message->chatId = 12345;
+        $message->parseMode = 'RichMarkdown';
+        $message->messageText = str_repeat('c', TelegramRichMarkdown::MAX_LENGTH);
+
+        ob_start();
+        try {
+            $response = $message->send();
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertTrue($response->isOk());
+        $this->assertCount(1, $this->recordedActionsFiltered('sendRichMessage'));
+        $this->assertSame([], $this->recordedActionsFiltered('sendDocument'));
     }
 }
