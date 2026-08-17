@@ -11,9 +11,11 @@ class TelegramRichMarkdown
     public const int MAX_LENGTH = 32768;
 
     /**
-     * Markdown image syntax: ![alt](url) or ![alt](url "caption").
+     * Markdown image syntax: ![alt](url) or ![alt](url "caption"). The target
+     * is matched lazily up to an optional quoted caption, so parentheses
+     * inside the caption do not end the match and leave markup behind.
      */
-    private const string IMAGE_REGEX = '/!\[([^]]*)]\(([^)]+)\)/';
+    private const string IMAGE_REGEX = '/!\[([^]]*)]\(([^)]*?)(?:\s+"(?:[^"\\\\]|\\\\.)*")?\)/';
 
     /**
      * Paired <img ...>content</img> tags: the inner content is meaningful, so
@@ -35,12 +37,13 @@ class TelegramRichMarkdown
 
     /**
      * Replace image markup outside of code spans/blocks with a placeholder.
-     * LLMs should never generate image markdown directly; images are only
-     * inserted by tools (e.g. ImageGeneratorInlineToolCallExecutor) after
-     * generation is complete and go through a separate code path. Image
-     * markdown/HTML is replaced with a code block so Telegram can never try to
-     * render it as an image. Markup inside code spans/blocks is left intact,
-     * since there it is literal text rather than renderable markup.
+     * The only legitimate source of inline images is tool-call output appended
+     * via automatic_output_markdown, which callers must keep out of $text (see
+     * ResponseContentAccumulator); everything else here can only be markup
+     * hallucinated by the model, so it is replaced with a code block so
+     * Telegram never tries to render it as an image. Markup inside code
+     * spans/blocks is left intact, since there it is literal text rather than
+     * renderable markup.
      */
     public static function removeImages(string $text): string
     {

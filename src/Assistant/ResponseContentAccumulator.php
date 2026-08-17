@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Assistant;
 
+use Perk11\Viktor89\Util\TelegramRichMarkdown;
+
 /**
  * Accumulates an assistant response in two parallel tracks:
  *
@@ -35,7 +37,9 @@ final class ResponseContentAccumulator
     /**
      * Append a chunk of the model's own output (or other content that must reach
      * both the user and the LLM) to both tracks, separating it from preceding
-     * content with a newline.
+     * content with a newline. Model output may hallucinate image markup, which
+     * is stripped from the display track here; the clean track keeps the
+     * model's text verbatim for the LLM and the database.
      */
     public function appendSeparatingByANewLine(string $content): void
     {
@@ -49,14 +53,16 @@ final class ResponseContentAccumulator
             $this->telegramDisplayedContent .= "\n";
         }
         $this->llmVisibleContent .= $content;
-        $this->telegramDisplayedContent .= $content;
+        $this->telegramDisplayedContent .= TelegramRichMarkdown::removeImages($content);
     }
 
     /**
-     * Append content verbatim to both tracks (no separator logic), e.g. image
-     * markdown that already carries its own surrounding newlines.
+     * Append tool-call output produced outside the model (the
+     * automatic_output_markdown field of a tool result) verbatim to both
+     * tracks: it is the only legitimate source of inline images, so unlike
+     * model content it is not sanitized for display.
      */
-    public function append(string $content): void
+    public function appendAutomaticOutput(string $content): void
     {
         $this->llmVisibleContent .= $content;
         $this->telegramDisplayedContent .= $content;

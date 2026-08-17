@@ -47,14 +47,50 @@ class ResponseContentAccumulatorTest extends TestCase
         );
     }
 
-    public function testAppendReachesBothTracksVerbatim(): void
+    /**
+     * The display track is what Telegram sees, so model output appended via
+     * appendSeparatingByANewLine() has hallucinated image markup stripped
+     * there, while the clean track keeps the model's text verbatim for the
+     * LLM and the database.
+     */
+    public function testModelContentWithImagesIsSanitizedForDisplayButKeptForLlm(): void
     {
         $acc = new ResponseContentAccumulator();
-        $acc->appendSeparatingByANewLine('text');
-        $acc->append("\n\n<img src=\"x\">\n\n");
+        $acc->appendSeparatingByANewLine('Look ![fake](https://evil.example.com/x.png "a (b)")');
 
-        $this->assertSame("text\n\n<img src=\"x\">\n\n", $acc->llmVisibleContent);
-        $this->assertSame("text\n\n<img src=\"x\">\n\n", $acc->telegramDisplayedContent);
+        $this->assertSame('Look ![fake](https://evil.example.com/x.png "a (b)")', $acc->llmVisibleContent);
+        $this->assertSame('Look `<invalid image: fake>`', $acc->telegramDisplayedContent);
+    }
+
+    public function testModelContentWithoutImagesPassesThroughUnchangedForDisplay(): void
+    {
+        $acc = new ResponseContentAccumulator();
+        $acc->appendSeparatingByANewLine('Plain **markdown** and `code`.');
+
+        $this->assertSame('Plain **markdown** and `code`.', $acc->telegramDisplayedContent);
+    }
+
+    public function testAutomaticOutputImagesAreKeptVerbatimInBothTracks(): void
+    {
+        // automatic_output_markdown is the only legitimate source of inline
+        // images, so it must never be sanitized.
+        $image = '![](https://example.com/generated-images/x.png "a cat (really)")';
+        $acc = new ResponseContentAccumulator();
+        $acc->appendAutomaticOutput("\n\n$image\n\n");
+
+        $this->assertSame("\n\n$image\n\n", $acc->llmVisibleContent);
+        $this->assertSame("\n\n$image\n\n", $acc->telegramDisplayedContent);
+    }
+
+    public function testAutomaticOutputIsNeverSanitizedEvenNextToModelImages(): void
+    {
+        $image = '![](https://example.com/generated-images/1.png)';
+        $acc = new ResponseContentAccumulator();
+        $acc->appendSeparatingByANewLine('model ![fake](https://evil.example.com/x.png)');
+        $acc->appendAutomaticOutput("\n\n$image\n\n");
+
+        $this->assertSame("model `<invalid image: fake>`\n\n$image\n\n", $acc->telegramDisplayedContent);
+        $this->assertSame("model ![fake](https://evil.example.com/x.png)\n\n$image\n\n", $acc->llmVisibleContent);
     }
 
     public function testAppendContentSeparatesChunksWithNewline(): void

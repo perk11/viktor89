@@ -462,4 +462,59 @@ class InternalMessageTest extends TestCase
         $this->assertCount(1, $this->recordedActionsFiltered('sendRichMessage'));
         $this->assertSame([], $this->recordedActionsFiltered('sendDocument'));
     }
+
+    public function testRichMarkdownSendStripsImagesByDefault(): void
+    {
+        $this->installRecordingTelegramClient();
+
+        $message = new InternalMessage();
+        $message->chatId = 12345;
+        $message->parseMode = 'RichMarkdown';
+        $message->messageText = 'a ![fake](https://evil.example.com/x.png "c (d)") b';
+
+        ob_start();
+        try {
+            $response = $message->send();
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertTrue($response->isOk());
+        $this->assertSame('a `<invalid image: fake>` b', $this->lastRichMessageMarkdown());
+    }
+
+    public function testRichMarkdownSendKeepsImagesWhenAlreadySanitized(): void
+    {
+        $this->installRecordingTelegramClient();
+
+        $image = '![](https://example.com/generated-images/1.png "a cat (really)")';
+        $message = new InternalMessage();
+        $message->chatId = 12345;
+        $message->parseMode = 'RichMarkdown';
+        $message->messageText = "answer\n\n$image";
+        $message->imagesAlreadySanitized = true;
+
+        ob_start();
+        try {
+            $response = $message->send();
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertTrue($response->isOk());
+        $this->assertSame("answer\n\n$image", $this->lastRichMessageMarkdown());
+    }
+
+    private function lastRichMessageMarkdown(): string
+    {
+        foreach (array_reverse($this->recordedCalls()) as $call) {
+            if ($call['action'] === 'sendRichMessage' && isset($call['form']['rich_message'])) {
+                $rich = json_decode((string) $call['form']['rich_message'], true);
+
+                return (string) ($rich['markdown'] ?? '');
+            }
+        }
+
+        return '';
+    }
 }

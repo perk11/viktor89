@@ -11,6 +11,25 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(TelegramRichMarkdown::class)]
 class TelegramRichMarkdownTest extends TestCase
 {
+
+
+
+    public function testRemoveImagesReplacesImageWithParenthesizedCaptionWithoutLeftovers(): void
+    {
+        // Regression: the URL group used to stop at the first ")", leaving a
+        // stray `")` after the placeholder.
+        $input = '![a](https://example.com/x.png "a cat (really)")';
+        $this->assertSame('`<invalid image: a>`', TelegramRichMarkdown::removeImages($input));
+    }
+
+    public function testRemoveImagesReplacesImageWithEscapedQuoteInCaption(): void
+    {
+        $input = '![a](https://example.com/x.png "say \"hi\"")';
+        $this->assertSame('`<invalid image: a>`', TelegramRichMarkdown::removeImages($input));
+    }
+
+
+
     public function testSanitizeImageUrlReplacesAllImages(): void
     {
         $input = 'Hello ![alt](https://example.com/image.jpg)';

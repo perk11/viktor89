@@ -194,6 +194,81 @@ class AbstractOpenAIAPiAssistantTest extends TestCase
         $this->assertStringNotContainsString('Executing', $result->response->messageTextForDatabase);
     }
 
+    public function testProcessMessageChainMarksResponseWithSanitizedDisplayContent(): void
+    {
+        $assistant = new SanitizedDisplayTestAssistant(true);
+
+        $result = $assistant->processMessageChain(
+            $this->incomingChain(-100),
+            new NullProgressUpdateCallback(),
+        );
+
+        $this->assertTrue($result->response->imagesAlreadySanitized);
+    }
+
+    public function testProcessMessageChainLeavesResponseNeedingSanitizationByDefault(): void
+    {
+        $assistant = new SanitizedDisplayTestAssistant(false);
+
+        $result = $assistant->processMessageChain(
+            $this->incomingChain(-100),
+            new NullProgressUpdateCallback(),
+        );
+
+        $this->assertFalse($result->response->imagesAlreadySanitized);
+    }
+
+    public function testResponseStartImageMarkupIsSanitizedEvenWhenDisplayIsPreSanitized(): void
+    {
+        // responseStart is user-preference text prepended after the accumulator
+        // sanitized the display content, so it must be sanitized on its own;
+        // otherwise it would ride along verbatim once imagesAlreadySanitized
+        // makes the sender skip removeImages().
+        $assistant = new SanitizedDisplayTestAssistant(
+            true,
+            'Start ![logo](https://evil.example.com/logo.png "logo (small)") ',
+        );
+
+        $result = $assistant->processMessageChain(
+            $this->incomingChain(-100),
+            new NullProgressUpdateCallback(),
+        );
+
+        $this->assertSame(
+            'Start `<invalid image: logo>` answer',
+            $result->response->messageText,
+        );
+    }
+
+    public function testReasoningWithHallucinatedImageIsSanitizedForDisplay(): void
+    {
+        $assistant = new ReasoningTestAssistant('I will show ![fake](https://evil.example.com/x.png "a (b)") to the user');
+
+        $result = $assistant->processMessageChain(
+            $this->incomingChain(1), // private chat: <tg-thinking> variant
+            new NullProgressUpdateCallback(),
+        );
+
+        $this->assertStringContainsString('`<invalid image: fake>`', $result->response->reasoningForDisplay);
+        $this->assertStringNotContainsString('https://evil.example.com/x.png', $result->response->reasoningForDisplay);
+        // The reasoning itself stays raw for the database/LLM
+        $this->assertStringContainsString('https://evil.example.com/x.png', $result->response->reasoning);
+    }
+
+    private function incomingChain(int $chatId): MessageChain
+    {
+        $message = new InternalMessage();
+        $message->id = 1;
+        $message->type = 'text';
+        $message->userId = 999;
+        $message->userName = 'Tester';
+        $message->chatId = $chatId;
+        $message->date = time();
+        $message->messageText = 'hello';
+
+        return new MessageChain([$message]);
+    }
+
     // --- helpers ---
 
     private function buildAssistant(bool $supportsImages, ?string $altText = null): AbstractOpenAIAPiAssistant
@@ -305,6 +380,67 @@ class DisplayTextTestAssistant extends AbstractOpenAIAPiAssistant
     }
 }
 
+/** Returns a completion whose display content is optionally marked pre-sanitized. */
+class SanitizedDisplayTestAssistant extends AbstractOpenAIAPiAssistant
+{
+    public function __construct(
+        private readonly bool $sanitized,
+        private readonly ?string $responseStart = null,
+    ) {
+        parent::__construct(
+            new NullPreferenceReader(),
+            $responseStart === null ? new NullPreferenceReader() : new FixedPreferenceReader($responseStart),
+            new NullPreferenceReader(),
+            new StubPhotoDownloader(),
+            new RecordingAltTextProvider(null),
+            12345,
+            'http://localhost',
+            supportsImages: false,
+            logger: new \Psr\Log\NullLogger(),
+        );
+    }
+
+    public function getCompletionBasedOnContext(
+        AssistantContext $assistantContext,
+        ?callable $streamFunction = null,
+        ?MessageChain $messageChain = null,
+        ?ProgressUpdateCallback $progressUpdateCallback = null,
+    ): \Perk11\Viktor89\Assistant\CompletionResponse {
+        return new \Perk11\Viktor89\Assistant\CompletionResponse(
+            'answer',
+            displayContentSanitized: $this->sanitized,
+        );
+    }
+}
+
+/** Returns a completion carrying reasoning that contains hallucinated image markup. */
+class ReasoningTestAssistant extends AbstractOpenAIAPiAssistant
+{
+    public function __construct(private readonly string $reasoning)
+    {
+        parent::__construct(
+            new NullPreferenceReader(),
+            new NullPreferenceReader(),
+            new NullPreferenceReader(),
+            new StubPhotoDownloader(),
+            new RecordingAltTextProvider(null),
+            12345,
+            'http://localhost',
+            supportsImages: false,
+            logger: new \Psr\Log\NullLogger(),
+        );
+    }
+
+    public function getCompletionBasedOnContext(
+        AssistantContext $assistantContext,
+        ?callable $streamFunction = null,
+        ?MessageChain $messageChain = null,
+        ?ProgressUpdateCallback $progressUpdateCallback = null,
+    ): \Perk11\Viktor89\Assistant\CompletionResponse {
+        return new \Perk11\Viktor89\Assistant\CompletionResponse('answer', reasoning: $this->reasoning);
+    }
+}
+
 /** Returns a constant for every photo, without touching Telegram or the filesystem. */
 class StubPhotoDownloader extends \Perk11\Viktor89\TelegramFileDownloader
 {
@@ -348,6 +484,19 @@ class NullPreferenceReader implements \Perk11\Viktor89\UserPreferenceReaderInter
     public function getCurrentPreferenceValue(int $userId): ?string
     {
         return null;
+    }
+}
+
+/** Preference reader returning a fixed value. */
+class FixedPreferenceReader implements \Perk11\Viktor89\UserPreferenceReaderInterface
+{
+    public function __construct(private readonly string $value)
+    {
+    }
+
+    public function getCurrentPreferenceValue(int $userId): ?string
+    {
+        return $this->value;
     }
 }
 

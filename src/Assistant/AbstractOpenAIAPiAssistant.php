@@ -35,7 +35,6 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
     protected static float $draftFrequencySeconds = 0.7;
 
     protected readonly OpenAI $openAi;
-    protected bool $suppressDraftUpdates = false;
     private ?string $progressUpdateStatus = null;
     protected ?string $modelName = null;
 
@@ -120,19 +119,25 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             // messageText is what Telegram sees (may carry display-only notices);
             // messageTextForDatabase is the clean text persisted and replayed to
             // the LLM, so the notices never reach the model on later turns.
-            $message->messageText = $responseStart . trim($completion->getDisplayContent());
+            // responseStart is prepended after the accumulator already sanitized
+            // the display content, so it is sanitized here; the database keeps
+            // the raw preference text.
+            $message->messageText = ($responseStart === null ? '' : TelegramRichMarkdown::removeImages($responseStart))
+                . trim($completion->getDisplayContent());
             $message->messageTextForDatabase = $responseStart . trim($completion->content);
             $message->toolCalls = $completion->toolCalls;
             $message->reasoning = $completion->reasoning;
+            $message->imagesAlreadySanitized = $completion->displayContentSanitized;
             $message->model = $metadataModel;
             $message->systemPrompt = $metadataSystemPrompt;
             $message->personaId = $metadataPersonaId;
 
             if ($message->reasoning !== null) {
                 $isPrivateChat = $lastMessage->chatId > 0;
+                $sanitizedReasoning = TelegramRichMarkdown::removeImages($message->reasoning);
                 $message->reasoningForDisplay = $isPrivateChat
-                    ? '<tg-thinking>' . $message->reasoning . "\n</tg-thinking>"
-                    : $this->formatThinkingAsDetailsBlock($message->reasoning);
+                    ? '<tg-thinking>' . $sanitizedReasoning . "\n</tg-thinking>"
+                    : $this->formatThinkingAsDetailsBlock($sanitizedReasoning);
             }
 
             // The model produced no text (e.g. it only made tool calls whose
@@ -170,7 +175,7 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         ) {
             $partialContent .= $chunk;
 
-            if ($editingAborted || $this->suppressDraftUpdates) {
+            if ($editingAborted) {
                 return;
             }
 

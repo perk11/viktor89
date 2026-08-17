@@ -14,12 +14,17 @@ final readonly class CompletionResponse
      *        $content when null. Differs from $content only by display-only
      *        segments (e.g. the "Executing tool" notice) that must never be
      *        persisted or replayed to the LLM.
+     * @param bool $displayContentSanitized True when the display content was
+     *        already stripped of hallucinated image markup at accumulation time
+     *        (trusted inline images from automatic_output_markdown kept), so the
+     *        sender must not run removeImages() over it again.
      */
     public function __construct(
         public string $content,
         public array $toolCalls = [],
         public ?string $reasoning = null,
         public ?string $displayContent = null,
+        public bool $displayContentSanitized = false,
     ) {
     }
 

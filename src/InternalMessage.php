@@ -116,6 +116,16 @@ class InternalMessage
      */
     public ?string $reasoningForDisplay = null;
 
+    /**
+     * True when messageText was already stripped of hallucinated image markup
+     * at accumulation time (see ResponseContentAccumulator), with trusted
+     * inline images from automatic_output_markdown kept: RichMarkdown
+     * send/edit paths then skip removeImages(), which would strip those too.
+     * Streamed partials and every other sender leave this false so the
+     * send-time sanitization still applies.
+     */
+    public bool $imagesAlreadySanitized = false;
+
     /** Everything below is currently not stored in the database */
     public ?Audio $audio = null;
     public ?Video $video = null;
@@ -256,7 +266,7 @@ class InternalMessage
         if ($this->parseMode === 'RichMarkdown') {
             $options['rich_message'] = [
                 'markdown' => mb_substr(
-                    TelegramRichMarkdown::removeImages($this->rawMessageText ?? $this->messageText),
+                    $this->richMarkdownToSend($this->rawMessageText ?? $this->messageText),
                     0,
                     TelegramRichMarkdown::MAX_LENGTH,
                 ),
@@ -336,7 +346,7 @@ class InternalMessage
             $this->receiverUserId = null;
         }
         if ($this->parseMode === 'RichMarkdown') {
-            $markdown = TelegramRichMarkdown::removeImages($this->rawMessageText ?? $this->messageText);
+            $markdown = $this->richMarkdownToSend($this->rawMessageText ?? $this->messageText);
             if ($this->deliverAsFile || mb_strlen($markdown) > TelegramRichMarkdown::MAX_LENGTH) {
                 $response = $this->sendAsMarkdownDocument($this->rawMessageText ?? $this->messageText, $options);
             } else {
@@ -391,6 +401,11 @@ class InternalMessage
         return $response;
     }
 
+    private function richMarkdownToSend(string $text): string
+    {
+        return $this->imagesAlreadySanitized ? $text : TelegramRichMarkdown::removeImages($text);
+    }
+
     public function edit(string $newText, $autoRetry = true): ServerResponse
     {
         $textToEdit = $newText;
@@ -404,7 +419,7 @@ class InternalMessage
         ];
 
         if ($this->parseMode === 'RichMarkdown') {
-            $markdown = TelegramRichMarkdown::removeImages($textToEdit);
+            $markdown = $this->richMarkdownToSend($textToEdit);
             if ($this->deliverAsFile || mb_strlen($markdown) > TelegramRichMarkdown::MAX_LENGTH) {
                 // Telegram cannot turn an existing message into a document, so
                 // the over-long markdown is delivered as a new .md file message

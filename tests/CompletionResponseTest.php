@@ -74,4 +74,18 @@ class CompletionResponseTest extends TestCase
 
         $this->assertCount(3, $response->toolCalls);
     }
+
+    public function testDisplayContentSanitizedDefaultsToFalse(): void
+    {
+        $response = new CompletionResponse('Hello');
+
+        $this->assertFalse($response->displayContentSanitized);
+    }
+
+    public function testDisplayContentSanitizedCanBeSet(): void
+    {
+        $response = new CompletionResponse('Result', displayContentSanitized: true);
+
+        $this->assertTrue($response->displayContentSanitized);
+    }
 }

@@ -255,9 +255,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                             gc_collect_cycles();
                             $accumulator->appendSeparatingByANewLine($content);
 
-                            return new CompletionResponse(
-                                $accumulator->llmVisibleContent, $allToolCalls, reasoning: $reasoning, displayContent: $accumulator->telegramDisplayedContent
-                            );
+                            return $this->completionFromAccumulator($accumulator, $allToolCalls, $reasoning);
                         }
                     }
 
@@ -309,9 +307,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             $accumulator->appendSeparatingByANewLine($content);
 
             if (count($toolCalls) === 0) {
-                return new CompletionResponse(
-                    $accumulator->llmVisibleContent, $allToolCalls, reasoning: $reasoning, displayContent: $accumulator->telegramDisplayedContent
-                );
+                return $this->completionFromAccumulator($accumulator, $allToolCalls, $reasoning);
             }
 
             $this->logger?->log(LogLevel::DEBUG, 'Received tool calls: ' . json_encode($toolCalls, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
@@ -406,11 +402,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                         );
                     }
                     $autoOutput  = "\n\n". $toolResult['automatic_output_markdown'] . "\n\n";
-                    $accumulator->append($autoOutput);
-                    if ($streamFunction !== null) {
-                        $this->suppressDraftUpdates = true;
-                        $streamFunction($autoOutput);
-                    }
+                    $accumulator->appendAutomaticOutput($autoOutput);
                     unset($toolResult['automatic_output_markdown']);
                 }
 
@@ -460,12 +452,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     $streamFunction($limitMessage);
                 }
 
-                return new CompletionResponse(
-                    $accumulator->llmVisibleContent,
-                    $allToolCalls,
-                    reasoning: $reasoning,
-                    displayContent: $accumulator->telegramDisplayedContent,
-                );
+                return $this->completionFromAccumulator($accumulator, $allToolCalls, $reasoning);
             }
         }
         } catch (ErrorException $e) {
@@ -498,6 +485,25 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
             goto retry_compaction;
         }
+    }
+
+    /**
+     * The completion built from the accumulator: its display track was already
+     * stripped of hallucinated image markup (with trusted inline images from
+     * automatic_output_markdown kept), so the sender must not sanitize again.
+     */
+    private function completionFromAccumulator(
+        ResponseContentAccumulator $accumulator,
+        array $allToolCalls,
+        ?string $reasoning,
+    ): CompletionResponse {
+        return new CompletionResponse(
+            $accumulator->llmVisibleContent,
+            $allToolCalls,
+            reasoning: $reasoning,
+            displayContent: $accumulator->telegramDisplayedContent,
+            displayContentSanitized: true,
+        );
     }
 
     /**
