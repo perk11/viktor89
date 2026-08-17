@@ -353,6 +353,74 @@ class OpenAiPHPClientAssistantTest extends TestCase
         });
     }
 
+    /**
+     * After a tool returns automatic_output_markdown, streaming must keep
+     * updating drafts with the model's text: trusted images never enter the
+     * draft stream (they are only composed into the final message), so there
+     * is nothing to protect by freezing drafts, and freezing them leaves the
+     * user without live updates for the rest of the response.
+     */
+    public function testDraftsKeepStreamingAfterAutomaticOutputToolResult(): void
+    {
+        $tool = new CountingToolCallExecutor([
+            'status' => 'success',
+            'automatic_output_markdown' => '![](https://example.com/generated-images/1.png "Album cover (Deluxe)")',
+        ]);
+        $assistant = $this->buildAssistantWithTools(
+            ['inline_image_tool' => new ToolDefinition(
+                'inline_image_tool',
+                $tool,
+                'Send a cover image',
+                [new ToolParameter('item_id', ['type' => 'string'], true)],
+            )],
+            new ClientFake([
+                $this->toolCallStreamResponse('inline_image_tool'),
+                $this->textStreamResponse('Here is your cover!'),
+            ]),
+        );
+        $frequency = new \ReflectionProperty(\Perk11\Viktor89\Assistant\AbstractOpenAIAPiAssistant::class, 'draftFrequencySeconds');
+        $frequency->setAccessible(true);
+        $originalFrequency = $frequency->getValue();
+        $frequency->setValue(null, 0.0);
+
+        try {
+            $draftCallback = new RecordingDraftUpdateCallback();
+            $assistant->setDraftUpdateCallback($draftCallback);
+
+            $incoming = new \Perk11\Viktor89\InternalMessage();
+            $incoming->id = 1;
+            $incoming->type = 'text';
+            $incoming->userId = 999;
+            $incoming->userName = 'Tester';
+            $incoming->chatId = 100300; // private chat → draft stream
+            $incoming->date = time();
+            $incoming->messageText = 'send me the cover';
+
+            $result = $assistant->processMessageChain(
+                new \Perk11\Viktor89\MessageChain([$incoming]),
+                new NullProgressUpdateCallbackForDrafts(),
+            );
+        } finally {
+            $frequency->setValue(null, $originalFrequency);
+        }
+
+        $this->assertStringContainsString(
+            '![](https://example.com/generated-images/1.png',
+            $result->response->messageText,
+            'the final message keeps the trusted image verbatim',
+        );
+        $this->assertTrue($result->response->imagesAlreadySanitized);
+
+        $drafts = implode("\n", $draftCallback->texts);
+        $this->assertStringContainsString(
+            'Here is your cover!',
+            $drafts,
+            'drafts must keep streaming the model text after the automatic output',
+        );
+        $this->assertStringNotContainsString('![](https://example.com', $drafts, 'drafts never carry image markup');
+        $this->assertStringNotContainsString('<invalid image', $drafts, 'drafts never carry an image placeholder');
+    }
+
     private function buildAssistantWithTools(array $tools, ClientFake $fake, bool $supportsImages = false, ?AltTextProvider $altTextProvider = null): OpenAiPHPClientAssistant
     {
         return new OpenAiPHPClientAssistant(
@@ -515,6 +583,30 @@ class CountingToolCallExecutor implements ToolCallExecutorInterface
         $this->callCount++;
 
         return $this->result;
+    }
+}
+
+/** Records every draft pushed by a streaming assistant. */
+class RecordingDraftUpdateCallback implements \Perk11\Viktor89\IPC\DraftUpdateCallback
+{
+    /** @var list<string> */
+    public array $texts = [];
+
+    public function updateDraft(\Perk11\Viktor89\IPC\DraftState $draft): void
+    {
+        $this->texts[] = $draft->text;
+    }
+}
+
+/** Progress callback that ignores every update. */
+class NullProgressUpdateCallbackForDrafts implements \Perk11\Viktor89\IPC\ProgressUpdateCallback
+{
+    public function __invoke(string $processor, string $status, ?\Perk11\Viktor89\Util\Telegram\ChatAction $chatAction = null): void
+    {
+    }
+
+    public function subscribe(callable $subscriber): void
+    {
     }
 }
 
