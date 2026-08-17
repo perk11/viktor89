@@ -11,25 +11,91 @@ class ImageRepository
 {
     public function __construct(private readonly SQLite3 $sqlite3Database)
     {
+        $this->migrateDeletedAtColumn($this->sqlite3Database);
+    }
+
+    /**
+     * Adds the deleted_at column to databases created before it existed, so
+     * deletions can be undone via /restore. No-op when already present.
+     */
+    private function migrateDeletedAtColumn(SQLite3 $sqlite): void
+    {
+        $columns = $sqlite->query('PRAGMA table_info(saved_image)');
+        while ($row = $columns->fetchArray(SQLITE3_ASSOC)) {
+            if (($row['name'] ?? null) === 'deleted_at') {
+                return;
+            }
+        }
+        $sqlite->exec('ALTER TABLE saved_image ADD COLUMN deleted_at timestamp');
     }
 
     private const FILE_STORAGE_DIR = __DIR__ . '/../../data/images';
 
-    /** returns file contents of the file or null  */
-    public function retrieve(string $name): ?string
+    public function findByName(string $name): ?SavedImage
     {
-        $selectStatement = $this->sqlite3Database->prepare('SELECT filename FROM saved_image WHERE name = :name');
-        $selectStatement->bindValue(':name', $name, SQLITE3_TEXT);
-        $result = $selectStatement->execute();
+        return $this->find($name, 'deleted_at IS NULL');
+    }
 
-        $row = $result->fetchArray(SQLITE3_ASSOC);
+    public function findDeletedByName(string $name): ?SavedImage
+    {
+        return $this->find($name, 'deleted_at IS NOT NULL');
+    }
 
+    /* returns false if the name is not in use by a live (non-deleted) image owned by the user */
+    public function markDeletedByName(string $name, int $userId): bool
+    {
+        $statement = $this->sqlite3Database->prepare(
+            'UPDATE saved_image SET deleted_at = CURRENT_TIMESTAMP WHERE name = :name AND deleted_at IS NULL AND user_id = :user_id'
+        );
+        $statement->bindValue(':name', $name, SQLITE3_TEXT);
+        $statement->bindValue(':user_id', $userId, SQLITE3_INTEGER);
+        $statement->execute();
+
+        return $this->sqlite3Database->changes() > 0;
+    }
+
+    public function restoreDeletedByName(string $name, int $userId): bool
+    {
+        $statement = $this->sqlite3Database->prepare(
+            'UPDATE saved_image SET deleted_at = NULL WHERE name = :name AND deleted_at IS NOT NULL AND user_id = :user_id'
+        );
+        $statement->bindValue(':name', $name, SQLITE3_TEXT);
+        $statement->bindValue(':user_id', $userId, SQLITE3_INTEGER);
+        $statement->execute();
+
+        return $this->sqlite3Database->changes() > 0;
+    }
+
+    private function find(string $name, string $deletedAtCondition): ?SavedImage
+    {
+        $statement = $this->sqlite3Database->prepare(
+            "SELECT id, name, filename, user_id, created_at, private FROM saved_image WHERE name = :name AND $deletedAtCondition"
+        );
+        $statement->bindValue(':name', $name, SQLITE3_TEXT);
+        $row = $statement->execute()->fetchArray(SQLITE3_ASSOC);
         if ($row === false) {
             return null;
         }
 
-        $filePath = self::FILE_STORAGE_DIR . DIRECTORY_SEPARATOR . $row['filename'];
+        return new SavedImage(
+            $row['id'],
+            $row['name'],
+            $row['filename'],
+            $row['user_id'],
+            $row['created_at'],
+            (bool)$row['private'],
+        );
+    }
 
+    /** returns file contents of the file or null  */
+    public function retrieve(string $name): ?string
+    {
+        $image = $this->findByName($name);
+        if ($image === null) {
+            return null;
+        }
+
+        $filePath = self::FILE_STORAGE_DIR . DIRECTORY_SEPARATOR . $image->filename;
         if (!file_exists($filePath)) {
             throw new RuntimeException("File not found: " . $filePath);
         }
@@ -40,9 +106,21 @@ class ImageRepository
     /* returns false if the name is already in use  */
     public function save(string $name, int $userId, string $fileContents): bool
     {
-        $existingFile = $this->retrieve($name);
-        if ($existingFile !== null) {
+        if ($this->findByName($name) !== null) {
             return false;
+        }
+
+        $softDeleted = $this->findDeletedByName($name);
+        if ($softDeleted !== null) {
+            // The name is only occupied by a soft-deleted entry: discard it for good
+            // so the name can be reused (it can no longer be restored afterwards).
+            $oldFilePath = self::FILE_STORAGE_DIR . DIRECTORY_SEPARATOR . $softDeleted->filename;
+            if (file_exists($oldFilePath)) {
+                unlink($oldFilePath);
+            }
+            $stmtDelete = $this->sqlite3Database->prepare('DELETE FROM saved_image WHERE name = :name AND deleted_at IS NOT NULL');
+            $stmtDelete->bindValue(':name', $name, SQLITE3_TEXT);
+            $stmtDelete->execute();
         }
 
         if (!is_dir(self::FILE_STORAGE_DIR) && !mkdir(
@@ -88,7 +166,7 @@ class ImageRepository
     public function findAllPublicImages(): array
     {
         $stmt = $this->sqlite3Database->prepare(
-            'SELECT id, name, filename, user_id, created_at, private FROM saved_image WHERE private = 0 ORDER BY name'
+            'SELECT id, name, filename, user_id, created_at, private FROM saved_image WHERE private = 0 AND deleted_at IS NULL ORDER BY name'
         );
         $result = $stmt->execute();
 

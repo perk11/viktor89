@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS `saved_image`
     `filename` NOT NULL,
     `user_id` bigint NOT NULL,
     `created_at` timestamp NOT NULL,
+    `deleted_at` timestamp DEFAULT NULL,
     `private` boolean NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS `saved_audio`
@@ -98,6 +99,7 @@ CREATE TABLE IF NOT EXISTS `saved_audio`
     `filename` NOT NULL,
     `user_id` bigint NOT NULL,
     `created_at` timestamp NOT NULL,
+    `deleted_at` timestamp DEFAULT NULL,
     `private` boolean NOT NULL DEFAULT 0
 );
 

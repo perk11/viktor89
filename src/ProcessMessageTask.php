@@ -40,6 +40,8 @@ use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\ImageGeneration\RemixProcessor;
 use Perk11\Viktor89\ImageGeneration\RestyleGenerator;
 use Perk11\Viktor89\ImageGeneration\RmBgApiClient;
+use Perk11\Viktor89\ImageGeneration\DeleteSavedMediaProcessor;
+use Perk11\Viktor89\ImageGeneration\RestoreSavedMediaProcessor;
 use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
 use Perk11\Viktor89\ImageGeneration\SendAsDocumentProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
@@ -983,6 +985,16 @@ class ProcessMessageTask implements Task
             new CommandBasedResponderTrigger(
                 ['/saveas'],
                 new SaveAsProcessor($telegramFileDownloader, $imageRepository, $audioRepository),
+                $logger,
+            ),
+            new CommandBasedResponderTrigger(
+                ['/delete'],
+                new DeleteSavedMediaProcessor($imageRepository, $audioRepository),
+                $logger,
+            ),
+            new CommandBasedResponderTrigger(
+                ['/restore'],
+                new RestoreSavedMediaProcessor($imageRepository, $audioRepository, $database->botUserId),
                 $logger,
             ),
             new CommandBasedResponderTrigger(

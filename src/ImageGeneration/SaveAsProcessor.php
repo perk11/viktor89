@@ -31,6 +31,11 @@ class SaveAsProcessor implements MessageChainProcessor
             $response->messageText = "Напишите имя для сохранения после команды, например /saveas viktor89";
             return new ProcessingResult($response, true);
         }
+        if (preg_match('/[«»\r\n]/', $name) === 1) {
+            $response = InternalMessage::asResponseTo($lastMessage);
+            $response->messageText = 'Имя не должно содержать символы « и » или переводы строк.';
+            return new ProcessingResult($response, true);
+        }
 
         $previous = $messageChain->previous();
         if ($previous?->photoFileId !== null) {
