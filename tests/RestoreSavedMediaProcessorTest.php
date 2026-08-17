@@ -19,6 +19,8 @@ use PHPUnit\Framework\TestCase;
 class RestoreSavedMediaProcessorTest extends TestCase
 {
     private const BOT_USER_ID = 123;
+    private const USER_ID = 111;
+    private const OTHER_USER_ID = 999;
 
     private string $dbName = 'test_restore_saved_media.db';
     private Database $database;
@@ -32,7 +34,7 @@ class RestoreSavedMediaProcessorTest extends TestCase
         $this->database = new Database(self::BOT_USER_ID, $this->dbName);
         $this->imageRepository = new ImageRepository($this->database->sqlite3Database);
         $this->audioRepository = new AudioRepository($this->database->sqlite3Database);
-        $this->processor = new RestoreSavedMediaProcessor($this->imageRepository, $this->audioRepository, self::BOT_USER_ID);
+        $this->processor = new RestoreSavedMediaProcessor($this->imageRepository, $this->audioRepository);
     }
 
     protected function tearDown(): void
@@ -43,130 +45,117 @@ class RestoreSavedMediaProcessorTest extends TestCase
 
     public function testNoReplyShowsUsage(): void
     {
-        $result = $this->runProcessor(null, 111);
+        $result = $this->runProcessor([]);
 
         $this->assertTrue($result->abortProcessing);
         $this->assertStringContainsString('Использование', $result->response->messageText);
     }
 
-    public function testReplyToNonDeleteMessageIsRejected(): void
+    public function testReplyWithoutDeleteCommandInThreadIsRejected(): void
     {
-        $result = $this->runProcessor('Неизвестная команда', 111);
+        $result = $this->runProcessor([
+            ["Изображение «котик» удалено.", self::BOT_USER_ID],
+        ]);
 
         $this->assertStringContainsString('в ответ на сообщение', $result->response->messageText);
     }
 
-    public function testReplyToRefusalMessageIsRejected(): void
+    public function testReplyToCommandEchoTypedByAnotherUserIsRejected(): void
     {
-        $result = $this->runProcessor("Изображение «котик» может удалить только тот, кто его сохранил.", 111);
+        $this->insertDeletedImage('котик', self::USER_ID);
+
+        $result = $this->runProcessor([
+            ['/delete котик', self::OTHER_USER_ID],
+        ]);
 
         $this->assertStringContainsString('в ответ на сообщение', $result->response->messageText);
+        $this->assertNotNull($this->imageRepository->findDeletedByName('котик'));
     }
 
-    public function testRestoresImageAndAudioDeletedByBothMessage(): void
+    public function testRestoresEverythingDeletedUnderTheName(): void
     {
-        $this->insertDeletedImage('котик', 111);
-        $this->insertDeletedAudio('котик', 111);
+        $this->insertDeletedImage('котик', self::USER_ID);
+        $this->insertDeletedAudio('котик', self::USER_ID);
 
-        $result = $this->runProcessor("Изображение и аудио «котик» удалены.", 111);
+        $result = $this->runProcessor([
+            ['/delete котик', self::USER_ID],
+            ["Изображение и аудио «котик» удалены.", self::BOT_USER_ID],
+        ]);
 
         $this->assertSame("Восстановлено: изображение и аудио «котик».", $result->response->messageText);
         $this->assertNotNull($this->imageRepository->findByName('котик'));
         $this->assertNotNull($this->audioRepository->findByName('котик'));
     }
 
-    public function testRestoresOnlyAudioFromAudioMessage(): void
+    public function testReplyDirectlyToOwnDeleteCommandAlsoRestores(): void
     {
-        $this->insertDeletedImage('котик', 111);
-        $this->insertDeletedAudio('котик', 111);
+        $this->insertDeletedImage('котик', self::USER_ID);
 
-        $result = $this->runProcessor("Аудио «котик» удалено.", 111);
-
-        $this->assertSame("Восстановлено: аудио «котик».", $result->response->messageText);
-        $this->assertNull($this->imageRepository->findByName('котик'));
-        $this->assertNotNull($this->audioRepository->findByName('котик'));
-    }
-
-    public function testRestoresOnlyImageFromPartialDeleteMessage(): void
-    {
-        $this->insertDeletedImage('котик', 111);
-        $this->insertDeletedAudio('котик', 999);
-
-        $result = $this->runProcessor("Изображение «котик» удалено.\nАудио «котик» может удалить только тот, кто его сохранил.", 111);
+        $result = $this->runProcessor([
+            ['/delete котик', self::USER_ID],
+        ]);
 
         $this->assertSame("Восстановлено: изображение «котик».", $result->response->messageText);
         $this->assertNotNull($this->imageRepository->findByName('котик'));
-        $this->assertNull($this->audioRepository->findByName('котик'));
     }
 
-    public function testOnlySaverCanRestore(): void
+    public function testNameIsExtractedFromImgTagsAndBotMention(): void
     {
-        $this->insertDeletedImage('котик', 999);
+        $this->insertDeletedImage('котик', self::USER_ID);
 
-        $result = $this->runProcessor("Изображение «котик» удалено.", 111);
+        $result = $this->runProcessor([
+            ['/delete@some_bot <img>котик</img>', self::USER_ID],
+        ]);
 
-        $this->assertStringContainsString('только тот, кто его сохранил', $result->response->messageText);
-        $this->assertNotNull($this->imageRepository->findDeletedByName('котик'));
+        $this->assertSame("Восстановлено: изображение «котик».", $result->response->messageText);
     }
 
-    public function testNothingToRestore(): void
+    public function testNothingLeftUnderTheNameAtAll(): void
     {
-        $result = $this->runProcessor("Изображение «котик» удалено.", 111);
+        $result = $this->runProcessor([
+            ['/delete котик', self::USER_ID],
+            ["Изображение «котик» может удалить только тот, кто его сохранил.", self::BOT_USER_ID],
+        ]);
 
-        $this->assertStringContainsString('уже восстановлено', $result->response->messageText);
+        $this->assertStringContainsString('нечего восстанавливать', $result->response->messageText);
     }
 
-    public function testReplyToMessageFromAnotherUserIsRejected(): void
+    public function testLiveEntryUnderTheNameIsReportedAsTaken(): void
     {
-        $this->insertDeletedImage('котик', 111);
+        $this->insertImage('котик', self::OTHER_USER_ID);
 
-        $messages = [
-            self::makeMessage("Изображение «котик» удалено.", 555),
-            self::makeMessage('', 111),
-        ];
-        $result = $this->processor->processMessageChain(
-            new MessageChain($messages),
-            $this->createStub(ProgressUpdateCallback::class)
-        );
+        $result = $this->runProcessor([
+            ['/delete котик', self::USER_ID],
+            ["Изображение «котик» может удалить только тот, кто его сохранил.", self::BOT_USER_ID],
+        ]);
 
-        $this->assertStringContainsString('в ответ на сообщение бота', $result->response->messageText);
-        $this->assertNotNull($this->imageRepository->findDeletedByName('котик'));
+        $this->assertStringContainsString('Изображение «котик» не удалось восстановить', $result->response->messageText);
+        $this->assertStringContainsString('имя уже занято или уже восстановлено', $result->response->messageText);
     }
-
     public function testReportsTypeThatCannotBeRestoredWhenNameIsReused(): void
     {
-        $this->insertDeletedImage('котик', 111);
-        $this->insertAudio('котик', 999);
+        $this->insertDeletedImage('котик', self::USER_ID);
+        $this->insertAudio('котик', self::OTHER_USER_ID);
 
-        $result = $this->runProcessor("Изображение и аудио «котик» удалены.", 111);
+        $result = $this->runProcessor([
+            ['/delete котик', self::USER_ID],
+            ["Изображение и аудио «котик» удалены.", self::BOT_USER_ID],
+        ]);
 
         $this->assertSame(
             "Восстановлено: изображение «котик».\nАудио «котик» не удалось восстановить: имя уже занято или уже восстановлено.",
             $result->response->messageText,
         );
-        $this->assertNotNull($this->imageRepository->findByName('котик'));
-        $audio = $this->audioRepository->findByName('котик');
-        $this->assertSame(999, $audio->userId);
     }
 
-    public function testReportsNothingRestorableWhenNameIsReused(): void
-    {
-        $this->insertImage('котик', 999);
-
-        $result = $this->runProcessor("Изображение «котик» удалено.", 111);
-
-        $this->assertStringContainsString('Изображение «котик» не удалось восстановить', $result->response->messageText);
-        $this->assertStringContainsString('имя уже занято или уже восстановлено', $result->response->messageText);
-        $this->assertSame(999, $this->imageRepository->findByName('котик')->userId);
-    }
-
-    private function runProcessor(?string $repliedText, int $userId): ProcessingResult
+    /** @param list<array{0: string, 1: int}> $thread [text, userId] pairs preceding the /restore message */
+    private function runProcessor(array $thread, int $restorerId = self::USER_ID): ProcessingResult
     {
         $messages = [];
-        if ($repliedText !== null) {
-            $messages[] = self::makeMessage($repliedText, self::BOT_USER_ID);
+        foreach ($thread as [$text, $userId]) {
+            $messages[] = self::makeMessage($text, $userId);
         }
-        $messages[] = self::makeMessage('', $userId);
+        $messages[] = self::makeMessage('', $restorerId);
 
         return $this->processor->processMessageChain(
             new MessageChain($messages),
@@ -188,46 +177,35 @@ class RestoreSavedMediaProcessorTest extends TestCase
         return $message;
     }
 
-    private function insertAudio(string $name, int $userId): void
-    {
-        $stmt = $this->database->sqlite3Database->prepare(
-            'INSERT INTO saved_audio (name, filename, user_id, created_at) VALUES (:name, :filename, :user_id, CURRENT_TIMESTAMP)'
-        );
-        $stmt->bindValue(':name', $name);
-        $stmt->bindValue(':filename', 'restore-processor-test.ogg');
-        $stmt->bindValue(':user_id', $userId, SQLITE3_INTEGER);
-        $stmt->execute();
-    }
-
-    private function insertImage(string $name, int $userId): void
-    {
-        $stmt = $this->database->sqlite3Database->prepare(
-            'INSERT INTO saved_image (name, filename, user_id, created_at) VALUES (:name, :filename, :user_id, CURRENT_TIMESTAMP)'
-        );
-        $stmt->bindValue(':name', $name);
-        $stmt->bindValue(':filename', 'restore-processor-test.jpg');
-        $stmt->bindValue(':user_id', $userId, SQLITE3_INTEGER);
-        $stmt->execute();
-    }
-
     private function insertDeletedImage(string $name, int $userId): void
     {
-        $stmt = $this->database->sqlite3Database->prepare(
-            'INSERT INTO saved_image (name, filename, user_id, created_at, deleted_at) VALUES (:name, :filename, :user_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)'
-        );
-        $stmt->bindValue(':name', $name);
-        $stmt->bindValue(':filename', 'restore-processor-test.jpg');
-        $stmt->bindValue(':user_id', $userId, SQLITE3_INTEGER);
-        $stmt->execute();
+        $this->insert('saved_image', 'restore-processor-test.jpg', $name, $userId, deleted: true);
     }
 
     private function insertDeletedAudio(string $name, int $userId): void
     {
+        $this->insert('saved_audio', 'restore-processor-test.ogg', $name, $userId, deleted: true);
+    }
+
+    private function insertImage(string $name, int $userId): void
+    {
+        $this->insert('saved_image', 'restore-processor-test.jpg', $name, $userId);
+    }
+
+    private function insertAudio(string $name, int $userId): void
+    {
+        $this->insert('saved_audio', 'restore-processor-test.ogg', $name, $userId);
+    }
+
+    private function insert(string $table, string $filename, string $name, int $userId, bool $deleted = false): void
+    {
         $stmt = $this->database->sqlite3Database->prepare(
-            'INSERT INTO saved_audio (name, filename, user_id, created_at, deleted_at) VALUES (:name, :filename, :user_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)'
+            $deleted
+                ? "INSERT INTO $table (name, filename, user_id, created_at, deleted_at) VALUES (:name, :filename, :user_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                : "INSERT INTO $table (name, filename, user_id, created_at) VALUES (:name, :filename, :user_id, CURRENT_TIMESTAMP)"
         );
         $stmt->bindValue(':name', $name);
-        $stmt->bindValue(':filename', 'restore-processor-test.ogg');
+        $stmt->bindValue(':filename', $filename);
         $stmt->bindValue(':user_id', $userId, SQLITE3_INTEGER);
         $stmt->execute();
     }

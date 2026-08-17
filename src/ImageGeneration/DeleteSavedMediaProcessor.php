@@ -12,9 +12,7 @@ use Perk11\Viktor89\ProcessingResult;
 /**
  * /delete <имя>: soft-deletes the saved image and/or audio with that name.
  * Only the user who saved an entry can delete it; when both an image and an
- * audio exist under the name, both are deleted. The reply is what /restore
- * is answered to, so its wording is load-bearing (parsed by
- * RestoreSavedMediaProcessor).
+ * audio exist under the name, both are deleted.
  */
 class DeleteSavedMediaProcessor implements MessageChainProcessor
 {

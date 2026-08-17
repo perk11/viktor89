@@ -994,7 +994,7 @@ class ProcessMessageTask implements Task
             ),
             new CommandBasedResponderTrigger(
                 ['/restore'],
-                new RestoreSavedMediaProcessor($imageRepository, $audioRepository, $database->botUserId),
+                new RestoreSavedMediaProcessor($imageRepository, $audioRepository),
                 $logger,
             ),
             new CommandBasedResponderTrigger(
