@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\ImageGeneration;
 
 use Perk11\Viktor89\Audio\AudioRepository;
+use Perk11\Viktor89\Audio\AudioTrimmer;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\PreResponseProcessor\SavedAudioNotFoundException;
 use Perk11\Viktor89\PreResponseProcessor\SavedImageNotFoundException;
@@ -20,12 +21,13 @@ class ImgTagExtractor
         private readonly ?LoggerInterface $logger = null,
         private readonly ?AudioRepository $audioRepository = null,
         private readonly ?VideoFrameExtractor $videoFrameExtractor = null,
+        private readonly ?AudioTrimmer $audioTrimmer = null,
     ) {
     }
 
     private const string IMG_REGEX = '/<img>(.*?)<\/img>/s';
 
-    /** <fframe>, <lframe>, <img>, <vframe>, <audio> and <raudio> tags, each carrying a saved-image/-audio name or #N chain reference. */
+    /** <fframe>, <lframe>, <img>, <vframe>, <audio> and <raudio> tags, each carrying a saved-image/-audio name or #N chain reference. Audio references accept an optional ":seconds" offset suffix (<audio>Name:5.123</audio>): the first seconds are cropped off before the audio is fed to the model. */
     private const string FRAME_TAG_REGEX = '/<(fframe|lframe|img|vframe|audio|raudio)>(.*?)<\/\\1>/s';
 
     public function extractImageTags(
@@ -90,12 +92,19 @@ class ImgTagExtractor
                 $tag = $matches[1];
                 $reference = trim($matches[2]);
                 $isAudio = $tag === 'audio' || $tag === 'raudio';
+                $audioOffsetSeconds = null;
+                if ($isAudio) {
+                    [$reference, $audioOffsetSeconds] = self::splitAudioOffsetSuffix($reference);
+                }
                 $isVideoFrame = $tag === 'vframe';
                 $data = match (true) {
                     $isVideoFrame => $this->resolveChainVideoLastFrame($reference, $messageChain),
                     $isAudio => $this->resolveAudioReference($reference, $messageChain),
                     default => $this->resolveReference($reference, $messageChain),
                 };
+                if ($audioOffsetSeconds !== null) {
+                    $data = ($this->audioTrimmer ?? new AudioTrimmer())->trimLeadingSeconds($data, $audioOffsetSeconds);
+                }
                 match ($tag) {
                     'fframe' => $firstFrame ??= $data,
                     'lframe' => $lastFrame ??= $data,
@@ -221,6 +230,23 @@ class ImgTagExtractor
         }
 
         return null;
+    }
+
+    /**
+     * Splits an optional ":seconds" offset suffix off an audio reference:
+     * "mysong:5.123" → ["mysong", 5.123]. Only a final colon followed by a
+     * plain decimal number counts as an offset, so names containing colons
+     * resolve normally.
+     *
+     * @return array{string, ?float}
+     */
+    private static function splitAudioOffsetSuffix(string $reference): array
+    {
+        if (!preg_match('/^(.+):(\d*\.?\d+)$/', $reference, $matches)) {
+            return [$reference, null];
+        }
+
+        return [trim($matches[1]), (float) $matches[2]];
     }
 
     /**

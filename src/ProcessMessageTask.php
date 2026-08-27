@@ -14,6 +14,7 @@ use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Audio\AudioRepository;
+use Perk11\Viktor89\Audio\AudioTrimmer;
 use Perk11\Viktor89\Container\ContainerFactory;
 use Perk11\Viktor89\EmojiArt\EmojiArtProcessor;
 use Perk11\Viktor89\EmojiArt\EmojiPalette;
@@ -384,7 +385,7 @@ class ProcessMessageTask implements Task
         );
         $imageRepository = new ImageRepository($database->sqlite3Database);
         $audioRepository = new AudioRepository($database->sqlite3Database);
-        $imgTagExtractor = new ImgTagExtractor($imageRepository, $telegramFileDownloader, $logger, $audioRepository, new VideoFrameExtractor($logger));
+        $imgTagExtractor = new ImgTagExtractor($imageRepository, $telegramFileDownloader, $logger, $audioRepository, new VideoFrameExtractor($logger), new AudioTrimmer());
 
         $altTextProvider = $container->get(AltTextProvider::class);
         $processingResultExecutor = new ProcessingResultExecutor(

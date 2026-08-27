@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Perk11\Viktor89\Test;
 
 use Perk11\Viktor89\Audio\AudioRepository;
+use Perk11\Viktor89\Audio\AudioTrimmer;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImageRepository;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
@@ -425,6 +426,108 @@ class ImgTagExtractorTest extends TestCase
         $this->assertTrue($result->hasAnyAudio());
     }
 
+    public function testAudioTagOffsetSuffixCropsLeadingSeconds(): void
+    {
+        $audioRepo = $this->createStub(AudioRepository::class);
+        $audioRepo->method('retrieve')->willReturnCallback(function (string $name): ?string {
+            $this->assertSame('mysong', $name);
+            return 'audio-bytes';
+        });
+        $trimmer = $this->createStub(AudioTrimmer::class);
+        $trimmer->method('trimLeadingSeconds')->willReturnCallback(function (string $bytes, float $seconds): string {
+            $this->assertSame('audio-bytes', $bytes);
+            $this->assertSame(5.123, $seconds);
+            return 'trimmed-audio-bytes';
+        });
+        $extractor = new ImgTagExtractor(
+            $this->createStub(ImageRepository::class),
+            logger: new \Psr\Log\NullLogger(),
+            audioRepository: $audioRepo,
+            audioTrimmer: $trimmer,
+        );
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<audio>mysong:5.123</audio> go'));
+
+        $this->assertSame('trimmed-audio-bytes', $result->audioTrack);
+        $this->assertSame('mysong (audio 1) go', $result->userPrompt);
+    }
+
+    public function testRaudioTagOffsetSuffixCropsLeadingSeconds(): void
+    {
+        $trimmer = $this->createStub(AudioTrimmer::class);
+        $trimmer->method('trimLeadingSeconds')->willReturn('trimmed-audio-bytes');
+        $extractor = new ImgTagExtractor(
+            $this->createStub(ImageRepository::class),
+            logger: new \Psr\Log\NullLogger(),
+            audioRepository: $this->audioRepoStub('ref'),
+            audioTrimmer: $trimmer,
+        );
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<raudio>ref:2</raudio> go'));
+
+        $this->assertSame(['trimmed-audio-bytes'], $result->referenceAudios);
+        $this->assertNull($result->audioTrack);
+        $this->assertSame('ref (audio 1) go', $result->userPrompt);
+    }
+
+    public function testAudioTagWithoutOffsetIsNotTrimmed(): void
+    {
+        $trimmer = $this->createStub(AudioTrimmer::class);
+        $trimmer->method('trimLeadingSeconds')->willReturn('should-not-be-used');
+        $extractor = new ImgTagExtractor(
+            $this->createStub(ImageRepository::class),
+            logger: new \Psr\Log\NullLogger(),
+            audioRepository: $this->audioRepoStub('mysong'),
+            audioTrimmer: $trimmer,
+        );
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<audio>mysong</audio> go'));
+
+        $this->assertSame('audio-bytes', $result->audioTrack);
+    }
+
+    public function testAudioTagNameEndingInColonAndNonNumberIsNotSplit(): void
+    {
+        $trimmer = $this->createStub(AudioTrimmer::class);
+        $trimmer->method('trimLeadingSeconds')->willReturn('should-not-be-used');
+        $extractor = new ImgTagExtractor(
+            $this->createStub(ImageRepository::class),
+            logger: new \Psr\Log\NullLogger(),
+            audioRepository: $this->audioRepoStub('weird:name:mp3'),
+            audioTrimmer: $trimmer,
+        );
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<audio>weird:name:mp3</audio> go'));
+
+        $this->assertSame('audio-bytes', $result->audioTrack);
+        $this->assertSame('weird:name:mp3 (audio 1) go', $result->userPrompt);
+    }
+
+    public function testChainAudioReferenceAcceptsOffsetSuffix(): void
+    {
+        $downloader = $this->createStub(TelegramFileDownloader::class);
+        $downloader->method('downloadFile')->willReturn('chain-audio-bytes');
+        $trimmer = $this->createStub(AudioTrimmer::class);
+        $trimmer->method('trimLeadingSeconds')->willReturn('trimmed-audio-bytes');
+        $extractor = new ImgTagExtractor(
+            $this->createStub(ImageRepository::class),
+            $downloader,
+            logger: new \Psr\Log\NullLogger(),
+            audioRepository: $this->createStub(AudioRepository::class),
+            audioTrimmer: $trimmer,
+        );
+
+        $audioMessage = new InternalMessage();
+        $audioMessage->audio = new \Longman\TelegramBot\Entities\Audio(['file_id' => 'file-id-1', 'file_unique_id' => 'uid', 'duration' => 60]);
+        $commandMessage = new InternalMessage();
+        $chain = new MessageChain([$audioMessage, $commandMessage]);
+
+        $result = $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<audio>#0:1.5</audio> go'), $chain);
+
+        $this->assertSame('trimmed-audio-bytes', $result->audioTrack);
+        $this->assertSame('audio 1 go', $result->userPrompt);
+    }
+
     public function testAudioTagThrowsWhenSavedAudioNotFound(): void
     {
         $audioRepo = $this->createStub(AudioRepository::class);
@@ -541,6 +644,17 @@ class ImgTagExtractorTest extends TestCase
 
         $this->assertSame('chain-audio-bytes', $result->audioTrack);
         $this->assertSame('audio 1 go', $result->userPrompt);
+    }
+
+    private function audioRepoStub(string $expectedName): AudioRepository
+    {
+        $audioRepo = $this->createStub(AudioRepository::class);
+        $audioRepo->method('retrieve')->willReturnCallback(function (string $name) use ($expectedName): ?string {
+            $this->assertSame($expectedName, $name);
+            return 'audio-bytes';
+        });
+
+        return $audioRepo;
     }
 
     private function frameTagExtractor(?TelegramFileDownloader $downloader = null): ImgTagExtractor
