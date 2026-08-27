@@ -646,7 +646,7 @@ class ProcessMessageTask implements Task
             $logger,
         );
         $editProcessor = new CommandBasedResponderTrigger(
-            ['/edit '],
+            ['/edit'],
             new ImageGenerateProcessor(
                 $editAssistedImageGenerator,
                 $photoResponder,
