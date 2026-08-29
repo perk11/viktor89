@@ -26,7 +26,7 @@
   },
   "6": {
     "inputs": {
-      "sampler_name": "er_sde"
+      "sampler_name": "res_multistep"
     },
     "class_type": "KSamplerSelect",
     "_meta": {
@@ -35,11 +35,11 @@
   },
   "7": {
     "inputs": {
-      "scheduler": "sgm_uniform",
-      "steps": 8,
+      "scheduler": "simple",
+      "steps": 20,
       "denoise": 1,
       "model": [
-        "18",
+        "10",
         0
       ]
     },
@@ -79,7 +79,7 @@
   "9": {
     "inputs": {
       "model": [
-        "18",
+        "10",
         0
       ],
       "conditioning": [
@@ -151,34 +151,6 @@
     "class_type": "EmptyLatentImage",
     "_meta": {
       "title": "One-Frame Empty Latent"
-    }
-  },
-  "17": {
-    "inputs": {
-      "lora_name": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
-      "strength_model": 0.75,
-      "model": [
-        "10",
-        0
-      ]
-    },
-    "class_type": "LoraLoaderModelOnly",
-    "_meta": {
-      "title": "Load LoRA"
-    }
-  },
-  "18": {
-    "inputs": {
-      "lora_name": "MaxiMin-HHH-R2V-ThisIsFine_LoRA_V0_1.safetensors",
-      "strength_model": 1,
-      "model": [
-        "17",
-        0
-      ]
-    },
-    "class_type": "LoraLoaderModelOnly",
-    "_meta": {
-      "title": "Load LoRA"
     }
   },
   "save_image_websocket_node": {

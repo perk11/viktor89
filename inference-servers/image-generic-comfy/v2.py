@@ -33,22 +33,14 @@ def generate_image():
     model = data.get('model', '(blank)')
     width = int(data.get('width', 1024))
     height = int(data.get('height', 1024))
+    steps = int(data.get('steps', 0))
 
-    if model not in semaphores:
-        semaphores[model] = threading.Semaphore()
-
-    print("Acquiring lock for " + model, flush=True)
-    semaphores[model].acquire()
-    print("Acquired lock for " + model, flush=True)
-    try:
-        match model:
-            case 'minimax-h3':
-                comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_minimax_h3(prompt, seed, width, height)
-            case _:
-                return jsonify({"error": "Unknown model: " + model}), 400
-        return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
-    finally:
-        semaphores[model].release()
+    match model:
+        case 'minimax-h3':
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_minimax_h3(prompt, seed, steps, width, height)
+        case _:
+            return jsonify({"error": "Unknown model: " + model}), 400
+    return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
 
 @app.route('/sdapi/v1/img2img', methods=['POST'])
 def generate_img2img():
@@ -95,7 +87,7 @@ def generate_img2img():
             case 'flux2_dev_fp8-turbo-8-steps':
                 comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps, width, height, True)
             case 'minimax-h3':
-                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_minimax_h3(image_filenames, prompt, seed)
+                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_minimax_h3(image_filenames, prompt, seed, steps)
             case _:
                 return jsonify({"error": "Unknown model: " + model}), 400
         return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
@@ -208,15 +200,19 @@ def get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, se
     if turbo:
         infotext += ', Lora: Flux_2-Turbo-LoRA_comfyui'
     return comfy_workflow_object, infotext
-def get_img2img_workflow_infotext_and_filename_minimax_h3(image_filenames, prompt, seed):
+def get_img2img_workflow_infotext_and_filename_minimax_h3(image_filenames, prompt, seed, steps):
     if len(image_filenames) > 3:
         raise Exception("minimax-h3 supports up to 3 images")
+    if steps == 0:
+        steps = 20
+    steps = min(50, int(steps))
     workflow_file_path = Path(__file__).with_name("h3-img2img.json")
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
     comfy_workflow_object["13"]["inputs"]['prompt'] = prompt
     comfy_workflow_object["12"]["inputs"]['noise_seed'] = seed
+    comfy_workflow_object["7"]["inputs"]['steps'] = steps
 
     comfy_workflow_object["16"]["inputs"]['image'] = image_filenames[0]
     next_node_id = 22
@@ -249,13 +245,17 @@ def get_img2img_workflow_infotext_and_filename_minimax_h3(image_filenames, promp
 
     return comfy_workflow_object,  f'Seed: {seed}, Model: minimax-h3\n{prompt}'
 
-def get_txt2img_workflow_and_infotext_minimax_h3(prompt, seed, width, height):
+def get_txt2img_workflow_and_infotext_minimax_h3(prompt, seed, steps, width, height):
+    if steps == 0:
+        steps = 20
+    steps = min(50, int(steps))
     workflow_file_path = Path(__file__).with_name("h3-txt2img.json")
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
     comfy_workflow_object["13"]["inputs"]['prompt'] = prompt
     comfy_workflow_object["12"]["inputs"]['noise_seed'] = seed
+    comfy_workflow_object["7"]["inputs"]['steps'] = steps
     comfy_workflow_object["13"]["inputs"]['width'] = width
     comfy_workflow_object["13"]["inputs"]['height'] = height
     comfy_workflow_object["15"]["inputs"]['width'] = width
