@@ -23,6 +23,33 @@ parser.add_argument('--comfy_ui_input_dir', type=str, help='Path to ComfyUI "inp
 args = parser.parse_args()
 
 semaphores = {}
+@app.route('/sdapi/v1/txt2img', methods=['POST'])
+def generate_image():
+    data = request.json
+    print(data, flush=True)
+
+    prompt = data.get('prompt')
+    seed = int(data.get('seed', random.randint(1, 99999999999999)))
+    model = data.get('model', '(blank)')
+    width = int(data.get('width', 1024))
+    height = int(data.get('height', 1024))
+
+    if model not in semaphores:
+        semaphores[model] = threading.Semaphore()
+
+    print("Acquiring lock for " + model, flush=True)
+    semaphores[model].acquire()
+    print("Acquired lock for " + model, flush=True)
+    try:
+        match model:
+            case 'minimax-h3':
+                comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_minimax_h3(prompt, seed, width, height)
+            case _:
+                return jsonify({"error": "Unknown model: " + model}), 400
+        return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
+    finally:
+        semaphores[model].release()
+
 @app.route('/sdapi/v1/img2img', methods=['POST'])
 def generate_img2img():
     data = request.json
@@ -182,17 +209,59 @@ def get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, se
         infotext += ', Lora: Flux_2-Turbo-LoRA_comfyui'
     return comfy_workflow_object, infotext
 def get_img2img_workflow_infotext_and_filename_minimax_h3(image_filenames, prompt, seed):
-    if not len(image_filenames) == 1:
-        raise Exception("minimax-h3 requires exactly 1 image")
+    if len(image_filenames) > 3:
+        raise Exception("minimax-h3 supports up to 3 images")
     workflow_file_path = Path(__file__).with_name("h3-img2img.json")
     with workflow_file_path.open('r') as workflow_file:
         comfy_workflow = workflow_file.read()
     comfy_workflow_object = json.loads(comfy_workflow)
     comfy_workflow_object["13"]["inputs"]['prompt'] = prompt
     comfy_workflow_object["12"]["inputs"]['noise_seed'] = seed
+
     comfy_workflow_object["16"]["inputs"]['image'] = image_filenames[0]
+    next_node_id = 22
+    for index, image_file_name in enumerate(image_filenames[1:], start=1):
+        load_image_node_id = str(next_node_id)
+        scale_node_id = str(next_node_id + 1)
+        next_node_id += 2
+        comfy_workflow_object[load_image_node_id] = {
+            "inputs": {
+                "image": image_file_name
+            },
+            "class_type": "LoadImage",
+            "_meta": {
+                "title": f"Load Ref Image {index}"
+            }
+        }
+        comfy_workflow_object[scale_node_id] = {
+            "inputs": {
+                "upscale_method": "lanczos",
+                "megapixels": 2,
+                "resolution_steps": 1,
+                "image": [load_image_node_id, 0]
+            },
+            "class_type": "ImageScaleToTotalPixels",
+            "_meta": {
+                "title": "Scale Image to Total Pixels"
+            }
+        }
+        comfy_workflow_object["13"]["inputs"][f"ref_images.ref_image_{index}"] = [scale_node_id, 0]
 
     return comfy_workflow_object,  f'Seed: {seed}, Model: minimax-h3\n{prompt}'
+
+def get_txt2img_workflow_and_infotext_minimax_h3(prompt, seed, width, height):
+    workflow_file_path = Path(__file__).with_name("h3-txt2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["13"]["inputs"]['prompt'] = prompt
+    comfy_workflow_object["12"]["inputs"]['noise_seed'] = seed
+    comfy_workflow_object["13"]["inputs"]['width'] = width
+    comfy_workflow_object["13"]["inputs"]['height'] = height
+    comfy_workflow_object["15"]["inputs"]['width'] = width
+    comfy_workflow_object["15"]["inputs"]['height'] = height
+
+    return comfy_workflow_object, f'Seed: {seed}, Model: minimax-h3\n{prompt}'
 
 def get_img2img_workflow_infotext_and_filename_qwen_image_edit_meitu(image_filenames, prompt, seed, steps):
     if not len(image_filenames) == 1:
