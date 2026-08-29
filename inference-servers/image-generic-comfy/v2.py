@@ -67,6 +67,8 @@ def generate_img2img():
                 comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps, width, height, False)
             case 'flux2_dev_fp8-turbo-8-steps':
                 comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, seed, steps, width, height, True)
+            case 'minimax-h3':
+                comfy_workflow_object, infotext = get_img2img_workflow_infotext_and_filename_minimax_h3(image_filenames, prompt, seed)
             case _:
                 return jsonify({"error": "Unknown model: " + model}), 400
         return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
@@ -179,6 +181,19 @@ def get_img2img_workflow_infotext_and_filename_flux2(image_filenames, prompt, se
     if turbo:
         infotext += ', Lora: Flux_2-Turbo-LoRA_comfyui'
     return comfy_workflow_object, infotext
+def get_img2img_workflow_infotext_and_filename_minimax_h3(image_filenames, prompt, seed):
+    if not len(image_filenames) == 1:
+        raise Exception("minimax-h3 requires exactly 1 image")
+    workflow_file_path = Path(__file__).with_name("h3-img2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["13"]["inputs"]['prompt'] = prompt
+    comfy_workflow_object["12"]["inputs"]['noise_seed'] = seed
+    comfy_workflow_object["16"]["inputs"]['image'] = image_filenames[0]
+
+    return comfy_workflow_object,  f'Seed: {seed}, Model: minimax-h3\n{prompt}'
+
 def get_img2img_workflow_infotext_and_filename_qwen_image_edit_meitu(image_filenames, prompt, seed, steps):
     if not len(image_filenames) == 1:
         raise Exception("qwen_image_edit-MeiTu requires 1 image")
