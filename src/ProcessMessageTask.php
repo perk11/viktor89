@@ -1044,6 +1044,13 @@ class ProcessMessageTask implements Task
                 $logger,
             ),
             new CommandBasedResponderTrigger(
+                [ContextResetProcessor::COMMAND],
+                new ContextResetProcessor(
+                    $container->get(\Perk11\Viktor89\Assistant\Compaction\SqliteCompactionSummaryStore::class),
+                ),
+                $logger,
+            ),
+            new CommandBasedResponderTrigger(
                 ['/assistant'],
                 $userSelectedAssistant,
                 $logger,

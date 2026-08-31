@@ -132,6 +132,76 @@ class EngineTest extends TestCase
         $this->buildEngine($message, $repository, $fallBackResponder)->handleMessage($message);
     }
 
+    public function testPrivateChatAbortsHistoryAtNewCommand(): void
+    {
+        // Message 48 is the /new reset: history reading aborts there, so 48 and
+        // everything older must not reach the assistant, even though they are
+        // within the 100-message window.
+        $message = $this->buildMessage('hello there', 'private', 11111, messageId: 50);
+
+        $recentMessages = [];
+        foreach ([49 => 'msg49', 48 => '/new@Viktor89Bot', 47 => 'msg47', 46 => 'msg46'] as $id => $text) {
+            $m = new InternalMessage();
+            $m->id = $id;
+            $m->chatId = 11111;
+            $m->messageText = $text;
+            $recentMessages[] = $m;
+        }
+
+        $repository = $this->createStub(MessageRepository::class);
+        $repository->method('logMessage');
+        $repository->method('findNPreviousMessagesInChat')->willReturn($recentMessages);
+
+        $capturedChain = null;
+        $fallBackResponder = $this->createStub(MessageChainProcessor::class);
+        $fallBackResponder
+            ->method('processMessageChain')
+            ->willReturnCallback(function (MessageChain $chain) use (&$capturedChain): ProcessingResult {
+                $capturedChain = $chain;
+
+                return new ProcessingResult(null, true);
+            });
+
+        $this->buildEngine($message, $repository, $fallBackResponder)->handleMessage($message);
+
+        $this->assertNotNull($capturedChain);
+        $this->assertSame([49, 50], array_map(fn (InternalMessage $m) => $m->id, $capturedChain->getMessages()));
+    }
+
+    public function testPrivateChatKeepsHistoryWhenNoNewCommandWasSent(): void
+    {
+        // /newyear is not /new: nothing is dropped from the history.
+        $message = $this->buildMessage('hello there', 'private', 11111, messageId: 50);
+
+        $recentMessages = [];
+        foreach ([49 => 'msg49', 48 => '/newyear', 47 => 'msg47'] as $id => $text) {
+            $m = new InternalMessage();
+            $m->id = $id;
+            $m->chatId = 11111;
+            $m->messageText = $text;
+            $recentMessages[] = $m;
+        }
+
+        $repository = $this->createStub(MessageRepository::class);
+        $repository->method('logMessage');
+        $repository->method('findNPreviousMessagesInChat')->willReturn($recentMessages);
+
+        $capturedChain = null;
+        $fallBackResponder = $this->createStub(MessageChainProcessor::class);
+        $fallBackResponder
+            ->method('processMessageChain')
+            ->willReturnCallback(function (MessageChain $chain) use (&$capturedChain): ProcessingResult {
+                $capturedChain = $chain;
+
+                return new ProcessingResult(null, true);
+            });
+
+        $this->buildEngine($message, $repository, $fallBackResponder)->handleMessage($message);
+
+        $this->assertNotNull($capturedChain);
+        $this->assertSame([47, 48, 49, 50], array_map(fn (InternalMessage $m) => $m->id, $capturedChain->getMessages()));
+    }
+
     public function testGroupChatWithoutMentionOrReplyIsIgnored(): void
     {
         $message = $this->buildMessage('just chatting', 'supergroup', -100200, messageId: 50);

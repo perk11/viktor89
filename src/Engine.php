@@ -129,6 +129,7 @@ class Engine
                 100,
                 [],
             );
+            $recentMessages = self::dropHistoryUpToContextReset($recentMessages);
             $chain = new MessageChain(array_merge(array_reverse($recentMessages), [$lastMessage]));
         } elseif (
             !str_contains($message->getText() ?? '', '@' . $this->telegramBotUserName)
@@ -167,5 +168,24 @@ class Engine
         } else {
             $this->logger->log(LogLevel::ERROR, 'Failed to send response: ' . print_r($telegramServerResponse->getRawData(), true));
         }
+    }
+
+    /**
+     * /new restarts the context: abort reading (newest-first) history at the
+     * most recent /new command, dropping it and everything older, so the
+     * assistant context starts from scratch after the reset.
+     *
+     * @param InternalMessage[] $recentMessages newest-first, as returned by findNPreviousMessagesInChat
+     * @return InternalMessage[]
+     */
+    private static function dropHistoryUpToContextReset(array $recentMessages): array
+    {
+        foreach ($recentMessages as $position => $historyMessage) {
+            if (ContextResetProcessor::isContextResetCommandText($historyMessage->messageText)) {
+                return array_slice($recentMessages, 0, $position);
+            }
+        }
+
+        return $recentMessages;
     }
 }
