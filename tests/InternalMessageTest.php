@@ -417,6 +417,74 @@ class InternalMessageTest extends TestCase
         $this->assertSame([], $this->recordedActionsFiltered('editMessageText'));
     }
 
+    public function testOverlongEditWithThinkingDropsThinkingInsteadOfFallingBackToFile(): void
+    {
+        $this->installRecordingTelegramClient();
+
+        $thinking = "<details>\n<summary>Thinking</summary>\n" . str_repeat('t', 2000) . "\n</details>\n";
+        // Fits on its own, but not once the thinking block is prepended.
+        $text = str_repeat('a', TelegramRichMarkdown::MAX_LENGTH - 100);
+
+        $message = new InternalMessage();
+        $message->id = 42;
+        $message->chatId = -100;
+        $message->parseMode = 'RichMarkdown';
+        $message->reasoningForDisplay = $thinking;
+
+        ob_start();
+        try {
+            $response = $message->edit($text);
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertTrue($response->isOk());
+        $this->assertNull($message->reasoningForDisplay, 'thinking must be dropped when it alone pushed the message over the limit');
+        $edits = $this->recordedActionsFiltered('editMessageText');
+        $this->assertCount(1, $edits, 'the message must be edited in place instead of falling back to a file');
+        $rich = json_decode((string) $edits[0]['form']['rich_message'], true);
+        $this->assertSame($text, $rich['markdown'], 'the edit carries the full message without the thinking block');
+        $this->assertSame($text, $message->messageText);
+        $this->assertSame([], $this->recordedActionsFiltered('sendDocument'));
+        $this->assertSame([], $this->recordedActionsFiltered('deleteMessage'));
+    }
+
+    public function testOverlongEditWithThinkingStillFallsBackToFileWhenTextAloneTooLong(): void
+    {
+        $this->installRecordingTelegramClient();
+
+        $thinking = "<details>\n<summary>Thinking</summary>\nTHINKINGMARKER\n</details>\n";
+        $text = str_repeat('a', TelegramRichMarkdown::MAX_LENGTH + 1);
+
+        $message = new InternalMessage();
+        $message->id = 42;
+        $message->chatId = -100;
+        $message->replyToMessageId = 7;
+        $message->parseMode = 'RichMarkdown';
+        $message->reasoningForDisplay = $thinking;
+
+        ob_start();
+        try {
+            $response = $message->edit($text);
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertTrue($response->isOk());
+        $this->assertSame(43, $message->id, 'the message object now represents the sent file message');
+        $this->assertSame($text, $message->messageText);
+        $this->assertSame('doc-file-id', $message->documentFileId);
+
+        $documents = $this->recordedActionsFiltered('sendDocument');
+        $this->assertCount(1, $documents, 'still too long without thinking, so the file fallback must happen');
+        $this->assertStringContainsString($text, $this->documentRequestBody(), 'the .md file carries the full markdown');
+        $this->assertStringNotContainsString('THINKINGMARKER', $this->documentRequestBody(), 'the file never carries the thinking block');
+        $deletes = $this->recordedActionsFiltered('deleteMessage');
+        $this->assertCount(1, $deletes, 'the streamed message must be deleted so only the file remains');
+        $this->assertSame(42, (int) $deletes[0]['form']['message_id']);
+        $this->assertSame([], $this->recordedActionsFiltered('editMessageText'));
+    }
+
     public function testDeliverAsFileFlagForcesFileDeliveryOnEditEvenWhenTextFits(): void
     {
         $this->installRecordingTelegramClient();

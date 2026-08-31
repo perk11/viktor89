@@ -420,6 +420,16 @@ class InternalMessage
 
         if ($this->parseMode === 'RichMarkdown') {
             $markdown = $this->richMarkdownToSend($textToEdit);
+            if (!$this->deliverAsFile
+                && $this->reasoningForDisplay !== null
+                && mb_strlen($markdown) > TelegramRichMarkdown::MAX_LENGTH) {
+                // The thinking block alone can push an otherwise fitting
+                // message over the limit: drop it and re-check before falling
+                // back to a file.
+                $this->reasoningForDisplay = null;
+                $textToEdit = $newText;
+                $markdown = $this->richMarkdownToSend($textToEdit);
+            }
             if ($this->deliverAsFile || mb_strlen($markdown) > TelegramRichMarkdown::MAX_LENGTH) {
                 // Telegram cannot turn an existing message into a document, so
                 // the over-long markdown is delivered as a new .md file message
