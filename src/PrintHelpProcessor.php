@@ -6,7 +6,7 @@ use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 
 class PrintHelpProcessor implements MessageChainProcessor
 {
-    private const string INTRO = "Привет, я **Виктор89** 🤖\n\nГенерирую изображения, видео и голос, а также общаюсь с помощью LLM. Ниже — список доступных команд.\n\n⚠️ Пожалуйста, не используйте меня для создания чего-либо незаконного и не пытайтесь меня перегрузить.";
+    private const string INTRO = "Привет, я **Виктор89** 🤖\n\nГенерирую изображения, видео и голос, а также общаюсь с помощью LLM. Полный список команд — в раскрывающемся блоке ниже.\n\n⚠️ Пожалуйста, не используйте меня для создания чего-либо незаконного и не пытайтесь меня перегрузить.";
 
     private const string CLOSING_NOTE = "👁 Если бот поставил реакцию **👀**, значит запрос принят и встал в очередь. Все задачи с нейросетями выполняются по очереди, поэтому результат может появиться не сразу.";
 
@@ -21,6 +21,7 @@ class PrintHelpProcessor implements MessageChainProcessor
             'title' => '🤖 Чат и ИИ',
             'commands' => [
                 '/assistant' => 'начать диалог с LLM, например `/assistant Привет`. Чтобы продолжить беседу, отвечайте на сообщения бота. Бот также отвечает при упоминании через @ или ответе на его сообщение.',
+                '/new' => 'забыть предыдущие сообщения и начать диалог с чистого листа. Только в личных сообщениях.',
                 '/assistantmodel' => 'выбрать модель LLM для диалога.',
                 '/systemprompt' => 'системный промпт для LLM, например `/systemprompt You are a mean robot`. Без параметров — значение по умолчанию.',
                 '/editfrequency' => 'как часто (в секундах) бот обновляет ответ во время генерации в группах.',
@@ -128,6 +129,9 @@ class PrintHelpProcessor implements MessageChainProcessor
     private function buildMarkdown(): string
     {
         $markdown = self::INTRO . "\n\n";
+        // The whole command catalogue is collapsed by default (same expandable
+        // block the "Thinking" output uses), so the help message stays short.
+        $markdown .= "<details>\n<summary>📖 Список команд (нажмите, чтобы развернуть)</summary>\n\n";
         foreach (self::SECTIONS as $section) {
             $markdown .= '## ' . $section['title'] . "\n\n";
             $markdown .= "| Команда | Описание |\n";
@@ -138,6 +142,7 @@ class PrintHelpProcessor implements MessageChainProcessor
             }
             $markdown .= "\n";
         }
+        $markdown .= "</details>\n\n";
         $markdown .= self::CLOSING_NOTE;
 
         return trim($markdown);
