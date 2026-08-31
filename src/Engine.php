@@ -129,7 +129,7 @@ class Engine
                 100,
                 [],
             );
-            $recentMessages = self::dropHistoryUpToContextReset($recentMessages);
+            $recentMessages = $this->dropHistoryUpToContextReset($recentMessages);
             $chain = new MessageChain(array_merge(array_reverse($recentMessages), [$lastMessage]));
         } elseif (
             !str_contains($message->getText() ?? '', '@' . $this->telegramBotUserName)
@@ -172,17 +172,26 @@ class Engine
 
     /**
      * /new restarts the context: abort reading (newest-first) history at the
-     * most recent /new command, dropping it and everything older, so the
-     * assistant context starts from scratch after the reset.
+     * most recent /new command, dropping it and everything older. The bot's
+     * reply to the /new command (the reset confirmation) is dropped too, so
+     * the reset exchange never seeds the fresh context; user messages are
+     * kept even when they reply to /new.
      *
      * @param InternalMessage[] $recentMessages newest-first, as returned by findNPreviousMessagesInChat
      * @return InternalMessage[]
      */
-    private static function dropHistoryUpToContextReset(array $recentMessages): array
+    private function dropHistoryUpToContextReset(array $recentMessages): array
     {
         foreach ($recentMessages as $position => $historyMessage) {
             if (ContextResetProcessor::isContextResetCommandText($historyMessage->messageText)) {
-                return array_slice($recentMessages, 0, $position);
+                $keptMessages = array_slice($recentMessages, 0, $position);
+
+                return array_values(array_filter(
+                    $keptMessages,
+                    fn (InternalMessage $keptMessage): bool =>
+                        $keptMessage->userId !== $this->telegramBotId
+                        || $keptMessage->replyToMessageId !== $historyMessage->id,
+                ));
             }
         }
 
