@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\Assistant;
 
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\TelegramFileDownloader;
+use Perk11\Viktor89\Util\Utf8Sanitizer;
 
 /**
  * Detects Telegram documents that are plain text (by MIME type / file
@@ -83,7 +84,8 @@ class TextDocumentReader
             throw new DocumentTooLargeException($length);
         }
 
-        return $contents;
+        // Arbitrary file bytes: may not be valid UTF-8
+        return Utf8Sanitizer::sanitize($contents);
     }
 
     private function extensionFromFileName(string $fileName): ?string

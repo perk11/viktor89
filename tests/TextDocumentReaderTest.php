@@ -102,6 +102,18 @@ class TextDocumentReaderTest extends TestCase
         }
     }
 
+    public function testReadContentSanitizesInvalidUtf8(): void
+    {
+        // Raw document bytes are ingested as-is from Telegram and may not be
+        // valid UTF-8 (e.g. Latin-1 text or a broken multibyte sequence)
+        $reader = $this->buildReader("notes\xC3(\xE2\x82");
+
+        $content = $reader->readContent($this->document());
+
+        $this->assertTrue(mb_check_encoding($content, 'UTF-8'));
+        $this->assertNotFalse(json_encode($content, JSON_THROW_ON_ERROR));
+    }
+
     private function buildReader(string $downloadedBytes = ''): TextDocumentReader
     {
         $downloader = $this->createMock(TelegramFileDownloader::class);
