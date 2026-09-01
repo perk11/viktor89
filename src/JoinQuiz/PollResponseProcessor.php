@@ -17,14 +17,7 @@ use Psr\Log\LogLevel;
 
 class PollResponseProcessor
 {
-    private array $tutors = [
-        'https://cloud.nw-sys.ru/index.php/s/z97QnXmfcM8QKDn/download',
-        'https://cloud.nw-sys.ru/index.php/s/xqpNxq6Akk6SbDX/download',
-        'https://cloud.nw-sys.ru/index.php/s/eCkqzWGqGAFRjMQ/download',
-        'https://cloud.nw-sys.ru/index.php/s/wXeDasYwe44FaBx/download',
-        'https://cloud.nw-sys.ru/index.php/s/7cNH875Dq2HpFWH/download',
-        'https://cloud.nw-sys.ru/index.php/s/QatfCjzHn7ae5t2/download',
-    ];
+    private const WELCOME_VIDEOS_DIR = __DIR__ . '/../../data/welcome-videos';
 
     public function __construct(
         private readonly KickQueueRepository $kickQueueRepository,
@@ -95,13 +88,37 @@ class PollResponseProcessor
         }
 
         $this->logger->log(LogLevel::INFO, 'Answer was correct');
+        $welcomeCaption = TelegramUserHelper::fullNameWithIdAndUserName($pollAnswer->getUser()) .
+            ' прошёл(-ла) проверку. Добро пожаловать!';
+        $welcomeVideo = $this->randomWelcomeVideoPath();
+        if ($welcomeVideo === null) {
+            $this->logger->log(LogLevel::ERROR, 'No welcome videos found in ' . self::WELCOME_VIDEOS_DIR);
+            $message->messageText = $welcomeCaption;
+
+            return new ProcessingResult($message, true);
+        }
         Request::sendVideo([
                                'chat_id'             => $message->chatId,
                                'reply_to_message_id' => $kickQueueItem->joinMessageId,
-                               'video'               => $this->tutors[array_rand($this->tutors)],
-                               'caption'             => TelegramUserHelper::fullNameWithIdAndUserName($pollAnswer->getUser()).
-                                   ' прошёл(-ла) проверку. Добро пожаловать!',
+                               'video'               => Request::encodeFile($welcomeVideo),
+                               'caption'             => $welcomeCaption,
                            ]);
         return new ProcessingResult(null, true);
+    }
+
+    private function randomWelcomeVideoPath(): ?string
+    {
+        if (!is_dir(self::WELCOME_VIDEOS_DIR)) {
+            return null;
+        }
+        $videos = array_filter(
+            scandir(self::WELCOME_VIDEOS_DIR) ?: [],
+            fn (string $entry) => $entry[0] !== '.' && is_file(self::WELCOME_VIDEOS_DIR . '/' . $entry),
+        );
+        if ($videos === []) {
+            return null;
+        }
+
+        return self::WELCOME_VIDEOS_DIR . '/' . $videos[array_rand($videos)];
     }
 }
