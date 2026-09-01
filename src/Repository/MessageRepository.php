@@ -117,6 +117,22 @@ VALUES (:message_id, :tool_call_id, :tool_name, :arguments, :result, :chat_id)'
         $statement->execute();
     }
 
+    /**
+     * Overwrite the stored alt_text of an already-logged message. Used to mark
+     * text documents as processed by MessageChainTextDocumentLoader so their
+     * contents (or their too-large error) are never handled twice.
+     */
+    public function updateAltText(int $messageId, int $chatId, string $altText): void
+    {
+        $statement = $this->database->sqlite3Database->prepare(
+            'UPDATE message SET alt_text = :alt_text WHERE id = :id AND chat_id = :chat_id'
+        );
+        $statement->bindValue(':alt_text', $altText);
+        $statement->bindValue(':id', $messageId, SQLITE3_INTEGER);
+        $statement->bindValue(':chat_id', $chatId, SQLITE3_INTEGER);
+        $statement->execute();
+    }
+
     public function findMessageByIdInChat(int $id, int $chatId): ?InternalMessage
     {
         $this->selectMessageStatement->bindValue(':id', $id);

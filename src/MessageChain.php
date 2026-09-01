@@ -3,9 +3,25 @@
 namespace Perk11\Viktor89;
 
 use LogicException;
+use Perk11\Viktor89\Assistant\MessageChainTextDocumentLoader;
 
 class MessageChain
 {
+    /**
+     * Document loader shared by all chains. MessageChain is a plain value
+     * object created all over the codebase, so the loader is injected
+     * statically from the composition root instead of through a constructor
+     * (same approach as InternalMessage::setLogger()) — consumers can then
+     * fold attached text documents into the chain via loadTextDocuments()
+     * without each of them being wired with the loader individually.
+     */
+    private static ?MessageChainTextDocumentLoader $textDocumentLoader = null;
+
+    public static function setTextDocumentLoader(?MessageChainTextDocumentLoader $textDocumentLoader): void
+    {
+        self::$textDocumentLoader = $textDocumentLoader;
+    }
+
     /** Images generated during the current turn, kept out of $messages. */
     private array $generatedImages = [];
 
@@ -81,5 +97,19 @@ class MessageChain
     public function getMessages(): array
     {
         return $this->messages;
+    }
+
+    /**
+     * Fold the contents of attached text documents into the messages' text,
+     * so any prompt-driven consumer (assistants, /image, /video, …) treats the
+     * files as part of the prompt. No-op when no loader was injected.
+     *
+     * @return ProcessingResult|null an error reply when a document exceeds the
+     *                               size cap (the chain must not be forwarded
+     *                               further), null on success
+     */
+    public function loadTextDocuments(): ?ProcessingResult
+    {
+        return self::$textDocumentLoader?->loadIntoChain($this);
     }
 }

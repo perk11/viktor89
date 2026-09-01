@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Perk11\Viktor89\Test;
 
 use Exception;
+use Perk11\Viktor89\Assistant\MessageChainTextDocumentLoader;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
@@ -17,6 +18,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CommandBasedResponderTrigger::class)]
 class CommandBasedResponderTriggerTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        MessageChain::setTextDocumentLoader(null);
+    }
+
     public function testMatchingTriggerReturnsResponderResult(): void
     {
         $responder = $this->createMock(MessageChainProcessor::class);
@@ -249,6 +255,135 @@ class CommandBasedResponderTriggerTest extends TestCase
         $trigger->processMessageChain($chain, $callback);
 
         $this->assertSame('sunset', $chain->last()->messageText);
+    }
+
+    public function testTextDocumentContentsAreFoldedIntoPromptAfterCommandIsStripped(): void
+    {
+        $prompts = [];
+        $responder = $this->createMock(MessageChainProcessor::class);
+        $responder->expects($this->once())
+            ->method('processMessageChain')
+            ->willReturnCallback(function (MessageChain $chain) use (&$prompts) {
+                $prompts[] = $chain->last()->messageText;
+
+                return new ProcessingResult(null, true);
+            });
+
+        $loader = $this->createMock(MessageChainTextDocumentLoader::class);
+        $loader->expects($this->once())
+            ->method('loadIntoChain')
+            ->willReturnCallback(static function (MessageChain $chain): ?ProcessingResult {
+                // The command must already be stripped by the time the loader
+                // runs, so it can never mangle file contents containing it.
+                $instruction = trim($chain->last()->messageText);
+                $chain->last()->messageText = $instruction === '' ? 'FILE CONTENT' : $instruction . "\n\nFILE CONTENT";
+
+                return null;
+            });
+
+        MessageChain::setTextDocumentLoader($loader);
+        $trigger = new CommandBasedResponderTrigger(
+            ['/image'],
+            $responder,
+            logger: new \Psr\Log\NullLogger(),
+        );
+
+        $document = self::makeMessage('User', '/image');
+        $document->documentFileId = 'file-id';
+        $document->documentFileName = 'prompt.txt';
+        $trigger->processMessageChain(
+            new MessageChain([$document]),
+            $this->createMock(ProgressUpdateCallback::class),
+        );
+
+        $this->assertSame(['FILE CONTENT'], $prompts);
+    }
+
+    public function testTextDocumentInstructionIsKeptBeforeFileContents(): void
+    {
+        $prompts = [];
+        $responder = $this->createMock(MessageChainProcessor::class);
+        $responder->method('processMessageChain')
+            ->willReturnCallback(static function (MessageChain $chain) use (&$prompts) {
+                $prompts[] = $chain->last()->messageText;
+
+                return new ProcessingResult(null, true);
+            });
+
+        $loader = $this->createMock(MessageChainTextDocumentLoader::class);
+        $loader->method('loadIntoChain')
+            ->willReturnCallback(static function (MessageChain $chain): ?ProcessingResult {
+                $chain->last()->messageText .= "\nFILE CONTENT";
+
+                return null;
+            });
+
+        MessageChain::setTextDocumentLoader($loader);
+        $trigger = new CommandBasedResponderTrigger(
+            ['/video'],
+            $responder,
+            logger: new \Psr\Log\NullLogger(),
+        );
+
+        $trigger->processMessageChain(
+            new MessageChain([self::makeMessage('User', '/video a sunset')]),
+            $this->createMock(ProgressUpdateCallback::class),
+        );
+
+        $this->assertSame(["a sunset\nFILE CONTENT"], $prompts);
+    }
+
+    public function testTooLargeDocumentErrorAbortsBeforeResponder(): void
+    {
+        $responder = $this->createMock(MessageChainProcessor::class);
+        $responder->expects($this->never())->method('processMessageChain');
+
+        $message = self::makeMessage('User', '/image');
+        $loader = $this->createMock(MessageChainTextDocumentLoader::class);
+        $loader->method('loadIntoChain')
+            ->willReturn(new ProcessingResult(
+                InternalMessage::asResponseTo($message, '📄 слишком большой'),
+                true,
+            ));
+
+        MessageChain::setTextDocumentLoader($loader);
+        $trigger = new CommandBasedResponderTrigger(
+            ['/image'],
+            $responder,
+            logger: new \Psr\Log\NullLogger(),
+        );
+
+        $result = $trigger->processMessageChain(
+            new MessageChain([$message]),
+            $this->createMock(ProgressUpdateCallback::class),
+        );
+
+        $this->assertTrue($result->abortProcessing);
+        $this->assertSame('📄 слишком большой', $result->response->messageText);
+    }
+
+    public function testNonMatchingTriggerDoesNotLoadDocuments(): void
+    {
+        $responder = $this->createMock(MessageChainProcessor::class);
+        $responder->expects($this->never())->method('processMessageChain');
+
+        $loader = $this->createMock(MessageChainTextDocumentLoader::class);
+        $loader->expects($this->never())->method('loadIntoChain');
+
+        MessageChain::setTextDocumentLoader($loader);
+        $trigger = new CommandBasedResponderTrigger(
+            ['/image'],
+            $responder,
+            logger: new \Psr\Log\NullLogger(),
+        );
+
+        $result = $trigger->processMessageChain(
+            new MessageChain([self::makeMessage('User', 'no command here')]),
+            $this->createMock(ProgressUpdateCallback::class),
+        );
+
+        $this->assertNull($result->response);
+        $this->assertFalse($result->abortProcessing);
     }
 
     private static function makeMessage(string $userName, string $text): InternalMessage

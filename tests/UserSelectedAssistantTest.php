@@ -6,6 +6,7 @@ namespace Perk11\Viktor89\Test;
 
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\AssistantInterface;
+use Perk11\Viktor89\Assistant\MessageChainTextDocumentLoader;
 use Perk11\Viktor89\Assistant\TextDocumentReader;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\Database;
@@ -27,6 +28,7 @@ class UserSelectedAssistantTest extends TestCase
 
     protected function tearDown(): void
     {
+        MessageChain::setTextDocumentLoader(null);
         $fullPath = __DIR__ . '/../data/' . self::DB_NAME;
         if (file_exists($fullPath)) {
             unlink($fullPath);
@@ -43,13 +45,10 @@ class UserSelectedAssistantTest extends TestCase
     {
         $reflection = new \ReflectionClass(UserSelectedAssistant::class);
         $params = $reflection->getConstructor()->getParameters();
-        $this->assertCount(6, $params);
+        $this->assertCount(2, $params);
         $this->assertSame('assistantFactory', $params[0]->getName());
         $this->assertSame(AssistantFactory::class, $params[0]->getType()->getName());
         $this->assertSame(UserPreferenceReaderInterface::class, $params[1]->getType()->getName());
-        $this->assertSame(TextDocumentReader::class, $params[2]->getType()->getName());
-        $this->assertSame(MessageRepository::class, $params[3]->getType()->getName());
-        $this->assertSame('telegramBotUserId', $params[5]->getName());
     }
 
     public function testUsesSelectedAssistantWhenAllowedInChat(): void
@@ -191,13 +190,10 @@ class UserSelectedAssistantTest extends TestCase
 
             $downloader = $this->createMock(TelegramFileDownloader::class);
             $downloader->expects($this->never())->method('downloadFile');
+            MessageChain::setTextDocumentLoader($this->loader($downloader, $repository));
             $processor = new UserSelectedAssistant(
                 $factory,
                 $this->reader(null),
-                new TextDocumentReader($downloader),
-                $repository,
-                new NullLogger(),
-                777,
             );
 
             $result = $processor->processMessageChain(new MessageChain([$botDocument]), $this->createCallback());
@@ -253,9 +249,17 @@ class UserSelectedAssistantTest extends TestCase
         $downloader = $this->createMock(TelegramFileDownloader::class);
         $downloader->method('downloadFile')->willReturn($downloadedBytes);
 
+        MessageChain::setTextDocumentLoader($this->loader($downloader, $repository));
+
         return new UserSelectedAssistant(
             $factory,
             $preference,
+        );
+    }
+
+    private function loader(TelegramFileDownloader $downloader, ?MessageRepository $repository = null): MessageChainTextDocumentLoader
+    {
+        return new MessageChainTextDocumentLoader(
             new TextDocumentReader($downloader),
             $repository ?? $this->createStub(MessageRepository::class),
             new NullLogger(),

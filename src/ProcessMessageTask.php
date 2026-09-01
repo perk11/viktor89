@@ -27,6 +27,8 @@ use Perk11\Viktor89\Assistant\Tool\ListSavedImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\VideoGeneratorToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\WebSearchToolFactory;
+use Perk11\Viktor89\Assistant\MessageChainTextDocumentLoader;
+use Perk11\Viktor89\Assistant\TextDocumentReader;
 use Perk11\Viktor89\Assistant\UnknownAssistantException;
 use Perk11\Viktor89\Assistant\UserSelectedAssistant;
 use Perk11\Viktor89\ImageGeneration\DefaultingToFirstInConfigModelPreferenceReader;
@@ -475,13 +477,17 @@ class ProcessMessageTask implements Task
             $editModelConfig,
             $logger,
         );
-        $userSelectedAssistant = new UserSelectedAssistant(
-            $assistantFactory,
-            $assistantModelProcessor,
-            new \Perk11\Viktor89\Assistant\TextDocumentReader($telegramFileDownloader),
+        // Attached once here; every chain built in this worker can then fold
+        // its attached text documents in (MessageChain::loadTextDocuments()).
+        MessageChain::setTextDocumentLoader(new MessageChainTextDocumentLoader(
+            new TextDocumentReader($telegramFileDownloader),
             $messageRepository,
             $logger,
             $this->telegramBotId,
+        ));
+        $userSelectedAssistant = new UserSelectedAssistant(
+            $assistantFactory,
+            $assistantModelProcessor,
         );
         $videoModelProcessor = new ListBasedPreferenceByCommandProcessor(
             $userPreferenceRepository,

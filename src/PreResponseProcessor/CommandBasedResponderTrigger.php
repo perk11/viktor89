@@ -60,6 +60,14 @@ class CommandBasedResponderTrigger implements MessageChainProcessor, GetTriggeri
         }
 
         try {
+            // Fold attached text documents into the chain messages — after the
+            // command was stripped, so file contents that themselves contain
+            // the command text cannot be mangled by the str_replace above.
+            $documentError = $messageChain->loadTextDocuments();
+            if ($documentError !== null) {
+                return $documentError;
+            }
+
             return $this->responder->processMessageChain($messageChain, $progressUpdateCallback);
         } catch (Exception $e) {
             $this->logger->log(LogLevel::ERROR, "Got error when getting response to message chain from " . get_class($this->responder) . ": " . $e->getMessage() . "\n" . $e->getTraceAsString());
