@@ -13,17 +13,29 @@ use Psr\Log\LogLevel;
 
 /**
  * Resolves a VideoPromptPreprocessor from the `preprocessor` key found on a
- * video model's config entry. Unknown / empty keys return null (no
- * preprocessing). New target models are added as new case branches.
+ * video model's config entry. The key refers to an entry of the optional
+ * `videoPromptPreprocessors` config section, which selects the LLM the rewrite
+ * request is sent to:
+ *
+ *   "videoPromptPreprocessors": {
+ *       "minimax-h3-glm53":  { "assistant": "minimax-h3-video-prompt" },
+ *       "minimax-h3-flash":  { "assistant": "glm-5.3-flash" }
+ *   }
+ *
+ * The built-in `minimax-h3` key keeps working without such an entry (it
+ * defaults to the dedicated `minimax-h3-video-prompt` assistant, falling back
+ * to the alt-text vision assistant). Unknown / empty keys return null (no
+ * preprocessing).
  */
 class VideoPromptPreprocessorFactory
 {
-    /** Config key for the MiniMax-H3 prompt-writing guide. */
+    /** Built-in config key for the MiniMax-H3 prompt-writing guide. */
     public const string MINIMAX_H3 = 'minimax-h3';
 
     /**
-     * Dedicated vision assistant used for MiniMax-H3 prompt rewriting; falls
-     * back to the existing alt-text vision assistant when it is not configured.
+     * Dedicated vision assistant used by the built-in MiniMax-H3 key when no
+     * `videoPromptPreprocessors` entry overrides it; falls back to the existing
+     * alt-text vision assistant when it is not configured.
      */
     private const string MINIMAX_H3_ASSISTANT = 'minimax-h3-video-prompt';
     private const string FALLBACK_VISION_ASSISTANT = 'vision-for-alt-text';
@@ -31,6 +43,7 @@ class VideoPromptPreprocessorFactory
     public function __construct(
         private readonly AssistantFactory $assistantFactory,
         private readonly AltTextProvider $altTextProvider,
+        private readonly array $preprocessorsConfig,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -41,26 +54,47 @@ class VideoPromptPreprocessorFactory
             return null;
         }
 
-        return match ($key) {
-            self::MINIMAX_H3 => (function (): VideoPromptPreprocessor {
-                $assistant = $this->resolveVisionAssistant();
-                // All assistants extend AbstractOpenAIAPiAssistant, which exposes
-                // a public $supportsImages flag set from config. When it is false
-                // (e.g. a text-only model such as GLM-5.2), the preprocessor
-                // describes the frame with the alt-text vision assistant instead
-                // of attaching a photo the API would reject.
-                $supportsImages = property_exists($assistant, 'supportsImages')
-                    && $assistant->supportsImages === true;
+        $entry = $this->preprocessorsConfig[$key] ?? null;
+        if ($entry === null && $key !== self::MINIMAX_H3) {
+            $this->logger->log(LogLevel::WARNING, "Unknown preprocessor key '{$key}', not preprocessing");
 
-                return new MiniMaxH3VideoPromptPreprocessor(
-                    $assistant,
-                    $supportsImages,
-                    $this->altTextProvider,
-                    $this->logger,
-                );
-            })(),
-            default => null,
-        };
+            return null;
+        }
+
+        $configuredAssistant = $entry['assistant'] ?? null;
+        if ($entry !== null && !is_string($configuredAssistant)) {
+            $this->logger->log(LogLevel::ERROR, "Preprocessor '{$key}' has no 'assistant' key, not preprocessing");
+            return null;
+        }
+
+        // An explicitly configured assistant is required as-is: a missing one
+        // disables preprocessing rather than silently rewriting with a
+        // different LLM. Only the built-in key keeps its legacy fallback.
+        if ($configuredAssistant !== null) {
+            try {
+                $assistant = $this->assistantFactory->getAssistantInstanceByName($configuredAssistant);
+            } catch (UnknownAssistantException $e) {
+                $this->logger->log(LogLevel::ERROR, "Preprocessor '{$key}' refers to unknown assistant '{$configuredAssistant}', not preprocessing: {$e->getMessage()}");
+                return null;
+            }
+        } else {
+            $assistant = $this->resolveVisionAssistant();
+        }
+
+        // All assistants extend AbstractOpenAIAPiAssistant, which exposes
+        // a public $supportsImages flag set from config. When it is false
+        // (e.g. a text-only model such as GLM-5.2), the preprocessor
+        // describes the frame with the alt-text vision assistant instead
+        // of attaching a photo the API would reject.
+        $supportsImages = property_exists($assistant, 'supportsImages')
+            && $assistant->supportsImages === true;
+
+        return new MiniMaxH3VideoPromptPreprocessor(
+            $assistant,
+            $supportsImages,
+            $this->altTextProvider,
+            $this->logger,
+        );
     }
 
     /**

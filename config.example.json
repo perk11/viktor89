@@ -322,6 +322,14 @@
       "speakerId": "Ana Florence"
     }
   },
+  "videoPromptPreprocessors": {
+    "minimax-h3": {
+      "assistant": "minimax-h3-video-prompt"
+    },
+    "minimax-h3-flash": {
+      "assistant": "glm-5.3-flash"
+    }
+  },
   "videoModels": {
     "CogVideoX-5b": {
       "steps": 50,
@@ -334,6 +342,10 @@
     "minimax-h3-preprocessed": {
       "url": "http://localhost:8210",
       "preprocessor": "minimax-h3"
+    },
+    "minimax-h3-preprocessed-with-flash": {
+      "url": "http://localhost:8210",
+      "preprocessor": "minimax-h3-flash"
     },
     "minimax-h3-ref2vid": {
       "url": "http://localhost:8207",

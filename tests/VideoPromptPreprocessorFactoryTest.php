@@ -20,22 +20,22 @@ class VideoPromptPreprocessorFactoryTest extends TestCase
 {
     public function testReturnsNullForNullOrEmptyKey(): void
     {
-        $factory = new VideoPromptPreprocessorFactory($this->assistantFactoryStub(), $this->altTextProviderStub(), new NullLogger());
+        $factory = $this->factory();
         $this->assertNull($factory->createByConfigKey(null));
         $this->assertNull($factory->createByConfigKey(''));
     }
 
     public function testReturnsNullForUnknownKey(): void
     {
-        $factory = new VideoPromptPreprocessorFactory($this->assistantFactoryStub(), $this->altTextProviderStub(), new NullLogger());
-        $this->assertNull($factory->createByConfigKey('some-future-model'));
+        $factory = $this->factory();
+        $this->assertNull($factory->createByConfigKey('some-future-preprocessor'));
     }
 
     public function testCreatesMiniMaxH3Preprocessor(): void
     {
         $assistantFactory = $this->assistantFactoryReturning('minimax-h3-video-prompt', $this->createStub(AssistantInterface::class));
 
-        $factory = new VideoPromptPreprocessorFactory($assistantFactory, $this->altTextProviderStub(), new NullLogger());
+        $factory = $this->factory($assistantFactory);
 
         $this->assertInstanceOf(
             MiniMaxH3VideoPromptPreprocessor::class,
@@ -56,7 +56,7 @@ class VideoPromptPreprocessorFactoryTest extends TestCase
             },
         );
 
-        $factory = new VideoPromptPreprocessorFactory($assistantFactory, $this->altTextProviderStub(), new NullLogger());
+        $factory = $this->factory($assistantFactory);
 
         $this->assertInstanceOf(
             MiniMaxH3VideoPromptPreprocessor::class,
@@ -64,9 +64,67 @@ class VideoPromptPreprocessorFactoryTest extends TestCase
         );
     }
 
+    public function testCreatesPreprocessorFromConfiguredAssistant(): void
+    {
+        $assistant = $this->createStub(AssistantInterface::class);
+        $assistantFactory = $this->createStub(AssistantFactory::class);
+        $assistantFactory->method('getAssistantInstanceByName')->willReturnCallback(
+            static function (string $name) use ($assistant): AssistantInterface {
+                if ($name === 'glm-5.3-flash') {
+                    return $assistant;
+                }
+                throw new UnknownAssistantException($name);
+            },
+        );
+
+        $factory = $this->factory($assistantFactory, [
+            'minimax-h3-flash' => ['assistant' => 'glm-5.3-flash'],
+        ]);
+
+        $this->assertInstanceOf(
+            MiniMaxH3VideoPromptPreprocessor::class,
+            $factory->createByConfigKey('minimax-h3-flash'),
+        );
+    }
+
+    public function testConfiguredAssistantOverridesBuiltInKey(): void
+    {
+        $assistant = $this->createStub(AssistantInterface::class);
+        $assistantFactory = $this->assistantFactoryReturning('glm-5.3-flash', $assistant);
+
+        $factory = $this->factory($assistantFactory, [
+            VideoPromptPreprocessorFactory::MINIMAX_H3 => ['assistant' => 'glm-5.3-flash'],
+        ]);
+
+        $this->assertInstanceOf(
+            MiniMaxH3VideoPromptPreprocessor::class,
+            $factory->createByConfigKey(VideoPromptPreprocessorFactory::MINIMAX_H3),
+        );
+    }
+
+    public function testReturnsNullWhenConfiguredAssistantIsUnknown(): void
+    {
+        $assistantFactory = $this->createStub(AssistantFactory::class);
+        $assistantFactory->method('getAssistantInstanceByName')
+            ->willThrowException(new UnknownAssistantException('nope'));
+
+        $factory = $this->factory($assistantFactory, [
+            'minimax-h3-broken' => ['assistant' => 'nope'],
+        ]);
+
+        $this->assertNull($factory->createByConfigKey('minimax-h3-broken'));
+    }
+
+    public function testReturnsNullWhenConfigEntryHasNoAssistant(): void
+    {
+        $factory = $this->factory(null, ['minimax-h3-incomplete' => []]);
+
+        $this->assertNull($factory->createByConfigKey('minimax-h3-incomplete'));
+    }
+
     public function testCreateForModelPreferenceReturnsPreprocessorForSelectedModel(): void
     {
-        $factory = new VideoPromptPreprocessorFactory($this->assistantFactoryStub(), $this->altTextProviderStub(), new NullLogger());
+        $factory = $this->factory();
         $preference = $this->preferenceReturning('minimax-h3-preprocessed');
         $config = [
             'plain' => ['url' => 'http://x'],
@@ -79,18 +137,38 @@ class VideoPromptPreprocessorFactoryTest extends TestCase
         );
     }
 
+    public function testCreateForModelPreferenceReturnsPreprocessorForConfiguredAssistantVariant(): void
+    {
+        $assistantFactory = $this->assistantFactoryReturning('glm-5.3-flash', $this->createStub(AssistantInterface::class));
+        $factory = $this->factory($assistantFactory, [
+            'minimax-h3-flash' => ['assistant' => 'glm-5.3-flash'],
+        ]);
+        $preference = $this->preferenceReturning('minimax-h3-preprocessed');
+        $config = [
+            'minimax-h3-preprocessed' => ['preprocessor' => 'minimax-h3-flash'],
+        ];
+
+        $this->assertInstanceOf(
+            MiniMaxH3VideoPromptPreprocessor::class,
+            $factory->createForModelPreference($preference, $config, 7),
+        );
+    }
+
     public function testCreateForModelPreferenceReturnsNullWhenSelectedModelHasNoPreprocessor(): void
     {
-        $factory = new VideoPromptPreprocessorFactory($this->assistantFactoryStub(), $this->altTextProviderStub(), new NullLogger());
+        $factory = $this->factory();
         $preference = $this->preferenceReturning('plain');
-        $config = ['plain' => ['url' => 'http://x']];
+        $config = [
+            'preprocessed' => ['preprocessor' => 'minimax-h3'],
+            'plain' => ['url' => 'http://x'],
+        ];
 
         $this->assertNull($factory->createForModelPreference($preference, $config, 7));
     }
 
     public function testCreateForModelPreferenceDefaultsToFirstConfigEntryWhenNoPreference(): void
     {
-        $factory = new VideoPromptPreprocessorFactory($this->assistantFactoryStub(), $this->altTextProviderStub(), new NullLogger());
+        $factory = $this->factory();
         $preference = $this->preferenceReturning(null);
         $config = [
             'minimax-h3-preprocessed' => ['preprocessor' => 'minimax-h3'],
@@ -105,7 +183,7 @@ class VideoPromptPreprocessorFactoryTest extends TestCase
 
     public function testCreateForModelPreferenceDefaultsToFirstConfigEntryForUnknownPreference(): void
     {
-        $factory = new VideoPromptPreprocessorFactory($this->assistantFactoryStub(), $this->altTextProviderStub(), new NullLogger());
+        $factory = $this->factory();
         $preference = $this->preferenceReturning('does-not-exist');
         $config = [
             'minimax-h3-preprocessed' => ['preprocessor' => 'minimax-h3'],
@@ -114,6 +192,16 @@ class VideoPromptPreprocessorFactoryTest extends TestCase
         $this->assertInstanceOf(
             MiniMaxH3VideoPromptPreprocessor::class,
             $factory->createForModelPreference($preference, $config, 7),
+        );
+    }
+
+    private function factory(?AssistantFactory $assistantFactory = null, array $preprocessorsConfig = []): VideoPromptPreprocessorFactory
+    {
+        return new VideoPromptPreprocessorFactory(
+            $assistantFactory ?? $this->assistantFactoryStub(),
+            $this->altTextProviderStub(),
+            $preprocessorsConfig,
+            new NullLogger(),
         );
     }
 

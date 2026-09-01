@@ -540,6 +540,7 @@ class ProcessMessageTask implements Task
         $videoPromptPreprocessorFactory = new VideoPromptPreprocessorFactory(
             $assistantFactory,
             $altTextProvider,
+            $config['videoPromptPreprocessors'] ?? [],
             $logger,
         );
         $videoProcessor = new VideoProcessor(

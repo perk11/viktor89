@@ -189,7 +189,7 @@ class VideoProcessorTest extends TestCase
 
         $processor->processMessageChain($this->singleMessageChain('a cat playing piano'), $this->progressCallback());
 
-        $this->assertSame("cogvideox\na cat playing piano", $captured->caption);
+        $this->assertSame("Model: cogvideox\na cat playing piano", $captured->caption);
         $this->assertSame('cogvideox', $captured->model);
     }
 
