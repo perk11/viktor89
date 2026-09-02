@@ -60,6 +60,9 @@ def generate_video():
             case 'minimax-h3':
                 vhs = True
                 comfy_workflow_object, infotext = get_workflow_and_infotext_minimaxh3(prompt, seed, num_frames)
+            case 'minimax-h3-fused-turbo':
+                vhs = True
+                comfy_workflow_object, infotext = get_workflow_and_infotext_minimaxh3_fused_turbo(prompt, seed, num_frames)
             case _:
                 return jsonify({"error": "Unknown model: " + model}), 400
         if vhs:
@@ -106,6 +109,13 @@ def generate_video_from_image():
                     image_file.write(image_data)
                 comfy_workflow_object, infotext = get_workflow_and_infotext_minimaxh3_img2vid(
                     image_file_name, prompt, seed, num_frames)
+            case 'minimax-h3-fused-turbo':
+                image_data = base64.b64decode(init_images[0])
+                image_file_name = "viktor89-" + model + "-img2vid-image.jpg"
+                with open(args.comfy_ui_input_dir + '/' + image_file_name, 'wb') as image_file:
+                    image_file.write(image_data)
+                comfy_workflow_object, infotext = get_workflow_and_infotext_minimaxh3_fused_turbo(
+                    prompt, seed, num_frames, image_file_name)
             case _:
                 return jsonify({"error": "Unknown model: " + model}), 400
         return comfy_workflow_vhs_video_combine_to_json_video_response(
@@ -160,6 +170,46 @@ def get_workflow_and_infotext_minimaxh3(prompt, seed, num_frames):
     comfy_workflow_object["130"]["inputs"]["noise_seed"] = seed
 
     return comfy_workflow_object, f'{prompt}\nSeed: {seed}, Model: minimax-h3'
+
+
+def get_workflow_and_infotext_minimaxh3_fused_turbo(prompt, seed, num_frames, image_file_name=None):
+    workflow_file_path = Path(__file__).with_name("minimax_h3_fused_turbo_txt2vid.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    num_frames = min(num_frames, 360)
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["1"]["inputs"]["value"] = prompt
+    comfy_workflow_object["133"]["inputs"]["value"] = num_frames / 24
+    comfy_workflow_object["129"]["inputs"]["noise_seed"] = seed
+
+    if image_file_name is not None:
+        # img2vid reuses the txt2vid workflow: add the image-loading chain from
+        # minimax_h3_img2vid.json dynamically (node ids 120/119 are taken here, hence 112-114)
+        comfy_workflow_object["114"] = {
+            "inputs": {"image": image_file_name},
+            "class_type": "LoadImage",
+            "_meta": {"title": "Load Image"},
+        }
+        comfy_workflow_object["113"] = {
+            "inputs": {
+                "upscale_method": "nearest-exact",
+                "megapixels": 0.6,
+                "resolution_steps": 32,
+                "image": ["114", 0],
+            },
+            "class_type": "ImageScaleToTotalPixels",
+            "_meta": {"title": "Scale Image to Total Pixels"},
+        }
+        comfy_workflow_object["112"] = {
+            "inputs": {"image": ["113", 0]},
+            "class_type": "GetImageSize",
+            "_meta": {"title": "Get Image Size"},
+        }
+        comfy_workflow_object["131"]["inputs"]["first_frame"] = ["114", 0]
+        comfy_workflow_object["131"]["inputs"]["width"] = ["112", 0]
+        comfy_workflow_object["131"]["inputs"]["height"] = ["112", 1]
+
+    return comfy_workflow_object, f'{prompt}\nSeed: {seed}, Model: minimax-h3-fused-turbo'
 
 
 def get_workflow_and_infotext_minimaxh3_img2vid(image_file_name, prompt, seed, num_frames):
