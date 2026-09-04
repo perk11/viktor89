@@ -351,6 +351,11 @@
       "url": "http://localhost:8207",
       "model": "minimax-h3-ref2vid",
       "supportsReferences": true
+    },
+    "vdn-minimax-h3-8-step": {
+      "url": "http://localhost:8211",
+      "model": "vdn-minimax-h3-8-step",
+      "preprocessor": "minimax-h3"
     }
   },
   "videoEditModels": {
