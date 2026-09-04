@@ -206,6 +206,12 @@ class PinnedTransformerSwap:
             self._assign(module, attr, pinned)
         return pinned
 
+    def pin(self):
+        """Page-lock everything WITHOUT touching the GPU: safe to run in the
+        background while a generation owns the device."""
+        for module, attr, tensor in self._entries():
+            self._pin(module, attr, tensor)
+
     def to_cpu(self):
         for module, attr, tensor in self._entries():
             pinned = self._pin(module, attr, tensor)
@@ -265,10 +271,11 @@ class VdnH3Renderer:
             self._ensure_text_encoder_locked()
 
     def start_background_encoder_preload(self):
-        """Load + pin the fp8 text encoder right after startup, while the GPU is
-        idle, so the first new prompt does not pay the one-time ~30 s pinning. The
-        warm swap cycle runs under the generation semaphore so it can never share
-        the GPU with a generation (the encoder's 34 GB would OOM the denoise)."""
+        """Load + pin the fp8 text encoder right after startup so the first new
+        prompt does not pay the one-time ~30 s pinning. Pinning is host-side only
+        (cudaHostAlloc + memcpy), so it deliberately does NOT take the generation
+        semaphore -- taking it here deadlocks against a request that already holds
+        the lock and waits on _encoder_ready."""
         if args.text_encoder_device != 'cuda' or args.no_text_encoder_fp8:
             return
         self._encoder_ready.clear()
@@ -276,19 +283,14 @@ class VdnH3Renderer:
         def worker():
             try:
                 self._ensure_text_encoder()
-                if self._text_encoder_fp8:
-                    self.sem.acquire()
-                    try:
-                        print('Pre-pinning the fp8 text encoder in host RAM...', flush=True)
-                        started = time.time()
-                        if self._encoder_swap is None:
-                            self._encoder_swap = PinnedTransformerSwap(self._text_encoder)
-                        self._encoder_swap.to_gpu(self.device)
-                        self._encoder_swap.to_cpu()
-                        print(f'fp8 text encoder pinned and ready in {time.time() - started:.0f}s',
-                              flush=True)
-                    finally:
-                        self.sem.release()
+                if self._text_encoder_fp8 and self._encoder_swap is None:
+                    print('Pre-pinning the fp8 text encoder in host RAM...', flush=True)
+                    started = time.time()
+                    swap = PinnedTransformerSwap(self._text_encoder)
+                    swap.pin()
+                    self._encoder_swap = swap
+                    print(f'fp8 text encoder pinned and ready in {time.time() - started:.0f}s',
+                          flush=True)
             except Exception as exc:
                 print(f'Background text-encoder preload failed ({exc}); '
                       f'the first request will load it synchronously', flush=True)
