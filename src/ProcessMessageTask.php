@@ -48,8 +48,6 @@ use Perk11\Viktor89\ImageGeneration\RestoreSavedMediaProcessor;
 use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
 use Perk11\Viktor89\ImageGeneration\SendAsDocumentProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
-use Perk11\Viktor89\ImageGeneration\ZoomApiClient;
-use Perk11\Viktor89\ImageGeneration\ZoomCommandProcessor;
 use Perk11\Viktor89\IPC\ChannelBeforeMessageSentNotifier;
 use Perk11\Viktor89\IPC\ChannelDraftUpdateCallback;
 use Perk11\Viktor89\IPC\EngineProgressUpdateCallback;
@@ -593,10 +591,6 @@ class ProcessMessageTask implements Task
             $container->get(JoinQuizProcessor::class),
         ];
 
-        $zoomLevelPreference = new FixedValuePreferenceProvider(2);
-        $zoomGenerator = new ZoomApiClient($seedProcessor, $zoomLevelPreference, $config['zoomModels'], $logger);
-        $zoomImageTransformProcessor = new ImageTransformProcessor($telegramFileDownloader, $zoomGenerator, $photoResponder, $logger);
-        $zoomCommandProcessor = new ZoomCommandProcessor($zoomImageTransformProcessor, $zoomLevelPreference);
         $restyleAutomatic1111ApiClient = new ImageGeneration\Automatic1111APiClient(
             $denoisingStrengthProcessor,
             $stepsProcessor,
@@ -864,11 +858,6 @@ class ProcessMessageTask implements Task
             new CommandBasedResponderTrigger(
                 ['/downscale'],
                 $container->get(DownscaleProcessor::class),
-                $logger,
-            ),
-            new CommandBasedResponderTrigger(
-                ['/zoom'],
-                $zoomCommandProcessor,
                 $logger,
             ),
             new CommandBasedResponderTrigger(

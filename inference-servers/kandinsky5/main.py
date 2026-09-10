@@ -11,7 +11,7 @@ file = Path(__file__).resolve()
 parent, root = file.parent, file.parents[1]
 sys.path.append(str(root))
 from util.image_to_json import image_to_json_response
-parser = argparse.ArgumentParser(description="Inference server for Chain-of-Zoom")
+parser = argparse.ArgumentParser(description="Inference server for Kandinsky-5")
 parser.add_argument('--source_dir', type=str,
                     help='path to Kandinsky-5 repo', required=True)
 parser.add_argument('--port', type=int, help='port to listen on', required=True)

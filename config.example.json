@@ -412,11 +412,6 @@
       "url": "http://localhost:8104"
     }
   },
-  "zoomModels": {
-    "Chain-of-Zoom": {
-      "url": "http://localhost:8138"
-    }
-  },
   "restyleModels": {
     "flux-dev-ufo": {
       "model": "flux-dev-ufo",
