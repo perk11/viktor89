@@ -32,7 +32,7 @@ require_once __DIR__ . '/Support/IntegrationTestSupport.php';
  * by PhotoResponder.
  */
 #[CoversClass(ProcessingResultExecutor::class)]
-#[CoversClass(\Perk11\Viktor89\Assistant\AbstractOpenAIAPiAssistant::class)]
+#[CoversClass(\Perk11\Viktor89\Assistant\AbstractStreamingAssistant::class)]
 class MessageMetadataPersistenceIntegrationTest extends TestCase
 {
     use TelegramRecordingTrait;

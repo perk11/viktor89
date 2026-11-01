@@ -17,7 +17,7 @@ use GuzzleHttp\Middleware;
 use GuzzleHttp\Promise\PromiseInterface;
 use Longman\TelegramBot\Request;
 use Longman\TelegramBot\Telegram;
-use Perk11\Viktor89\Assistant\AbstractOpenAIAPiAssistant;
+use Perk11\Viktor89\Assistant\AbstractStreamingAssistant;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\CompletionResponse;
@@ -321,7 +321,7 @@ class InMemoryChannel implements Channel
  * and delays. Everything else (typing setup, draft throttling, edit-stream
  * logic, response shaping) is inherited unchanged.
  */
-class StubStreamingAssistant extends AbstractOpenAIAPiAssistant
+class StubStreamingAssistant extends AbstractStreamingAssistant
 {
     /** Speed up draft updates so tests do not take seconds per chunk. */
     protected static float $draftFrequencySeconds = 0.02;
@@ -347,7 +347,6 @@ class StubStreamingAssistant extends AbstractOpenAIAPiAssistant
             $telegramFileDownloader,
             $altTextProvider,
             TELEGRAM_TEST_BOT_ID,
-            'http://localhost',
             logger: new \Psr\Log\NullLogger(),
         );
         $this->behavior = $behavior;

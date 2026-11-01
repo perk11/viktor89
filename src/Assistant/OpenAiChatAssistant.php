@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\Assistant;
 
 use Exception;
+use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
@@ -12,8 +13,11 @@ use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
-class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
+class OpenAiChatAssistant extends AbstractStreamingAssistant
 {
+    private readonly OpenAi $openAi;
+    private readonly OpenAiMessageConverter $messageConverter;
+
     public function __construct(
         private readonly ?string $model,
         UserPreferenceReaderInterface $systemPromptProcessor,
@@ -24,7 +28,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
         ProcessingResultExecutor $processingResultExecutor,
         int $telegramBotId,
         string $url,
-        string $apiKey = '',
+        string $apiKey,
         bool $supportsImages,
         array $toolDefintions = [],
         ?LoggerInterface $logger = null,
@@ -40,11 +44,12 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
             $telegramFileDownloader,
             $altTextProvider,
             $telegramBotId,
-            $url,
-            $apiKey,
             $supportsImages,
             $logger
         );
+        $this->openAi = new OpenAi($apiKey);
+        $this->openAi->setBaseURL(rtrim($url, '/'));
+        $this->messageConverter = new OpenAiMessageConverter($logger);
     }
     public function getCompletionBasedOnContext(AssistantContext $assistantContext, ?callable $streamFunction = null, ?MessageChain $messageChain = null, ?ProgressUpdateCallback $progressUpdateCallback = null): CompletionResponse
     {
@@ -101,7 +106,7 @@ class OpenAiChatAssistant extends AbstractOpenAIAPiAssistant
     protected function getResponseParameters(AssistantContext $assistantContext): array
     {
         $parameters = [
-            'messages' => $assistantContext->toOpenAiMessagesArray(false),
+            'messages' => $this->messageConverter->convert($assistantContext, false),
         ];
         if ($this->model !== null) {
             $parameters['model'] = $this->model;

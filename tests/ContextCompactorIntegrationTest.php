@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
+use Perk11\Viktor89\Assistant\OpenAiMessageConverter;
 use GuzzleHttp\Client as GuzzleClient;
 use OpenAI;
 use OpenAI\Exceptions\ErrorException;
@@ -283,7 +284,7 @@ class ContextCompactorIntegrationTest extends TestCase
 
         // Verify the compacted context works by sending it to the LLM
         // Add a final user prompt so the LLM has something to respond to
-        $compactedMessages = $compacted->toOpenAiMessagesArray();
+        $compactedMessages = (new OpenAiMessageConverter())->convert($compacted);
         $compactedMessages[] = ['role' => 'user', 'content' => 'Please continue the conversation.'];
         $this->assertGreaterThan(0, count($compactedMessages));
 
@@ -347,7 +348,7 @@ class ContextCompactorIntegrationTest extends TestCase
         echo "\n  Generated summary: " . mb_substr($summaryText, 0, 300) . "...\n";
 
         // Verify the compacted context works as a prompt
-        $compactedMessages = $compacted->toOpenAiMessagesArray();
+        $compactedMessages = (new OpenAiMessageConverter())->convert($compacted);
         $compactedMessages[] = ['role' => 'user', 'content' => 'Continue the conversation.'];
         $response = $client->chat()->create([
             'model'      => self::$modelName,

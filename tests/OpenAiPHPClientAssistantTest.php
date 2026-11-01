@@ -4,19 +4,27 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
+use GuzzleHttp\Psr7\Response;
+use OpenAI\Exceptions\ErrorException;
 use OpenAI\Responses\Chat\CreateStreamedResponse;
 use OpenAI\Testing\ClientFake;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\OpenAiPHPClientAssistant;
-use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
+use Perk11\Viktor89\Assistant\Tool\ToolCall;
+use Perk11\Viktor89\Assistant\Tool\ToolCallRunner;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
 use Perk11\Viktor89\Assistant\Tool\ToolParameter;
+use Perk11\Viktor89\Assistant\Tool\ToolUseLimiter;
+use Perk11\Viktor89\Test\Support\RecordingToolCallExecutor;
+use Perk11\Viktor89\Test\Support\TestImages;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use ReflectionMethod;
+
+require_once __DIR__ . '/Support/AssistantTestFixtures.php';
 
 #[CoversClass(\Perk11\Viktor89\Assistant\OpenAiPHPClientAssistant::class)]
 class OpenAiPHPClientAssistantTest extends TestCase
@@ -28,12 +36,12 @@ class OpenAiPHPClientAssistantTest extends TestCase
         $this->assertFalse($reflection->isAbstract());
     }
 
-    public function testExtendsAbstractOpenAiApiAssistant(): void
+    public function testExtendsAbstractStreamingAssistant(): void
     {
         $reflection = new \ReflectionClass(\Perk11\Viktor89\Assistant\OpenAiPHPClientAssistant::class);
         $parent = $reflection->getParentClass();
         $this->assertNotNull($parent);
-        $this->assertSame(\Perk11\Viktor89\Assistant\AbstractOpenAIAPiAssistant::class, $parent->getName());
+        $this->assertSame(\Perk11\Viktor89\Assistant\AbstractStreamingAssistant::class, $parent->getName());
     }
 
     public function testImplementsAssistantInterface(): void
@@ -59,7 +67,7 @@ class OpenAiPHPClientAssistantTest extends TestCase
      */
     public function testBuildAssistantToolCallMessageIncludesReasoningContentWhenNonEmpty(): void
     {
-        $toolCall = $this->buildToolCallObject('call_1', 'image_gen_tool', '{"prompt":"a cat"}');
+        $toolCall = new ToolCall('call_1', 'image_gen_tool', '{"prompt":"a cat"}');
 
         $message = $this->invokeBuildAssistantToolCallMessage('', 'let me think about cats', [$toolCall]);
 
@@ -77,7 +85,7 @@ class OpenAiPHPClientAssistantTest extends TestCase
      */
     public function testBuildAssistantToolCallMessageOmitsReasoningContentWhenEmpty(): void
     {
-        $toolCall = $this->buildToolCallObject('call_1', 'image_gen_tool', '{"prompt":"a cat"}');
+        $toolCall = new ToolCall('call_1', 'image_gen_tool', '{"prompt":"a cat"}');
 
         $message = $this->invokeBuildAssistantToolCallMessage('done', '', [$toolCall]);
 
@@ -88,8 +96,8 @@ class OpenAiPHPClientAssistantTest extends TestCase
 
     public function testBuildAssistantToolCallMessageReconstructsToolCallsFaithfully(): void
     {
-        $toolCall1 = $this->buildToolCallObject('call_1', 'image_gen_tool', '{"prompt":"a cat"}');
-        $toolCall2 = $this->buildToolCallObject('call_2', 'list_chain_images', '{}');
+        $toolCall1 = new ToolCall('call_1', 'image_gen_tool', '{"prompt":"a cat"}');
+        $toolCall2 = new ToolCall('call_2', 'list_chain_images', '{}');
 
         $message = $this->invokeBuildAssistantToolCallMessage('', '', [$toolCall1, $toolCall2]);
 
@@ -104,20 +112,8 @@ class OpenAiPHPClientAssistantTest extends TestCase
         );
     }
 
-    private function buildToolCallObject(string $id, string $name, string $arguments): object
-    {
-        return (object) [
-            'id' => $id,
-            'type' => 'function',
-            'function' => (object) [
-                'name' => $name,
-                'arguments' => $arguments,
-            ],
-        ];
-    }
-
     /**
-     * @param list<object> $toolCalls
+     * @param list<ToolCall> $toolCalls
      */
     private function invokeBuildAssistantToolCallMessage(string $content, string $reasoning, array $toolCalls): array
     {
@@ -134,10 +130,9 @@ class OpenAiPHPClientAssistantTest extends TestCase
      */
     public function testToolCallLoopAbortsWhenSameToolIsCalledRepeatedly(): void
     {
-        $maxConsecutive = (new \ReflectionClass(OpenAiPHPClientAssistant::class))
-            ->getConstant('MAX_CONSECUTIVE_SAME_TOOL_USES');
+        $maxConsecutive = ToolUseLimiter::MAX_CONSECUTIVE_SAME_TOOL_USES;
 
-        $imageTool = new CountingToolCallExecutor();
+        $imageTool = new RecordingToolCallExecutor();
 
         // Queue far more responses than the cap; if the guard fails this throws.
         $responses = [];
@@ -166,6 +161,24 @@ class OpenAiPHPClientAssistantTest extends TestCase
         $this->assertStringContainsString('same tool', $response->getDisplayContent());
     }
 
+    public function testMalformedToolArgumentsAreReportedToTheModelInsteadOfAbortingTheCompletion(): void
+    {
+        $imageTool = new RecordingToolCallExecutor();
+        $assistant = $this->buildAssistantWithTools(
+            ['image_gen_tool' => new ToolDefinition('image_gen_tool', $imageTool, 'Generate an image')],
+            new ClientFake([
+                $this->toolCallStreamResponse('image_gen_tool', '{"prompt":'),
+                $this->textStreamResponse('Sorry, retrying failed.'),
+            ]),
+        );
+
+        $response = $assistant->getCompletionBasedOnContext($this->buildContext(), static fn (string $chunk) => null);
+
+        $this->assertSame(0, $imageTool->callCount);
+        $this->assertStringContainsString('not valid JSON', $response->toolCalls[0]->result);
+        $this->assertSame('Sorry, retrying failed.', $response->content);
+    }
+
     /**
      * Calling a different tool must reset the consecutive-same-tool counter, so
      * a legitimate alternating workflow (e.g. generate -> search -> generate)
@@ -173,11 +186,10 @@ class OpenAiPHPClientAssistantTest extends TestCase
      */
     public function testCallingADifferentToolResetsTheConsecutiveSameToolCounter(): void
     {
-        $maxConsecutive = (new \ReflectionClass(OpenAiPHPClientAssistant::class))
-            ->getConstant('MAX_CONSECUTIVE_SAME_TOOL_USES');
+        $maxConsecutive = ToolUseLimiter::MAX_CONSECUTIVE_SAME_TOOL_USES;
 
-        $imageTool = new CountingToolCallExecutor();
-        $searchTool = new CountingToolCallExecutor(['status' => 'ok', 'content' => 'search results']);
+        $imageTool = new RecordingToolCallExecutor();
+        $searchTool = new RecordingToolCallExecutor(['status' => 'ok', 'content' => 'search results']);
 
         // Interleave so neither tool is ever called twice in a row, even though
         // image_gen_tool is invoked more than MAX_CONSECUTIVE_SAME_TOOL_USES times.
@@ -224,11 +236,10 @@ class OpenAiPHPClientAssistantTest extends TestCase
      */
     public function testToolCallLoopAbortsAtTotalToolUseCeilingEvenWhenAlternatingTools(): void
     {
-        $maxTotal = (new \ReflectionClass(OpenAiPHPClientAssistant::class))
-            ->getConstant('MAX_TOTAL_TOOL_USES');
+        $maxTotal = ToolUseLimiter::MAX_TOTAL_TOOL_USES;
 
-        $imageTool = new CountingToolCallExecutor();
-        $searchTool = new CountingToolCallExecutor(['status' => 'ok']);
+        $imageTool = new RecordingToolCallExecutor();
+        $searchTool = new RecordingToolCallExecutor(['status' => 'ok']);
 
         $responses = [];
         for ($i = 0; $i < $maxTotal; $i++) {
@@ -272,7 +283,7 @@ class OpenAiPHPClientAssistantTest extends TestCase
      */
     public function testGeneratedImageIsAddedToContextForVisionAssistant(): void
     {
-        $imageTool = new ContextImageToolCallExecutor(self::tinyPng());
+        $imageTool = new RecordingToolCallExecutor(['status' => 'image_succesfully_generated_and_sent_to_user', 'context_image' => TestImages::png()]);
 
         $responses = [
             $this->toolCallStreamResponse('image_gen_tool'),
@@ -317,7 +328,7 @@ class OpenAiPHPClientAssistantTest extends TestCase
         $altTextProvider->method('generateAltTextForImageString')
             ->willReturn('A silver Volkswagen Golf parked inside a garage.');
 
-        $imageTool = new ContextImageToolCallExecutor(self::tinyPng());
+        $imageTool = new RecordingToolCallExecutor(['status' => 'image_succesfully_generated_and_sent_to_user', 'context_image' => TestImages::png()]);
 
         $responses = [
             $this->toolCallStreamResponse('image_gen_tool'),
@@ -355,9 +366,9 @@ class OpenAiPHPClientAssistantTest extends TestCase
 
     public function testContextImagesAreAddedWithReferencesForVisionAssistant(): void
     {
-        $tool = new CountingToolCallExecutor([
+        $tool = new RecordingToolCallExecutor([
             'images' => [['reference' => '#1'], ['reference' => '#2']],
-            'context_images' => ['#1' => self::tinyJpeg(), '#2' => self::tinyPng()],
+            'context_images' => ['#1' => TestImages::jpeg(), '#2' => TestImages::png()],
         ]);
         $fake = new ClientFake([
             $this->toolCallStreamResponse('image_search'),
@@ -396,9 +407,9 @@ class OpenAiPHPClientAssistantTest extends TestCase
         $altTextProvider = $this->createStub(AltTextProvider::class);
         $altTextProvider->method('generateAltTextForImageString')
             ->willReturnOnConsecutiveCalls('[image] A tower', '[image] A bridge');
-        $tool = new CountingToolCallExecutor([
+        $tool = new RecordingToolCallExecutor([
             'images' => [['reference' => '#0'], ['reference' => '#1']],
-            'context_images' => ['#0' => self::tinyJpeg(), '#1' => self::tinyPng()],
+            'context_images' => ['#0' => TestImages::jpeg(), '#1' => TestImages::png()],
         ]);
         $fake = new ClientFake([
             $this->toolCallStreamResponse('image_search'),
@@ -436,7 +447,7 @@ class OpenAiPHPClientAssistantTest extends TestCase
      */
     public function testDraftsKeepStreamingAfterAutomaticOutputToolResult(): void
     {
-        $tool = new CountingToolCallExecutor([
+        $tool = new RecordingToolCallExecutor([
             'status' => 'success',
             'automatic_output_markdown' => '![](https://example.com/generated-images/1.png "Album cover (Deluxe)")',
         ]);
@@ -452,7 +463,7 @@ class OpenAiPHPClientAssistantTest extends TestCase
                 $this->textStreamResponse('Here is your cover!'),
             ]),
         );
-        $frequency = new \ReflectionProperty(\Perk11\Viktor89\Assistant\AbstractOpenAIAPiAssistant::class, 'draftFrequencySeconds');
+        $frequency = new \ReflectionProperty(\Perk11\Viktor89\Assistant\AbstractStreamingAssistant::class, 'draftFrequencySeconds');
         $frequency->setAccessible(true);
         $originalFrequency = $frequency->getValue();
         $frequency->setValue(null, 0.0);
@@ -495,15 +506,47 @@ class OpenAiPHPClientAssistantTest extends TestCase
         $this->assertStringNotContainsString('<invalid image', $drafts, 'drafts never carry an image placeholder');
     }
 
+    /**
+     * Once a tool has run, a context-length error must not restart the loop:
+     * that would execute the tool again and duplicate the streamed output.
+     */
+    public function testContextLengthErrorAfterToolCallEndsCompletionWithoutRerunningTools(): void
+    {
+        $imageTool = new RecordingToolCallExecutor();
+        $streamed = '';
+        $assistant = $this->buildAssistantWithTools(
+            ['image_gen_tool' => new ToolDefinition('image_gen_tool', $imageTool, 'Generate an image', [new ToolParameter('prompt', ['type' => 'string'], true)])],
+            new ClientFake([
+                $this->toolCallStreamResponse('image_gen_tool'),
+                new ErrorException(['message' => 'context_length_exceeded', 'type' => 'invalid_request_error', 'code' => null], new Response(400)),
+                $this->textStreamResponse('should never be requested'),
+            ]),
+        );
+
+        $response = $assistant->getCompletionBasedOnContext(
+            $this->buildContext(),
+            static function (string $chunk) use (&$streamed): void {
+                $streamed .= $chunk;
+            },
+        );
+
+        $this->assertSame(1, $imageTool->callCount);
+        $this->assertCount(1, $response->toolCalls);
+        $this->assertStringContainsString("no longer fits in the model's context window", $response->getDisplayContent());
+        $this->assertSame(1, substr_count($streamed, 'Executing `image_gen_tool`'));
+    }
+
     private function buildAssistantWithTools(array $tools, ClientFake $fake, bool $supportsImages = false, ?AltTextProvider $altTextProvider = null): OpenAiPHPClientAssistant
     {
+        $altTextProvider ??= $this->createStub(AltTextProvider::class);
+
         return new OpenAiPHPClientAssistant(
             'test-model',
             $this->createStub(\Perk11\Viktor89\UserPreferenceReaderInterface::class),
             $this->createStub(\Perk11\Viktor89\UserPreferenceReaderInterface::class),
             $this->createStub(\Perk11\Viktor89\UserPreferenceReaderInterface::class),
             $this->createStub(\Perk11\Viktor89\TelegramFileDownloader::class),
-            $altTextProvider ?? $this->createStub(AltTextProvider::class),
+            $altTextProvider,
             $this->createStub(\Perk11\Viktor89\ProcessingResultExecutor::class),
             1,
             'http://localhost',
@@ -511,6 +554,7 @@ class OpenAiPHPClientAssistantTest extends TestCase
             $supportsImages,
             $tools,
             $this->createStub(\Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface::class),
+            new ToolCallRunner($altTextProvider, new NullLogger()),
             new NullLogger(),
             $fake,
         );
@@ -528,7 +572,7 @@ class OpenAiPHPClientAssistantTest extends TestCase
         return $context;
     }
 
-    private function toolCallStreamResponse(string $toolName): \OpenAI\Responses\StreamResponse
+    private function toolCallStreamResponse(string $toolName, string $arguments = '{"prompt":"x"}'): \OpenAI\Responses\StreamResponse
     {
         return $this->streamResponseFromChunks([[
             'id' => 'chatcmpl-test',
@@ -543,7 +587,7 @@ class OpenAiPHPClientAssistantTest extends TestCase
                         'index' => 0,
                         'id' => 'call_' . random_int(1, PHP_INT_MAX),
                         'type' => 'function',
-                        'function' => ['name' => $toolName, 'arguments' => '{"prompt":"x"}'],
+                        'function' => ['name' => $toolName, 'arguments' => $arguments],
                     ]],
                 ],
                 'finish_reason' => null,
@@ -630,43 +674,6 @@ class OpenAiPHPClientAssistantTest extends TestCase
 
         return false;
     }
-
-    private static function tinyJpeg(): string
-    {
-        $image = imagecreatetruecolor(1, 1);
-        ob_start();
-        imagejpeg($image);
-
-        return (string) ob_get_clean();
-    }
-
-    private static function tinyPng(): string
-    {
-        $image = imagecreatetruecolor(1, 1);
-        ob_start();
-        imagepng($image);
-        $png = (string) ob_get_clean();
-        imagedestroy($image);
-
-        return $png;
-    }
-}
-
-/** Tool executor that counts how often it was invoked and returns a fixed result. */
-class CountingToolCallExecutor implements ToolCallExecutorInterface
-{
-    public int $callCount = 0;
-
-    public function __construct(private readonly array $result = ['status' => 'image_succesfully_generated_and_sent_to_user'])
-    {
-    }
-
-    public function executeToolCall(array $arguments): array
-    {
-        $this->callCount++;
-
-        return $this->result;
-    }
 }
 
 /** Records every draft pushed by a streaming assistant. */
@@ -690,25 +697,5 @@ class NullProgressUpdateCallbackForDrafts implements \Perk11\Viktor89\IPC\Progre
 
     public function subscribe(callable $subscriber): void
     {
-    }
-}
-
-/** Tool executor that counts calls and returns a fixed image as context_image. */
-class ContextImageToolCallExecutor implements ToolCallExecutorInterface
-{
-    public int $callCount = 0;
-
-    public function __construct(private readonly string $imagePng)
-    {
-    }
-
-    public function executeToolCall(array $arguments): array
-    {
-        $this->callCount++;
-
-        return [
-            'status' => 'image_succesfully_generated_and_sent_to_user',
-            'context_image' => $this->imagePng,
-        ];
     }
 }

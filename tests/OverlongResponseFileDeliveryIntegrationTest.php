@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
-use Perk11\Viktor89\Assistant\AbstractOpenAIAPiAssistant;
+use Perk11\Viktor89\Assistant\AbstractStreamingAssistant;
 use Perk11\Viktor89\IPC\ChannelBeforeMessageSentNotifier;
 use Perk11\Viktor89\IPC\ChannelDraftUpdateCallback;
 use Perk11\Viktor89\IPC\ChatActionUpdater;
@@ -32,7 +32,7 @@ require_once __DIR__ . '/Support/IntegrationTestSupport.php';
  * existing, capped off with the trailing "results will be sent as a file"
  * notice.
  */
-#[CoversClass(AbstractOpenAIAPiAssistant::class)]
+#[CoversClass(AbstractStreamingAssistant::class)]
 #[CoversClass(DraftUpdater::class)]
 class OverlongResponseFileDeliveryIntegrationTest extends TestCase
 {

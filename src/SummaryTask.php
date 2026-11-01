@@ -9,7 +9,6 @@ use Dotenv\Dotenv;
 use Exception;
 use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\Assistant\AltTextProvider;
-use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\OpenAiChatAssistant;
 use Perk11\Viktor89\IPC\TaskCompletedMessage;
 use Perk11\Viktor89\IPC\TaskUpdateMessage;
@@ -39,7 +38,6 @@ class SummaryTask implements Task
     public function run(Channel $channel, Cancellation $cancellation): mixed
     {
         InternalMessage::setLogger($this->logger);
-        AssistantContext::setLogger($this->logger);
         BotAdminChecker::setLogger($this->logger);
         $channel->send(new TaskUpdateMessage($this->workerId, 'Summary', 'Generating summary', new ChatAction($this->summarizedChatId, ChatActionEnum::typing)));
         try {

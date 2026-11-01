@@ -80,6 +80,20 @@
       "toolListSavedImages": true,
       "toolGetUrlContents": true
     },
+    "claude-opus-5-5": {
+      "class": "Perk11\\Viktor89\\Assistant\\AnthropicAssistant",
+      "api_key": "sk-ant-...", // optional, falls back to ANTHROPIC_API_KEY
+      "model": "claude-opus-5-5",
+      "effort": "medium", // low|medium|high|xhigh|max
+      "selectableByUser": true,
+      "supportsImages": true,
+      "webSearch": true,
+      "imageSearch": true,
+      "generateImages": true,
+      "generateVideos": true,
+      "toolListSavedImages": true,
+      "toolGetUrlContents": true
+    },
     "vibecheck": {
       "url": "http://localhost:7070/",
       "supportsResponseStart": false,

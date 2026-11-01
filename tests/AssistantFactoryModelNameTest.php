@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
-use Perk11\Viktor89\Assistant\AbstractOpenAIAPiAssistant;
+use Perk11\Viktor89\Assistant\AbstractStreamingAssistant;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
 use Perk11\Viktor89\Assistant\OpenAiChatAssistant;
@@ -39,7 +39,7 @@ class AssistantFactoryModelNameTest extends TestCase
         $factory = $this->buildFactory($config);
         $assistant = $factory->getAssistantInstanceByName('my-model');
 
-        $this->assertInstanceOf(AbstractOpenAIAPiAssistant::class, $assistant);
+        $this->assertInstanceOf(AbstractStreamingAssistant::class, $assistant);
         $reflection = new \ReflectionClass($assistant);
         $property = $reflection->getProperty('modelName');
         $property->setAccessible(true);

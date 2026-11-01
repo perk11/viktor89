@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
-use Perk11\Viktor89\Assistant\AbstractOpenAIAPiAssistant;
+use Perk11\Viktor89\Assistant\AbstractStreamingAssistant;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
@@ -15,12 +15,12 @@ use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
 /**
- * Covers {@see AbstractOpenAIAPiAssistant::convertMessageChainToAssistantContext()},
+ * Covers {@see AbstractStreamingAssistant::convertMessageChainToAssistantContext()},
  * in particular how photo messages and their captions are turned into the text
  * of an {@see \Perk11\Viktor89\Assistant\AssistantContextMessage}.
  */
-#[CoversClass(AbstractOpenAIAPiAssistant::class)]
-class AbstractOpenAIAPiAssistantTest extends TestCase
+#[CoversClass(AbstractStreamingAssistant::class)]
+class AbstractStreamingAssistantTest extends TestCase
 {
     private const int BOT_USER_ID = 12345;
 
@@ -271,7 +271,7 @@ class AbstractOpenAIAPiAssistantTest extends TestCase
 
     // --- helpers ---
 
-    private function buildAssistant(bool $supportsImages, ?string $altText = null): AbstractOpenAIAPiAssistant
+    private function buildAssistant(bool $supportsImages, ?string $altText = null): AbstractStreamingAssistant
     {
         $this->altTextProvider = new RecordingAltTextProvider($altText);
 
@@ -301,7 +301,7 @@ class AbstractOpenAIAPiAssistantTest extends TestCase
         return new MessageChain([$message]);
     }
 
-    private function convert(AbstractOpenAIAPiAssistant $assistant, MessageChain $chain): AssistantContext
+    private function convert(AbstractStreamingAssistant $assistant, MessageChain $chain): AssistantContext
     {
         return (new ReflectionMethod($assistant, 'convertMessageChainToAssistantContext'))
             ->invoke($assistant, $chain, null, null, new NullProgressUpdateCallback());
@@ -309,7 +309,7 @@ class AbstractOpenAIAPiAssistantTest extends TestCase
 }
 
 /** Minimal concrete subclass so the protected method under test can be exercised. */
-class ConvertContextTestAssistant extends AbstractOpenAIAPiAssistant
+class ConvertContextTestAssistant extends AbstractStreamingAssistant
 {
     public function __construct(
         \Perk11\Viktor89\UserPreferenceReaderInterface $systemPromptProcessor,
@@ -327,7 +327,6 @@ class ConvertContextTestAssistant extends AbstractOpenAIAPiAssistant
             $telegramFileDownloader,
             $altTextProvider,
             $telegramBotUserId,
-            'http://localhost',
             supportsImages: $supportsImages,
             logger: new \Psr\Log\NullLogger(),
         );
@@ -344,7 +343,7 @@ class ConvertContextTestAssistant extends AbstractOpenAIAPiAssistant
 }
 
 /** Returns a completion with separate clean/display contents to verify the split. */
-class DisplayTextTestAssistant extends AbstractOpenAIAPiAssistant
+class DisplayTextTestAssistant extends AbstractStreamingAssistant
 {
     public function __construct(
         \Perk11\Viktor89\UserPreferenceReaderInterface $systemPromptProcessor,
@@ -361,7 +360,6 @@ class DisplayTextTestAssistant extends AbstractOpenAIAPiAssistant
             $telegramFileDownloader,
             $altTextProvider,
             $telegramBotUserId,
-            'http://localhost',
             supportsImages: false,
             logger: new \Psr\Log\NullLogger(),
         );
@@ -381,7 +379,7 @@ class DisplayTextTestAssistant extends AbstractOpenAIAPiAssistant
 }
 
 /** Returns a completion whose display content is optionally marked pre-sanitized. */
-class SanitizedDisplayTestAssistant extends AbstractOpenAIAPiAssistant
+class SanitizedDisplayTestAssistant extends AbstractStreamingAssistant
 {
     public function __construct(
         private readonly bool $sanitized,
@@ -394,7 +392,6 @@ class SanitizedDisplayTestAssistant extends AbstractOpenAIAPiAssistant
             new StubPhotoDownloader(),
             new RecordingAltTextProvider(null),
             12345,
-            'http://localhost',
             supportsImages: false,
             logger: new \Psr\Log\NullLogger(),
         );
@@ -414,7 +411,7 @@ class SanitizedDisplayTestAssistant extends AbstractOpenAIAPiAssistant
 }
 
 /** Returns a completion carrying reasoning that contains hallucinated image markup. */
-class ReasoningTestAssistant extends AbstractOpenAIAPiAssistant
+class ReasoningTestAssistant extends AbstractStreamingAssistant
 {
     public function __construct(private readonly string $reasoning)
     {
@@ -425,7 +422,6 @@ class ReasoningTestAssistant extends AbstractOpenAIAPiAssistant
             new StubPhotoDownloader(),
             new RecordingAltTextProvider(null),
             12345,
-            'http://localhost',
             supportsImages: false,
             logger: new \Psr\Log\NullLogger(),
         );

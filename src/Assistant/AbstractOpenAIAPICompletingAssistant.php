@@ -4,6 +4,7 @@ namespace Perk11\Viktor89\Assistant;
 
 use Exception;
 use JsonException;
+use Orhanerday\OpenAi\OpenAi;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\AbortStreamingResponse\AbortStreamingResponseHandler;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
@@ -16,8 +17,10 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use RuntimeException;
 
-abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAssistant implements AbortableStreamingResponseGenerator
+abstract class AbstractOpenAIAPICompletingAssistant extends AbstractStreamingAssistant implements AbortableStreamingResponseGenerator
 {
+    private readonly OpenAi $openAi;
+
     /** @var AbortStreamingResponseHandler[] */
     private array $abortResponseHandlers = [];
 
@@ -34,7 +37,9 @@ abstract class AbstractOpenAIAPICompletingAssistant extends AbstractOpenAIAPiAss
         LoggerInterface $logger,
     )
     {
-        parent::__construct($systemPromptProcessor, $responseStartProcessor, $editFrequencyProcessor, $telegramFileDownloader, $altTextProvider, $telegramBotId, $url, '', $supportsImages, $logger);
+        parent::__construct($systemPromptProcessor, $responseStartProcessor, $editFrequencyProcessor, $telegramFileDownloader, $altTextProvider, $telegramBotId, $supportsImages, $logger);
+        $this->openAi = new OpenAi('');
+        $this->openAi->setBaseURL(rtrim($url, '/'));
     }
 
     public function addAbortResponseHandler(AbortStreamingResponseHandler $abortResponseHandler): void

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
-use Perk11\Viktor89\Assistant\AbstractOpenAIAPiAssistant;
+use Perk11\Viktor89\Assistant\AbstractStreamingAssistant;
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\IPC\ChannelBeforeMessageSentNotifier;
 use Perk11\Viktor89\IPC\ChannelDraftUpdateCallback;
@@ -38,7 +38,7 @@ require_once __DIR__ . '/Support/IntegrationTestSupport.php';
 #[CoversClass(ChatActionUpdater::class)]
 #[CoversClass(RunningTaskTracker::class)]
 #[CoversClass(ProcessingResultExecutor::class)]
-#[CoversClass(AbstractOpenAIAPiAssistant::class)]
+#[CoversClass(AbstractStreamingAssistant::class)]
 class GroupChatEditStreamingIntegrationTest extends TestCase
 {
     use TelegramRecordingTrait;

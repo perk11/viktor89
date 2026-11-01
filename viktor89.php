@@ -6,7 +6,6 @@ use Longman\TelegramBot\Exception\TelegramException;
 use Longman\TelegramBot\Request;
 use Longman\TelegramBot\Telegram;
 use Longman\TelegramBot\TelegramLog;
-use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\Container\ContainerFactory;
 use Perk11\Viktor89\HistoryReader;
@@ -53,7 +52,6 @@ ContainerFactory::warmup($telegram->getBotId(), $_ENV['TELEGRAM_BOT_USERNAME'], 
 
 $logger = new Viktor89Logger();
 InternalMessage::setLogger($logger);
-AssistantContext::setLogger($logger);
 BotAdminChecker::setLogger($logger);
 
 //$fallBackResponder = new \Perk11\Viktor89\SiepatchNoInstructResponseGenerator();

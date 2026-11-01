@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
-use Perk11\Viktor89\Assistant\AbstractOpenAIAPiAssistant;
+use Perk11\Viktor89\Assistant\AbstractStreamingAssistant;
 use Perk11\Viktor89\IPC\EchoUpdateCallback;
 use Perk11\Viktor89\Test\Support\IntegrationTestDsl;
 use Perk11\Viktor89\Test\Support\NullAltTextProvider;
@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/Support/IntegrationTestSupport.php';
 
-#[CoversClass(AbstractOpenAIAPiAssistant::class)]
+#[CoversClass(AbstractStreamingAssistant::class)]
 class AssistantEmptyResponseTest extends TestCase
 {
     /**

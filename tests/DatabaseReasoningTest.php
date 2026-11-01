@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Test;
 
+use Perk11\Viktor89\Assistant\OpenAiMessageConverter;
 use Perk11\Viktor89\Database;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\Repository\MessageRepository;
@@ -43,7 +44,7 @@ class DatabaseReasoningTest extends TestCase
         $message->reasoning = 'Thinking...';
         $context->messages[] = $message;
 
-        $array = $context->toOpenAiMessagesArray();
+        $array = (new OpenAiMessageConverter())->convert($context);
 
         $this->assertCount(1, $array);
         $this->assertSame('assistant', $array[0]['role']);
@@ -61,7 +62,7 @@ class DatabaseReasoningTest extends TestCase
         $message->photo = "\x89PNG\r\n\x1a\n" . str_repeat('A', 10);
         $context->messages[] = $message;
 
-        $array = $context->toOpenAiMessagesArray();
+        $array = (new OpenAiMessageConverter())->convert($context);
 
         $this->assertCount(1, $array);
         $this->assertIsArray($array[0]['content']);

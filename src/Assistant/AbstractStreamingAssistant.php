@@ -1,7 +1,7 @@
 <?php
 
 namespace Perk11\Viktor89\Assistant;
-use Orhanerday\OpenAi\OpenAi;
+
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use Perk11\Viktor89\InternalMessage;
@@ -17,7 +17,12 @@ use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 use Perk11\Viktor89\Util\TelegramRichMarkdown;
 
-abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
+/**
+ * Base for assistants that stream their reply into Telegram: a draft in private
+ * chats, an edited message in groups. Builds the AssistantContext from the
+ * message chain and formats the reasoning for display.
+ */
+abstract class AbstractStreamingAssistant implements AssistantInterface
 {
     private const float EDIT_FREQUENCY_MIN_SECONDS = 1.5;
     private const float EDIT_FREQUENCY_MAX_SECONDS = 120;
@@ -34,7 +39,6 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
      */
     protected static float $draftFrequencySeconds = 0.7;
 
-    protected readonly OpenAI $openAi;
     private ?string $progressUpdateStatus = null;
     protected ?string $modelName = null;
 
@@ -55,14 +59,10 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         private readonly TelegramFileDownloader $telegramFileDownloader,
         private readonly AltTextProvider $altTextProvider,
         private readonly int $telegramBotUserId,
-        string $url,
-        string $apiKey = '',
         public bool $supportsImages = false,
         protected readonly ?LoggerInterface $logger = null,
     )
     {
-        $this->openAi = new OpenAi($apiKey);
-        $this->openAi->setBaseURL(rtrim($url, '/'));
     }
 
     public function processMessageChain(MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): ProcessingResult
@@ -133,11 +133,10 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
             $message->personaId = $metadataPersonaId;
 
             if ($message->reasoning !== null) {
-                $isPrivateChat = $lastMessage->chatId > 0;
-                $sanitizedReasoning = TelegramRichMarkdown::removeImages($message->reasoning);
-                $message->reasoningForDisplay = $isPrivateChat
-                    ? '<tg-thinking>' . $sanitizedReasoning . "\n</tg-thinking>"
-                    : $this->formatThinkingAsDetailsBlock($sanitizedReasoning);
+                $message->reasoningForDisplay = StreamingTurnPresenter::formatReasoningForDisplay(
+                    TelegramRichMarkdown::removeImages($message->reasoning),
+                    $lastMessage->chatId > 0,
+                );
             }
 
             // The model produced no text (e.g. it only made tool calls whose
@@ -353,16 +352,6 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         return max(self::EDIT_FREQUENCY_MIN_SECONDS, min(self::EDIT_FREQUENCY_MAX_SECONDS, $frequency));
     }
 
-    protected function formatThinkingAsDetailsBlock(string $thinking): string
-    {
-        $thinking = trim($thinking);
-        if ($thinking === '') {
-            return '';
-        }
-
-        return "<details>\n<summary>Thinking</summary>\n$thinking\n</details>\n";
-    }
-
     protected function convertMessageChainToAssistantContext(
         MessageChain $messageChain,
         ?string $systemPrompt,
@@ -408,4 +397,32 @@ abstract class AbstractOpenAIAPiAssistant implements AssistantInterface
         return $assistantContext;
     }
 
+    /**
+     * Returns a copy of $request with base64 image data (OpenAI data URLs and
+     * Anthropic base64 image sources) replaced by a size note such as
+     * "[base64 image, 54kb]", so logs stay readable.
+     *
+     * @param array<mixed> $request
+     * @return array<mixed>
+     */
+    protected static function summarizeBase64Images(array $request): array
+    {
+        foreach ($request as $key => $value) {
+            if (is_string($value) && preg_match('/^data:image\/[^;]+;base64,/', $value, $matches) === 1) {
+                $request[$key] = self::describeBase64ImageSize(strlen($value) - strlen($matches[0]));
+            } elseif (is_array($value) && ($value['type'] ?? null) === 'base64' && is_string($value['data'] ?? null)) {
+                $value['data'] = self::describeBase64ImageSize(strlen($value['data']));
+                $request[$key] = $value;
+            } elseif (is_array($value)) {
+                $request[$key] = self::summarizeBase64Images($value);
+            }
+        }
+
+        return $request;
+    }
+
+    private static function describeBase64ImageSize(int $base64Length): string
+    {
+        return '[base64 image, ' . (int) round($base64Length / 1024) . 'kb]';
+    }
 }

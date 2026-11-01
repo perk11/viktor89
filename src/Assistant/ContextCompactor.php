@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Assistant;
 
-use OpenAI\Exceptions\ErrorException;
 use Perk11\Viktor89\Assistant\Compaction\CompactionKey;
 use Perk11\Viktor89\Assistant\Compaction\CompactionSummary;
 use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
@@ -13,6 +12,8 @@ use Psr\Log\LogLevel;
 
 final class ContextCompactor
 {
+    public const string SUMMARY_SYSTEM_PROMPT = 'You are a helpful assistant that summarizes conversations concisely.';
+
     private const int DEFAULT_MAX_RECENT_CHARACTERS = 8000;
     private const int DEFAULT_MAX_SUMMARY_INPUT_CHARACTERS = 128000;
 
@@ -124,66 +125,6 @@ final class ContextCompactor
         }
 
         return $newContext;
-    }
-
-    public static function isContextLengthError(ErrorException $exception): bool
-    {
-        $statusCode = $exception->getStatusCode();
-
-        if ($statusCode === 413) {
-            return true;
-        }
-
-        // Do not bail out based on the status code: for streamed requests the
-        // server may answer HTTP 200 and embed the error inside the SSE stream,
-        // so ErrorException::getStatusCode() can be 200 (see the library's own
-        // caveat on getStatusCode). Some OpenAI-compatible servers also report
-        // context-length failures as 5xx. The message-based detection below is
-        // specific enough (it requires both a context/token term and an overflow
-        // term, or an exact phrase) to avoid false positives.
-
-        $errorParts = [
-            $exception->getErrorMessage(),
-            $exception->getErrorType() ?? '',
-        ];
-
-        if (method_exists($exception, 'getErrorCode')) {
-            $errorParts[] = (string) ($exception->getErrorCode() ?? '');
-        }
-
-        $normalizedError = strtolower(implode(' ', $errorParts));
-        $normalizedError = str_replace(['_', '-'], ' ', $normalizedError);
-
-        $contextLengthPhrases = [
-            'context length',
-            'context limit',
-            'maximum context',
-            'max context',
-            'token limit',
-            'tokens exceed',
-            'too many tokens',
-            'too long',
-            'request too large',
-            'maximum number of tokens',
-            'reduce the length',
-            'reduce your prompt',
-        ];
-
-        foreach ($contextLengthPhrases as $phrase) {
-            if (str_contains($normalizedError, $phrase)) {
-                return true;
-            }
-        }
-
-        $mentionsContextOrTokens = str_contains($normalizedError, 'context')
-            || str_contains($normalizedError, 'token');
-
-        $mentionsOverflow = str_contains($normalizedError, 'exceed')
-            || str_contains($normalizedError, 'maximum')
-            || str_contains($normalizedError, 'limit')
-            || str_contains($normalizedError, 'length');
-
-        return $mentionsContextOrTokens && $mentionsOverflow;
     }
 
     private function partitionMessages(array $messages): array

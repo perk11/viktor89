@@ -9,7 +9,6 @@ use Dom\HTMLDocument;
 use GuzzleHttp\Client;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
-use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Repository\MessageRepository;
 use Perk11\Viktor89\Repository\PatchRepository;
 use Perk11\Viktor89\Util\Telegram\BotAdminChecker;
@@ -31,7 +30,6 @@ class PatchesMonitorTask implements Task
     public function run(?Channel $channel = null, ?Cancellation $cancellation = null): bool
     {
         InternalMessage::setLogger($this->logger);
-        AssistantContext::setLogger($this->logger);
         BotAdminChecker::setLogger($this->logger);
         $database = new Database($this->telegramBotId, 'siepatch-non-instruct5');
         $messageRepository = new MessageRepository($database);

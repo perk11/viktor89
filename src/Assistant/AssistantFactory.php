@@ -18,6 +18,7 @@ use Perk11\Viktor89\Assistant\Tool\McpToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
+use Perk11\Viktor89\Assistant\Tool\ToolCallRunner;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
 use Perk11\Viktor89\Assistant\Tool\ToolParameter;
 use Perk11\Viktor89\IPC\DraftUpdateCallback;
@@ -30,6 +31,8 @@ use Psr\Log\LoggerInterface;
 class AssistantFactory
 {
     private array $assistantInstanceByName;
+    private readonly ToolCallRunner $toolCallRunner;
+
     public function __construct(
         private readonly array $assistantConfig,
         private readonly UserPreferenceReaderInterface $defaultSystemPromptProcessor,
@@ -54,6 +57,7 @@ class AssistantFactory
        private readonly ?MessageChainAwareToolCallExecutorInterface $imageSearchTool = null,
    )
    {
+       $this->toolCallRunner = new ToolCallRunner($altTextProvider, $logger);
    }
 
     /** @return string[] */
@@ -175,6 +179,26 @@ class AssistantFactory
                 $requestedAssistantConfig['supportsImages'] ?? false,
                 $this->logger,
             );
+       } elseif (is_a($requestedAssistantConfig['class'], AnthropicAssistant::class, true)) {
+           $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
+               $requestedAssistantConfig['model'] ?? AnthropicAssistant::DEFAULT_MODEL,
+               $systemPromptProcessor,
+               $this->responseStartProcessor,
+               $this->editFrequencyProcessor,
+               $this->telegramFileDownloader,
+               $this->altTextProvider,
+               $this->telegramBotId,
+               $this->compactionStore,
+               $this->toolCallRunner,
+               $this->getTools($requestedAssistantConfig),
+               $requestedAssistantConfig['api_key'] ?? '',
+               $requestedAssistantConfig['url'] ?? null,
+               $requestedAssistantConfig['supportsImages'] ?? true,
+               $requestedAssistantConfig['effort'] ?? null,
+               $requestedAssistantConfig['maxTokens'] ?? AnthropicAssistant::DEFAULT_MAX_TOKENS,
+               $requestedAssistantConfig['thinking'] ?? true,
+               $this->logger,
+           );
        } elseif (is_a($requestedAssistantConfig['class'], OpenAiPHPClientAssistant::class, true)) {
            $tools = $this->getTools($requestedAssistantConfig);
            $this->assistantInstanceByName[$name] = new $requestedAssistantConfig['class'](
@@ -191,6 +215,7 @@ class AssistantFactory
                $requestedAssistantConfig['supportsImages'] ?? false,
                $tools,
                $this->compactionStore,
+               $this->toolCallRunner,
                $this->logger,
            );
        } elseif (is_a($requestedAssistantConfig['class'], OpenAiChatAssistant::class, true)) {
@@ -231,7 +256,7 @@ class AssistantFactory
             }
         }
 
-        if ($this->assistantInstanceByName[$name] instanceof AbstractOpenAIAPiAssistant) {
+        if ($this->assistantInstanceByName[$name] instanceof AbstractStreamingAssistant) {
             $this->assistantInstanceByName[$name]->setDraftUpdateCallback($this->draftUpdateCallback);
             $this->assistantInstanceByName[$name]->setModelName($name);
         }

@@ -81,7 +81,7 @@ class VideoPromptPreprocessorFactory
             $assistant = $this->resolveVisionAssistant();
         }
 
-        // All assistants extend AbstractOpenAIAPiAssistant, which exposes
+        // All assistants extend AbstractStreamingAssistant, which exposes
         // a public $supportsImages flag set from config. When it is false
         // (e.g. a text-only model such as GLM-5.2), the preprocessor
         // describes the frame with the alt-text vision assistant instead

@@ -77,4 +77,20 @@ final class ResponseContentAccumulator
     {
         $this->telegramDisplayedContent .= $content;
     }
+
+    /**
+     * The display track was already stripped of hallucinated image markup (with
+     * trusted inline images from automatic_output_markdown kept), so the sender
+     * must not sanitize it again.
+     */
+    public function toCompletionResponse(array $toolCalls, ?string $reasoning): CompletionResponse
+    {
+        return new CompletionResponse(
+            $this->llmVisibleContent,
+            $toolCalls,
+            reasoning: $reasoning,
+            displayContent: $this->telegramDisplayedContent,
+            displayContentSanitized: true,
+        );
+    }
 }

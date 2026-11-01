@@ -6,38 +6,31 @@ use GuzzleHttp\Client as GuzzleClient;
 use OpenAI;
 use OpenAI\Contracts\ClientContract;
 use OpenAI\Exceptions\ErrorException;
-use Perk11\Viktor89\Assistant\Compaction\CompactionKey;
 use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
-use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
-use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
-use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
+use Perk11\Viktor89\Assistant\Tool\ModelTurn;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
+use Perk11\Viktor89\Assistant\Tool\ToolCallRunner;
+use Perk11\Viktor89\Assistant\Tool\ToolCallRunResult;
+use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
+use Perk11\Viktor89\Assistant\Tool\ToolLoop;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
-use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
-use Perk11\Viktor89\Util\ImageDataUrl;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
+use Psr\Log\NullLogger;
 
 /** Uses https://github.com/openai-php/client */
-class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
+class OpenAiPHPClientAssistant extends AbstractStreamingAssistant
 {
-    private const int REPETITION_THRESHOLD_CHARACTERS = 2048;
-    private const int MAX_COMPACTION_RETRIES = 2;
-    /**
-     * Safety backstops for the tool-call loop. A model that keeps calling the
-     * SAME tool over and over (e.g. re-generating an image it cannot visually
-     * verify) is aborted after MAX_CONSECUTIVE_SAME_TOOL_USES calls in a row;
-     * calling any other tool resets that counter. MAX_TOTAL_TOOL_USES is a hard
-     * ceiling on the whole completion regardless of which tools are used.
-     */
-    private const int MAX_CONSECUTIVE_SAME_TOOL_USES = 20;
-    private const int MAX_TOTAL_TOOL_USES = 150;
+    private const int SUMMARY_MAX_TOKENS = 1500;
+
     private readonly ClientContract $openAiClient;
-    private readonly ContextCompactor $contextCompactor;
+    /** @var list<array<string, mixed>> */
+    private readonly array $tools;
+    private readonly ToolLoop $toolLoop;
 
     /**
      * @param ToolDefinition[] $toolDefintions
@@ -48,28 +41,18 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         UserPreferenceReaderInterface $responseStartProcessor,
         UserPreferenceReaderInterface $editFrequencyProcessor,
         TelegramFileDownloader $telegramFileDownloader,
-        private readonly AltTextProvider $altTextProvider,
+        AltTextProvider $altTextProvider,
         private readonly ProcessingResultExecutor $processingResultExecutor,
         int $telegramBotUserId,
         private readonly string $url,
-        string $apiKey = '',
+        string $apiKey,
         bool $supportsImages,
-        private readonly array $toolDefintions = [],
-        private readonly CompactionSummaryStoreInterface $compactionStore,
+        array $toolDefintions,
+        CompactionSummaryStoreInterface $compactionStore,
+        ToolCallRunner $toolCallRunner,
         ?LoggerInterface $logger = null,
         ?ClientContract $openAiClient = null,
     ) {
-        if ($openAiClient !== null) {
-            $this->openAiClient = $openAiClient;
-        } else {
-            $openAiFactory = OpenAI::factory()
-                ->withBaseUri(rtrim($url, '/'))
-                ->withHttpClient(new GuzzleClient(['timeout' => 3600 * 4]));
-            if ($apiKey !== '') {
-                $openAiFactory->withApiKey($apiKey);
-            }
-            $this->openAiClient = $openAiFactory->make();
-        }
         parent::__construct(
             $systemPromptProcessor,
             $responseStartProcessor,
@@ -77,56 +60,56 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             $telegramFileDownloader,
             $altTextProvider,
             $telegramBotUserId,
-            $this->url,
-            $apiKey,
             $supportsImages,
             $logger,
         );
-       $this->contextCompactor = new ContextCompactor(
-           $this->createSummaryGenerator(),
-           $this->logger,
-           $this->compactionStore,
-       );
-   }
-
-   /**
-    * Builds the per-reply-chain key used to scope persisted compactions. The
-     * chain root (first message id) is stable across messages within a reply
-     * thread. Private chats are a single linear conversation, so they share a
-     * sentinel root of 0 regardless of which message started a window.
-     */
-    private function compactionKeyForChain(?MessageChain $messageChain): ?CompactionKey
-    {
-        if ($messageChain === null) {
-            return null;
-        }
-
-        $last = $messageChain->last();
-        $isPrivateChat = $last->chatId > 0;
-        $rootMessageId = $isPrivateChat ? 0 : (int) ($messageChain->first()->id ?? 0);
-
-        return new CompactionKey($last->chatId, $rootMessageId);
+        $this->openAiClient = $openAiClient ?? self::createClient($url, $apiKey);
+        $this->tools = array_values(array_map(
+            static fn (ToolDefinition $toolDefinition): array => $toolDefinition->toArray(),
+            $toolDefintions,
+        ));
+        $this->toolLoop = new ToolLoop(
+            new OpenAiMessageConverter($logger),
+            $toolCallRunner,
+            new ContextCompactor($this->createSummaryGenerator(), $logger ?? new NullLogger(), $compactionStore),
+            $toolDefintions,
+            $supportsImages,
+            static::class,
+            $logger,
+        );
     }
 
-   /**
-    * Returns a callable that sends a simple chat completion to the same LLM
-     * and returns the response text.  Used by ContextCompactor to generate
+    private static function createClient(string $url, string $apiKey): ClientContract
+    {
+        $openAiFactory = OpenAI::factory()
+            ->withBaseUri(rtrim($url, '/'))
+            ->withHttpClient(new GuzzleClient(['timeout' => 3600 * 4]));
+        if ($apiKey !== '') {
+            $openAiFactory->withApiKey($apiKey);
+        }
+
+        return $openAiFactory->make();
+    }
+
+    /**
+     * Returns a callable that sends a simple chat completion to the same LLM
+     * and returns the response text. Used by ContextCompactor to generate
      * summaries.
      */
-    private function createSummaryGenerator(): callable
+    private function createSummaryGenerator(): \Closure
     {
         $client = $this->openAiClient;
         $model  = $this->model;
 
-           return static function (string $prompt) use ($client, $model): string {
-               $result = $client->chat()->create([
-                   'model'     => $model,
-                   'messages'  => [
-                       ['role' => 'system', 'content' => 'You are a helpful assistant that summarizes conversations concisely.'],
-                       ['role' => 'user',   'content' => $prompt],
-                   ],
-                   'max_tokens' => 1500,
-               ]);
+        return static function (string $prompt) use ($client, $model): string {
+            $result = $client->chat()->create([
+                'model'      => $model,
+                'messages'   => [
+                    ['role' => 'system', 'content' => ContextCompactor::SUMMARY_SYSTEM_PROMPT],
+                    ['role' => 'user',   'content' => $prompt],
+                ],
+                'max_tokens' => self::SUMMARY_MAX_TOKENS,
+            ]);
 
             $content = $result->choices[0]->message->content ?? '';
             if (is_array($content)) {
@@ -143,372 +126,133 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         ?callable $streamFunction = null,
         ?MessageChain $messageChain = null,
         ?ProgressUpdateCallback $progressUpdateCallback = null
-   ): CompletionResponse {
-      $compactionCount = 0;
-
-      // Apply any compaction persisted for this reply chain so messages
-      // already summarized are dropped instead of being re-summarized every
-      // request. A compaction is keyed by (chatId, rootMessageId) so
-      // independent threads within the same group chat stay separate. Private
-      // chats are a single conversation and use a sentinel root of 0.
-      $compactionKey = $this->compactionKeyForChain($messageChain);
-      if ($compactionKey !== null) {
-          $assistantContext = $this->contextCompactor->applyStoredCompaction($compactionKey, $assistantContext);
-      }
-
-      /** @var array<string, mixed> $requestOptions */
-      $supportsTools = count($this->toolDefintions) > 0;
-       $requestOptions = [
-           'messages' => $assistantContext->toOpenAiMessagesArray($supportsTools),
-       ];
-        if ($this->model !== null) {
-            $requestOptions['model'] = $this->model;
-        }
-        foreach ($this->toolDefintions as $toolDefinition) {
-            $requestOptions['tools'][] = $toolDefinition->toArray();
-        }
-
-        $allToolCalls = [];
-        $accumulator = new ResponseContentAccumulator();
-        $totalToolUses = 0;
-        $lastToolName = null;
-        $consecutiveSameToolUses = 0;
-
-        retry_compaction:
-        try {
-            $this->logger?->log(LogLevel::INFO, 'Sending OpenAI request to ' . $this->url . '...');
-            $this->logger?->log(LogLevel::DEBUG, json_encode(self::summarizeBase64Images($requestOptions), JSON_UNESCAPED_UNICODE));
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                $this->logger?->log(LogLevel::ERROR, 'Failed to convert context to JSON: ' . json_last_error_msg());
-            }
-            $this->logger?->log(LogLevel::DEBUG, 'Context roles: ' . AssistantContext::summarizeRoleSequence($requestOptions['messages']));
-
-            while (true) {
-                $statusMessage = "Waiting for LLM response";
-                if (count($allToolCalls) > 0) {
-                    $statusMessage .= " (" . count($allToolCalls) . " tool calls)";
-                }
-                if ($progressUpdateCallback !== null) {
-                    $progressUpdateCallback(static::class, $statusMessage);
-                } else {
-                    $this->logger?->log(LogLevel::INFO, $statusMessage);
-                }
-                $content = '';
-                /** @var array<int, object> $toolCallsByIndex */
-                $toolCallsByIndex = [];
-
-                $lastUpdateTime = 0;
-                $isPrivateChat = $messageChain !== null && $messageChain->last()->chatId > 0;
-                if ($streamFunction !== null) {
-                    $stream = $this->openAiClient->chat()->createStreamed($requestOptions);
-
-                $thinkingBuffer = '';
-                $thinkingTagOpened = false;
-                $reasoning = '';
-
-                foreach ($stream as $response) {
-                    $delta = $response->choices[0]->delta;
-                    if (isset($delta->reasoningContent)) {
-                        $thinkingBuffer .= $delta->reasoningContent;
-                        $reasoning .= $delta->reasoningContent;
-
-                        if ($isPrivateChat) {
-                            if (!$thinkingTagOpened) {
-                                $streamFunction('<tg-thinking>');
-                                $thinkingTagOpened = true;
-                            }
-                            $streamFunction($delta->reasoningContent);
-                        }
-                        // group chat: buffer only, format after thinking ends
-                    }
-
-                    if (isset($delta->content)) {
-                        // Flush group-chat thinking buffer as a details block before content
-
-                        if (!$isPrivateChat && $thinkingBuffer !== '') {
-                            $thinkingDetailsBlock = $this->formatThinkingAsDetailsBlock($thinkingBuffer);
-                            $streamFunction($thinkingDetailsBlock);
-                            $thinkingBuffer = '';
-                        }
-                        if ($isPrivateChat && $thinkingTagOpened) {
-                            $streamFunction("\n</tg-thinking>");
-                            $thinkingTagOpened = false;
-                        }
-
-                        $contentChunk = $delta->content;
-                        $content .= $contentChunk;
-                        $streamFunction($contentChunk);
-                        if ($progressUpdateCallback !== null) {
-                            $currentTime = microtime(true);
-                            if ($currentTime - $lastUpdateTime > 3) {
-                                $progressUpdateCallback(static::class, "Streaming response: (" . (mb_strlen(
-                                                                             $accumulator->llmVisibleContent
-                                                                         ) + mb_strlen($content)) . ") characters");
-                                $lastUpdateTime = $currentTime;
-                            }
-                        }
-                        if ($this->isStringStartingToRepeat($content, self::REPETITION_THRESHOLD_CHARACTERS)) {
-                            $this->logger?->log(LogLevel::INFO, 'Repetition detected, aborting response');
-                            $content .= "\n\n(Response was aborted due to repetition)";
-                            // Close the stream by unsetting it and clearing references
-                            $stream = null;
-                            unset($stream);
-                            gc_collect_cycles();
-                            $accumulator->appendSeparatingByANewLine($content);
-
-                            return $this->completionFromAccumulator($accumulator, $allToolCalls, $reasoning);
-                        }
-                    }
-
-                    if (isset($delta->toolCalls)) {
-                        foreach ($delta->toolCalls as $toolCallChunk) {
-                            $index = $toolCallChunk->index;
-                            if (!isset($toolCallsByIndex[$index])) {
-                                $toolCallsByIndex[$index] = (object) [
-                                    'id' => $toolCallChunk->id ?? null,
-                                    'type' => 'function',
-                                    'function' => (object) [
-                                        'name' => $toolCallChunk->function->name ?? null,
-                                        'arguments' => $toolCallChunk->function->arguments ?? '',
-                                    ],
-                                ];
-                            } else {
-                                if (isset($toolCallChunk->id)) {
-                                    $toolCallsByIndex[$index]->id = $toolCallChunk->id;
-                                }
-                                if (isset($toolCallChunk->function->name)) {
-                                    $toolCallsByIndex[$index]->function->name = $toolCallChunk->function->name;
-                                }
-                                if (isset($toolCallChunk->function->arguments)) {
-                                    $toolCallsByIndex[$index]->function->arguments .= $toolCallChunk->function->arguments;
-                                }
-                            }
-                        }
-                    }
-                }
-                $toolCalls = array_values($toolCallsByIndex);
-            } else {
-                $result = $this->openAiClient->chat()->create($requestOptions);
-                $choice0Message = $result->choices[0]->message ?? null;
-                if ($choice0Message === null) {
-                    throw new \Exception("Unexpected response from OpenAI: " . json_encode($result, JSON_THROW_ON_ERROR));
-                }
-
-                $content = (string) ($choice0Message->content ?? '');
-                $reasoning = (string) ($choice0Message->reasoningContent ?? '');
-                $toolCalls = $choice0Message->toolCalls ?? [];
-            }
-
-            [$contentWithoutAction, $actionToolCall] = $this->extractActionToolCallFromContent($content);
-            if ($actionToolCall !== null) {
-                $toolCalls[] = $actionToolCall;
-            }
-            $content = $contentWithoutAction;
-
-            $accumulator->appendSeparatingByANewLine($content);
-
-            if (count($toolCalls) === 0) {
-                return $this->completionFromAccumulator($accumulator, $allToolCalls, $reasoning);
-            }
-
-            $this->logger?->log(LogLevel::DEBUG, 'Received tool calls: ' . json_encode($toolCalls, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
-
-            if ($content !== '') {
-                $this->logger?->log(LogLevel::DEBUG, 'Received non-empty content alongside tool call: ' . $content);
-            }
-
-            $requestOptions['messages'][] = self::buildAssistantToolCallMessage($content, $reasoning, $toolCalls);
-
-            foreach ($toolCalls as $toolCall) {
-                $functionName = $toolCall->function->name;
-                $totalToolUses++;
-                if ($functionName === $lastToolName) {
-                    $consecutiveSameToolUses++;
-                } else {
-                    $lastToolName = $functionName;
-                    $consecutiveSameToolUses = 1;
-                }
-                $toolDefinition = $this->toolDefintions[$functionName] ?? null;
-                $isSilent = $toolDefinition !== null && $toolDefinition->silent;
-
-                // Tool-call/error notifications are streamed to Telegram as live
-                // progress and added to the display track only — never to the
-                // clean track, which is what gets persisted and replayed to the
-                // model. The model already sees the call via the structured
-                // tool_calls / tool-result messages.
-                if (!$isSilent) {
-                    $toolCallNotification = "\n>Executing `" . $functionName . "` with arguments `" . $toolCall->function->arguments . "`\n\n";
-                    $accumulator->appendTelegramDisplayOnly($toolCallNotification);
-                }
-
-                if (!isset($this->toolDefintions[$functionName])) {
-                    $this->logger?->log(LogLevel::WARNING, "Unknown tool called: $functionName");
-                    $toolResult = ['content' => 'Error: Unknown tool call: ' . $functionName];
-                    if ($streamFunction !== null) {
-                        $streamFunction($toolCallNotification);
-                        $errorNotification = "\n> ==Tool not found: $functionName==\n";
-                        $accumulator->appendTelegramDisplayOnly($errorNotification);
-                        $streamFunction($errorNotification);
-                    }
-                } else {
-                    $functionArgs = json_decode($toolCall->function->arguments, true, 512, JSON_THROW_ON_ERROR);
-                    $this->logger?->log(LogLevel::DEBUG, "Executing tool $functionName with args " . json_encode($functionArgs, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
-
-                    if ($progressUpdateCallback !== null) {
-                        $progressUpdateCallback(static::class, "Executing $functionName");
-                    }
-                    if ($streamFunction !== null && !$isSilent) {
-                        $streamFunction($toolCallNotification);
-                    }
-
-                    $toolCallExecutor = $this->toolDefintions[$functionName]->toolCallClass;
-                    $toolCallFailed = false;
-
-                    if ($toolCallExecutor instanceof ToolCallExecutorInterface) {
-                        try {
-                            $toolResult = $toolCallExecutor->executeToolCall($functionArgs);
-                        } catch (\Throwable $e) {
-                            $this->logger?->log(LogLevel::ERROR, "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString());
-                            $toolResult = ['content' => 'tool call failed'];
-                            $toolCallFailed = true;
-                        }
-                    } elseif ($toolCallExecutor instanceof MessageChainAwareToolCallExecutorInterface) {
-                        try {
-                            $toolResult = $toolCallExecutor->executeToolCall($functionArgs, $messageChain);
-                        } catch (\Throwable $e) {
-                            $this->logger?->log(LogLevel::ERROR, "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString());
-                            $toolResult = ['content' => 'tool call failed'];
-                            $toolCallFailed = true;
-                        }
-                    } else {
-                        throw new \RuntimeException(
-                            'Tool call class does not implement a supported interface: ' . get_class($toolCallExecutor)
-                        );
-                    }
-
-                    if ($toolCallFailed) {
-                        $errorMsg = $e->getMessage() ?? 'tool call failed';
-                        $errorNotification = "\n> ==Error in $functionName: $errorMsg==\n";
-                        $accumulator->appendTelegramDisplayOnly($errorNotification);
-                        if ($streamFunction !== null) {
-                            $streamFunction($errorNotification);
-                        }
-                    }
-                }
-
-                if (isset($toolResult['automatic_output_markdown'])) {
-                    if (!is_string($toolResult['automatic_output_markdown'])) {
-                        throw new \RuntimeException(
-                            'Tool call result automatic_output_markdown must be a string'
-                        );
-                    }
-                    $autoOutput  = "\n\n". $toolResult['automatic_output_markdown'] . "\n\n";
-                    $accumulator->appendAutomaticOutput($autoOutput);
-                    unset($toolResult['automatic_output_markdown']);
-                }
-
-                $contextImageParts = $this->processContextImages($toolResult, $progressUpdateCallback);
-
-                $toolResultContent = json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-                $this->logger?->log(LogLevel::DEBUG, 'Tool call result: ' . mb_substr($toolResultContent, 0, 1000));
-
-                $allToolCalls[] = new ToolCall(
-                    $toolCall->id,
-                    $toolCall->function->name,
-                    $toolCall->function->arguments,
-                    $toolResultContent,
-                );
-
-                $toolMessage = [
-                    'role' => 'tool',
-                    'tool_call_id' => $toolCall->id,
-                    'content' => $toolResultContent,
-                ];
-                // Let a vision-capable model actually see the images a tool produced
-                // or found (e.g. to judge an image_gen_tool edit) instead of guessing.
-                if ($contextImageParts !== []) {
-                    $toolMessage['content'] = [
-                        ['type' => 'text', 'text' => $toolResultContent],
-                        ...$contextImageParts,
-                    ];
-                }
-                $requestOptions['messages'][] = $toolMessage;
-            }
-
-            $abortReason = null;
-            if ($consecutiveSameToolUses >= self::MAX_CONSECUTIVE_SAME_TOOL_USES) {
-                $abortReason = "the same tool (`$lastToolName`) was called "
-                    . self::MAX_CONSECUTIVE_SAME_TOOL_USES
-                    . " times in a row";
-            } elseif ($totalToolUses >= self::MAX_TOTAL_TOOL_USES) {
-                $abortReason = 'the total limit of ' . self::MAX_TOTAL_TOOL_USES
-                    . ' tool calls was reached';
-            }
-            if ($abortReason !== null) {
-                $limitMessage = "\n> ==Aborting the tool-call loop: " . $abortReason
-                    . ". Stopping to avoid an infinite loop.==\n";
-                $this->logger?->log(LogLevel::WARNING, 'Aborting tool-call loop: ' . $abortReason . '.');
-                $accumulator->appendTelegramDisplayOnly($limitMessage);
-                if ($streamFunction !== null) {
-                    $streamFunction($limitMessage);
-                }
-
-                return $this->completionFromAccumulator($accumulator, $allToolCalls, $reasoning);
-            }
-        }
-        } catch (ErrorException $e) {
-            if ($compactionCount >= self::MAX_COMPACTION_RETRIES || !ContextCompactor::isContextLengthError($e)) {
-                $this->logger?->log(LogLevel::ERROR, 'LLM request failed. Context roles: '
-                    . AssistantContext::summarizeRoleSequence($requestOptions['messages']));
-                throw $e;
-            }
-
-            $this->logger?->log(LogLevel::INFO, 'Context length error caught, compacting...');
-            $this->logger?->log(LogLevel::ERROR, 'Error: ' . $e->getMessage());
-
-           $compactionCount++;
-           $assistantContext = $this->contextCompactor->compact($assistantContext, $compactionKey);
-
-           // Rebuild request options from the compacted context
-            $requestOptions = [
-                'messages' => $assistantContext->toOpenAiMessagesArray($supportsTools),
-            ];
-            if ($this->model !== null) {
-                $requestOptions['model'] = $this->model;
-            }
-            foreach ($this->toolDefintions as $toolDefinition) {
-                $requestOptions['tools'][] = $toolDefinition->toArray();
-            }
-
-            // Reset accumulators so we start fresh with compacted context
-            $allToolCalls = [];
-            $accumulator = new ResponseContentAccumulator();
-
-            goto retry_compaction;
-        }
-    }
-
-    /**
-     * The completion built from the accumulator: its display track was already
-     * stripped of hallucinated image markup (with trusted inline images from
-     * automatic_output_markdown kept), so the sender must not sanitize again.
-     */
-    private function completionFromAccumulator(
-        ResponseContentAccumulator $accumulator,
-        array $allToolCalls,
-        ?string $reasoning,
     ): CompletionResponse {
-        return new CompletionResponse(
-            $accumulator->llmVisibleContent,
-            $allToolCalls,
-            reasoning: $reasoning,
-            displayContent: $accumulator->telegramDisplayedContent,
-            displayContentSanitized: true,
+        $stream = $streamFunction !== null;
+
+        return $this->toolLoop->run(
+            $assistantContext,
+            fn (array $messages, StreamingTurnPresenter $presenter): ModelTurn => $this->requestTurn($messages, $stream, $presenter),
+            $this->appendToolRound(...),
+            $streamFunction,
+            $messageChain,
+            $progressUpdateCallback,
         );
     }
 
     /**
-     * @return array{0:string,1:?object}
+     * @param list<array<string, mixed>> $messages
+     */
+    private function requestTurn(array $messages, bool $stream, StreamingTurnPresenter $presenter): ModelTurn
+    {
+        $request = ['messages' => $messages];
+        if ($this->model !== null) {
+            $request['model'] = $this->model;
+        }
+        if ($this->tools !== []) {
+            $request['tools'] = $this->tools;
+        }
+
+        $this->logger?->log(LogLevel::INFO, 'Sending OpenAI request to ' . $this->url . '...');
+        $this->logger?->log(LogLevel::DEBUG, json_encode(self::summarizeBase64Images($request), JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR));
+        try {
+            $turn = $stream ? $this->streamTurn($request, $presenter) : $this->createTurn($request);
+        } catch (ErrorException $e) {
+            $this->logger?->log(LogLevel::ERROR, 'LLM request failed. Context roles: ' . OpenAiMessageConverter::summarizeRoleSequence($messages));
+            throw $e;
+        }
+        if ($turn->abortedForRepetition) {
+            return $turn;
+        }
+
+        [$text, $actionToolCall] = $this->extractActionToolCallFromContent($turn->text);
+
+        return new ModelTurn(
+            $text,
+            $turn->reasoning,
+            $actionToolCall === null ? $turn->toolCalls : [...$turn->toolCalls, $actionToolCall],
+        );
+    }
+
+    private function streamTurn(array $request, StreamingTurnPresenter $presenter): ModelTurn
+    {
+        $stream = $this->openAiClient->chat()->createStreamed($request);
+        /** @var array<int, ToolCall> $toolCallsByIndex */
+        $toolCallsByIndex = [];
+
+        foreach ($stream as $response) {
+            $delta = $response->choices[0]->delta;
+            if (isset($delta->reasoningContent)) {
+                $presenter->thinking($delta->reasoningContent);
+            }
+            if (isset($delta->content) && $presenter->text($delta->content)) {
+                // Dropping the stream closes the connection, which stops the generation.
+                unset($stream, $response);
+                gc_collect_cycles();
+
+                return new ModelTurn($presenter->text, $presenter->reasoning, abortedForRepetition: true);
+            }
+            foreach ($delta->toolCalls ?? [] as $toolCallChunk) {
+                $toolCall = $toolCallsByIndex[$toolCallChunk->index] ??= new ToolCall('', '', '');
+                if (isset($toolCallChunk->id)) {
+                    $toolCall->id = $toolCallChunk->id;
+                }
+                if (isset($toolCallChunk->function->name)) {
+                    $toolCall->name = $toolCallChunk->function->name;
+                }
+                if (isset($toolCallChunk->function->arguments)) {
+                    $toolCall->arguments .= $toolCallChunk->function->arguments;
+                }
+            }
+        }
+        $presenter->endThinking();
+
+        return new ModelTurn($presenter->text, $presenter->reasoning, array_values($toolCallsByIndex));
+    }
+
+    private function createTurn(array $request): ModelTurn
+    {
+        $result = $this->openAiClient->chat()->create($request);
+        $message = $result->choices[0]->message ?? null;
+        if ($message === null) {
+            throw new \Exception("Unexpected response from OpenAI: " . json_encode($result, JSON_THROW_ON_ERROR));
+        }
+
+        return new ModelTurn(
+            (string) ($message->content ?? ''),
+            (string) ($message->reasoningContent ?? ''),
+            array_map(
+                static fn (object $toolCall): ToolCall => new ToolCall($toolCall->id, $toolCall->function->name, $toolCall->function->arguments),
+                $message->toolCalls ?? [],
+            ),
+        );
+    }
+
+    /**
+     * @param list<array<string, mixed>> $messages
+     * @param list<ToolCallRunResult> $results
+     * @return list<array<string, mixed>>
+     */
+    private function appendToolRound(array $messages, ModelTurn $turn, array $results): array
+    {
+        $messages[] = self::buildAssistantToolCallMessage($turn->text, $turn->reasoning, $turn->toolCalls);
+        foreach ($results as $result) {
+            $content = $result->toolCall->result;
+            $messages[] = [
+                'role'         => 'tool',
+                'tool_call_id' => $result->toolCall->id,
+                // Let a vision-capable model actually see the images a tool produced
+                // or found (e.g. to judge an image_gen_tool edit) instead of guessing.
+                'content'      => $result->imageParts === []
+                    ? $content
+                    : [['type' => 'text', 'text' => $content], ...$result->imageParts],
+            ];
+        }
+
+        return $messages;
+    }
+
+    /**
+     * @return array{0: string, 1: ?ToolCall}
      */
     private function extractActionToolCallFromContent(string $content): array
     {
@@ -539,14 +283,11 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
         $this->logger?->log(LogLevel::DEBUG, "Removing Gemma 4 action from content: " . $functionName);
         $contentWithoutAction = trim(substr($trimmedContent, 0, $firstOpeningBracePosition));
 
-        $syntheticToolCall = (object) [
-            'id' => 'action_' . bin2hex(random_bytes(8)),
-            'type' => 'function',
-            'function' => (object) [
-                'name' => $functionName,
-                'arguments' => json_encode($functionArguments, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            ],
-        ];
+        $syntheticToolCall = new ToolCall(
+            'action_' . bin2hex(random_bytes(8)),
+            $functionName,
+            json_encode($functionArguments, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        );
 
         return [$contentWithoutAction, $syntheticToolCall];
     }
@@ -589,79 +330,11 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
     }
 
     /**
-     * Make images returned by a tool visible to the model so it has feedback
-     * about what it produced or found instead of guessing and looping. Tools
-     * return either 'context_image' (a single generated image) or
-     * 'context_images' (reference => bytes, e.g. image_search results):
-     *  - vision assistants: returns image_url content parts to embed in the tool message;
-     *  - non-vision assistants: adds auto-generated alt-text descriptions to the tool
-     *    result ('generated_image_description' / 'image_descriptions') so the model
-     *    at least knows what the images contain.
-     * The raw bytes are always stripped from $toolResult so they never reach json_encode.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function processContextImages(array &$toolResult, ?ProgressUpdateCallback $progressUpdateCallback): array
-    {
-        $image = $toolResult['context_image'] ?? null;
-        $images = $toolResult['context_images'] ?? null;
-        unset($toolResult['context_image'], $toolResult['context_images']);
-
-        $parts = [];
-        if (is_string($image) && $image !== '') {
-            if ($this->supportsImages) {
-                $imagePart = ImageDataUrl::buildContentPart($image, $this->logger);
-                if ($imagePart !== null) {
-                    $parts[] = $imagePart;
-                }
-            } else {
-                $altText = $this->describeContextImage($image, $progressUpdateCallback);
-                if ($altText !== '') {
-                    $toolResult['generated_image_description'] = $altText;
-                }
-            }
-        }
-
-        if (!is_array($images)) {
-            return $parts;
-        }
-        foreach ($images as $reference => $referencedImage) {
-            if (!is_string($referencedImage) || $referencedImage === '') {
-                continue;
-            }
-            if ($this->supportsImages) {
-                $imagePart = ImageDataUrl::buildContentPart($referencedImage, $this->logger);
-                if ($imagePart !== null) {
-                    $parts[] = ['type' => 'text', 'text' => "Image $reference:"];
-                    $parts[] = $imagePart;
-                }
-            } else {
-                $altText = $this->describeContextImage($referencedImage, $progressUpdateCallback);
-                if ($altText !== '') {
-                    $toolResult['image_descriptions'][$reference] = $altText;
-                }
-            }
-        }
-
-        return $parts;
-    }
-
-    private function describeContextImage(string $image, ?ProgressUpdateCallback $progressUpdateCallback): string
-    {
-        try {
-            return $this->altTextProvider->generateAltTextForImageString($image, $progressUpdateCallback);
-        } catch (\Throwable $e) {
-            $this->logger?->log(LogLevel::ERROR, 'Failed to generate alt text for tool image: ' . $e->getMessage());
-            return '';
-        }
-    }
-
-    /**
      * Reconstructs the assistant message exactly as the model emitted it so
      * the conversation can be continued after a tool call. reasoning_content
      * is only included when the model actually produced reasoning.
      *
-     * @param list<object> $toolCalls
+     * @param list<ToolCall> $toolCalls
      */
     private static function buildAssistantToolCallMessage(string $content, string $reasoning, array $toolCalls): array
     {
@@ -669,12 +342,12 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
             'role' => 'assistant',
             'content' => $content,
             'tool_calls' => array_map(
-                static fn(object $toolCall): array => [
+                static fn(ToolCall $toolCall): array => [
                     'id' => $toolCall->id,
                     'type' => 'function',
                     'function' => [
-                        'name' => $toolCall->function->name,
-                        'arguments' => $toolCall->function->arguments,
+                        'name' => $toolCall->name,
+                        'arguments' => $toolCall->arguments,
                     ],
                 ],
                 $toolCalls
@@ -686,43 +359,4 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
 
         return $assistantMessage;
     }
-
-    /**
-     * Return a copy of $requestOptions with base64 image data URLs replaced by
-     * a compact size note (e.g. "[base64 image, 54kb]") so logs stay readable
-     * instead of dumping megabytes of base64.
-     *
-     * @param array<string, mixed> $requestOptions
-     * @return array<string, mixed>
-     */
-    private static function summarizeBase64Images(array $requestOptions): array
-    {
-        array_walk_recursive(
-            $requestOptions,
-            static function (mixed &$value, mixed $key): void {
-                if (!is_string($value)) {
-                    return;
-                }
-                if (preg_match('/^data:image\/(?<format>[^;]+);base64,(?<data>.+)$/', $value, $m) !== 1) {
-                    return;
-                }
-                $sizeKb = (int) round(strlen($m['data']) / 1024);
-                $value = "[base64 image, {$sizeKb}kb]";
-            },
-        );
-
-        return $requestOptions;
-    }
-
-    private function isStringStartingToRepeat(string $str, int $charactersToCheck): bool
-    {
-        if (mb_strlen($str) < $charactersToCheck) {
-            return false;
-        }
-        $lastCharacters = mb_substr($str, -$charactersToCheck);
-        $earlierPart = mb_substr($str, 0, -$charactersToCheck);
-
-        return str_contains($earlierPart, $lastCharacters);
-    }
-
 }

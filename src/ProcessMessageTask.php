@@ -11,7 +11,6 @@ use LanguageDetection\Language;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\Assistant\AltTextProvider;
-use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Audio\AudioRepository;
 use Perk11\Viktor89\Audio\AudioTrimmer;
@@ -127,7 +126,6 @@ class ProcessMessageTask implements Task
     {
         ini_set('memory_limit', -1);
         InternalMessage::setLogger($this->logger);
-        AssistantContext::setLogger($this->logger);
         BotAdminChecker::setLogger($this->logger);
 
         // amphp disables display_errors and pipes worker stdio, so a fatal would

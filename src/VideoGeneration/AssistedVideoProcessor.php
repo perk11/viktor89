@@ -8,6 +8,7 @@ use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\AssistantContextMessage;
 use Perk11\Viktor89\Assistant\ContextCompletingAssistantInterface;
+use Perk11\Viktor89\Assistant\OpenAiMessageConverter;
 use Perk11\Viktor89\ImageGeneration\Automatic1111APiClient;
 use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
@@ -163,7 +164,7 @@ class AssistedVideoProcessor implements MessageChainProcessor
 JSON;
 
 
-        $context = AssistantContext::fromOpenAiMessagesJson($input);
+        $context = OpenAiMessageConverter::contextFromJson($input);
         $promptMessage = new AssistantContextMessage();
         $promptMessage->isUser = true;
         $promptMessage->text = "Create an imaginative description in ENGLISH for the first frame of the video describing the scene in the user input : \" $prompt \"'";
