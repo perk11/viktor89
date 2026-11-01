@@ -4,19 +4,30 @@ namespace Perk11\Viktor89\Assistant\Tool;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Psr7\Uri;
+use GuzzleHttp\Psr7\UriResolver;
+use Perk11\Viktor89\Assistant\Tool\UrlFetch\BlockedUrlException;
+use Perk11\Viktor89\Assistant\Tool\UrlFetch\PublicUrlGuard;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
 {
     private const int MAX_CONTENT_CHARS = 10000;
     private const int MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+    private const int MAX_REDIRECTS = 5;
 
     private readonly Client $client;
 
     private array $supportedArguments = ['url'];
 
-    public function __construct()
-    {
-        $this->client = new Client([
+    public function __construct(
+        private readonly PublicUrlGuard $publicUrlGuard,
+        private readonly LoggerInterface $logger,
+        ?Client $client = null,
+    ) {
+        $this->client = $client ?? new Client([
             'timeout' => 30,
         ]);
     }
@@ -51,22 +62,74 @@ class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
         return $this->fetchUrlContents($url);
     }
 
+    /**
+     * Redirects are followed by hand so that every hop goes through
+     * PublicUrlGuard; Guzzle's own redirect handling would happily follow a
+     * public URL into the LAN. Each request is pinned to the address that was
+     * validated, so a DNS answer cannot change between the check and the fetch.
+     */
     private function fetchUrlContents(string $url): array
     {
-        try {
-            $response = $this->client->get($url, [
-                'headers' => [
-                    'Accept'     => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'User-Agent' => 'Viktor89/1.0',
-                ],
-                'stream' => true,
-            ]);
-        } catch (GuzzleException $exception) {
-            throw new \RuntimeException('Failed to fetch URL: ' . $exception->getMessage(), 0, $exception);
+        $redirects = 0;
+        while (true) {
+            $pinned = $this->publicUrlGuard->pin($url);
+            try {
+                $response = $this->client->get($pinned->url, [
+                    'headers' => [
+                        'Accept'     => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        'User-Agent' => 'Viktor89/1.0',
+                    ],
+                    'stream' => true,
+                    'allow_redirects' => false,
+                    'http_errors' => false,
+                    'curl' => [
+                        CURLOPT_RESOLVE => [$pinned->curlResolveEntry()],
+                    ],
+                ]);
+            } catch (GuzzleException $exception) {
+                $this->logger->log(LogLevel::WARNING, "Failed to fetch $url: " . $exception->getMessage());
+                throw new \RuntimeException('Failed to fetch URL', 0, $exception);
+            }
+
+            $location = $this->redirectTarget($response, $url);
+            if ($location === null) {
+                break;
+            }
+            if (++$redirects > self::MAX_REDIRECTS) {
+                throw new \RuntimeException('Failed to fetch URL: too many redirects');
+            }
+            $response->getBody()->close();
+            $url = $location;
         }
 
+        return $this->parseResponse($url, $response);
+    }
+
+    private function redirectTarget(ResponseInterface $response, string $currentUrl): ?string
+    {
+        if (!in_array($response->getStatusCode(), [301, 302, 303, 307, 308], true)) {
+            return null;
+        }
+        $location = $response->getHeaderLine('Location');
+        if ($location === '') {
+            return null;
+        }
+        try {
+            $target = (string) UriResolver::resolve(new Uri($currentUrl), new Uri($location));
+        } catch (\InvalidArgumentException $exception) {
+            $this->logger->log(LogLevel::WARNING, "Unparseable redirect from $currentUrl: $location");
+            throw new BlockedUrlException('the URL redirected to an invalid location');
+        }
+        $this->logger->log(LogLevel::INFO, "Following redirect from $currentUrl to $target");
+
+        return $target;
+    }
+
+    private function parseResponse(string $url, ResponseInterface $response): array
+    {
         $statusCode = $response->getStatusCode();
-        if ($statusCode !== 200 && $statusCode !== 202) {throw new \RuntimeException("URL returned status code: $statusCode");
+        if ($statusCode !== 200 && $statusCode !== 202) {
+            throw new \RuntimeException("URL returned status code: $statusCode");
         }
 
         $contentLengthHeader = $response->getHeaderLine('Content-Length');
