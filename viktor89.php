@@ -99,10 +99,10 @@ EventLoop::repeat(
                     if ($result->getPollAnswer() !== null) {
                         $pollResponseProcessingResult = $pollResponseProcessor->process($result->getPollAnswer());
                         $processingResultExecutor->execute($pollResponseProcessingResult);
-                        return;
+                        continue;
                     }
                     $logger->log(LogLevel::WARNING, 'Unknown update received. Message is null: ' . print_r($result, true));
-                    return;
+                    continue;
                 }
                 $handleTask = new ProcessMessageTask(
                     $workerId++,
