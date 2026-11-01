@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Perk11\Viktor89\Assistant\Tool\ImageSearch;
 
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
+use Perk11\Viktor89\Assistant\Tool\ToolArgumentException;
 use Perk11\Viktor89\MessageChain;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
@@ -38,16 +39,16 @@ class ImageSearchToolCallExecutor implements MessageChainAwareToolCallExecutorIn
     {
         foreach ($arguments as $argumentName => $argumentValue) {
             if (!in_array($argumentName, ['query', 'max_results'], true)) {
-                throw new \InvalidArgumentException("Unsupported argument: $argumentName");
+                throw new ToolArgumentException("Unsupported argument: $argumentName");
             }
         }
         if (!isset($arguments['query']) || !is_string($arguments['query']) || trim($arguments['query']) === '') {
-            throw new \InvalidArgumentException('Missing required argument: query');
+            throw new ToolArgumentException('Missing required argument: query');
         }
         $query = trim($arguments['query']);
         $maxResults = $arguments['max_results'] ?? self::DEFAULT_MAX_RESULTS;
         if (!is_int($maxResults) || $maxResults < 1 || $maxResults > self::MAX_MAX_RESULTS) {
-            throw new \InvalidArgumentException(
+            throw new ToolArgumentException(
                 'Invalid argument value: max_results must be an integer between 1 and ' . self::MAX_MAX_RESULTS
             );
         }

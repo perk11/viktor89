@@ -11,6 +11,7 @@ use Longman\TelegramBot\Telegram;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\OpenAiChatAssistant;
 use Perk11\Viktor89\IPC\TaskCompletedMessage;
+use Perk11\Viktor89\Log\SecretRedactingProcessor;
 use Perk11\Viktor89\IPC\TaskUpdateMessage;
 use Perk11\Viktor89\Repository\ChatSummaryRepository;
 use Perk11\Viktor89\Repository\FileCacheRepository;
@@ -37,6 +38,7 @@ class SummaryTask implements Task
 
     public function run(Channel $channel, Cancellation $cancellation): mixed
     {
+        SecretRedactingProcessor::registerSecret($this->telegramApiKey);
         InternalMessage::setLogger($this->logger);
         BotAdminChecker::setLogger($this->logger);
         $channel->send(new TaskUpdateMessage($this->workerId, 'Summary', 'Generating summary', new ChatAction($this->summarizedChatId, ChatActionEnum::typing)));

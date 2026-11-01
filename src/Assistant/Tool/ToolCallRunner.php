@@ -7,6 +7,7 @@ namespace Perk11\Viktor89\Assistant\Tool;
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\ImagePartBuilderInterface;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+use Perk11\Viktor89\UserFacingExceptionInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
@@ -65,9 +66,9 @@ final class ToolCallRunner
                     : $executor->executeToolCall($arguments);
                 $failed = false;
             } catch (\Throwable $e) {
-                $this->logger?->log(LogLevel::ERROR, "Error executing tool call: " . $e->getMessage() . "\n" . $e->getTraceAsString());
-                $toolResult = ['content' => 'tool call failed'];
-                $context->notify("\n> ==Error in $functionName: {$e->getMessage()}==\n");
+                $userMessage = $this->describeFailure($functionName, $e);
+                $toolResult = ['content' => "Error: $userMessage"];
+                $context->notify("\n> ==Error in $functionName: $userMessage==\n");
             }
         }
 
@@ -89,6 +90,31 @@ final class ToolCallRunner
             $imageParts,
             $failed,
         );
+    }
+
+    /**
+     * Logs the failure in full and returns what the user and the model may see.
+     * Exception messages are shown only for exceptions written for users; any
+     * other exception (HTTP client errors with hostnames or tokens in the URL,
+     * filesystem paths, upstream API bodies) is replaced by an error id that
+     * is also in the log line.
+     */
+    private function describeFailure(string $functionName, \Throwable $e): string
+    {
+        if ($e instanceof UserFacingExceptionInterface) {
+            $this->logger?->log(LogLevel::WARNING, "Tool call $functionName failed: " . $e->getMessage());
+
+            return $e->getMessage();
+        }
+
+        $errorId = bin2hex(random_bytes(4));
+        $this->logger?->log(
+            LogLevel::ERROR,
+            "Tool call $functionName failed (error id $errorId): " . get_class($e) . ': ' . $e->getMessage()
+            . "\n" . $e->getTraceAsString(),
+        );
+
+        return "tool call failed (error id $errorId)";
     }
 
     /**

@@ -32,23 +32,23 @@ class SqliteKnowledgeDBSearchToolCallExecutor implements ToolCallExecutorInterfa
     {
         foreach ($arguments as $currentArgumentName => $currentArgumentValue) {
             if (!in_array($currentArgumentName, $this->supportedToolCallArguments, true)) {
-                throw new \InvalidArgumentException("Unsupported argument: $currentArgumentName");
+                throw new ToolArgumentException("Unsupported argument: $currentArgumentName");
             }
         }
 
         if (!isset($arguments['query'])) {
-            throw new \InvalidArgumentException('Missing required argument: query');
+            throw new ToolArgumentException('Missing required argument: query');
         }
 
         if (!is_string($arguments['query'])) {
-            throw new \InvalidArgumentException('Invalid argument type: query must be a string');
+            throw new ToolArgumentException('Invalid argument type: query must be a string');
         }
 
         $userProvidedSearchQuery = $arguments['query'];
 
         $maximumRequestedResultsCount = $arguments['max_results'] ?? 5;
         if (!is_int($maximumRequestedResultsCount) || $maximumRequestedResultsCount < 1 || $maximumRequestedResultsCount > 10) {
-            throw new \InvalidArgumentException(
+            throw new ToolArgumentException(
                 'Invalid argument value: max_results must be an integer between 1 and 10'
             );
         }

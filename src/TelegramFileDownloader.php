@@ -46,9 +46,7 @@ class TelegramFileDownloader
     }
 
     /**
-     * @param string $fileId
-     * @return string
-     * @throws GuzzleException
+     * @throws Exception when Telegram does not know the file or the download fails
      */
     public function downloadFile(string $fileId): string
     {
@@ -69,7 +67,17 @@ class TelegramFileDownloader
             $this->telegramBotApiKey,
             'https://api.telegram.org/file/bot{API_KEY}'
         );
-        $downloadResponse = $this->guzzle->get("{$baseDownloadUri}/{$file->getFilePath()}");
+        try {
+            $downloadResponse = $this->guzzle->get("{$baseDownloadUri}/{$file->getFilePath()}");
+        } catch (GuzzleException $e) {
+            // Guzzle messages include the request URL, which carries the bot token.
+            $this->logger->log(
+                LogLevel::ERROR,
+                "Failed to download file {$file->getFilePath()}: " . get_class($e) . ': '
+                . str_replace($this->telegramBotApiKey, '***', $e->getMessage()),
+            );
+            throw new Exception("Failed to download file {$file->getFilePath()} from Telegram");
+        }
         if ($downloadResponse->getStatusCode() !== 200) {
             throw new Exception("Failed to download file " . $file->getFilePath());
         }

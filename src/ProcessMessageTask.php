@@ -54,6 +54,7 @@ use Perk11\Viktor89\ImageGeneration\SaveAsProcessor;
 use Perk11\Viktor89\ImageGeneration\SendAsDocumentProcessor;
 use Perk11\Viktor89\ImageGeneration\UpscaleApiClient;
 use Perk11\Viktor89\IPC\ChannelBeforeMessageSentNotifier;
+use Perk11\Viktor89\Log\SecretRedactingProcessor;
 use Perk11\Viktor89\IPC\ChannelDraftUpdateCallback;
 use Perk11\Viktor89\IPC\EngineProgressUpdateCallback;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
@@ -125,6 +126,7 @@ class ProcessMessageTask implements Task
     public function run(Channel $channel, Cancellation $cancellation): bool
     {
         ini_set('memory_limit', -1);
+        SecretRedactingProcessor::registerSecret($this->telegramApiKey);
         InternalMessage::setLogger($this->logger);
         BotAdminChecker::setLogger($this->logger);
 

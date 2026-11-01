@@ -8,6 +8,7 @@ use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
 use Perk11\Viktor89\Assistant\Tool\UrlFetch\BlockedUrlException;
 use Perk11\Viktor89\Assistant\Tool\UrlFetch\PublicUrlGuard;
+use Perk11\Viktor89\Assistant\Tool\UrlFetch\UrlFetchException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
@@ -36,27 +37,27 @@ class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
     {
         foreach ($arguments as $argumentName => $argumentValue) {
             if (!in_array($argumentName, $this->supportedArguments, true)) {
-                throw new \InvalidArgumentException("Unsupported argument: $argumentName");
+                throw new ToolArgumentException("Unsupported argument: $argumentName");
             }
         }
 
         if (!isset($arguments['url'])) {
-            throw new \InvalidArgumentException('Missing required argument: url');
+            throw new ToolArgumentException('Missing required argument: url');
         }
 
         if (!is_string($arguments['url'])) {
-            throw new \InvalidArgumentException('Invalid argument type: url must be a string');
+            throw new ToolArgumentException('Invalid argument type: url must be a string');
         }
 
         $url = trim($arguments['url']);
 
         if (!filter_var($url, FILTER_VALIDATE_URL)) {
-            throw new \InvalidArgumentException('Invalid argument value: url must be a valid URL');
+            throw new ToolArgumentException('Invalid argument value: url must be a valid URL');
         }
 
         $scheme = parse_url($url, PHP_URL_SCHEME);
         if ($scheme !== 'http' && $scheme !== 'https') {
-            throw new \InvalidArgumentException('Invalid argument value: only http and https schemes are allowed');
+            throw new ToolArgumentException('Invalid argument value: only http and https schemes are allowed');
         }
 
         return $this->fetchUrlContents($url);
@@ -88,7 +89,7 @@ class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
                 ]);
             } catch (GuzzleException $exception) {
                 $this->logger->log(LogLevel::WARNING, "Failed to fetch $url: " . $exception->getMessage());
-                throw new \RuntimeException('Failed to fetch URL', 0, $exception);
+                throw new UrlFetchException('Failed to fetch URL', 0, $exception);
             }
 
             $location = $this->redirectTarget($response, $url);
@@ -96,7 +97,7 @@ class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
                 break;
             }
             if (++$redirects > self::MAX_REDIRECTS) {
-                throw new \RuntimeException('Failed to fetch URL: too many redirects');
+                throw new UrlFetchException('Failed to fetch URL: too many redirects');
             }
             $response->getBody()->close();
             $url = $location;
@@ -129,12 +130,12 @@ class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
     {
         $statusCode = $response->getStatusCode();
         if ($statusCode !== 200 && $statusCode !== 202) {
-            throw new \RuntimeException("URL returned status code: $statusCode");
+            throw new UrlFetchException("URL returned status code: $statusCode");
         }
 
         $contentLengthHeader = $response->getHeaderLine('Content-Length');
         if ($contentLengthHeader !== '' && (int) $contentLengthHeader > self::MAX_FILE_SIZE_BYTES) {
-            throw new \RuntimeException("URL content exceeds maximum allowed size: " . number_format((int) $contentLengthHeader / (1024 * 1024), 2) . "MB (max 5MB)");
+            throw new UrlFetchException("URL content exceeds maximum allowed size: " . number_format((int) $contentLengthHeader / (1024 * 1024), 2) . "MB (max 5MB)");
         }
         $body = '';
         $totalBytes = 0;
@@ -143,7 +144,7 @@ class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
             $chunk = $stream->read(8192);
             $totalBytes += strlen($chunk);
             if ($totalBytes > self::MAX_FILE_SIZE_BYTES) {
-                throw new \RuntimeException("URL content exceeds maximum allowed size: " . number_format($totalBytes / (1024 * 1024), 2) . "MB (max 5MB)");
+                throw new UrlFetchException("URL content exceeds maximum allowed size: " . number_format($totalBytes / (1024 * 1024), 2) . "MB (max 5MB)");
             }
             $body .= $chunk;
         }
@@ -164,7 +165,7 @@ class GetUrlContentsToolCallExecutor implements ToolCallExecutorInterface
         } elseif (str_contains($contentType, 'text/') || str_contains($contentType, 'application/json')) {
             $text = $body;
         } else {
-            throw new \RuntimeException("Unsupported content type $contentType. Only text/html, applicaiton/json and text/* are supported.");
+            throw new UrlFetchException("Unsupported content type $contentType. Only text/html, applicaiton/json and text/* are supported.");
         }
         // Strip invalid UTF-8 byte sequences before any mb_* or /u regex operations
         $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');

@@ -15,6 +15,7 @@ use Perk11\Viktor89\IPC\DraftUpdater;
 use Perk11\Viktor89\IPC\FinalMessageTracker;
 use Perk11\Viktor89\IPC\RunningTaskTracker;
 use Perk11\Viktor89\JoinQuiz\PollResponseProcessor;
+use Perk11\Viktor89\Log\SecretRedactingProcessor;
 use Perk11\Viktor89\Log\Viktor89Logger;
 use Perk11\Viktor89\OpenAISummaryProvider;
 use Perk11\Viktor89\PatchesMonitorTask;
@@ -50,6 +51,7 @@ $telegram = new Telegram($_ENV['TELEGRAM_BOT_TOKEN'], $_ENV['TELEGRAM_BOT_USERNA
 // Compile the DI container once for all worker processes to load.
 ContainerFactory::warmup($telegram->getBotId(), $_ENV['TELEGRAM_BOT_USERNAME'], $telegram->getApiKey());
 
+SecretRedactingProcessor::registerSecret($telegram->getApiKey());
 $logger = new Viktor89Logger();
 InternalMessage::setLogger($logger);
 BotAdminChecker::setLogger($logger);

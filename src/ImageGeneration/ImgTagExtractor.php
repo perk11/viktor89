@@ -203,9 +203,14 @@ class ImgTagExtractor
             throw new SavedImageNotFoundException("Chain video $reference not found");
         }
 
-        $videoBytes = $this->telegramFileDownloader->downloadFile($videoFileId);
+        try {
+            $videoBytes = $this->telegramFileDownloader->downloadFile($videoFileId);
 
-        return $this->videoFrameExtractor->extractLastFrameAsPng($videoBytes);
+            return $this->videoFrameExtractor->extractLastFrameAsPng($videoBytes);
+        } catch (\Exception $e) {
+            $this->logger?->log(LogLevel::ERROR, "Failed to extract last frame of chain video $videoIndex: " . $e->getMessage());
+            throw new SavedImageNotFoundException("Chain video $reference could not be read");
+        }
     }
 
     /**

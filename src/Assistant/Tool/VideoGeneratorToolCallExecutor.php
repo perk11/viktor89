@@ -33,14 +33,14 @@ class VideoGeneratorToolCallExecutor implements MessageChainAwareToolCallExecuto
     public function executeToolCall(array $arguments, MessageChain $messageChain): array
     {
         if (!isset($arguments['prompt'])) {
-            throw new \InvalidArgumentException('Prompt is required');
+            throw new ToolArgumentException('Prompt is required');
         }
         if (!is_string($arguments['prompt'])) {
-            throw new \InvalidArgumentException('Prompt must be a string');
+            throw new ToolArgumentException('Prompt must be a string');
         }
         foreach ($arguments as $key => $value) {
             if ($key !== 'prompt') {
-                throw new \InvalidArgumentException("Unsupported argument: $key");
+                throw new ToolArgumentException("Unsupported argument: $key");
             }
         }
 

@@ -14,7 +14,7 @@ class ListChainImagesToolCallExecutor implements MessageChainAwareToolCallExecut
     public function executeToolCall(array $arguments, MessageChain $messageChain): array
     {
         foreach ($arguments as $key => $value) {
-            throw new \InvalidArgumentException("Unsupported argument: $key");
+            throw new ToolArgumentException("Unsupported argument: $key");
         }
 
         $images = [];

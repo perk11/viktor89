@@ -31,6 +31,6 @@ class Viktor89Logger extends Logger
         $handler->setFormatter(new LineFormatter(
             "[%datetime%] %channel%.%level_name%: %message%\n",
         ));
-        parent::__construct($name, [$handler]);
+        parent::__construct($name, [$handler], [new SecretRedactingProcessor()]);
     }
 }

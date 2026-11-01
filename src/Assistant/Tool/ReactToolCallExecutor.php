@@ -27,7 +27,7 @@ class ReactToolCallExecutor implements MessageChainAwareToolCallExecutorInterfac
     public function executeToolCall(array $arguments, MessageChain $messageChain): array
     {
         if (!array_key_exists('reaction', $arguments)) {
-            throw new \InvalidArgumentException('Reaction argument is required');
+            throw new ToolArgumentException('Reaction argument is required');
         }
         $allowed = self::allowedReactions();
         if (!in_array($arguments['reaction'], $allowed, true)) {

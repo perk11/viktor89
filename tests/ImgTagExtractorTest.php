@@ -594,6 +594,33 @@ class ImgTagExtractorTest extends TestCase
         $this->assertSame(['frame-bytes', 'frame-bytes'], $result->referenceImages);
     }
 
+    public function testVframeTagReportsNotFoundWhenVideoDownloadFails(): void
+    {
+        $downloader = $this->createStub(TelegramFileDownloader::class);
+        $downloader->method('downloadFile')->willThrowException(
+            new \Exception('Client error: GET https://api.telegram.org/file/bot1:SECRET/x resulted in 404'),
+        );
+        $frameExtractor = $this->createStub(VideoFrameExtractor::class);
+        $extractor = new ImgTagExtractor(
+            $this->createStub(ImageRepository::class),
+            $downloader,
+            logger: new \Psr\Log\NullLogger(),
+            videoFrameExtractor: $frameExtractor,
+        );
+
+        $videoMessage = new InternalMessage();
+        $videoMessage->videoFileId = 'file-id-1';
+        $chain = new MessageChain([$videoMessage, new InternalMessage()]);
+
+        try {
+            $extractor->extractImageAndFrameTags(new VideoGenerationPrompt('<vframe>#0</vframe> go'), $chain);
+            $this->fail('Expected SavedImageNotFoundException');
+        } catch (SavedImageNotFoundException $e) {
+            $this->assertStringNotContainsString('SECRET', $e->getMessage());
+            $this->assertStringContainsString('#0', $e->getMessage());
+        }
+    }
+
     public function testVframeTagThrowsWhenChainVideoNotFound(): void
     {
         $downloader = $this->createStub(TelegramFileDownloader::class);

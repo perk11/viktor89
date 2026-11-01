@@ -71,16 +71,16 @@ class ZaiWebSearchToolCallExecutor implements ToolCallExecutorInterface
     {
         foreach ($arguments as $argumentName => $argumentValue) {
             if (!in_array($argumentName, $this->supportedArguments, true)) {
-                throw new \InvalidArgumentException("Unsupported argument: $argumentName");
+                throw new ToolArgumentException("Unsupported argument: $argumentName");
             }
         }
 
         if (!isset($arguments['query'])) {
-            throw new \InvalidArgumentException('Missing required argument: query');
+            throw new ToolArgumentException('Missing required argument: query');
         }
 
         if (!is_string($arguments['query'])) {
-            throw new \InvalidArgumentException('Invalid argument type: query must be a string');
+            throw new ToolArgumentException('Invalid argument type: query must be a string');
         }
 
         $searchQuery = $arguments['query'];
@@ -90,7 +90,7 @@ class ZaiWebSearchToolCallExecutor implements ToolCallExecutorInterface
         // the argument for compatibility with the shared web_search tool definition.
         $maxResults = $arguments['max_results'] ?? 5;
         if (!is_int($maxResults) || $maxResults < 1 || $maxResults > 10) {
-            throw new \InvalidArgumentException(
+            throw new ToolArgumentException(
                 'Invalid argument value: max_results must be an integer between 1 and 10'
             );
         }

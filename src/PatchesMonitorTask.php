@@ -5,6 +5,7 @@ namespace Perk11\Viktor89;
 use Amp\Cancellation;
 use Amp\Parallel\Worker\Task;
 use Amp\Sync\Channel;
+use Perk11\Viktor89\Log\SecretRedactingProcessor;
 use Dom\HTMLDocument;
 use GuzzleHttp\Client;
 use Longman\TelegramBot\Entities\Message;
@@ -29,6 +30,7 @@ class PatchesMonitorTask implements Task
 
     public function run(?Channel $channel = null, ?Cancellation $cancellation = null): bool
     {
+        SecretRedactingProcessor::registerSecret($this->telegramApiKey);
         InternalMessage::setLogger($this->logger);
         BotAdminChecker::setLogger($this->logger);
         $database = new Database($this->telegramBotId, 'siepatch-non-instruct5');
