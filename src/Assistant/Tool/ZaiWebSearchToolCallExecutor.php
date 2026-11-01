@@ -5,12 +5,8 @@ declare(strict_types=1);
 namespace Perk11\Viktor89\Assistant\Tool;
 
 use Mcp\Client;
-use Mcp\Client\Transport\HttpTransport;
 use Mcp\Schema\Content\TextContent;
 use Mcp\Schema\Result\CallToolResult;
-use Monolog\Handler\ErrorLogHandler;
-use Monolog\Level;
-use Monolog\Logger;
 
 /**
  * Performs web searches through the Z.ai web search MCP server.
@@ -142,28 +138,7 @@ class ZaiWebSearchToolCallExecutor implements ToolCallExecutorInterface
 
     private function createDefaultClientProvider(): \Closure
     {
-        $apiKey = $this->apiKey;
-        $endpoint = $this->endpoint;
-
-        return function () use ($apiKey, $endpoint): Client {
-            $transport = new HttpTransport(
-                endpoint: $endpoint,
-                headers:  ['Authorization' => 'Bearer ' . $apiKey],
-            );
-
-            $logger = new Logger(
-                'zai-mcp-web-search',
-                [new ErrorLogHandler(ErrorLogHandler::OPERATING_SYSTEM, Level::Debug)],
-            );
-
-            $client = Client::builder()
-                ->setClientInfo('Viktor89', '1.0.0')
-                ->setLogger($logger)
-                ->build();
-            $client->connect($transport);
-
-            return $client;
-        };
+        return ZaiMcpClientProvider::create($this->endpoint, $this->apiKey, 'zai-mcp-web-search');
     }
 
     /**

@@ -159,3 +159,15 @@ CREATE TABLE IF NOT EXISTS `message_metadata`
     `processed_prompt` text DEFAULT NULL,
     PRIMARY KEY (chat_id, message_id)
 );
+
+-- Index of images picked by the image_search tool (bytes live in data/cache/image-search),
+-- so a later search with exactly the same query also considers them.
+CREATE TABLE IF NOT EXISTS `searched_image`
+(
+    `query`       text NOT NULL,
+    `image_url`   text NOT NULL,
+    `title`       text DEFAULT NULL,
+    `source_page` text NOT NULL,
+    `created_at`  timestamp NOT NULL,
+    PRIMARY KEY (query, image_url)
+);

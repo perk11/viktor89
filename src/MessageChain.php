@@ -4,6 +4,7 @@ namespace Perk11\Viktor89;
 
 use LogicException;
 use Perk11\Viktor89\Assistant\MessageChainTextDocumentLoader;
+use Perk11\Viktor89\Assistant\Tool\ImageSearch\SearchedImageRestorer;
 
 class MessageChain
 {
@@ -22,8 +23,19 @@ class MessageChain
         self::$textDocumentLoader = $textDocumentLoader;
     }
 
+    /** Injected statically for the same reason as $textDocumentLoader. */
+    private static ?SearchedImageRestorer $searchedImageRestorer = null;
+
+    public static function setSearchedImageRestorer(?SearchedImageRestorer $searchedImageRestorer): void
+    {
+        self::$searchedImageRestorer = $searchedImageRestorer;
+    }
+
     /** Images generated during the current turn, kept out of $messages. */
     private array $generatedImages = [];
+
+    /** @var array<int, list<InternalMessage>> searched images restored from each message's tool calls, by message index */
+    private array $restoredImagesByMessageIndex = [];
 
     /** @param InternalMessage[] $messages */
     public function __construct(private array $messages)
@@ -56,6 +68,60 @@ class MessageChain
     public function getGeneratedImages(): array
     {
         return $this->generatedImages;
+    }
+
+    /**
+     * All images referenceable as #N, where N is the index in the returned list.
+     *
+     * Images found by image_search on earlier turns are not messages, so they are
+     * restored from the persisted tool calls of the bot message that ran the
+     * search and placed right after the message it replied to. That is where
+     * they were numbered when found (they were appended after the triggering
+     * message), so #N references in the replayed tool result keep pointing at
+     * the same images.
+     *
+     * @return list<InternalMessage>
+     */
+    public function getImages(): array
+    {
+        $indexById = [];
+        foreach ($this->messages as $index => $message) {
+            if ($message->id !== null) {
+                $indexById[$message->id] = $index;
+            }
+        }
+        $restoredImagesAfterIndex = [];
+        foreach ($this->messages as $index => $message) {
+            $restoredImages = $this->getRestoredImages($index);
+            if ($restoredImages === []) {
+                continue;
+            }
+            $parentIndex = $indexById[$message->replyToMessageId ?? -1] ?? null;
+            $anchorIndex = $parentIndex !== null && $parentIndex < $index ? $parentIndex : $index - 1;
+            $restoredImagesAfterIndex[$anchorIndex] = array_merge($restoredImagesAfterIndex[$anchorIndex] ?? [], $restoredImages);
+        }
+
+        $images = $restoredImagesAfterIndex[-1] ?? [];
+        foreach ($this->messages as $index => $message) {
+            if (self::hasImage($message)) {
+                $images[] = $message;
+            }
+            array_push($images, ...$restoredImagesAfterIndex[$index] ?? []);
+        }
+
+        return array_merge($images, array_values(array_filter($this->generatedImages, self::hasImage(...))));
+    }
+
+    /** @return list<InternalMessage> */
+    private function getRestoredImages(int $messageIndex): array
+    {
+        return $this->restoredImagesByMessageIndex[$messageIndex]
+            ??= self::$searchedImageRestorer?->restore($this->messages[$messageIndex]) ?? [];
+    }
+
+    private static function hasImage(InternalMessage $message): bool
+    {
+        return $message->photoFileId !== null || $message->photoContents !== null;
     }
 
     public function first(): InternalMessage

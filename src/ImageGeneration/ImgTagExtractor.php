@@ -303,43 +303,22 @@ class ImgTagExtractor
 
     /**
      * Resolve a chain image reference to its binary contents.
-     * $imageIndex is 0-based and counts persisted chain photos first, then any
-     * images generated earlier in the current turn.
+     * $imageIndex is 0-based and follows MessageChain::getImages() numbering.
      */
     private function resolveChainImage(MessageChain $messageChain, int $imageIndex): ?string
     {
-        if ($imageIndex < 0) {
+        $image = $imageIndex >= 0 ? ($messageChain->getImages()[$imageIndex] ?? null) : null;
+        if ($image === null) {
             return null;
         }
-
-        $foundIndex = 0;
-        foreach ($messageChain->getMessages() as $message) {
-            if ($message->photoFileId === null && $message->photoContents === null) {
-                continue;
-            }
-            if ($foundIndex === $imageIndex) {
-                if ($message->photoContents !== null) {
-                    return $message->photoContents;
-                }
-                try {
-                    return $this->telegramFileDownloader->downloadPhotoFromInternalMessage($message);
-                } catch (\Exception $e) {
-                    $this->logger?->log(LogLevel::ERROR, "Failed to download chain image $imageIndex: " . $e->getMessage());
-                    return null;
-                }
-            }
-            $foundIndex++;
+        if ($image->photoContents !== null) {
+            return $image->photoContents;
         }
-
-        // Images generated earlier in this turn are in-memory (photoContents)
-        // and numbered after the chain's persisted photos.
-        foreach ($messageChain->getGeneratedImages() as $generated) {
-            if ($foundIndex === $imageIndex) {
-                return $generated->photoContents;
-            }
-            $foundIndex++;
+        try {
+            return $this->telegramFileDownloader->downloadPhotoFromInternalMessage($image);
+        } catch (\Exception $e) {
+            $this->logger?->log(LogLevel::ERROR, "Failed to download chain image $imageIndex: " . $e->getMessage());
+            return null;
         }
-
-        return null;
     }
 }

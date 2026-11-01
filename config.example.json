@@ -67,6 +67,19 @@
       "model": "gemma3-12B-Q8_0-vision",
       "class": "Perk11\\Viktor89\\Assistant\\OpenAiChatAssistant"
     },
+    "tool-using-assistant": {
+      "url": "http://localhost:7071/",
+      "selectableByUser": true,
+      "supportsImages": false,
+      "model": "glm-5.3",
+      "class": "Perk11\\Viktor89\\Assistant\\OpenAiPHPClientAssistant",
+      "webSearch": true,
+      "imageSearch": true,
+      "generateImages": true,
+      "generateVideos": true,
+      "toolListSavedImages": true,
+      "toolGetUrlContents": true
+    },
     "vibecheck": {
       "url": "http://localhost:7070/",
       "supportsResponseStart": false,

@@ -101,7 +101,7 @@ Stateless singleton services are autowired by a Symfony DI container; everything
 
 - `Assistant\AssistantFactory` builds assistants from `config.json` → `assistantModels`. Each entry: `url`, `class` (e.g. `OpenAiChatAssistant`, `ThinkRemovingOpenAIChatAssistant`, `Gemma2Assistant`), `model`, `systemPrompt`, `supportsImages`, `supportsResponseStart`, `selectableByUser`, `abortResponseHandlers`.
 - Assistants implement `AssistantInterface` (which extends `MessageChainProcessor`), so `/assistant` (`UserSelectedAssistant`) lets a user pick one per chat.
-- LLM tools implement `Assistant\Tool\ToolCallExecutorInterface`. Built-ins: image generation (inline + Telegram photo), web search (Ollama/ZAI/Generic, rate-limited via `WebSearchResponseLimiter`), URL fetch, react, list saved/chain images, SQLite knowledge lookup.
+- LLM tools implement `Assistant\Tool\ToolCallExecutorInterface`. Built-ins: image generation (inline + Telegram photo), web search (Ollama/ZAI/Generic, rate-limited via `WebSearchResponseLimiter`), image search (`Tool\ImageSearch\ImageSearchToolCallExecutor`, flag `imageSearch`: `ZaiImageSearchProvider` collects candidates via Z.ai search + webReader, `WebImageDownloader` fetches them in parallel, `ImageSearchResultSelector` lets the `vision-for-image-search` assistant (falls back to `vision-for-alt-text`) pick the best matches in a separate context; picks are appended to the chain as `#N` for `<img>` refs in image/video generation; their bytes go to `SearchedImageCache` (`data/cache/image-search/`, indexed by exact query in the `searched_image` table via `SearchedImageRepository`, so a later search with the same query, ignoring case, is answered from the cache without a web search or LLM selection) and on later turns `MessageChain::getImages()` restores them from the persisted `image_search` tool-call results via `SearchedImageRestorer`, right after the message the bot replied to), URL fetch, react, list saved/chain images, SQLite knowledge lookup.
 - **MCP** servers (`mcp/sdk`) are exposed as tools via `McpToolCallExecutor($client, $toolName)`.
 - Vision: named assistants (`vision-for-alt-text`, `vision-for-remix`, `gemma2-for-imagine`) drive `AltTextProvider`, `RemixProcessor`, `AssistedImageGenerator`/`AssistedVideoProcessor` (LLM writes the prompt, then a media model generates).
 
@@ -118,7 +118,7 @@ jsonc, gitignored. Model-pick arrays are each `name → {url, …}`; commands li
 | `imageSizes` | `/imagesize` |
 | `whisperCppUrl` | voice transcription |
 | `generatedImageMarkdownUploader` | SCP-uploads generated images to a public host (`scpTarget`, `publicUrlPrefix`, SSH key paths, `port`) |
-| `ollamaWebSearchApiKey`, `zAiWebSearchApiKey` | web search tools |
+| `ollamaWebSearchApiKey`, `zAiWebSearchApiKey` | web search tools (`zAiWebSearchApiKey` is also required for `imageSearch`) |
 
 ## Commands
 

@@ -5,9 +5,8 @@ namespace Perk11\Viktor89\Assistant;
 use Exception;
 use JsonException;
 use Perk11\Viktor89\Assistant\Tool\ToolCall;
-use Perk11\Viktor89\ImageGeneration\ContentTypeGuesser;
+use Perk11\Viktor89\Util\ImageDataUrl;
 use Psr\Log\LoggerInterface;
-use Psr\Log\LogLevel;
 
 class AssistantContext
 {
@@ -156,7 +155,7 @@ class AssistantContext
                    // caption is already stripped upstream, so only the image is
                    // carried over here.)
                    if ($message->photo !== null) {
-                       $photoPart = $this->buildPhotoContentPart($message->photo);
+                       $photoPart = ImageDataUrl::buildContentPart($message->photo, self::$logger);
                        if ($photoPart !== null) {
                            $assistantContentParts[] = $photoPart;
                        }
@@ -181,7 +180,7 @@ class AssistantContext
             }
 
             if ($message->photo !== null) {
-                $photoPart = $this->buildPhotoContentPart($message->photo);
+                $photoPart = ImageDataUrl::buildContentPart($message->photo, self::$logger);
                 if ($photoPart !== null) {
                     $messageContentParts[] = $photoPart;
                 }
@@ -315,50 +314,6 @@ class AssistantContext
                 $contentParts[] = $part;
             }
         }
-    }
-
-    /**
-     * Convert a raw photo blob into an OpenAI image_url content part (data URL),
-     * converting webp to png because chat APIs reject webp data URLs. Returns
-     * null when the blob cannot be encoded.
-     *
-     * @return array{type: string, image_url: array{url: string}}|null
-     */
-    private function buildPhotoContentPart(string $photo): ?array
-    {
-        $extension = ContentTypeGuesser::guessFileExtension($photo);
-        $url = null;
-
-        switch ($extension) {
-            case 'jpg':
-                $url = 'data:image/jpeg;base64,' . base64_encode($photo);
-                break;
-            case 'png':
-                $url = 'data:image/png;base64,' . base64_encode($photo);
-                break;
-            case 'webp':
-                $gdImageFromWebpString = imagecreatefromstring($photo);
-                if ($gdImageFromWebpString === false) {
-                    self::$logger?->log(LogLevel::ERROR, 'Failed to create image from webp');
-                    $url = null;
-                } else {
-                    ob_start();
-                    imagepng($gdImageFromWebpString);
-                    $pngImageBinaryString = ob_get_clean();
-                    imagedestroy($gdImageFromWebpString);
-                    $url = 'data:image/png;base64,' . base64_encode($pngImageBinaryString);
-                }
-                break;
-        }
-
-        if ($url === null) {
-            return null;
-        }
-
-        return [
-            'type'      => 'image_url',
-            'image_url' => ['url' => $url],
-        ];
     }
 
     /**

@@ -353,6 +353,80 @@ class OpenAiPHPClientAssistantTest extends TestCase
         });
     }
 
+    public function testContextImagesAreAddedWithReferencesForVisionAssistant(): void
+    {
+        $tool = new CountingToolCallExecutor([
+            'images' => [['reference' => '#1'], ['reference' => '#2']],
+            'context_images' => ['#1' => self::tinyJpeg(), '#2' => self::tinyPng()],
+        ]);
+        $fake = new ClientFake([
+            $this->toolCallStreamResponse('image_search'),
+            $this->textStreamResponse('Done'),
+        ]);
+        $assistant = $this->buildAssistantWithTools(
+            ['image_search' => new ToolDefinition('image_search', $tool, 'Search images', [new ToolParameter('query', ['type' => 'string'], true)])],
+            $fake,
+            true,
+        );
+
+        $assistant->getCompletionBasedOnContext($this->buildContext(), static fn (string $chunk) => null);
+
+        $fake->assertSent(\OpenAI\Resources\Chat::class, static function (string $method, array $parameters): bool {
+            $toolMessages = array_values(array_filter(
+                $parameters['messages'] ?? [],
+                static fn (array $message): bool => ($message['role'] ?? null) === 'tool',
+            ));
+            if ($method !== 'createStreamed' || count($toolMessages) !== 1 || !is_array($toolMessages[0]['content'])) {
+                return false;
+            }
+            $parts = $toolMessages[0]['content'];
+
+            return count($parts) === 5
+                && $parts[0]['type'] === 'text'
+                && !str_contains($parts[0]['text'], 'context_images')
+                && $parts[1] === ['type' => 'text', 'text' => 'Image #1:']
+                && str_starts_with($parts[2]['image_url']['url'], 'data:image/jpeg;base64,')
+                && $parts[3] === ['type' => 'text', 'text' => 'Image #2:']
+                && str_starts_with($parts[4]['image_url']['url'], 'data:image/png;base64,');
+        });
+    }
+
+    public function testContextImagesAreDescribedViaAltTextForNonVisionAssistant(): void
+    {
+        $altTextProvider = $this->createStub(AltTextProvider::class);
+        $altTextProvider->method('generateAltTextForImageString')
+            ->willReturnOnConsecutiveCalls('[image] A tower', '[image] A bridge');
+        $tool = new CountingToolCallExecutor([
+            'images' => [['reference' => '#0'], ['reference' => '#1']],
+            'context_images' => ['#0' => self::tinyJpeg(), '#1' => self::tinyPng()],
+        ]);
+        $fake = new ClientFake([
+            $this->toolCallStreamResponse('image_search'),
+            $this->textStreamResponse('Done'),
+        ]);
+        $assistant = $this->buildAssistantWithTools(
+            ['image_search' => new ToolDefinition('image_search', $tool, 'Search images', [new ToolParameter('query', ['type' => 'string'], true)])],
+            $fake,
+            false,
+            $altTextProvider,
+        );
+
+        $assistant->getCompletionBasedOnContext($this->buildContext(), static fn (string $chunk) => null);
+
+        $fake->assertNotSent(\OpenAI\Resources\Chat::class, static function (string $method, array $parameters): bool {
+            return $method === 'createStreamed'
+                && self::toolMessagesContainImage($parameters['messages'] ?? []);
+        });
+        $fake->assertSent(\OpenAI\Resources\Chat::class, static function (string $method, array $parameters): bool {
+            return $method === 'createStreamed'
+                && self::toolMessagesContainText(
+                    $parameters['messages'] ?? [],
+                    '"image_descriptions":{"#0":"[image] A tower","#1":"[image] A bridge"}',
+                )
+                && !self::toolMessagesContainText($parameters['messages'] ?? [], 'context_images');
+        });
+    }
+
     /**
      * After a tool returns automatic_output_markdown, streaming must keep
      * updating drafts with the model's text: trusted images never enter the
@@ -555,6 +629,15 @@ class OpenAiPHPClientAssistantTest extends TestCase
         }
 
         return false;
+    }
+
+    private static function tinyJpeg(): string
+    {
+        $image = imagecreatetruecolor(1, 1);
+        ob_start();
+        imagejpeg($image);
+
+        return (string) ob_get_clean();
     }
 
     private static function tinyPng(): string

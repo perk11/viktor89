@@ -18,6 +18,7 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Perk11\Viktor89\Util\ImageDataUrl;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
@@ -406,7 +407,7 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     unset($toolResult['automatic_output_markdown']);
                 }
 
-                $contextImage = $this->processContextImage($toolResult, $progressUpdateCallback);
+                $contextImageParts = $this->processContextImages($toolResult, $progressUpdateCallback);
 
                 $toolResultContent = json_encode($toolResult, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 $this->logger?->log(LogLevel::DEBUG, 'Tool call result: ' . mb_substr($toolResultContent, 0, 1000));
@@ -423,12 +424,12 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
                     'tool_call_id' => $toolCall->id,
                     'content' => $toolResultContent,
                 ];
-                // Let a vision-capable model actually see the image it just produced
-                // (e.g. to judge an image_gen_tool edit) instead of guessing.
-                if ($contextImage !== null) {
+                // Let a vision-capable model actually see the images a tool produced
+                // or found (e.g. to judge an image_gen_tool edit) instead of guessing.
+                if ($contextImageParts !== []) {
                     $toolMessage['content'] = [
                         ['type' => 'text', 'text' => $toolResultContent],
-                        ['type' => 'image_url', 'image_url' => ['url' => $contextImage]],
+                        ...$contextImageParts,
                     ];
                 }
                 $requestOptions['messages'][] = $toolMessage;
@@ -588,36 +589,71 @@ class OpenAiPHPClientAssistant extends AbstractOpenAIAPiAssistant
     }
 
     /**
-     * Make a tool's generated image ('context_image') visible to the model so it
-     * has feedback about what it just produced instead of guessing and looping:
-     *  - vision assistants: returns a data URL to embed as an image_url part;
-     *  - non-vision assistants: appends an auto-generated alt-text description to
-     *    the tool result so the model at least knows what the image contains.
+     * Make images returned by a tool visible to the model so it has feedback
+     * about what it produced or found instead of guessing and looping. Tools
+     * return either 'context_image' (a single generated image) or
+     * 'context_images' (reference => bytes, e.g. image_search results):
+     *  - vision assistants: returns image_url content parts to embed in the tool message;
+     *  - non-vision assistants: adds auto-generated alt-text descriptions to the tool
+     *    result ('generated_image_description' / 'image_descriptions') so the model
+     *    at least knows what the images contain.
      * The raw bytes are always stripped from $toolResult so they never reach json_encode.
+     *
+     * @return list<array<string, mixed>>
      */
-    private function processContextImage(array &$toolResult, ?ProgressUpdateCallback $progressUpdateCallback): ?string
+    private function processContextImages(array &$toolResult, ?ProgressUpdateCallback $progressUpdateCallback): array
     {
         $image = $toolResult['context_image'] ?? null;
-        unset($toolResult['context_image']);
+        $images = $toolResult['context_images'] ?? null;
+        unset($toolResult['context_image'], $toolResult['context_images']);
 
-        if (!is_string($image) || $image === '') {
-            return null;
-        }
-
-        if ($this->supportsImages) {
-            return 'data:image/png;base64,' . base64_encode($image);
-        }
-
-        try {
-            $altText = $this->altTextProvider->generateAltTextForImageString($image, $progressUpdateCallback);
-            if ($altText !== '') {
-                $toolResult['generated_image_description'] = $altText;
+        $parts = [];
+        if (is_string($image) && $image !== '') {
+            if ($this->supportsImages) {
+                $imagePart = ImageDataUrl::buildContentPart($image, $this->logger);
+                if ($imagePart !== null) {
+                    $parts[] = $imagePart;
+                }
+            } else {
+                $altText = $this->describeContextImage($image, $progressUpdateCallback);
+                if ($altText !== '') {
+                    $toolResult['generated_image_description'] = $altText;
+                }
             }
-        } catch (\Throwable $e) {
-            $this->logger?->log(LogLevel::ERROR, 'Failed to generate alt text for generated image: ' . $e->getMessage());
         }
 
-        return null;
+        if (!is_array($images)) {
+            return $parts;
+        }
+        foreach ($images as $reference => $referencedImage) {
+            if (!is_string($referencedImage) || $referencedImage === '') {
+                continue;
+            }
+            if ($this->supportsImages) {
+                $imagePart = ImageDataUrl::buildContentPart($referencedImage, $this->logger);
+                if ($imagePart !== null) {
+                    $parts[] = ['type' => 'text', 'text' => "Image $reference:"];
+                    $parts[] = $imagePart;
+                }
+            } else {
+                $altText = $this->describeContextImage($referencedImage, $progressUpdateCallback);
+                if ($altText !== '') {
+                    $toolResult['image_descriptions'][$reference] = $altText;
+                }
+            }
+        }
+
+        return $parts;
+    }
+
+    private function describeContextImage(string $image, ?ProgressUpdateCallback $progressUpdateCallback): string
+    {
+        try {
+            return $this->altTextProvider->generateAltTextForImageString($image, $progressUpdateCallback);
+        } catch (\Throwable $e) {
+            $this->logger?->log(LogLevel::ERROR, 'Failed to generate alt text for tool image: ' . $e->getMessage());
+            return '';
+        }
     }
 
     /**

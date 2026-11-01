@@ -26,6 +26,12 @@ use Perk11\Viktor89\Assistant\Tool\ListChainImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ListSavedImagesToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\VideoGeneratorToolCallExecutor;
+use Perk11\Viktor89\Assistant\Tool\ImageSearch\ImageSearchResultSelector;
+use Perk11\Viktor89\Assistant\Tool\ImageSearch\ImageSearchToolCallExecutor;
+use Perk11\Viktor89\Assistant\Tool\ImageSearch\SearchedImageCache;
+use Perk11\Viktor89\Assistant\Tool\ImageSearch\SearchedImageRestorer;
+use Perk11\Viktor89\Assistant\Tool\ImageSearch\WebImageDownloader;
+use Perk11\Viktor89\Assistant\Tool\ImageSearch\ZaiImageSearchProvider;
 use Perk11\Viktor89\Assistant\Tool\WebSearchToolFactory;
 use Perk11\Viktor89\Assistant\MessageChainTextDocumentLoader;
 use Perk11\Viktor89\Assistant\TextDocumentReader;
@@ -413,6 +419,9 @@ class ProcessMessageTask implements Task
             $logger,
         );
         $personaAwareSystemPromptReader = new PersonaAwareSystemPromptReader($userPreferenceRepository, $personaRepository, $systemPromptProcessor);
+        $imageSearchResultSelector = new ImageSearchResultSelector($logger);
+        $searchedImageCache = $container->get(SearchedImageCache::class);
+        $zAiApiKey = is_string($config['zAiWebSearchApiKey'] ?? null) ? trim($config['zAiWebSearchApiKey']) : '';
         $assistantFactory = new AssistantFactory(
             $config['assistantModels'],
             $personaAwareSystemPromptReader,
@@ -434,8 +443,20 @@ class ProcessMessageTask implements Task
            $personalityProcessor,
            $container->get(\Perk11\Viktor89\Assistant\Compaction\SqliteCompactionSummaryStore::class),
            $logger,
+           $zAiApiKey !== ''
+               ? new ImageSearchToolCallExecutor(
+                   new ZaiImageSearchProvider($zAiApiKey, $logger),
+                   $container->get(WebImageDownloader::class),
+                   $imageSearchResultSelector,
+                   $searchedImageCache,
+                   $logger,
+               )
+               : null,
        );
         $altTextProvider->assistantWithVision = $assistantFactory->getAssistantInstanceByName('vision-for-alt-text');
+        $imageSearchResultSelector->assistantWithVision = $assistantFactory->getAssistantInstanceByName(
+            isset($config['assistantModels']['vision-for-image-search']) ? 'vision-for-image-search' : 'vision-for-alt-text',
+        );
         $assistantModelProcessor = new DynamicListBasedPreferenceByCommandProcessor(
             $userPreferenceRepository,
             ['/assistantmodel'],
@@ -483,6 +504,7 @@ class ProcessMessageTask implements Task
             $logger,
             $this->telegramBotId,
         ));
+        MessageChain::setSearchedImageRestorer(new SearchedImageRestorer($searchedImageCache, $logger));
         $userSelectedAssistant = new UserSelectedAssistant(
             $assistantFactory,
             $assistantModelProcessor,

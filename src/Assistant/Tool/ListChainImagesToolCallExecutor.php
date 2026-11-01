@@ -18,21 +18,14 @@ class ListChainImagesToolCallExecutor implements MessageChainAwareToolCallExecut
         }
 
         $images = [];
-        $index = 0;
-
-        // Generated images are numbered after the chain's persisted photos: they
-        // are the newest and share the same #N index space.
-        foreach (array_merge($messageChain->getMessages(), $messageChain->getGeneratedImages()) as $message) {
-            if ($message->photoFileId !== null || $message->photoContents !== null) {
-                $images[] = [
-                    'id' => $index,
-                    'reference' => '#' . $index,
-                    'author' => $this->getAuthorLabel($message),
-                    'caption' => $message->messageText !== '' ? $message->messageText : null,
-                    'alt_text' => $message->altText !== '' ? $message->altText : null,
-                ];
-                $index++;
-            }
+        foreach ($messageChain->getImages() as $index => $message) {
+            $images[] = [
+                'id' => $index,
+                'reference' => '#' . $index,
+                'author' => $this->getAuthorLabel($message),
+                'caption' => $message->messageText !== '' ? $message->messageText : null,
+                'alt_text' => $message->altText !== '' ? $message->altText : null,
+            ];
         }
 
         return [

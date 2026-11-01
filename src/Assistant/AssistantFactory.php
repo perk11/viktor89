@@ -11,6 +11,7 @@ use Monolog\Level;
 use Monolog\Logger;
 use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
+use Perk11\Viktor89\Assistant\Tool\ImageSearch\ImageSearchToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\McpConnectionCache;
 use Perk11\Viktor89\Assistant\Tool\McpServerConnection;
 use Perk11\Viktor89\Assistant\Tool\McpToolCallExecutor;
@@ -50,6 +51,7 @@ class AssistantFactory
        private readonly UserPreferenceReaderInterface $personalityReader,
        private readonly CompactionSummaryStoreInterface $compactionStore,
        private readonly LoggerInterface $logger,
+       private readonly ?MessageChainAwareToolCallExecutorInterface $imageSearchTool = null,
    )
    {
    }
@@ -249,6 +251,21 @@ class AssistantFactory
                     [
                         new ToolParameter('query', ['type' => 'string'], true),
                         new ToolParameter('max_results', ['type' => 'integer', 'minimum' => 1, 'maximum' => 10], false),
+                    ]
+                );
+        }
+        if ($requestedAssistantConfig['imageSearch'] ?? false) {
+            if ($this->imageSearchTool === null) {
+                throw new \InvalidArgumentException('imageSearch requires zAiWebSearchApiKey to be set in config');
+            }
+            $tools[ImageSearchToolCallExecutor::TOOL_NAME] =
+                new ToolDefinition(
+                    ImageSearchToolCallExecutor::TOOL_NAME,
+                    $this->imageSearchTool,
+                    'Search the web for images. Found images are added to the conversation and returned with #N references that can be used as <img>#N</img> in image_gen_tool and video_gen prompts, e.g. to depict a real person, place, object or character accurately. The images stay in the conversation and are also listed by list_chain_images.',
+                    [
+                        new ToolParameter('query', ['type' => 'string'], true),
+                        new ToolParameter('max_results', ['type' => 'integer', 'minimum' => 1, 'maximum' => 5], false),
                     ]
                 );
         }
