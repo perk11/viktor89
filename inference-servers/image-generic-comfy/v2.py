@@ -4,6 +4,7 @@ import json
 import random
 import sys
 import threading
+from fractions import Fraction
 from pathlib import Path
 
 from flask import Flask, request, jsonify
@@ -38,6 +39,8 @@ def generate_image():
     match model:
         case 'minimax-h3':
             comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_minimax_h3(prompt, seed, steps, width, height)
+        case 'P-H3':
+            comfy_workflow_object, infotext = get_txt2img_workflow_and_infotext_p_h3(prompt, seed, data.get('width'), data.get('height'))
         case _:
             return jsonify({"error": "Unknown model: " + model}), 400
     return comfy_workflow_to_json_image_response(comfy_workflow_object, args.comfy_ui_server_address, infotext)
@@ -262,6 +265,34 @@ def get_txt2img_workflow_and_infotext_minimax_h3(prompt, seed, steps, width, hei
     comfy_workflow_object["15"]["inputs"]['height'] = height
 
     return comfy_workflow_object, f'Seed: {seed}, Model: minimax-h3\n{prompt}'
+
+def get_txt2img_workflow_and_infotext_p_h3(prompt, seed, width, height):
+    workflow_file_path = Path(__file__).with_name("p-h3-image_txt2img.json")
+    with workflow_file_path.open('r') as workflow_file:
+        comfy_workflow = workflow_file.read()
+    comfy_workflow_object = json.loads(comfy_workflow)
+    comfy_workflow_object["16"]["inputs"]['value'] = prompt
+    comfy_workflow_object["9"]["inputs"]['noise_seed'] = seed
+
+    conditioning_inputs = comfy_workflow_object["26"]["inputs"]
+    width = int(width or 0) or conditioning_inputs['width']
+    height = int(height or 0) or conditioning_inputs['height']
+    # Uses the requested size because snapping distorts the ratio, 1280x720 would otherwise become 20:11.
+    aspect_ratio = get_closest_simple_aspect_ratio(width, height)
+    comfy_workflow_object["17"]["inputs"]['f_string'] = f'Aspect ratio: {aspect_ratio}\nRequest: {{a}}'
+    # PH3ImageConditioning works in multiples of 32, snapping here keeps the infotext equal to the real output size.
+    width = max(32, round(width / 32) * 32)
+    height = max(32, round(height / 32) * 32)
+    conditioning_inputs['width'] = width
+    conditioning_inputs['height'] = height
+
+    return comfy_workflow_object, f'{prompt}\nSteps: 8, Seed: {seed}, Size: {width}x{height}, Model: P-H3'
+
+def get_closest_simple_aspect_ratio(width, height):
+    long_to_short = Fraction(max(width, height), min(width, height)).limit_denominator(32)
+    if width >= height:
+        return f'{long_to_short.numerator}:{long_to_short.denominator}'
+    return f'{long_to_short.denominator}:{long_to_short.numerator}'
 
 def get_img2img_workflow_infotext_and_filename_qwen_image_edit_meitu(image_filenames, prompt, seed, steps):
     if not len(image_filenames) == 1:
