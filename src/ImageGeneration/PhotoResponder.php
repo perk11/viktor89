@@ -10,12 +10,18 @@ use Perk11\Viktor89\InternalMessage;
 use Perk11\Viktor89\MessageMetadata;
 use Perk11\Viktor89\Repository\MessageMetadataRepository;
 use Perk11\Viktor89\Repository\MessageRepository;
+use Perk11\Viktor89\Util\ImageNormalizer;
 use Perk11\Viktor89\Util\Telegram\ReactionReplacer;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
 class PhotoResponder
 {
+    private const int TELEGRAM_PHOTO_MAX_BYTES = 10_000_000;
+    /** Telegram requires width + height <= 10000, which this edge limit guarantees for any aspect ratio. */
+    private const int TELEGRAM_PHOTO_MAX_EDGE_PIXELS = 5000;
+
+    private readonly ImageNormalizer $telegramPhotoNormalizer;
 
     public function __construct(
         private readonly MessageRepository $messageRepository,
@@ -25,6 +31,13 @@ class PhotoResponder
         private readonly ?LoggerInterface $logger = null,
     )
     {
+        $this->telegramPhotoNormalizer = new ImageNormalizer(
+            ['image/jpeg', 'image/png', 'image/webp'],
+            $logger,
+            self::TELEGRAM_PHOTO_MAX_BYTES,
+            self::TELEGRAM_PHOTO_MAX_EDGE_PIXELS,
+            self::TELEGRAM_PHOTO_MAX_EDGE_PIXELS,
+        );
     }
 
     public function sendPhoto(Message|InternalMessage $message, string $photoContents, bool $sendAsWebp, ?string $caption = null): void
@@ -44,7 +57,7 @@ class PhotoResponder
             imagewebp($image, $imagePath, 80);
             imagedestroy($image);
         } else {
-            file_put_contents($imagePath, $photoContents);
+            file_put_contents($imagePath, $this->telegramPhotoNormalizer->normalize($photoContents)?->bytes ?? $photoContents);
         }
         $this->logger?->log(LogLevel::INFO, "Temporary image recorded to $imagePath");
 
