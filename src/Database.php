@@ -14,9 +14,15 @@ class Database
 {
     public readonly SQLite3 $sqlite3Database;
 
-    public function __construct(public readonly int $botUserId, string $name)
+    public function __construct(public readonly int $botUserId, string $name, bool $readOnly = false)
     {
         $databaseDir = dirname(__DIR__) . '/data';
+        if ($readOnly) {
+            $this->sqlite3Database = new SQLite3($databaseDir . "/" . $name, SQLITE3_OPEN_READONLY);
+            $this->sqlite3Database->busyTimeout(30000);
+
+            return;
+        }
         if (!@mkdir($databaseDir) && !is_dir($databaseDir)) {
             throw new RuntimeException(sprintf('Failed to create directory "%s"', $databaseDir));
         }

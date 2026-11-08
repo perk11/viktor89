@@ -273,14 +273,15 @@ VALUES (:message_id, :tool_call_id, :tool_name, :arguments, :result, :chat_id)'
     }
 
     /** @return InternalMessage[] */
-    public function findMessagesSentAfterTimestampInChat(int $chatId, int $startTimeStamp): array
+    public function findMessagesSentAfterTimestampInChat(int $chatId, int $startTimeStamp, int $endTimestamp = PHP_INT_MAX): array
     {
         $fetchMessagesStatement = $this->database->sqlite3Database->prepare(
-            "SELECT * FROM message WHERE chat_id = :chat_id AND message.date>:start_timestamp
+            "SELECT * FROM message WHERE chat_id = :chat_id AND message.date>:start_timestamp AND message.date<=:end_timestamp
                       ORDER BY id"
         );
         $fetchMessagesStatement->bindValue(':chat_id', $chatId);
         $fetchMessagesStatement->bindValue(':start_timestamp', $startTimeStamp);
+        $fetchMessagesStatement->bindValue(':end_timestamp', $endTimestamp);
 
         $resultingMessages = [];
         $queryResult = $fetchMessagesStatement->execute();

@@ -458,6 +458,22 @@
     }
   },
   "whisperCppUrl": "http://localhost:8102",
+  // Daily chat summaries. url and apiKey fall back to SUMMARY_SERVER and SUMMARY_OPENAI_KEY in .env.
+  // Messages are packed into as few requests as contextSize allows; maxResponseTokens is reserved for the
+  // response including reasoning. With supportsImages, photos are sent to the model (downscaled to
+  // maxImageEdgePixels, estimated at imageTokens each) and take at most maxImageContextShare of each request;
+  // the rest are described by alt text written by the same model.
+  "summary": {
+    "url": "http://localhost:7070",
+    "model": "Qwen3.8-Flash-Next-UD-Q4_K_XL",
+    "contextSize": 262144,
+    "maxResponseTokens": 32768,
+    "supportsImages": true,
+    "charactersPerToken": 2.8,
+    "imageTokens": 1024,
+    "maxImageEdgePixels": 1024,
+    "maxImageContextShare": 0.3
+  },
   "rmBgModels": {
     "rmbg": {
       "url": "http://localhost:8196"

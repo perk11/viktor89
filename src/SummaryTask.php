@@ -75,7 +75,8 @@ class SummaryTask implements Task
             $messageRepository,
         );
         $altTextProvider = new AltTextProvider($telegramFileDownloader, $internalMessageTranscriber, $messageRepository, $this->logger);
-        $assistantConfig =$config['assistantModels']['vision-for-alt-text'];
+        $summaryModelConfig = SummaryModelConfig::fromConfig($config['summary'] ?? []);
+        $assistantConfig = $summaryModelConfig->altTextAssistantConfig($config['assistantModels']['vision-for-alt-text']);
         $systemPromptProcessor = new FixedValuePreferenceProvider('');
         $nullProcessor = new FixedValuePreferenceProvider(null);
         $altTextProvider->assistantWithVision = new OpenAiChatAssistant(
@@ -88,13 +89,20 @@ class SummaryTask implements Task
             new ProcessingResultExecutor($messageRepository, logger: $this->logger),
             $telegram->getBotId(),
             $assistantConfig['url'],
-            $assistantConfig['apiKey'] ?? '',
+            $assistantConfig['apiKey'],
             true,
             [],
             $this->logger,
         );
 
-        $summaryProvider = new OpenAISummaryProvider($messageRepository, new ChatSummaryRepository($database), $altTextProvider, $this->logger);
+        $summaryProvider = new OpenAISummaryProvider(
+            $messageRepository,
+            new ChatSummaryRepository($database),
+            $altTextProvider,
+            $telegramFileDownloader,
+            $summaryModelConfig,
+            $this->logger,
+        );
         $summaryProvider->sendChatSummaryWithMessagesSinceLastOne($this->summarizedChatId);
     }
 }
