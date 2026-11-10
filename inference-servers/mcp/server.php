@@ -41,6 +41,7 @@ use Mcp\Server\Session\SessionStoreInterface;
 use Mcp\Server\Transport\StdioTransport;
 use Mcp\Server\Transport\StreamableHttpTransport;
 use Perk11\Viktor89\Assistant\AltTextProvider;
+use Perk11\Viktor89\Assistant\Tool\McpGeneratedMedia;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\CompletionResponse;
 use Perk11\Viktor89\Assistant\ContextCompletingAssistantInterface;
@@ -823,6 +824,12 @@ function buildMcpServer(array $config, ?LoggerInterface $logger = null, ?Inferen
             $description,
             null,
             $inputSchema,
+            meta: isset($endpointConfig['response']['media'])
+                ? McpGeneratedMedia::toToolMeta(
+                    (string) ($modelConfig['model'] ?? $modelConfig['tool']),
+                    (string) $endpointConfig['response']['media'],
+                )
+                : null,
         );
 
         $logger->info("Registered tool '{$modelConfig['tool']}' -> {$modelConfig['endpoint']} ({$modelConfig['url']})");

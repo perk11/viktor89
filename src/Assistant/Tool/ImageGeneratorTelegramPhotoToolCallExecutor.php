@@ -8,11 +8,12 @@ use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
-class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareToolCallExecutorInterface
+class ImageGeneratorTelegramPhotoToolCallExecutor implements ProgressReportingToolCallExecutorInterface
 {
     public function __construct(
         private readonly ImageByPromptGenerator $imageByPromptGenerator,
@@ -25,7 +26,7 @@ class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareTo
     {
     }
 
-    public function executeToolCall(array $arguments, MessageChain $messageChain): array
+    public function executeToolCall(array $arguments, MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): array
     {
         if (!isset($arguments['prompt'])) {
             throw new ToolArgumentException('Prompt is required');
@@ -51,8 +52,9 @@ class ImageGeneratorTelegramPhotoToolCallExecutor implements MessageChainAwareTo
             $messageChain,
         );
         try {
-            $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId);
+            $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId, $progressUpdateCallback);
             $image = $response->getFirstImageAsPng();
+            $progressUpdateCallback(static::class, 'Sending generated image');
             $this->photoResponder->sendPhoto($lastMessage, $image, $response->sendAsFile, $response->getCaption());
             $messageChain->appendGeneratedImage(
                 $this->buildGeneratedPhotoMessage($lastMessage, $image, $response->getCaption()),

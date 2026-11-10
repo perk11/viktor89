@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\ImageGeneration;
 
 use GuzzleHttp\Client;
+use Perk11\Viktor89\Util\FiberYieldingCurlHandler;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
@@ -33,7 +34,7 @@ class RmBgApiClient implements ImageByImageGenerator
         $params = current($this->modelConfig);
         $apiUrl = rtrim($params['url'], '/');
         unset ($params['url']);
-        $this->httpClient = new Client(['base_uri' => $apiUrl]);
+        $this->httpClient = new Client(['base_uri' => $apiUrl, 'handler' => FiberYieldingCurlHandler::createStack()]);
 
         return $params;
     }

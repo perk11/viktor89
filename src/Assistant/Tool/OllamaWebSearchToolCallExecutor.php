@@ -6,6 +6,7 @@ namespace Perk11\Viktor89\Assistant\Tool;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use Perk11\Viktor89\Util\FiberYieldingCurlHandler;
 
 class OllamaWebSearchToolCallExecutor implements ToolCallExecutorInterface
 {
@@ -23,7 +24,7 @@ class OllamaWebSearchToolCallExecutor implements ToolCallExecutorInterface
         ?Client $client = null,
     ) {
         $this->responseLimiter = new WebSearchResponseLimiter($this->maxResponseSizeBytes);
-        $this->client = $client ?? new Client();
+        $this->client = $client ?? new Client(['handler' => FiberYieldingCurlHandler::createStack()]);
     }
 
     public function executeToolCall(array $arguments): array

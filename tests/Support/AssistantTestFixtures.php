@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace Perk11\Viktor89\Test\Support;
 
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
+
+use function Amp\delay;
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
@@ -57,5 +61,43 @@ class RecordingToolCallExecutor implements ToolCallExecutorInterface
         $this->calls[] = $arguments;
 
         return $this->result;
+    }
+}
+
+class RecordingProgressUpdateCallback implements ProgressUpdateCallback
+{
+    /** @var list<array{string, string}> processor and status of every update */
+    public array $updates = [];
+    /** @var list<?ChatAction> */
+    public array $chatActions = [];
+
+    public function __invoke(string $processor, string $status, ?ChatAction $chatAction = null): void
+    {
+        $this->updates[] = [$processor, $status];
+        $this->chatActions[] = $chatAction;
+    }
+
+    public function subscribe(callable $subscriber): void
+    {
+    }
+}
+
+/** Tool executor that waits on the event loop, logging when it starts and finishes. */
+class DelayingToolCallExecutor implements ToolCallExecutorInterface
+{
+    public function __construct(
+        private readonly string $name,
+        private readonly float $delaySeconds,
+        private readonly \ArrayObject $events,
+    ) {
+    }
+
+    public function executeToolCall(array $arguments): array
+    {
+        $this->events[] = "$this->name started";
+        delay($this->delaySeconds);
+        $this->events[] = "$this->name finished";
+
+        return ['tool' => $this->name];
     }
 }

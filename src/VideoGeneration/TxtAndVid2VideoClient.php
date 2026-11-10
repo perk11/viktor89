@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use GuzzleHttp\Client;
+use Perk11\Viktor89\Util\FiberYieldingCurlHandler;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Psr\Http\Message\ResponseInterface;
 
@@ -45,7 +46,7 @@ class TxtAndVid2VideoClient
         $params = $modelName !== null ? $this->modelConfig[$modelName] : current($this->modelConfig);
         $apiUrl = rtrim($params['url'], '/');
         unset ($params['url']);
-        $this->httpClient = new Client(['base_uri' => $apiUrl]);
+        $this->httpClient = new Client(['base_uri' => $apiUrl, 'handler' => FiberYieldingCurlHandler::createStack()]);
 
         $steps = $this->stepsPreference->getCurrentPreferenceValue($userId);
         if ($steps !== null) {

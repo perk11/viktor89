@@ -13,14 +13,17 @@ use Perk11\Viktor89\AbortStreamingResponse\AbortableStreamingResponseGenerator;
 use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
 use Perk11\Viktor89\Assistant\Tool\ImageSearch\ImageSearchToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\McpConnectionCache;
+use Perk11\Viktor89\Assistant\Tool\McpGeneratedMedia;
 use Perk11\Viktor89\Assistant\Tool\McpServerConnection;
 use Perk11\Viktor89\Assistant\Tool\McpToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
+use Perk11\Viktor89\Assistant\Tool\ProgressReportingToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ReactToolCallExecutor;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolCallRunner;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
 use Perk11\Viktor89\Assistant\Tool\ToolParameter;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 use Perk11\Viktor89\IPC\DraftUpdateCallback;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\ProcessingResultExecutor;
@@ -43,8 +46,8 @@ class AssistantFactory
         private readonly AltTextProvider $altTextProvider,
         private readonly ProcessingResultExecutor $processingResultExecutor,
         private readonly ToolCallExecutorInterface $webSearchTool,
-        private readonly MessageChainAwareToolCallExecutorInterface $imageFromTextGeneratorTool,
-        private readonly MessageChainAwareToolCallExecutorInterface $videoGeneratorTool,
+        private readonly ProgressReportingToolCallExecutorInterface $imageFromTextGeneratorTool,
+        private readonly ProgressReportingToolCallExecutorInterface $videoGeneratorTool,
         private readonly MessageChainAwareToolCallExecutorInterface $reactToolCallExecutor,
         private readonly ToolCallExecutorInterface $getUrlContentsTool,
         private readonly ToolCallExecutorInterface $listSavedImagesTool,
@@ -217,6 +220,7 @@ class AssistantFactory
                $this->compactionStore,
                $this->toolCallRunner,
                $this->logger,
+               parallelToolCalls: $requestedAssistantConfig['parallelToolCalls'] ?? true,
            );
        } elseif (is_a($requestedAssistantConfig['class'], OpenAiChatAssistant::class, true)) {
            $tools = $this->getTools($requestedAssistantConfig);
@@ -302,7 +306,8 @@ class AssistantFactory
                     'Generate an image from a text prompt and send it to user. Use img tag in the prompt to reference images. For saved images: <img>savedImageName</img>..',
                     [
                         new ToolParameter('prompt', ['type' => 'string'], true),
-                    ]
+                    ],
+                    runningChatAction: ChatActionEnum::upload_photo,
                 );
             $tools['list_chain_images'] =
                 new ToolDefinition(
@@ -319,7 +324,8 @@ class AssistantFactory
                     'Generate a video from a text prompt and send it to the user. Video duration is always 15 seconds. Supports <img>...</img> (image references, by saved name or #N chain index), <vframe>#N</vframe> (last frame of the Nth video in the current chat, used as the reference image, you must mention in the prompt that it has to be the first frame). No more than 3 references per call. Use this whenever the user asks for a video.',
                     [
                         new ToolParameter('prompt', ['type' => 'string'], true),
-                    ]
+                    ],
+                    runningChatAction: ChatActionEnum::record_video,
                 );
         }
         if ($requestedAssistantConfig['toolReact'] ?? false) {
@@ -394,13 +400,16 @@ class AssistantFactory
                     $serverSilent = $serverConfig['silent'] ?? false;
                     $silentTools = (array) ($serverConfig['silentTools'] ?? []);
                     $toolSilent = $serverSilent || in_array($tool->name, $silentTools, true);
+                    $generatedMedia = McpGeneratedMedia::fromToolMeta($tool->meta);
                     $tools[$tool->name] = new ToolDefinition(
                         $tool->name,
                         new McpToolCallExecutor($connection, $tool->name),
                         $tool->description,
                         $parameters,
                         'function',
-                        $toolSilent
+                        $toolSilent,
+                        $generatedMedia?->runningStatus(),
+                        $generatedMedia?->chatAction(),
                     );
                 }
             }

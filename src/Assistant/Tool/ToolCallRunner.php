@@ -6,8 +6,10 @@ namespace Perk11\Viktor89\Assistant\Tool;
 
 use Perk11\Viktor89\Assistant\AltTextProvider;
 use Perk11\Viktor89\Assistant\ImagePartBuilderInterface;
+use Perk11\Viktor89\IPC\EchoUpdateCallback;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\UserFacingExceptionInterface;
+use Perk11\Viktor89\Util\Telegram\ChatAction;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
@@ -57,13 +59,26 @@ final class ToolCallRunner
         } else {
             $this->logger?->log(LogLevel::DEBUG, "Executing tool $functionName with args $toolCall->arguments");
             if ($context->progressUpdateCallback !== null) {
-                ($context->progressUpdateCallback)(self::class, "Executing $functionName");
+                $chatId = $context->messageChain?->last()->chatId;
+                ($context->progressUpdateCallback)(
+                    self::class,
+                    $toolDefinition->runningStatus ?? "Executing $functionName",
+                    $toolDefinition->runningChatAction !== null && $chatId !== null
+                        ? new ChatAction($chatId, $toolDefinition->runningChatAction)
+                        : null,
+                );
             }
             $executor = $toolDefinition->toolCallClass;
             try {
-                $toolResult = $executor instanceof MessageChainAwareToolCallExecutorInterface
-                    ? $executor->executeToolCall($arguments, $context->messageChain)
-                    : $executor->executeToolCall($arguments);
+                $toolResult = match (true) {
+                    $executor instanceof ProgressReportingToolCallExecutorInterface => $executor->executeToolCall(
+                        $arguments,
+                        $context->messageChain,
+                        $context->progressUpdateCallback ?? new EchoUpdateCallback(logger: $this->logger),
+                    ),
+                    $executor instanceof MessageChainAwareToolCallExecutorInterface => $executor->executeToolCall($arguments, $context->messageChain),
+                    default => $executor->executeToolCall($arguments),
+                };
                 $failed = false;
             } catch (\Throwable $e) {
                 $userMessage = $this->describeFailure($functionName, $e);

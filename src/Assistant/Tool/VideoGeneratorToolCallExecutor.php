@@ -2,7 +2,7 @@
 
 namespace Perk11\Viktor89\Assistant\Tool;
 
-use Perk11\Viktor89\IPC\EchoUpdateCallback;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\VideoGeneration\VideoProcessor;
 
@@ -16,21 +16,16 @@ use Perk11\Viktor89\VideoGeneration\VideoProcessor;
  * depends on this tool. Wiring always calls the setter before any message is
  * processed, so the processor is available by the time the model invokes it.
  */
-class VideoGeneratorToolCallExecutor implements MessageChainAwareToolCallExecutorInterface
+class VideoGeneratorToolCallExecutor implements ProgressReportingToolCallExecutorInterface
 {
     private ?VideoProcessor $videoProcessor = null;
-
-    public function __construct(
-        private readonly \Psr\Log\LoggerInterface $logger,
-    ) {
-    }
 
     public function setVideoProcessor(VideoProcessor $videoProcessor): void
     {
         $this->videoProcessor = $videoProcessor;
     }
 
-    public function executeToolCall(array $arguments, MessageChain $messageChain): array
+    public function executeToolCall(array $arguments, MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): array
     {
         if (!isset($arguments['prompt'])) {
             throw new ToolArgumentException('Prompt is required');
@@ -51,7 +46,7 @@ class VideoGeneratorToolCallExecutor implements MessageChainAwareToolCallExecuto
         $result = $this->videoProcessor->generateVideo(
             $messageChain,
             $arguments['prompt'],
-            new EchoUpdateCallback(logger: $this->logger),
+            $progressUpdateCallback,
         );
 
         // Validation failures (unsupported references, too many references, no

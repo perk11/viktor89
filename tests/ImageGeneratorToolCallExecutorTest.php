@@ -10,6 +10,7 @@ use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\ImageGeneration\PhotoResponder;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\EchoUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -46,7 +47,7 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
-        $executor->executeToolCall(['prompt' => 'A beautiful sunset'], $chain);
+        $executor->executeToolCall(['prompt' => 'A beautiful sunset'], $chain, new EchoUpdateCallback());
     }
 
     public function testUsesImageModelWhenNoEditModelConfigured(): void
@@ -72,7 +73,7 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
-        $executor->executeToolCall(['prompt' => 'A cool <img>#1</img>'], $chain);
+        $executor->executeToolCall(['prompt' => 'A cool <img>#1</img>'], $chain, new EchoUpdateCallback());
     }
 
     // ─── generated images stay out of the message history ───────────────────
@@ -107,8 +108,8 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
         $trigger = self::makeMessage();
         $chain = new MessageChain([$trigger]);
 
-        $executor->executeToolCall(['prompt' => 'first'], $chain);
-        $executor->executeToolCall(['prompt' => 'second'], $chain);
+        $executor->executeToolCall(['prompt' => 'first'], $chain, new EchoUpdateCallback());
+        $executor->executeToolCall(['prompt' => 'second'], $chain, new EchoUpdateCallback());
 
         $this->assertSame([12345, 12345], $invokedUserIds);
         $this->assertCount(2, $chain->getGeneratedImages());
@@ -144,7 +145,7 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
-        $executor->executeToolCall(['prompt' => 'A scene based on <img>MySavedImage</img>'], $chain);
+        $executor->executeToolCall(['prompt' => 'A scene based on <img>MySavedImage</img>'], $chain, new EchoUpdateCallback());
     }
 
     public function testUsesEditModelForPromptWithChainImageReference(): void
@@ -173,7 +174,7 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
-        $executor->executeToolCall(['prompt' => 'Remix <img>#1</img>'], $chain);
+        $executor->executeToolCall(['prompt' => 'Remix <img>#1</img>'], $chain, new EchoUpdateCallback());
     }
 
     public function testUsesEditModelForPromptWithMultipleImageReferences(): void
@@ -205,6 +206,7 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
         $executor->executeToolCall(
             ['prompt' => 'Blend <img>#1</img> with <img>#2</img> and <img>SavedImg</img>'],
             $chain,
+            new EchoUpdateCallback(),
         );
     }
 
@@ -250,7 +252,7 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
             botUserId: 999,);
 
         $chain = new MessageChain([self::makeMessage()]);
-        $executor->executeToolCall(['prompt' => $prompt], $chain);
+        $executor->executeToolCall(['prompt' => $prompt], $chain, new EchoUpdateCallback());
         $this->assertTrue(true, $label);
     }
 
@@ -291,7 +293,7 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
         $chain = new MessageChain([self::makeMessage()]);
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Prompt is required');
-        $executor->executeToolCall([], $chain);
+        $executor->executeToolCall([], $chain, new EchoUpdateCallback());
     }
 
     public function testRejectsNonStringPrompt(): void
@@ -311,7 +313,7 @@ class ImageGeneratorToolCallExecutorTest extends TestCase
         $chain = new MessageChain([self::makeMessage()]);
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Prompt must be a string');
-        $executor->executeToolCall(['prompt' => 123], $chain);
+        $executor->executeToolCall(['prompt' => 123], $chain, new EchoUpdateCallback());
     }
 
     // ─── helpers ─────────────────────────────────────────────────────────────

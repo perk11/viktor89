@@ -10,6 +10,7 @@ use Perk11\Viktor89\ImageGeneration\Automatic1111ImageApiResponse;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptAndImageGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
@@ -24,20 +25,35 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
         private readonly LoggerInterface $logger,
     ) {
     }
-    public function generateImageByImagePrompt(ImageGenerationPrompt $imageGenerationPrompt, int $userId): Automatic1111ImageApiResponse
-    {
-        if (count($imageGenerationPrompt->sourceImagesContents) === 0) {
-            return $this->generateImageByPrompt($imageGenerationPrompt->text, $userId);
+    public function generateImageByImagePrompt(
+        ImageGenerationPrompt $imageGenerationPrompt,
+        int $userId,
+        ?ProgressUpdateCallback $progressUpdateCallback = null,
+    ): Automatic1111ImageApiResponse {
+        if ($progressUpdateCallback !== null) {
+            $progressUpdateCallback(static::class, 'Writing image prompt');
         }
-        return $this->generateImageByPromptAndImages($imageGenerationPrompt, $userId);
+        if (count($imageGenerationPrompt->sourceImagesContents) === 0) {
+            $improvedPrompt = clone $imageGenerationPrompt;
+            $improvedPrompt->text = $this->improvePrompt($imageGenerationPrompt->text, $userId);
+        } else {
+            $improvedPrompt = $this->improveEditPrompt($imageGenerationPrompt);
+        }
+
+        return $this->automatic1111APiClient->generateImageByImagePrompt($improvedPrompt, $userId, $progressUpdateCallback);
     }
 
     public function generateImageByPrompt(string $prompt, int $userId): Automatic1111ImageApiResponse
     {
+        return $this->automatic1111APiClient->generateImageByPrompt($this->improvePrompt($prompt, $userId), $userId);
+    }
+
+    private function improvePrompt(string $prompt, int $userId): string
+    {
         $improvedPrompt = $this->processPrompt($prompt, $userId);
         $this->logger->log(LogLevel::INFO, "Improved prompt from assistant: $improvedPrompt");
 
-        return $this->automatic1111APiClient->generateImageByPrompt($improvedPrompt, $userId);
+        return $improvedPrompt;
     }
 
     private function processPrompt(string $originalPrompt, int $userId): string
@@ -59,6 +75,14 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
         ImageGenerationPrompt $imageGenerationPrompt,
         int $userId
     ): Automatic1111ImageApiResponse {
+        return $this->automatic1111APiClient->generateImageByPromptAndImages(
+            $this->improveEditPrompt($imageGenerationPrompt),
+            $userId,
+        );
+    }
+
+    private function improveEditPrompt(ImageGenerationPrompt $imageGenerationPrompt): ImageGenerationPrompt
+    {
         $improvedPrompt = clone $imageGenerationPrompt;
         $context = new AssistantContext();
         $context->systemPrompt = "Given a message and an image, return a prompt for an AI image editor that will implement the changes requested in the message. Be concrete about the changes that need to be made, as the editor does not understand emotions, metaphors, negatives, abstract concepts. Your output will be directly passed to an API, so don't output anything extra. Do not use any syntax or code formatting, just output raw text describing the changes that need to be maade and nothing else. Translate the output to English.";
@@ -79,9 +103,6 @@ class AssistedImageGenerator implements ImageByPromptGenerator, ImageByPromptAnd
 
         $this->logger->log(LogLevel::INFO, "Edit prompt from assistant: " . $improvedPrompt->text);
 
-        return $this->automatic1111APiClient->generateImageByPromptAndImages(
-            $improvedPrompt,
-            $userId,
-        );
+        return $improvedPrompt;
     }
 }

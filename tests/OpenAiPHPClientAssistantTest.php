@@ -17,6 +17,8 @@ use Perk11\Viktor89\Assistant\Tool\ToolCallRunner;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
 use Perk11\Viktor89\Assistant\Tool\ToolParameter;
 use Perk11\Viktor89\Assistant\Tool\ToolUseLimiter;
+use Perk11\Viktor89\Test\Support\DelayingToolCallExecutor;
+use Perk11\Viktor89\Test\Support\RecordingProgressUpdateCallback;
 use Perk11\Viktor89\Test\Support\RecordingToolCallExecutor;
 use Perk11\Viktor89\Test\Support\TestImages;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -159,6 +161,63 @@ class OpenAiPHPClientAssistantTest extends TestCase
         $this->assertCount($maxConsecutive, $response->toolCalls);
         $this->assertStringContainsString('Aborting the tool-call loop', $response->getDisplayContent());
         $this->assertStringContainsString('same tool', $response->getDisplayContent());
+    }
+
+    public function testToolCallsOfOneTurnRunConcurrentlyAndKeepTheirOrder(): void
+    {
+        $events = new \ArrayObject();
+        $slowTool = new DelayingToolCallExecutor('slow', 0.3, $events);
+        $fastTool = new DelayingToolCallExecutor('fast', 0.1, $events);
+        $fake = new ClientFake([
+            $this->multipleToolCallsStreamResponse(['slow_tool', 'fast_tool']),
+            $this->textStreamResponse('Done'),
+        ]);
+        $assistant = $this->buildAssistantWithTools(
+            [
+                'slow_tool' => new ToolDefinition('slow_tool', $slowTool, 'Slow'),
+                'fast_tool' => new ToolDefinition('fast_tool', $fastTool, 'Fast'),
+            ],
+            $fake,
+        );
+
+        $progress = new RecordingProgressUpdateCallback();
+
+        $startedAt = microtime(true);
+        $response = $assistant->getCompletionBasedOnContext($this->buildContext(), static fn (string $chunk) => null, null, $progress);
+
+        $this->assertLessThan(0.39, microtime(true) - $startedAt);
+        $toolStatuses = array_values(array_filter(
+            array_map(static fn (array $update) => $update[1], $progress->updates),
+            static fn (string $status) => str_starts_with($status, 'Executing'),
+        ));
+        $this->assertSame([
+            'Executing 2 tool calls: slow_tool; fast_tool',
+            'Executing 2 tool calls: slow_tool; fast_tool',
+            'Executing 2 tool calls: slow_tool; ✓ fast_tool',
+        ], $toolStatuses);
+        $this->assertSame(['slow started', 'fast started', 'fast finished', 'slow finished'], $events->getArrayCopy());
+        $this->assertSame(['slow_tool', 'fast_tool'], array_map(static fn (ToolCall $call) => $call->name, $response->toolCalls));
+        $fake->assertSent(\OpenAI\Resources\Chat::class, static function (string $method, array $parameters): bool {
+            $toolMessages = array_values(array_filter($parameters['messages'], static fn (array $message) => $message['role'] === 'tool'));
+
+            return count($toolMessages) === 2
+                && $toolMessages[0]['tool_call_id'] === 'call_slow_tool'
+                && $toolMessages[0]['content'] === '{"tool":"slow"}'
+                && $toolMessages[1]['tool_call_id'] === 'call_fast_tool';
+        });
+    }
+
+    public function testParallelToolCallsAreRequestedWhenToolsAreAvailable(): void
+    {
+        $fake = new ClientFake([$this->textStreamResponse('Hi')]);
+        $assistant = $this->buildAssistantWithTools(
+            ['web_search' => new ToolDefinition('web_search', new RecordingToolCallExecutor(), 'Search')],
+            $fake,
+        );
+
+        $assistant->getCompletionBasedOnContext($this->buildContext(), static fn (string $chunk) => null);
+
+        $fake->assertSent(\OpenAI\Resources\Chat::class, static fn (string $method, array $parameters): bool => $parameters['parallel_tool_calls'] === true);
     }
 
     public function testMalformedToolArgumentsAreReportedToTheModelInsteadOfAbortingTheCompletion(): void
@@ -590,6 +649,34 @@ class OpenAiPHPClientAssistantTest extends TestCase
                         'function' => ['name' => $toolName, 'arguments' => $arguments],
                     ]],
                 ],
+                'finish_reason' => null,
+            ]],
+        ]]);
+    }
+
+    /**
+     * @param list<string> $toolNames
+     */
+    private function multipleToolCallsStreamResponse(array $toolNames): \OpenAI\Responses\StreamResponse
+    {
+        $toolCalls = [];
+        foreach ($toolNames as $index => $toolName) {
+            $toolCalls[] = [
+                'index' => $index,
+                'id' => 'call_' . $toolName,
+                'type' => 'function',
+                'function' => ['name' => $toolName, 'arguments' => '{}'],
+            ];
+        }
+
+        return $this->streamResponseFromChunks([[
+            'id' => 'chatcmpl-test',
+            'object' => 'chat.completion.chunk',
+            'created' => 1,
+            'model' => 'test-model',
+            'choices' => [[
+                'index' => 0,
+                'delta' => ['role' => 'assistant', 'tool_calls' => $toolCalls],
                 'finish_reason' => null,
             ]],
         ]]);

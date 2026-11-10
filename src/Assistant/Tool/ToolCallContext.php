@@ -19,6 +19,11 @@ final class ToolCallContext
     ) {
     }
 
+    public function withProgressUpdateCallback(?ProgressUpdateCallback $progressUpdateCallback): self
+    {
+        return new self($this->accumulator, $this->streamFunction, $this->messageChain, $progressUpdateCallback);
+    }
+
     /**
      * Shows a notice to the Telegram user only. It never reaches the model,
      * which already sees the call via the structured tool call messages.

@@ -277,7 +277,11 @@ class VideoProcessor implements MessageChainProcessor
         ProgressUpdateCallback $progressUpdateCallback,
     ): ProcessingResult {
         $finalPrompt = $this->preprocessForTxt2Video($message->userId, $videoPrompt, $progressUpdateCallback);
-        $progressUpdateCallback(static::class, "Generating video for prompt: $finalPrompt", new ChatAction($message->chatId, ChatActionEnum::upload_video));
+        $progressUpdateCallback(
+            static::class,
+            '[' . $this->txt2VideoClient->resolveModelName($message->userId) . "] Generating video",
+            new ChatAction($message->chatId, ChatActionEnum::upload_video),
+        );
         try {
             $response = $this->txt2VideoClient->generateByPromptTxt2Vid(
                 $finalPrompt,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Perk11\Viktor89\Assistant\Tool;
 
+use Amp\Future;
 use Perk11\Viktor89\Assistant\AssistantContext;
 use Perk11\Viktor89\Assistant\Compaction\CompactionKey;
 use Perk11\Viktor89\Assistant\CompletionResponse;
@@ -14,14 +15,15 @@ use Perk11\Viktor89\Assistant\ResponseContentAccumulator;
 use Perk11\Viktor89\Assistant\StreamingTurnPresenter;
 use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
+use Perk11\Viktor89\Util\BackgroundFiber;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
 /**
  * The tool-call loop of the assistants that execute tools themselves: request
- * a turn, run the tools it asked for, append them to the conversation and
- * repeat until the model answers without tool calls. The API-specific parts
- * are the two callbacks passed to run().
+ * a turn, run the tools it asked for concurrently, append them to the
+ * conversation and repeat until the model answers without tool calls. The
+ * API-specific parts are the two callbacks passed to run().
  *
  * A context-length error on the first request compacts the context and starts
  * over. Once tools have run, starting over would repeat their side effects
@@ -141,16 +143,11 @@ final class ToolLoop
                 return $complete();
             }
 
-            $results = [];
             foreach ($turn->toolCalls as $toolCall) {
                 $toolUseLimiter->record($toolCall->name);
-                $result = $this->toolCallRunner->run(
-                    $toolCall,
-                    $this->toolDefinitions[$toolCall->name] ?? null,
-                    $toolCallContext,
-                    $this->supportsImages ? $this->messageConverter : null,
-                );
-                $results[] = $result;
+            }
+            $results = $this->runToolCalls($turn->toolCalls, $toolCallContext);
+            foreach ($results as $result) {
                 $executedToolCalls[] = $result->toolCall;
             }
             $conversation = $appendToolRound($conversation, $turn, $results);
@@ -163,6 +160,47 @@ final class ToolLoop
                 return $complete();
             }
         }
+    }
+
+    /**
+     * The calls of one turn were all requested before any of them ran, so they
+     * run concurrently, each in a BackgroundFiber. A call lets the others
+     * progress while it waits on I/O that yields to the event loop (HTTP
+     * through FiberYieldingCurlHandler, IPC); other work still blocks.
+     *
+     * @param list<ToolCall> $toolCalls
+     * @return list<ToolCallRunResult> in the order of $toolCalls
+     */
+    private function runToolCalls(array $toolCalls, ToolCallContext $toolCallContext): array
+    {
+        $progress = count($toolCalls) > 1 && $toolCallContext->progressUpdateCallback !== null
+            ? new ConcurrentToolCallProgress($toolCallContext->progressUpdateCallback, $toolCalls)
+            : null;
+        $futures = [];
+        foreach ($toolCalls as $index => $toolCall) {
+            $context = $progress === null
+                ? $toolCallContext
+                : $toolCallContext->withProgressUpdateCallback($progress->callbackFor($index));
+            $futures[$index] = BackgroundFiber::start(function () use ($toolCall, $context, $progress, $index): ToolCallRunResult {
+                try {
+                    return $this->toolCallRunner->run(
+                        $toolCall,
+                        $this->toolDefinitions[$toolCall->name] ?? null,
+                        $context,
+                        $this->supportsImages ? $this->messageConverter : null,
+                    );
+                } finally {
+                    $progress?->finish($index);
+                }
+            });
+        }
+        // Wait for every call before rethrowing, so none keeps running after the loop gives up.
+        [$errors, $results] = Future\awaitAll($futures);
+        if ($errors !== []) {
+            throw reset($errors);
+        }
+
+        return array_map(static fn (int $index): ToolCallRunResult => $results[$index], array_keys($toolCalls));
     }
 
     private function reportStatus(?ProgressUpdateCallback $progressUpdateCallback, int $toolCallCount): void

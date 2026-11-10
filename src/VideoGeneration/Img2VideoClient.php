@@ -3,6 +3,7 @@
 namespace Perk11\Viktor89\VideoGeneration;
 
 use GuzzleHttp\Client;
+use Perk11\Viktor89\Util\FiberYieldingCurlHandler;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Psr\Http\Message\ResponseInterface;
 
@@ -41,7 +42,7 @@ class Img2VideoClient
         $params = $modelName !== null ? $this->modelConfig[$modelName] : current($this->modelConfig);
         $apiUrl = rtrim($params['url'], '/');
         unset ($params['url']);
-        $this->httpClient = new Client(['base_uri' => $apiUrl]);
+        $this->httpClient = new Client(['base_uri' => $apiUrl, 'handler' => FiberYieldingCurlHandler::createStack()]);
 
         $steps = $this->stepsPreference->getCurrentPreferenceValue($userId);
         if ($steps !== null) {
@@ -63,7 +64,7 @@ class Img2VideoClient
      * back to the first configured model when there is no preference or it is
      * unknown.
      */
-    private function resolveModelName(int $userId, ?string $forcedModelName = null): ?string
+    public function resolveModelName(int $userId, ?string $forcedModelName = null): ?string
     {
         $modelName = $forcedModelName ?? $this->img2VideoModelPreference->getCurrentPreferenceValue($userId);
         if ($modelName !== null && array_key_exists($modelName, $this->modelConfig)) {

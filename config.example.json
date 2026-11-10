@@ -78,7 +78,8 @@
       "generateImages": true,
       "generateVideos": true,
       "toolListSavedImages": true,
-      "toolGetUrlContents": true
+      "toolGetUrlContents": true,
+      "parallelToolCalls": true // sends parallel_tool_calls; set to false for servers that reject it
     },
     "claude-opus-5-5": {
       "class": "Perk11\\Viktor89\\Assistant\\AnthropicAssistant",

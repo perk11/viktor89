@@ -675,8 +675,9 @@ class InferenceMcpServerTest extends TestCase
             ]);
             $page = $this->findById($paged, $listId);
             $this->assertNotNull($page, "tools/list page with cursor={$cursor}");
-            foreach (array_column($page['result']['tools'], 'name') as $name) {
-                $toolNames[] = $name;
+            foreach ($page['result']['tools'] as $tool) {
+                $toolNames[] = $tool['name'];
+                $toolsByName[$tool['name']] = $tool;
             }
             $cursor = $page['result']['nextCursor'] ?? null;
             $listId++;
@@ -684,6 +685,11 @@ class InferenceMcpServerTest extends TestCase
 
         $this->assertContains('generate_image_model_a', $toolNames);
         $this->assertContains('generate_voice_model_a', $toolNames);
+        $this->assertSame(
+            ['viktor89/model' => 'tts-model-a', 'viktor89/media' => 'audio'],
+            $toolsByName['generate_voice_model_a']['_meta'],
+        );
+        $this->assertSame('image', $toolsByName['generate_image_model_a']['_meta']['viktor89/media']);
     }
 
     public function testStdioTransportToolCallReturnsImage(): void

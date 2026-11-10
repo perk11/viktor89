@@ -29,7 +29,7 @@ class VideoImg2VidProcessor
         ProgressUpdateCallback $progressUpdateCallback,
     ): void
     {
-        $progressUpdateCallback(static::class, "Downloading source photo for prompt: $prompt\n");
+        $progressUpdateCallback(static::class, "Downloading source photo");
         $photoContents = $this->telegramFileDownloader->downloadPhotoFromInternalMessage($messageWithPhoto);
         $this->respondWithImg2VidResult($messageWithCommand, $photoContents, $prompt, $progressUpdateCallback);
     }
@@ -56,14 +56,18 @@ class VideoImg2VidProcessor
     ): void {
         ReactionSetter::setMessageReaction($messageWithCommand, '👀');
         try {
-            $progressUpdateCallback(static::class, "Generating img2vid for prompt: $prompt\n",  new ChatAction($messageWithCommand->chatId, ChatActionEnum::record_video));
+            $progressUpdateCallback(
+                static::class,
+                '[' . $this->img2VideoClient->resolveModelName($messageWithCommand->userId, $modelName) . "] Generating img2vid",
+                new ChatAction($messageWithCommand->chatId, ChatActionEnum::record_video),
+            );
             $videoResponse = $this->img2VideoClient->generateByPromptImg2Vid(
                 $imageContents,
                 $prompt,
                 $messageWithCommand->userId,
                 $modelName,
             );
-            $progressUpdateCallback(static::class, "Sending video for prompt: $prompt\n",  new ChatAction($messageWithCommand->chatId,ChatActionEnum::upload_video));
+            $progressUpdateCallback(static::class, "Sending video",  new ChatAction($messageWithCommand->chatId,ChatActionEnum::upload_video));
             // When the caller supplies an explicit prompt caption, the model is
             // prepended (the API infotext fallback already carries model info).
             $baseCaption = $caption ?? $videoResponse->getCaption();

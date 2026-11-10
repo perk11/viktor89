@@ -18,6 +18,7 @@ use Perk11\Viktor89\MessageChain;
 use Perk11\Viktor89\ProcessingResultExecutor;
 use Perk11\Viktor89\TelegramFileDownloader;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
+use Perk11\Viktor89\Util\FiberYieldingCurlHandler;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use Psr\Log\NullLogger;
@@ -52,6 +53,7 @@ class OpenAiPHPClientAssistant extends AbstractStreamingAssistant
         ToolCallRunner $toolCallRunner,
         ?LoggerInterface $logger = null,
         ?ClientContract $openAiClient = null,
+        private readonly bool $parallelToolCalls = true,
     ) {
         parent::__construct(
             $systemPromptProcessor,
@@ -83,7 +85,7 @@ class OpenAiPHPClientAssistant extends AbstractStreamingAssistant
     {
         $openAiFactory = OpenAI::factory()
             ->withBaseUri(rtrim($url, '/'))
-            ->withHttpClient(new GuzzleClient(['timeout' => 3600 * 4]));
+            ->withHttpClient(new GuzzleClient(['timeout' => 3600 * 4, 'handler' => FiberYieldingCurlHandler::createStack()]));
         if ($apiKey !== '') {
             $openAiFactory->withApiKey($apiKey);
         }
@@ -150,6 +152,8 @@ class OpenAiPHPClientAssistant extends AbstractStreamingAssistant
         }
         if ($this->tools !== []) {
             $request['tools'] = $this->tools;
+            // Some servers (llama.cpp) only return one tool call per turn unless asked.
+            $request['parallel_tool_calls'] = $this->parallelToolCalls;
         }
 
         $this->logger?->log(LogLevel::INFO, 'Sending OpenAI request to ' . $this->url . '...');

@@ -7,6 +7,7 @@ namespace Perk11\Viktor89\Test;
 use Perk11\Viktor89\Assistant\AssistantFactory;
 use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
+use Perk11\Viktor89\Assistant\Tool\ProgressReportingToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
 use Perk11\Viktor89\IPC\DraftUpdateCallback;
@@ -65,6 +66,7 @@ class AssistantFactoryImageSearchToolTest extends TestCase
         $stubReader = $this->createStub(UserPreferenceReaderInterface::class);
         $nullTool = $this->createStub(ToolCallExecutorInterface::class);
         $nullChainTool = $this->createStub(MessageChainAwareToolCallExecutorInterface::class);
+        $nullProgressTool = $this->createStub(ProgressReportingToolCallExecutorInterface::class);
 
         return new AssistantFactory(
             [],
@@ -76,8 +78,8 @@ class AssistantFactoryImageSearchToolTest extends TestCase
             new NullAltTextProvider(),
             new ProcessingResultExecutor(new NullMessageRepository(), logger: new \Psr\Log\NullLogger()),
             $nullTool,
-            $nullChainTool,
-            $nullChainTool,
+            $nullProgressTool,
+            $nullProgressTool,
             $nullChainTool,
             $nullTool,
             $nullTool,

@@ -4,8 +4,10 @@ namespace Perk11\Viktor89\ImageGeneration;
 
 use Exception;
 use GuzzleHttp\Client;
+use Perk11\Viktor89\Util\FiberYieldingCurlHandler;
 use InvalidArgumentException;
 use LogicException;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\UserPreferenceReaderInterface;
 use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
@@ -30,8 +32,20 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
             throw new Exception('At least one image model should be defined');
         }
     }
-    public function generateImageByImagePrompt(ImageGenerationPrompt $imageGenerationPrompt, int $userId): Automatic1111ImageApiResponse
-    {
+    public function generateImageByImagePrompt(
+        ImageGenerationPrompt $imageGenerationPrompt,
+        int $userId,
+        ?ProgressUpdateCallback $progressUpdateCallback = null,
+    ): Automatic1111ImageApiResponse {
+        if ($progressUpdateCallback !== null) {
+            $sourceImageCount = count($imageGenerationPrompt->sourceImagesContents);
+            $generationType = $sourceImageCount === 0 ? ImageGenerationType::txt2img : ImageGenerationType::img2img;
+            $status = '[' . $this->resolveModelName($userId, $generationType) . '] Generating image';
+            if ($sourceImageCount > 0) {
+                $status .= " from $sourceImageCount source images";
+            }
+            $progressUpdateCallback(static::class, $status);
+        }
         if (count($imageGenerationPrompt->sourceImagesContents) === 0) {
             return $this->generateImageByPrompt($imageGenerationPrompt->text, $userId);
         }
@@ -122,7 +136,7 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         } else {
             $apiUrl = rtrim($_ENV['AUTOMATIC1111_API_URL'], '/');
         }
-        $this->httpClient = new Client(['base_uri' => $apiUrl]);
+        $this->httpClient = new Client(['base_uri' => $apiUrl, 'handler' => FiberYieldingCurlHandler::createStack()]);
 
         if (array_key_exists('useOptions', $params)) {
             $useOptions = $params['useOptions'];
@@ -142,16 +156,33 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         return $params;
     }
 
-    private function getParamsBasedOnUserPreferences(int $userId, ImageGenerationType $generationType): array
+    /**
+     * The user's selected model, the first configured one when there is no
+     * valid preference, or the first that supports $generationType otherwise.
+     */
+    public function resolveModelName(int $userId, ImageGenerationType $generationType): string
     {
         $modelName = $this->imageModelPreference->getCurrentPreferenceValue($userId);
         if ($modelName === null || !array_key_exists($modelName, $this->modelConfig)) {
-            $params = current($this->modelConfig);
-        } else {
-            $params = $this->modelConfig[$modelName];
+            $modelName = array_key_first($this->modelConfig);
         }
+        if ($this->modelSupportsGeneration($this->modelConfig[$modelName], $generationType)) {
+            return $modelName;
+        }
+        foreach ($this->modelConfig as $fallbackModelName => $modelConfig) {
+            if ($this->modelSupportsGeneration($modelConfig, $generationType)) {
+                return $fallbackModelName;
+            }
+        }
+
+        return $modelName;
+    }
+
+    private function getParamsBasedOnUserPreferences(int $userId, ImageGenerationType $generationType): array
+    {
+        $params = $this->modelConfig[$this->resolveModelName($userId, $generationType)];
         if (!$this->modelSupportsGeneration($params, $generationType)) {
-            $params = $this->getFallBackModelParams($generationType);
+            throw new RuntimeException("Failed to find " . $generationType->name . " fallback model");
         }
         $steps = $this->stepsPreference->getCurrentPreferenceValue($userId);
         if ($steps !== null) {
@@ -191,16 +222,6 @@ class Automatic1111APiClient implements ImageByPromptGenerator, ImageByPromptAnd
         }
         return false;
     }
-    private function getFallBackModelParams(ImageGenerationType $generationType): array
-    {
-        foreach ($this->modelConfig as $modelConfig) {
-            if ($this->modelSupportsGeneration($modelConfig, $generationType)) {
-                return $modelConfig;
-            }
-        }
-        throw new RuntimeException("Failed to find " . $generationType->name . " fallback model");
-    }
-
 
     private function parseImageSizeString(string $imageSize): ImageSize
     {

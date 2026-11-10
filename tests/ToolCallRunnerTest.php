@@ -12,9 +12,17 @@ use Perk11\Viktor89\Assistant\Tool\ToolCallContext;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\ToolCallRunner;
 use Perk11\Viktor89\Assistant\Tool\ToolDefinition;
+use Perk11\Viktor89\Assistant\Tool\ProgressReportingToolCallExecutorInterface;
+use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
+use Perk11\Viktor89\MessageChain;
+use Perk11\Viktor89\Test\Support\RecordingProgressUpdateCallback;
+use Perk11\Viktor89\Util\Telegram\ChatActionEnum;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+
+require_once __DIR__ . '/Support/AssistantTestFixtures.php';
 
 #[CoversClass(ToolCallRunner::class)]
 class ToolCallRunnerTest extends TestCase
@@ -63,6 +71,60 @@ class ToolCallRunnerTest extends TestCase
     }
 
     /** @return array{\Perk11\Viktor89\Assistant\Tool\ToolCallRunResult, ResponseContentAccumulator} */
+    public function testRunningStatusAndChatActionOfTheToolAreReported(): void
+    {
+        $progress = new RecordingProgressUpdateCallback();
+        $definition = new ToolDefinition(
+            'generate_voice_xtts',
+            $this->createStub(ToolCallExecutorInterface::class),
+            'tts',
+            runningStatus: '[xtts_v2] Generating audio',
+            runningChatAction: ChatActionEnum::record_voice,
+        );
+        $chain = new MessageChain([self::message(chatId: -100)]);
+        $context = new ToolCallContext(new ResponseContentAccumulator(), null, $chain, $progress);
+
+        (new ToolCallRunner($this->createStub(AltTextProvider::class)))
+            ->run(new ToolCall('call-1', 'generate_voice_xtts', '{}'), $definition, $context, null);
+
+        $this->assertSame([[ToolCallRunner::class, '[xtts_v2] Generating audio']], $progress->updates);
+        $this->assertSame(-100, $progress->chatActions[0]?->chatId);
+        $this->assertSame(ChatActionEnum::record_voice, $progress->chatActions[0]?->action);
+    }
+
+    public function testProgressReportingToolGetsTheCallsCallback(): void
+    {
+        $progress = new RecordingProgressUpdateCallback();
+        $executor = new class implements ProgressReportingToolCallExecutorInterface {
+            public function executeToolCall(array $arguments, MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): array
+            {
+                $progressUpdateCallback('Generator', '[model-x] Generating image');
+
+                return ['status' => 'ok'];
+            }
+        };
+        $context = new ToolCallContext(new ResponseContentAccumulator(), null, new MessageChain([self::message()]), $progress);
+
+        $result = (new ToolCallRunner($this->createStub(AltTextProvider::class)))
+            ->run(new ToolCall('call-1', 'image_gen_tool', '{}'), new ToolDefinition('image_gen_tool', $executor, 'gen'), $context, null);
+
+        $this->assertFalse($result->failed);
+        $this->assertSame([
+            [ToolCallRunner::class, 'Executing image_gen_tool'],
+            ['Generator', '[model-x] Generating image'],
+        ], $progress->updates);
+    }
+
+    private static function message(int $chatId = 1): InternalMessage
+    {
+        $message = new InternalMessage();
+        $message->chatId = $chatId;
+        $message->userId = 1;
+        $message->messageText = 'hi';
+
+        return $message;
+    }
+
     private function runTool(ToolCallExecutorInterface $executor): array
     {
         $logLines = &$this->logLines;

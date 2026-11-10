@@ -6,11 +6,12 @@ use Perk11\Viktor89\ImageGeneration\ImageByPromptGenerator;
 use Perk11\Viktor89\ImageGeneration\ImageGenerationPrompt;
 use Perk11\Viktor89\ImageGeneration\ImgTagExtractor;
 use Perk11\Viktor89\InternalMessage;
+use Perk11\Viktor89\IPC\ProgressUpdateCallback;
 use Perk11\Viktor89\MessageChain;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
-class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallExecutorInterface
+class ImageGeneratorInlineToolCallExecutor implements ProgressReportingToolCallExecutorInterface
 {
     public function __construct(
         private readonly ImageByPromptGenerator $imageByPromptGenerator,
@@ -23,7 +24,7 @@ class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallE
     {
     }
 
-    public function executeToolCall(array $arguments, MessageChain $messageChain): array
+    public function executeToolCall(array $arguments, MessageChain $messageChain, ProgressUpdateCallback $progressUpdateCallback): array
     {
         if (!isset($arguments['prompt'])) {
             throw new ToolArgumentException('Prompt is required');
@@ -49,8 +50,9 @@ class ImageGeneratorInlineToolCallExecutor implements MessageChainAwareToolCallE
             $messageChain,
         );
         try {
-            $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId);
+            $response = $generator->generateImageByImagePrompt($prompt, $lastMessage->userId, $progressUpdateCallback);
             $image = $response->getFirstImageAsPng();
+            $progressUpdateCallback(static::class, 'Uploading generated image');
             $uploadedImage = $this->generatedImageMarkdownUploader->uploadPng($image);
             $messageChain->appendGeneratedImage(
                 $this->buildGeneratedPhotoMessage($lastMessage, $image, $response->getCaption()),

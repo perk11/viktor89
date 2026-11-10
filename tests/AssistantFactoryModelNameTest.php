@@ -10,6 +10,7 @@ use Perk11\Viktor89\Assistant\Compaction\CompactionSummaryStoreInterface;
 use Perk11\Viktor89\Assistant\OpenAiChatAssistant;
 use Perk11\Viktor89\Assistant\Tool\ToolCallExecutorInterface;
 use Perk11\Viktor89\Assistant\Tool\MessageChainAwareToolCallExecutorInterface;
+use Perk11\Viktor89\Assistant\Tool\ProgressReportingToolCallExecutorInterface;
 use Perk11\Viktor89\IPC\DraftUpdateCallback;
 use Perk11\Viktor89\OpenAiCompletionStringParser;
 use Perk11\Viktor89\ProcessingResultExecutor;
@@ -52,6 +53,7 @@ class AssistantFactoryModelNameTest extends TestCase
         $executor = new ProcessingResultExecutor(new NullMessageRepository(), logger: new \Psr\Log\NullLogger());
         $nullTool = $this->createStub(ToolCallExecutorInterface::class);
         $nullChainTool = $this->createStub(MessageChainAwareToolCallExecutorInterface::class);
+        $nullProgressTool = $this->createStub(ProgressReportingToolCallExecutorInterface::class);
         $draftCallback = $this->createStub(DraftUpdateCallback::class);
 
         return new AssistantFactory(
@@ -64,8 +66,8 @@ class AssistantFactoryModelNameTest extends TestCase
             new NullAltTextProvider(),
             $executor,
             $nullTool,
-            $nullChainTool,
-            $nullChainTool,
+            $nullProgressTool,
+            $nullProgressTool,
             $nullChainTool,
             $nullTool,
             $nullTool,
