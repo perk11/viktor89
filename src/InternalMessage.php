@@ -361,6 +361,12 @@ class InternalMessage
                     throw new TelegramException('Telegram returned an invalid response!');
                 }
 
+                // ServerResponse picks the result type from Request::getCurrentAction(), which is
+                // only maintained by Request::send() and stays stale if an earlier send() threw
+                // (e.g. a ConnectException during getFile turns this Message into a File).
+                if (($response['ok'] ?? false) && is_array($response['result'] ?? null)) {
+                    $response['result'] = new Message($response['result'], $_ENV['TELEGRAM_BOT_USERNAME']);
+                }
                 $response = new ServerResponse($response, $_ENV['TELEGRAM_BOT_USERNAME']);
             }
         } else {
